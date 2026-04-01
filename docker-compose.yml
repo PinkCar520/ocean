@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # UClaw AI 网关总线
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    container_name: uclaw-gateway
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - VLLM_API_BASE=${VLLM_API_BASE:-http://host.docker.internal:8000/v1}
+      - VLLM_API_KEY=${VLLM_API_KEY:-mock-key}
+    depends_on:
+      - redis
+
+  # 会话记忆与流控层 (Phase 3 预备役)
+  redis:
+    image: redis:7-alpine
+    container_name: uclaw-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - uclaw_redis_data:/data
+
+volumes:
+  uclaw_redis_data:

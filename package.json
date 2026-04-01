@@ -1,0 +1,21 @@
+{
+  "name": "uclaw",
+  "version": "1.0.0",
+  "description": "UClaw - 银行内网人工智能工作流中枢",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "clean": "pnpm -r run clean"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "prettier": "^3.2.0"
+  }
+}
