@@ -3,15 +3,28 @@
 import * as fs from 'node:fs/promises';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import { io } from 'socket.io-client';
 import { ZentaoTool } from '@uclaw/tools-zentao';
 import { RPCMessage } from '@uclaw/types';
+import * as dotenv from 'dotenv';
+
+// 加载环境变量：支持读取 monorepo 根目录或 gateway 目录下的 .env
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../apps/gateway/.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const execAsync = promisify(exec);
 const program = new Command();
-const zentao = new ZentaoTool();
+
+// 初始化禅道工具 (正式模式)
+const zentao = new ZentaoTool({
+  baseUrl: process.env.ZENTAO_BASE_URL || '',
+  token: process.env.ZENTAO_API_TOKEN || '',
+  isMock: !process.env.ZENTAO_BASE_URL // 如果没填 URL 则自动进入 Mock 模式
+});
 
 /**
  * 自动探测本地身份：Git 用户名 > 系统用户名

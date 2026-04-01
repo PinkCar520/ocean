@@ -21,9 +21,12 @@ export class SsoAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing X-SSO-Token in Headers.');
     }
 
+    // 核心变更：从 Header 中提取真实身份
+    const userIdFromHeader = request.headers['x-user-id'] as string;
+    
     // 将用户身份注入上下文
     request.user = {
-      empId: 'WangEr',
+      id: userIdFromHeader || 'Guest', // POC 期间若未传则标记为访客
       role: 'developer',
       scopes: ['zentao:write', 'gitlab:read'],
     };

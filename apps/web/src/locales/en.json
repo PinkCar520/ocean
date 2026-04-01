@@ -1,0 +1,108 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "chat": "Chat Hub",
+    "mcp_market": "MCP Market",
+    "skill_library": "Skill Library",
+    "database": "Knowledge",
+    "settings": "Settings"
+  },
+  "chat": {
+    "placeholder": "Ask UClaw to perform a task...",
+    "empty_title": "How can I help you?",
+    "empty_desc": "Bridge your <1>CLI node</1> with enterprise workflows.",
+    "status_secured": "Enterprise Secured",
+    "status_stable": "v1.1 Stable",
+    "role_assistant": "UClaw Agent",
+    "role_user": "Current User"
+  },
+  "dashboard": {
+    "title": "Project Overview",
+    "desc": "Real-time insights from your connected enterprise nodes.",
+    "stats": {
+      "total_bugs": "Total Bugs",
+      "active_prs": "Active PRs",
+      "sys_health": "System Health",
+      "team_velocity": "Team Velocity"
+    },
+    "throughput": "Throughput Analysis",
+    "nodes": "Active Nodes",
+    "manage_nodes": "Manage All Nodes"
+  },
+  "skills": {
+    "title": "Skill Library",
+    "desc": "Manage and configure UClaw's enterprise-grade tool calling capabilities.",
+    "categories": {
+      "all": "All",
+      "devops": "DevOps & Deployment",
+      "code": "Code & Repo",
+      "productivity": "Productivity & Collab",
+      "system": "System & Local"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "configure": "Config"
+    },
+    "tools": {
+      "zentao": {
+        "desc": "Connects to ZenTao project management, supporting defect flow, requirement sync, and task tracking."
+      },
+      "gitlab": {
+        "desc": "Deep GitLab API integration for automated code review, branch management, and MR tracking."
+      },
+      "jenkins": {
+        "desc": "Control Jenkins pipelines, support remote build triggering, log fetching, and status monitoring."
+      },
+      "local_fs": {
+        "desc": "Authorize AI access to restricted local file systems for log analysis, AST refactoring, and file processing."
+      }
+    }
+  },
+  "common": {
+    "copy": "Copy message",
+    "edit": "Modify message",
+    "regenerate": "Regenerate",
+    "upload_files": "Upload Files",
+    "drag_drop": "Drop files here",
+    "file_limit": "Supports images, PDFs, Logs, etc.",
+    "dev_view": "View under development",
+    "dev_desc": "This module is under development.",
+    "bugs": "Bugs",
+    "commits": "Commits"
+  },
+  "sidebar": {
+    "environment": "Environment",
+    "online": "Online",
+    "performance": "Performance",
+    "workspace_context": "Workspace Context",
+    "core_stats": "Core Statistics",
+    "recent_activity": "Recent Activity",
+    "executed_command": "executed command"
+  },
+  "node": {
+    "title": "Node Monitor",
+    "terminal": "Live Terminal",
+    "metrics": {
+      "cpu": "CPU Usage",
+      "ram": "Memory",
+      "disk": "Disk Space",
+      "uptime": "Uptime"
+    },
+    "processes": "Active Processes",
+    "logs": "Node Logs",
+    "terminal_placeholder": "Awaiting command input..."
+  },
+  "bug": {
+    "status": {
+      "active": "Active",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
+  }
+}

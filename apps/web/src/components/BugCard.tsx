@@ -1,6 +1,8 @@
-import { AlertCircle, CheckCircle2, User, Clock } from 'lucide-react';
+import { Bug, User, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { cn } from '../lib/utils';
 
-export interface BugCardProps {
+type BugCardProps = {
   bugId: string;
   title: string;
   status: 'active' | 'resolved' | 'closed';
@@ -8,63 +10,74 @@ export interface BugCardProps {
   severity: 'high' | 'medium' | 'low';
   createdAt?: string;
   description?: string;
-}
+};
 
-export function BugCard({ bugId, title, status, assignee, severity, createdAt, description }: BugCardProps) {
+export function BugCard({
+  bugId,
+  title,
+  status,
+  assignee,
+  severity,
+  description,
+}: BugCardProps) {
+  const { t } = useTranslation();
+  
   const severityColors = {
-    high: 'text-red-600 bg-red-50 border-red-100',
-    medium: 'text-yellow-600 bg-yellow-50 border-yellow-100',
-    low: 'text-green-600 bg-green-50 border-green-100',
+    high: 'text-rose-600 border-rose-200 bg-rose-50',
+    medium: 'text-amber-600 border-amber-200 bg-amber-50',
+    low: 'text-emerald-600 border-emerald-200 bg-emerald-50',
   };
 
-  const statusLabel = {
-    active: 'Active',
-    resolved: 'Resolved',
-    closed: 'Closed',
+  const statusIcons = {
+    active: <Clock className="w-3.5 h-3.5 text-rose-500" />,
+    resolved: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />,
+    closed: <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />,
   };
 
   return (
-    <div className="w-full rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center space-x-2">
-          {status === 'active' ? (
-            <AlertCircle className="w-5 h-5 text-red-500" />
-          ) : (
-            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-          )}
-          <span className="text-xs font-mono text-muted-foreground">#{bugId}</span>
-        </div>
-        <span className={`px-2 py-1 rounded-full text-[10px] font-semibold border ${severityColors[severity]}`}>
-          {severity.toUpperCase()}
-        </span>
-      </div>
+    <div className="group relative bg-white border border-slate-200 rounded-2xl p-5 transition-all hover:border-blue-300 overflow-hidden">
       
-      <h3 className="text-sm font-semibold text-foreground mb-4 line-clamp-2">
+      {/* 顶部 ID 与 状态 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-50 p-1.5 rounded-lg border border-blue-100">
+            <Bug className="w-3.5 h-3.5 text-blue-600" />
+          </div>
+          <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">{bugId}</span>
+        </div>
+        <div className={cn(
+          "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-tight",
+          severityColors[severity]
+        )}>
+          <AlertTriangle className="w-3 h-3" />
+          {t(`bug.severity.${severity}`)}
+        </div>
+      </div>
+
+      {/* 标题 */}
+      <h3 className="text-[14px] font-bold text-slate-800 mb-3 leading-snug group-hover:text-blue-600 transition-colors line-clamp-2">
         {title}
       </h3>
 
+      {/* 描述摘要 */}
       {description && (
-        <p className="mb-4 text-xs leading-5 text-muted-foreground line-clamp-3">
+        <p className="text-[12px] text-slate-500 line-clamp-2 mb-4 leading-relaxed font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
           {description}
         </p>
       )}
-      
-      <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-3">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center space-x-1 whitespace-nowrap">
-            <User className="w-3 h-3" />
-            <span>{assignee}</span>
+
+      {/* 底部元数据 */}
+      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+            <User className="w-3.5 h-3.5 text-slate-500" />
           </div>
-          {createdAt && (
-            <div className="flex items-center space-x-1 whitespace-nowrap">
-              <Clock className="w-3 h-3" />
-              <span>{createdAt}</span>
-            </div>
-          )}
+          <span className="text-[11px] font-bold text-slate-600">{assignee}</span>
         </div>
-        <span className="rounded-full border border-border bg-accent px-3 py-1.5 font-medium text-foreground">
-          {statusLabel[status]}
-        </span>
+        <div className="flex items-center gap-2">
+          {statusIcons[status]}
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">{t(`bug.status.${status}`)}</span>
+        </div>
       </div>
     </div>
   );

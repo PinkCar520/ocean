@@ -1,0 +1,108 @@
+{
+  "nav": {
+    "dashboard": "仪表盘",
+    "chat": "智能对话",
+    "mcp_market": "MCP 市场",
+    "skill_library": "技能库",
+    "database": "知识库",
+    "settings": "设置"
+  },
+  "chat": {
+    "placeholder": "问问 UClaw 任务执行...",
+    "empty_title": "我能帮您做什么？",
+    "empty_desc": "将您的 <1>CLI 节点</1> 与企业工作流无缝桥接。",
+    "status_secured": "企业级加密",
+    "status_stable": "v1.1 稳定版",
+    "role_assistant": "UClaw 智能体",
+    "role_user": "当前用户"
+  },
+  "dashboard": {
+    "title": "项目概览",
+    "desc": "来自已连接企业节点的实时洞察。",
+    "stats": {
+      "total_bugs": "总缺陷数",
+      "active_prs": "活跃 PR",
+      "sys_health": "系统健康度",
+      "team_velocity": "团队速率"
+    },
+    "throughput": "吞吐量分析",
+    "nodes": "活跃节点",
+    "manage_nodes": "管理所有节点"
+  },
+  "skills": {
+    "title": "技能库",
+    "desc": "管理并配置 UClaw 拥有的企业级工具调用能力。",
+    "categories": {
+      "all": "全部",
+      "devops": "流水线 & 部署",
+      "code": "代码 & 仓储",
+      "productivity": "生产力 & 协同",
+      "system": "系统 & 本地"
+    },
+    "status": {
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "configure": "配置"
+    },
+    "tools": {
+      "zentao": {
+        "desc": "连接禅道项目管理系统，支持缺陷自动流转、需求同步及工单管理。"
+      },
+      "gitlab": {
+        "desc": "深度集成 GitLab API，实现自动化代码评审、分支管理及 MR 追踪。"
+      },
+      "jenkins": {
+        "desc": "操控 Jenkins 流水线，支持远程构建触发、实时日志拉取及部署状态监控。"
+      },
+      "local_fs": {
+        "desc": "授权 AI 访问受限的本地文件系统，支持日志分析、AST 代码重构及文件处理。"
+      }
+    }
+  },
+  "common": {
+    "copy": "复制消息",
+    "edit": "修改消息",
+    "regenerate": "重新生成",
+    "upload_files": "上传文件",
+    "drag_drop": "将文件拖拽至此",
+    "file_limit": "支持图片、PDF、Log 等文档",
+    "dev_view": "视图开发中",
+    "dev_desc": "该模块正在开发中。",
+    "bugs": "缺陷",
+    "commits": "提交"
+  },
+  "sidebar": {
+    "environment": "运行环境",
+    "online": "在线",
+    "performance": "性能负载",
+    "workspace_context": "工作空间上下文",
+    "core_stats": "核心统计",
+    "recent_activity": "最近活动",
+    "executed_command": "执行了命令"
+  },
+  "node": {
+    "title": "节点监控",
+    "terminal": "实时终端",
+    "metrics": {
+      "cpu": "CPU 使用率",
+      "ram": "内存占用",
+      "disk": "磁盘空间",
+      "uptime": "运行时间"
+    },
+    "processes": "活跃进程",
+    "logs": "节点日志",
+    "terminal_placeholder": "等待指令输入..."
+  },
+  "bug": {
+    "status": {
+      "active": "激活",
+      "resolved": "已解决",
+      "closed": "已关闭"
+    },
+    "severity": {
+      "high": "紧急",
+      "medium": "中等",
+      "low": "低"
+    }
+  }
+}

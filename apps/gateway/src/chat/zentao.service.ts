@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ZentaoTool } from '@uclaw/tools-zentao';
 import { BugDetail } from '@uclaw/types';
 
@@ -6,8 +7,17 @@ import { BugDetail } from '@uclaw/types';
 export class ZentaoService implements OnModuleInit {
   private zentaoTool: ZentaoTool;
 
+  constructor(private configService: ConfigService) {}
+
   onModuleInit() {
-    this.zentaoTool = new ZentaoTool();
+    const baseUrl = this.configService.get<string>('ZENTAO_BASE_URL');
+    const token = this.configService.get<string>('ZENTAO_API_TOKEN');
+
+    this.zentaoTool = new ZentaoTool({
+      baseUrl: baseUrl || '',
+      token: token,
+      isMock: !baseUrl, // 如果没配置 URL 则自动进入 Mock 模式
+    });
   }
 
   async getBugInfo(bugId: string): Promise<BugDetail | null> {
@@ -16,5 +26,9 @@ export class ZentaoService implements OnModuleInit {
 
   async searchBugs(query: string): Promise<BugDetail[]> {
     return this.zentaoTool.searchBugs(query);
+  }
+
+  async resolveBug(bugId: string): Promise<boolean> {
+    return this.zentaoTool.resolveBug(bugId);
   }
 }

@@ -18,3 +18,15 @@ export interface UClawLocalActionRequest {
   toolName: string;
   args: Record<string, any>;
 }
+
+export interface RPCMessage {
+  id: string;
+  method: string;
+  params: any;
+}
+
+export interface RPCResponse {
+  id: string;
+  result?: any;
+  error?: any;
+}

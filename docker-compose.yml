@@ -17,7 +17,44 @@ services:
     depends_on:
       - redis
 
-  # 会话记忆与流控层 (Phase 3 预备役)
+  # 禅道 Web 服务
+  zentao:
+    image: easysoft/zentao:latest
+    container_name: uclaw-zentao
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      - MYSQL_HOST=zentao-db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=zentao
+      - MYSQL_PASSWORD=zentao_pass
+      - MYSQL_DATABASE=zentao
+    volumes:
+      - uclaw_zentao_data:/www/zentaopms
+    depends_on:
+      zentao-db:
+        condition: service_healthy
+
+  # 禅道专用数据库 (显式拉出来，确保稳定性)
+  zentao-db:
+    image: mariadb:10.6
+    container_name: uclaw-zentao-db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_pass
+      - MYSQL_DATABASE=zentao
+      - MYSQL_USER=zentao
+      - MYSQL_PASSWORD=zentao_pass
+    volumes:
+      - uclaw_zentao_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "zentao", "-pzentao_pass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 会话记忆与流控层
   redis:
     image: redis:7-alpine
     container_name: uclaw-redis
@@ -28,3 +65,5 @@ services:
 
 volumes:
   uclaw_redis_data:
+  uclaw_zentao_data:
+  uclaw_zentao_mysql:

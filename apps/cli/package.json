@@ -15,6 +15,7 @@
     "@uclaw/tools-zentao": "workspace:*",
     "@uclaw/types": "workspace:*",
     "commander": "^12.0.0",
+    "dotenv": "^17.3.1",
     "inquirer": "^9.2.0",
     "socket.io-client": "^4.8.3"
   },
