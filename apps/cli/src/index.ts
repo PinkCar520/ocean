@@ -1,17 +1,36 @@
 #!/usr/bin/env node
 
+import * as fs from 'node:fs/promises';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
+import { io } from 'socket.io-client';
 import { ZentaoTool } from '@uclaw/tools-zentao';
+import { RPCMessage } from '@uclaw/types';
 
+const execAsync = promisify(exec);
 const program = new Command();
 const zentao = new ZentaoTool();
+
+/**
+ * 自动探测本地身份：Git 用户名 > 系统用户名
+ */
+async function getAutoUserId(): Promise<string> {
+  try {
+    const { stdout } = await execAsync('git config user.name');
+    return stdout.trim() || process.env.USER || 'unknown_dev';
+  } catch {
+    return process.env.USER || 'unknown_dev';
+  }
+}
 
 program
   .name('uclaw')
   .description('UClaw AI Workstream Terminal Node')
   .version('1.0.0');
 
+// --- 命令 A: 交互式启动 ---
 program
   .command('start')
   .description('Start UClaw interaction pointing to a task/bug')
@@ -33,7 +52,6 @@ program
       console.log(`\x1b[36m[UClaw]\x1b[0m Initializing general analysis...`);
     }
     
-    // Simulating Plan Mode Prompt
     const answers = await inquirer.prompt([
       {
         type: 'confirm',
@@ -50,12 +68,95 @@ program
     }
   });
 
+// --- 命令 B: 后台 Daemon 模式 (RPC 监听) ---
 program
   .command('daemon')
   .description('Start persistent UClaw node daemon to await commands from Gateway')
-  .action(() => {
-    console.log(`\x1b[32m[UClaw Daemon]\x1b[0m Listening for incoming Gateway RPC commands...`);
-    // Daemon WebSocket Logic placeholder
+  .option('-u, --user <userId>', 'User ID for identity binding (default: auto-detected)')
+  .action(async (options) => {
+    const userId = options.user || await getAutoUserId();
+    console.log(`\x1b[32m[UClaw Daemon]\x1b[0m Identity: \x1b[1m${userId}\x1b[0m`);
+    console.log(`\x1b[32m[UClaw Daemon]\x1b[0m Connecting to Gateway (http://localhost:3000)...`);
+
+    const socket = io('http://localhost:3000', {
+      query: { userId }
+    });
+
+    socket.on('connect', () => {
+      console.log(`✅ [\x1b[32mSUCCESS\x1b[0m] Connected as node: ${userId}`);
+    });
+
+    socket.on('rpc_request', async (data: RPCMessage) => {
+      console.log(`\x1b[36m[RPC Request]\x1b[0m ID: ${data.id}, Method: ${data.method}`);
+
+      let result: any = null;
+      let error: string | null = null;
+
+      try {
+        // 安全闸门：敏感操作需要人工 Y/N 确认
+        const sensitiveMethods = ['git_commit', 'npm_build'];
+        if (sensitiveMethods.includes(data.method)) {
+          console.log(`\x1b[33m[SECURITY ALERT]\x1b[0m Incoming sensitive command: \x1b[1m${data.method}\x1b[0m`);
+
+          const { confirmed } = await inquirer.prompt([{
+            type: 'confirm',
+            name: 'confirmed',
+            message: `[UClaw Security] Allow execution of "${data.method}"?`,
+            default: false
+          }]);
+
+          if (!confirmed) {
+            throw new Error('User manually denied command execution.');
+          }
+          console.log(`\x1b[32m[Security]\x1b[0m User approved. Executing...`);
+        }
+
+        switch (data.method) {
+          case 'ls':
+            result = await fs.readdir(process.cwd());
+            break;
+          case 'git_status':
+            const { stdout: status } = await execAsync('git status');
+            result = status;
+            break;
+          case 'git_commit':
+            const msg = (data.params?.message || 'UClaw auto-commit').replace(/"/g, '\\"');
+            const { stdout: commitOut } = await execAsync(`git add . && git commit -m "${msg}"`);
+            result = commitOut;
+            break;
+          case 'npm_build':
+            console.log('\x1b[33m[Build]\x1b[0m Running build process...');
+            const { stdout: buildOut } = await execAsync('npm run build');
+            result = buildOut;
+            break;
+          case 'read_file':
+            const filePath = data.params?.path;
+            if (!filePath) throw new Error('File path is required');
+            result = await fs.readFile(filePath, 'utf-8');
+            break;
+          default:
+            result = `Unknown method: ${data.method}`;
+        }
+      } catch (err: any) {
+        console.error(`\x1b[31m[RPC Error]\x1b[0m`, err.message);
+        error = err.message;
+      }
+
+      socket.emit('rpc_response', {
+        id: data.id,
+        result: result,
+        error: error
+      });
+      console.log(`\x1b[32m[RPC Response]\x1b[0m Sent result for ${data.id}`);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('\x1b[31m❌ Disconnected from Gateway.\x1b[0m');
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('\x1b[31m❌ Connection Error:\x1b[0m', err.message);
+    });
   });
 
 program.parse(process.argv);
