@@ -1,0 +1,49 @@
+{
+  "mcpServers": [
+    {
+      "id": "zentao",
+      "name": "ZenTao Bug Management",
+      "command": "node",
+      "args": ["../../packages/mcp-zentao/dist/server.js"],
+      "env": {
+        "ZENTAO_BASE_URL": "${ZENTAO_BASE_URL}",
+        "ZENTAO_API_TOKEN": "${ZENTAO_API_TOKEN}"
+      },
+      "enabled": true,
+      "description": "禅道缺陷管理工具集（getBugInfo / searchBugs / resolveBug / getBugStats）"
+    },
+    {
+      "id": "local-fs",
+      "name": "Local FileSystem & CLI",
+      "command": "node",
+      "args": ["../../packages/mcp-local-fs/dist/server.js"],
+      "env": {},
+      "enabled": false,
+      "description": "（待实现）本地文件系统与 CLI RPC 桥接工具集"
+    },
+    {
+      "id": "jenkins",
+      "name": "Jenkins CI/CD",
+      "command": "node",
+      "args": ["../../packages/mcp-jenkins/dist/server.js"],
+      "env": {
+        "JENKINS_BASE_URL": "${JENKINS_BASE_URL}",
+        "JENKINS_TOKEN": "${JENKINS_TOKEN}"
+      },
+      "enabled": false,
+      "description": "（待实现）Jenkins 构建触发与流水线查询工具集"
+    },
+    {
+      "id": "gitlab",
+      "name": "GitLab Repository",
+      "command": "node",
+      "args": ["../../packages/mcp-gitlab/dist/server.js"],
+      "env": {
+        "GITLAB_BASE_URL": "${GITLAB_BASE_URL}",
+        "GITLAB_TOKEN": "${GITLAB_TOKEN}"
+      },
+      "enabled": false,
+      "description": "（待实现）GitLab MR、分支查询与 Review 评论工具集"
+    }
+  ]
+}

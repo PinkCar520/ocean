@@ -19,17 +19,14 @@ import {
 import { cn } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { 
   Dialog, 
   DialogContent, 
   DialogDescription, 
-  DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
-  DialogPortal,
-  DialogOverlay,
   DialogClose
 } from './ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -112,7 +109,7 @@ export function Sidebar({
         key={item.id}
         onClick={() => onMainTabChange(item.id)}
         className={cn(
-          "flex items-center transition-all font-bold text-sm rounded-xl",
+          "flex items-center transition-all font-bold text-sm rounded-xl focus:outline-none",
           isSidebarOpen ? "w-full px-3 py-2 gap-3" : "w-10 h-10 justify-center",
           activeMainTab === item.id 
             ? "bg-slate-100 text-slate-900" 
@@ -253,8 +250,8 @@ export function Sidebar({
                     </div>
                   ) : (
                     <>
-                      <div 
-                        onClick={() => onSelectChat(chat.id)}
+                      <Link 
+                        to={`/chat/${chat.id}`}
                         className={cn(
                           "w-full px-3 py-2.5 rounded-xl transition-all text-left flex items-center justify-between cursor-pointer",
                           currentChatId === chat.id ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
@@ -270,6 +267,7 @@ export function Sidebar({
                           <Button
                             variant="ghost" size="icon"
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               setMenuOpenId(menuOpenId === chat.id ? null : chat.id);
                             }}
@@ -281,7 +279,7 @@ export function Sidebar({
                             <MoreHorizontal className="w-3.5 h-3.5 text-slate-400" />
                           </Button>
                         </div>
-                      </div>
+                      </Link>
 
                       <AnimatePresence>
                         {menuOpenId === chat.id && (

@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 影子用户信息表（SSO 自动同步）
+model User {
+  id          String   @id @default(uuid())
+  workId      String   @unique // 工号，唯一标识
+  name        String?
+  email       String?
+  avatar      String?
+  department  String?
+
+  // 关联信息
+  preferences UserPreference?
+  credentials UserCredential[]
+  sessions    Session[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("users")
+}
+
+// 用户 AI 个性化配置
+model UserPreference {
+  id           String @id @default(uuid())
+  userId       String @unique
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  defaultModel String @default("deepseek-v3")
+  language     String @default("zh-CN")
+  theme        String @default("system")
+  
+  // 存储常用 Prompt、工作流偏好等
+  config       Json?  
+
+  @@map("user_preferences")
+}
+
+// 外部系统凭证（如禅道、GitLab Token）
+model UserCredential {
+  id         String @id @default(uuid())
+  userId     String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  systemType String // 'zentao', 'gitlab', 'jenkins'
+  token      String // 加密后的 Token
+  username   String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, systemType])
+  @@map("user_credentials")
+}
+
+// 跨端会话历史（支持 Web/CLI/IM 漫游）
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel   String   // 'web', 'cli', 'im'
+  history   Json     // 对话上下文 JSONB (Vercel AI SDK 兼容格式)
+  
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sessions")
+}

@@ -87,6 +87,7 @@
     "search_placeholder": "快速搜索...",
     "new_conversation": "新对话",
     "model_select": "模型选择",
+    "provider": "供应商",
     "model": {
       "gpt4o": "GPT-4o (推荐)",
       "claude35": "Claude 3.5 Sonnet",

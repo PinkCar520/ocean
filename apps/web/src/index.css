@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
+@plugin "@tailwindcss/typography";
 
 @theme {
   --color-background: hsl(var(--background));
@@ -69,7 +70,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 215 20.2% 65.1%; /* 调淡聚焦环颜色，使其更柔和 */
     --radius: 0.6rem;
   }
 }
