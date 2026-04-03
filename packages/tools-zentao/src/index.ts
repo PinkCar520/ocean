@@ -31,23 +31,17 @@ export class ZentaoTool {
       this.isMock = false;
       this.token = config.token || '';
       
-      let authHeader = '';
-      // 如果 token 包含冒号，则视为 username:password 并进行 Base64 编码
-      if (this.token.includes(':')) {
-        const base64Auth = Buffer.from(this.token).toString('base64');
-        authHeader = `Basic ${base64Auth}`;
-      } else {
-        // 否则视为静态 Token
-        authHeader = `Token ${this.token}`;
+      // 只在不是账号密码交换时添加全局静态 header
+      const headers: any = {
+        'Content-Type': 'application/json',
+      };
+      if (!this.token.includes(':')) {
+         headers['Token'] = this.token;
       }
 
       this.client = axios.create({
         baseURL: config.baseUrl,
-        headers: {
-          'Authorization': authHeader,
-          'Token': this.token, // 兼容性保留
-          'Content-Type': 'application/json',
-        },
+        headers,
         timeout: 5000,
       });
     }
@@ -242,6 +236,246 @@ export class ZentaoTool {
     } catch (err: any) {
       console.error(`[@uclaw/tools-zentao] API Search Error:`, err.message);
       return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Story (产品需求) 相关接口
+  // ──────────────────────────────────────────────
+
+  /**
+   * 创建产品需求 (Story)
+   * 禅道 22.0 API: POST /api.php/v1/products/{productId}/stories
+   */
+  async createStory(productId: number, data: { title: string; spec: string; pri?: number; estimate?: number }): Promise<any> {
+    console.log(`[@uclaw/tools-zentao] Creating story in product: ${productId} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    if (this.isMock || !this.client) {
+      return { id: `STORY-${Math.floor(Math.random() * 1000)}`, title: data.title, status: 'active' };
+    }
+
+    try {
+      let activeToken = this.token;
+      let openedBy = 'admin';
+      if (this.token.includes(':')) {
+        const [account, password] = this.token.split(':');
+        openedBy = account;
+        const tokenRes = await this.client!.post('/api.php/v1/tokens', { account, password });
+        activeToken = tokenRes.data.token;
+      }
+
+      // 严格按照实测成功的 Payload 进行请求
+      const response = await this.client!.post(`/api.php/v1/stories`, {
+        product: Number(productId),
+        module: 0,
+        branch: 0,
+        title: data.title,
+        spec: data.spec || '需求描述',
+        pri: Number(data.pri || 3),
+        category: 'feature',
+        type: 'story',
+        estimate: Number(data.estimate || 0),
+        reviewer: [openedBy], // 指派自己评审，避免静默失败
+        openedBy: openedBy,
+        source: 'po'
+      }, {
+        headers: {
+          'Token': activeToken,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`[@uclaw/tools-zentao] Create Story Success. Status: ${response.status}`);
+      console.debug(`[@uclaw/tools-zentao] Response Body:`, JSON.stringify(response.data, null, 2));
+      return { success: true, data: response.data };
+    } catch (err: any) {
+      const errorMsg = err.message;
+      const responseData = err.response?.data;
+      console.error(`[@uclaw/tools-zentao] Create Story Error:`, errorMsg);
+      if (responseData) {
+        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
+      }
+      return { success: false, error: responseData || errorMsg };
+    }
+  }
+
+  /**
+   * 获取单个需求详情
+   * 禅道 22.0 API: GET /api.php/v1/stories/{storyId}
+   */
+  async getStoryInfo(storyId: string): Promise<any> {
+    console.log(`[@uclaw/tools-zentao] Fetching story: ${storyId}`);
+    if (this.isMock || !this.client) {
+      return { id: storyId, title: "Mock Story", status: "active", spec: "Mock story description." };
+    }
+
+    try {
+      const numericId = storyId.replace(/[^0-9]/g, '');
+      let activeToken = this.token;
+      if (this.token.includes(':')) {
+        const [account, password] = this.token.split(':');
+        const tokenRes = await this.client.post('/api.php/v1/tokens', { account, password });
+        activeToken = tokenRes.data.token;
+      }
+
+      const response = await this.client.get(`/api.php/v1/stories/${numericId}`, {
+        headers: { 'Token': activeToken }
+      });
+      
+      return response.data;
+    } catch (err: any) {
+      console.error(`[@uclaw/tools-zentao] Fetch Story Error:`, err.message);
+      return null;
+    }
+  }
+
+  /**
+   * 搜索需求
+   * 禅道 22.0 API: GET /api.php/v1/stories?title={query}
+   */
+  async searchStories(query: string): Promise<any[]> {
+    console.log(`[@uclaw/tools-zentao] Searching stories: ${query}`);
+    if (this.isMock || !this.client) {
+      return [{ id: 'STORY-101', title: `[Mock] Search result for ${query}`, status: 'active' }];
+    }
+
+    try {
+      let activeToken = this.token;
+      if (this.token.includes(':')) {
+        const [account, password] = this.token.split(':');
+        const tokenRes = await this.client.post('/api.php/v1/tokens', { account, password });
+        activeToken = tokenRes.data.token;
+      }
+
+      const response = await this.client.get('/api.php/v1/stories', {
+        params: { title: query, status: 'all' }, // 尝试增加 status: all 避免 400
+        headers: { 'Token': activeToken }
+      });
+      
+      console.debug(`[@uclaw/tools-zentao] Search Stories Response:`, JSON.stringify(response.data, null, 2));
+      return Array.isArray(response.data.stories) ? response.data.stories : [];
+    } catch (err: any) {
+      console.error(`[@uclaw/tools-zentao] Search Stories Error:`, err.message);
+      if (err.response && err.response.data) {
+        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(err.response.data, null, 2));
+      }
+      return [];
+    }
+  }
+
+  /**
+   * 获取所有产品列表
+   * 禅道 22.0 API: GET /api.php/v1/products
+   */
+  async listProducts(): Promise<any[]> {
+    console.log(`[@uclaw/tools-zentao] Listing products (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    if (this.isMock || !this.client) {
+      return [{ id: 4, name: 'Mock 产品', code: 'mock-p' }];
+    }
+
+    try {
+      let activeToken = this.token;
+      if (this.token.includes(':')) {
+        const [account, password] = this.token.split(':');
+        const tokenRes = await this.client.post('/api.php/v1/tokens', { account, password });
+        activeToken = tokenRes.data.token;
+      }
+
+      const response = await this.client.get('/api.php/v1/products', {
+        headers: { 'Token': activeToken }
+      });
+      
+      return Array.isArray(response.data.products) ? response.data.products : [];
+    } catch (err: any) {
+      console.error(`[@uclaw/tools-zentao] List Products Error:`, err.message);
+      return [];
+    }
+  }
+
+  /**
+   * 创建一个新产品
+   * 禅道 22.0 API: POST /api.php/v1/products
+   */
+  async createProduct(data: { name: string; code: string; type?: string; desc?: string }): Promise<any> {
+    console.log(`[@uclaw/tools-zentao] Creating product: ${data.name} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    if (this.isMock || !this.client) {
+      return { id: 10, name: data.name, code: data.code };
+    }
+
+    try {
+      let activeToken = this.token;
+      if (this.token.includes(':')) {
+        const [account, password] = this.token.split(':');
+        const tokenRes = await this.client.post('/api.php/v1/tokens', { account, password });
+        activeToken = tokenRes.data.token;
+      }
+
+      const response = await this.client.post('/api.php/v1/products', {
+        name: data.name,
+        code: data.code,
+        type: data.type || 'normal',
+        desc: data.desc || '',
+      }, {
+        headers: {
+          'Token': activeToken,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      return { success: true, data: response.data };
+    } catch (err: any) {
+      const errorMsg = err.message;
+      const responseData = err.response?.data;
+      console.error(`[@uclaw/tools-zentao] Create Product Error:`, errorMsg);
+      if (responseData) {
+        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
+      }
+      return { success: false, error: responseData || errorMsg };
+    }
+  }
+
+  /**
+   * 创建一个新项目 (Project/Execution)
+   * 禅道 22.0 API: POST /api.php/v1/projects
+   * 注：从 18.0 开始，项目创建必须包含关联的产品数组 products: [ID, ...]
+   */
+  async createProject(data: { name: string; code: string; begin: string; end: string; desc?: string; type?: string; productIds?: number[] }): Promise<any> {
+    console.log(`[@uclaw/tools-zentao] Creating project: ${data.name} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    if (this.isMock || !this.client) {
+      return { id: 20, name: data.name, code: data.code };
+    }
+
+    try {
+      let activeToken = this.token;
+      if (this.token.includes(':')) {
+        const [account, password] = this.token.split(':');
+        const tokenRes = await this.client.post('/api.php/v1/tokens', { account, password });
+        activeToken = tokenRes.data.token;
+      }
+
+      const response = await this.client.post('/api.php/v1/projects', {
+        name: data.name,
+        code: data.code,
+        begin: data.begin,
+        end: data.end,
+        type: data.type || 'project',
+        desc: data.desc || '',
+        products: data.productIds || [], // 修复 400 错误：项目必须关联产品
+      }, {
+        headers: {
+          'Token': activeToken,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      return { success: true, data: response.data };
+    } catch (err: any) {
+      const errorMsg = err.message;
+      const responseData = err.response?.data;
+      console.error(`[@uclaw/tools-zentao] Create Project Error:`, errorMsg);
+      if (responseData) {
+        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
+      }
+      return { success: false, error: responseData || errorMsg };
     }
   }
 

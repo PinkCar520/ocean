@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Cpu, GitPullRequest, Workflow, HardDrive, 
   Search, Sliders, ToggleLeft, ToggleRight,
-  ShieldCheck, AlertCircle, Settings2, ExternalLink
+  ShieldCheck, AlertCircle, Settings2, ExternalLink,
+  RefreshCcw, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -16,19 +17,50 @@ type Skill = {
   isEnabled: boolean;
   isConfigured: boolean;
   version: string;
+  description?: string;
 };
 
 export function SkillLibrary() {
   const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [skills, setSkills] = useState<Skill[]>([
-    { id: 'zentao', name: 'ZenTao Connector', category: 'productivity', icon: AlertCircle, isEnabled: true, isConfigured: true, version: '1.2.0' },
-    { id: 'gitlab', name: 'GitLab Integrator', category: 'code', icon: GitPullRequest, isEnabled: true, isConfigured: true, version: '2.4.5' },
-    { id: 'jenkins', name: 'Jenkins Master', category: 'devops', icon: Workflow, isEnabled: false, isConfigured: true, version: '0.9.1' },
-    { id: 'local_fs', name: 'File System SDK', category: 'system', icon: HardDrive, isEnabled: true, isConfigured: false, version: '3.0.0' },
-  ]);
+  const fetchSkills = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/chat/skills');
+      const data = await res.json();
+      if (data.success) {
+        const iconMap: Record<string, any> = {
+          'zentao': AlertCircle,
+          'gitlab': GitPullRequest,
+          'jenkins': Workflow,
+          'local_fs': HardDrive,
+          'fix-bug': ShieldCheck,
+          'write-prd': Workflow,
+        };
+        
+        const mappedSkills = data.skills.map((s: any) => ({
+          ...s,
+          category: s.category || 'productivity',
+          icon: iconMap[s.id] || Workflow,
+          isEnabled: true,
+          isConfigured: true,
+        }));
+        setSkills(mappedSkills);
+      }
+    } catch (err) {
+      console.error('Failed to fetch skills:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSkills();
+  }, []);
 
   const categories = ['all', 'devops', 'code', 'productivity', 'system'];
 
@@ -44,9 +76,21 @@ export function SkillLibrary() {
 
   return (
     <div className="p-10 space-y-8 overflow-y-auto h-full bg-[#F9FAFB]/50">
-      <header className="flex flex-col gap-1 max-w-3xl">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('skills.title')}</h2>
-        <p className="text-sm text-slate-500 leading-relaxed">{t('skills.desc')}</p>
+      <header className="flex items-center justify-between max-w-4xl">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('skills.title')}</h2>
+          <p className="text-sm text-slate-500 leading-relaxed">{t('skills.desc')}</p>
+        </div>
+        <button 
+          onClick={fetchSkills}
+          disabled={isLoading}
+          className={cn(
+            "p-2 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all",
+            isLoading && "animate-spin"
+          )}
+        >
+          <RefreshCcw className="w-5 h-5" />
+        </button>
       </header>
 
       {/* Filter Toolbar */}
@@ -125,7 +169,7 @@ export function SkillLibrary() {
                   {skill.isConfigured && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
                 </div>
                 <p className="text-sm text-slate-500 leading-relaxed font-medium">
-                  {t(`skills.tools.${skill.id}.desc`)}
+                  {skill.description || t(`skills.tools.${skill.id}.desc`)}
                 </p>
               </div>
 

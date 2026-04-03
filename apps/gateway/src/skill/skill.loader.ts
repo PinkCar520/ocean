@@ -83,8 +83,8 @@ export class SkillLoader {
   private getDefaultScanDirs(): string[] {
     const dirs: string[] = [];
 
-    // 1. Built-in skills bundled with gateway
-    const builtIn = path.resolve(__dirname, '../../skills');
+    // 1. Built-in skills bundled with the repository
+    const builtIn = path.resolve(__dirname, '../../../../skills');
     dirs.push(builtIn);
 
     // 2. User-installed via UClawHub (~/.uclaw/skills)

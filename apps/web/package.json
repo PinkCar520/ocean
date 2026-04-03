@@ -21,6 +21,7 @@
     "ai": "^6.0.141",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "framer-motion": "^12.38.0",
     "i18next": "^26.0.3",
     "i18next-browser-languagedetector": "^8.2.1",

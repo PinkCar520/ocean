@@ -26,9 +26,21 @@ export class ChatService {
     const models = modelsRaw.split(',').map(m => m.trim());
     const selectedModel = (modelId && models.includes(modelId)) ? modelId : models[0];
 
+    const isCloudModel = selectedModel.includes('deepseek') || selectedModel.includes('omni');
+    
+    const baseURL = isCloudModel 
+      ? this.configService.get<string>('DASHSCOPE_API_BASE') 
+      : this.configService.get<string>('VLLM_API_BASE');
+      
+    const apiKey = isCloudModel 
+      ? this.configService.get<string>('DASHSCOPE_API_KEY') 
+      : (this.configService.get<string>('VLLM_API_KEY') || 'ollama');
+
+    console.log(`[ChatService] Routing model "${selectedModel}" to ${isCloudModel ? 'DashScope' : 'Ollama'}`);
+
     return createOpenAI({
-      baseURL: this.configService.get<string>('VLLM_API_BASE'),
-      apiKey: this.configService.get<string>('VLLM_API_KEY') || 'ollama',
+      baseURL,
+      apiKey,
     }).chat(selectedModel);
   }
 
@@ -37,15 +49,18 @@ export class ChatService {
    */
   getAvailableModels() {
     const modelsRaw = this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b';
-    const modelIds = modelsRaw.split(',').map(m => m.trim());
-    
-    return modelIds.map(id => ({
-      id,
-      name: id, // 使用 ID 作为展示名
-      provider: 'Enterprise',
-      icon: 'Sparkles',
-      color: 'text-blue-500', 
-    }));
+    return modelsRaw.split(',').map((id) => {
+      const modelId = id.trim();
+      const isCloud = modelId.includes('deepseek') || modelId.includes('omni');
+      
+      return {
+        id: modelId,
+        name: modelId,
+        provider: isCloud ? 'Alibaba Bailian' : 'Private Ollama',
+        icon: isCloud ? 'Cloud' : 'Cpu',
+        color: isCloud ? 'text-orange-500' : 'text-blue-500',
+      };
+    });
   }
 
   private getTools() {

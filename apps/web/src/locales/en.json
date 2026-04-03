@@ -1,14 +1,14 @@
 {
   "nav": {
     "dashboard": "Workflow",
-    "chat": "Chat Hub",
+    "chat": "Chats",
     "mcp_market": "MCP Market",
-    "skill_library": "Skill Library",
+    "skill_library": "Skills",
     "database": "Docs",
     "settings": "Settings"
   },
   "chat": {
-    "new_chat": "New Conversation",
+    "new_chat": "New Chat",
     "placeholder": "Ask UClaw to perform a task...",
     "empty_title": "How can I help you?",
     "empty_desc": "Bridge your <1>CLI node</1> with enterprise workflows.",
@@ -33,7 +33,7 @@
     "chart_desc": "Daily contribution activity across all repositories"
   },
   "skills": {
-    "title": "Skill Library",
+    "title": "Skills",
     "desc": "Manage and configure UClaw's enterprise-grade tool calling capabilities.",
     "categories": {
       "all": "All",

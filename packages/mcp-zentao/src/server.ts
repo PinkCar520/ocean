@@ -143,6 +143,150 @@ server.tool(
 );
 
 // ──────────────────────────────────────────────
+// 工具注册：createProductStory
+// ──────────────────────────────────────────────
+server.tool(
+  'createProductStory',
+  '在禅道指定产品下创建一个新需求（Story）',
+  {
+    productId: z.number().describe('产品的 ID。如果不知道可以默认传入 4。'),
+    title: z.string().describe('需求的标题，应简明扼要。'),
+    spec: z.string().describe('需求的详述，支持 Markdown 格式。'),
+    pri: z.number().optional().describe('优先级 (1=高, 2=中, 3=低, 4=最低)'),
+    estimate: z.number().optional().describe('预估工时'),
+  },
+  async ({ productId, title, spec, pri, estimate }: { productId: number; title: string; spec: string; pri?: number; estimate?: number }) => {
+    const res = await zentao.createStory(productId, { title, spec, pri, estimate });
+    if (!res.success) {
+      return {
+        content: [{ type: 'text' as const, text: `❌ 创建需求失败：${JSON.stringify(res.error)}` }],
+        isError: true,
+      };
+    }
+    return {
+      content: [{ type: 'text' as const, text: `✅ 需求创建成功！\n\n${JSON.stringify(res.data, null, 2)}` }],
+    };
+  },
+);
+
+// ──────────────────────────────────────────────
+// 工具注册：getStoryInfo
+// ──────────────────────────────────────────────
+server.tool(
+  'getStoryInfo',
+  '获取禅道指定需求的详细信息',
+  {
+    storyId: z.string().describe('需求 ID，例如 STORY-101 或纯数字 101'),
+  },
+  async ({ storyId }: { storyId: string }) => {
+    const story = await zentao.getStoryInfo(storyId);
+    if (!story) {
+      return {
+        content: [{ type: 'text' as const, text: `未找到 ID 为 ${storyId} 的需求` }],
+        isError: true,
+      };
+    }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(story, null, 2) }],
+    };
+  },
+);
+
+// ──────────────────────────────────────────────
+// 工具注册：searchProductStories
+// ──────────────────────────────────────────────
+server.tool(
+  'searchProductStories',
+  '根据关键词在禅道中搜索需求列表',
+  {
+    query: z.string().describe('搜索关键词，如需求标题片段'),
+  },
+  async ({ query }: { query: string }) => {
+    const stories = await zentao.searchStories(query);
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text:
+            stories.length > 0
+              ? JSON.stringify(stories, null, 2)
+              : `未找到与 "${query}" 相关的需求`,
+        },
+      ],
+    };
+  },
+);
+
+// ──────────────────────────────────────────────
+// 工具注册：listProducts
+// ──────────────────────────────────────────────
+server.tool(
+  'listProducts',
+  '列出禅道中所有的产品列表',
+  {},
+  async () => {
+    const products = await zentao.listProducts();
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(products, null, 2) }],
+    };
+  },
+);
+
+// ──────────────────────────────────────────────
+// 工具注册：createProduct
+// ──────────────────────────────────────────────
+server.tool(
+  'createProduct',
+  '在禅道中创建一个新产品',
+  {
+    name: z.string().describe('产品名称'),
+    code: z.string().describe('产品代号（英文标识）'),
+    type: z.enum(['normal', 'multibranch', 'branch']).optional().default('normal').describe('产品类型'),
+    desc: z.string().optional().describe('产品描述'),
+  },
+  async (data: { name: string; code: string; type?: string; desc?: string }) => {
+    const res = await zentao.createProduct(data);
+    if (!res.success) {
+      return {
+        content: [{ type: 'text' as const, text: `❌ 创建产品失败：${JSON.stringify(res.error)}` }],
+        isError: true,
+      };
+    }
+    return {
+      content: [{ type: 'text' as const, text: `✅ 产品创建成功！\n\n${JSON.stringify(res.data, null, 2)}` }],
+    };
+  },
+);
+
+// ──────────────────────────────────────────────
+// 工具注册：createProject
+// ──────────────────────────────────────────────
+server.tool(
+  'createProject',
+  '在禅道中创建一个新项目或执行周期',
+  {
+    name: z.string().describe('项目名称'),
+    code: z.string().describe('项目代号（英文标识）'),
+    begin: z.string().describe('开始日期 (YYYY-MM-DD)'),
+    end: z.string().describe('结束日期 (YYYY-MM-DD)'),
+    desc: z.string().optional().describe('项目描述'),
+    productIds: z.array(z.number()).optional().describe('关联的产品 ID 列表'),
+  },
+  async (data: { name: string; code: string; begin: string; end: string; desc?: string; productIds?: number[] }) => {
+    const res = await zentao.createProject(data);
+    if (!res.success) {
+      return {
+        content: [{ type: 'text' as const, text: `❌ 创建项目失败：${JSON.stringify(res.error)}` }],
+        isError: true,
+      };
+    }
+    return {
+      content: [{ type: 'text' as const, text: `✅ 项目创建成功！\n\n${JSON.stringify(res.data, null, 2)}` }],
+    };
+  },
+);
+
+// ──────────────────────────────────────────────
 // 启动服务（Stdio Transport）
 // ──────────────────────────────────────────────
 async function main(): Promise<void> {

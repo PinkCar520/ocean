@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Req, Res, Headers } from '@nestjs/common';
 import type { Response } from 'express';
 import { ChatService } from './chat.service';
 import { SkillOrchestrator } from '../skill/skill.orchestrator';
+import { SkillLoader } from '../skill/skill.loader';
 import { UpChatHandler } from '@uclaw/channel-im';
 import type { SkillContext } from '@uclaw/types';
 
@@ -12,7 +13,28 @@ export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly skillOrchestrator: SkillOrchestrator,
+    private readonly skillLoader: SkillLoader,
   ) {}
+
+  /**
+   * GET /api/chat/skills
+   * 返回当前 Gateway 发现的所有技能列表（SKILL.md frontmatter）
+   */
+  @Get('skills')
+  async getSkills() {
+    const skills = await this.skillLoader.discover();
+    return {
+      success: true,
+      skills: skills.map(s => ({
+        id: s.name,
+        name: s.name,
+        description: s.description,
+        version: s.metadata?.version || '1.0.0',
+        compatibility: s.compatibility,
+        author: s.metadata?.author,
+      })),
+    };
+  }
 
   /**
    * GET /api/chat/models

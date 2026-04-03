@@ -10,7 +10,7 @@
         "ZENTAO_API_TOKEN": "${ZENTAO_API_TOKEN}"
       },
       "enabled": true,
-      "description": "禅道缺陷管理工具集（getBugInfo / searchBugs / resolveBug / getBugStats）"
+      "description": "禅道缺陷管理与需求管理工具集（getBugInfo / searchBugs / resolveBug / createProductStory / getStoryInfo / getBugStats）"
     },
     {
       "id": "local-fs",

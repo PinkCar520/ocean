@@ -1,14 +1,14 @@
 {
   "nav": {
     "dashboard": "工作流",
-    "chat": "智能对话",
+    "chat": "Chats",
     "mcp_market": "MCP 市场",
-    "skill_library": "技能库",
+    "skill_library": "Skills",
     "database": "知识库",
     "settings": "设置"
   },
   "chat": {
-    "new_chat": "开启新对话",
+    "new_chat": "新对话",
     "placeholder": "问问 UClaw 任务执行...",
     "empty_title": "我能帮您做什么？",
     "empty_desc": "将您的 <1>CLI 节点</1> 与企业工作流无缝桥接。",
@@ -33,7 +33,7 @@
     "chart_desc": "全仓储每日贡献活跃度"
   },
   "skills": {
-    "title": "技能库",
+    "title": "Skills",
     "desc": "管理并配置 UClaw 拥有的企业级工具调用能力。",
     "categories": {
       "all": "全部",

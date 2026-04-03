@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useChat } from '@ai-sdk/react';
 import {
-  ArrowUp, Sparkles, Terminal, 
+  ArrowUp, ArrowDown, Sparkles, Terminal, 
   Search, 
   Copy, RotateCcw, Check,
   Plus, FileText, X as CloseIcon, Image as ImageIcon,
-  ChevronDown
+  ChevronDown, Cloud, Cpu, Square
   } from 'lucide-react';import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation, Trans } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
@@ -29,6 +29,7 @@ import {
 } from './components/ui/dropdown-menu';
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
+import { CommandMenu } from './components/CommandMenu';
 
 interface Conversation {
   id: string;
@@ -43,7 +44,7 @@ function AppContent() {
   const { id: routeChatId } = useParams();
   const { pathname } = useLocation();
 
-  const { messages, sendMessage, status, reload, setMessages } = useChat() as any;
+  const { messages, sendMessage, status, reload, setMessages, stop } = useChat() as any;
   const isLoading = status === 'streaming' || status === 'submitting';
 
   const [localInput, setLocalInput] = useState('');
@@ -164,24 +165,47 @@ function AppContent() {
   };
 
 const [models, setModels] = useState<any[]>([]);
-const [selectedModelId, setSelectedModelId] = useState('');
+const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('uclaw_selected_model') || '');
+
+// 每次模型选择变化时保存到 localStorage
+useEffect(() => {
+  if (selectedModelId) {
+    localStorage.setItem('uclaw_selected_model', selectedModelId);
+  }
+}, [selectedModelId]);
 
 // 动态获取可用模型
 useEffect(() => {
   const fetchModels = async () => {
     try {
-      const res = await fetch('/api/chat/models');
+      const res = await fetch('/api/chat/models', {
+        headers: {
+          'Authorization': localStorage.getItem('uclaw_sso_token') || '',
+          'X-User-Id': localStorage.getItem('uclaw_user_id') || ''
+        }
+      });
       if (res.ok) {
-        const data = await res.json();
-        // 图标组件映射
-        const iconMap: Record<string, any> = { 'Sparkles': Sparkles };
+        const json = await res.json();
+        const data = Array.isArray(json) ? json : (json.models || []);
+        
+        const iconMap: Record<string, any> = { 
+          'Sparkles': Sparkles,
+          'Cloud': Cloud,
+          'Cpu': Cpu
+        };
         const formattedModels = data.map((m: any) => ({
           ...m,
           icon: iconMap[m.icon] || Sparkles
         }));
+        
         setModels(formattedModels);
-        if (formattedModels.length > 0 && !selectedModelId) {
-          setSelectedModelId(formattedModels[0].id);
+        
+        // 如果 localStorage 中没存，或者存的 ID 在列表中不存在，则使用第一个作为默认
+        if (formattedModels.length > 0) {
+          const exists = formattedModels.some((m: any) => m.id === selectedModelId);
+          if (!selectedModelId || !exists) {
+            setSelectedModelId(formattedModels[0].id);
+          }
         }
       }
     } catch (err) {
@@ -196,6 +220,23 @@ const activeModel = models.find(m => m.id === selectedModelId) || models[0] || {
 const scrollRef = useRef<HTMLDivElement>(null);
 const textAreaRef = useRef<HTMLTextAreaElement>(null);
 const fileInputRef = useRef<HTMLInputElement>(null);
+const [showScrollButton, setShowScrollButton] = useState(false);
+
+const handleScroll = () => {
+  if (scrollRef.current) {
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    setShowScrollButton(scrollHeight - scrollTop - clientHeight > 300);
+  }
+};
+
+const scrollToBottom = () => {
+  if (scrollRef.current) {
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth'
+    });
+  }
+};
 
 useEffect(() => {
   if (activeTab === 'chat' && textAreaRef.current) {
@@ -358,9 +399,18 @@ return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition-all border border-slate-100 group focus:outline-none">
-                  <span className="text-sm font-black text-slate-800">
-                    {t(`common.model.${activeModel.id}`, { defaultValue: activeModel.name })}
-                  </span>
+                  <div className={cn("flex items-center justify-center shrink-0", activeModel.color)}>
+                    <activeModel.icon className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col items-start gap-0">
+                    <span className="text-[11px] font-black text-slate-800 leading-tight">
+                      {t(`common.model.${activeModel.id}`, { defaultValue: activeModel.name })}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                      {activeModel.provider}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3 h-3 text-slate-400 ml-1" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
@@ -371,13 +421,21 @@ return (
                     key={m.id}
                     onClick={() => setSelectedModelId(m.id)}
                     className={cn(
-                      "flex items-center justify-between p-3 cursor-pointer",
+                      "flex items-center gap-3 p-3 cursor-pointer",
                       selectedModelId === m.id && "bg-slate-50"
                     )}
                   >
-                    <span className="text-xs font-bold text-slate-800">
-                      {t(`common.model.${m.id}`, { defaultValue: m.name })}
-                    </span>
+                    <div className={cn("flex items-center justify-center shrink-0", m.color)}>
+                      <m.icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 flex flex-col items-start gap-0">
+                      <span className="text-xs font-bold text-slate-800">
+                        {t(`common.model.${m.id}`, { defaultValue: m.name })}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
+                        {m.provider}
+                      </span>
+                    </div>
                     {selectedModelId === m.id && (
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
                     )}
@@ -388,16 +446,33 @@ return (
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input placeholder={t('common.search_placeholder')} className="bg-slate-50 border border-slate-100 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-600 focus:outline-none w-48" />
-          </div>
+          <CommandMenu 
+            onSelectTab={(id) => {
+              // 映射 CommandMenu 的 ID 到路由
+              const routeMap: Record<string, string> = {
+                dashboard: '/',
+                chat: '/chat',
+                skill_library: '/skills',
+                database: '/database'
+              };
+              if (routeMap[id]) {
+                setActiveTab(id === 'dashboard' ? 'dashboard' : 'chat');
+                navigate(routeMap[id]);
+              }
+            }}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onNewChat={handleNewChat}
+          />
         </div>
       </header>
 
       {activeTab === 'chat' ? (
-        <>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-12 scroll-smooth bg-[#F9FAFB]/30 relative">
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-[#F9FAFB]/30">
+          <div 
+            ref={scrollRef} 
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto px-6 py-12 scroll-smooth"
+          >
             <div className="max-w-4xl mx-auto space-y-10">
               <AnimatePresence mode="popLayout" initial={false}>
                 {messages.length === 0 ? (
@@ -411,10 +486,10 @@ return (
                     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} key={m.id} className={cn("flex flex-col group", m.role === 'user' ? "items-end" : "items-start w-full")}>
                       <div className={cn("flex flex-col space-y-2", m.role === 'user' ? "max-w-[85%] items-end" : "w-full")}>
                         <div className={cn(
-                          "px-5 py-3 rounded-3xl leading-relaxed text-[15px] shadow-sm",
+                          "px-5 py-3 rounded-3xl leading-relaxed text-[15px]",
                           m.role === 'user' 
-                            ? "bg-blue-600 text-white prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-p:my-0 prose-headings:my-0 prose-ul:my-0 prose-li:my-0" 
-                            : "bg-white border border-slate-200 text-slate-800 prose prose-slate prose-sm max-w-none shadow-slate-100/50 prose-p:leading-relaxed prose-p:my-0 prose-headings:my-0 prose-ul:my-0 prose-li:my-0"
+                            ? "bg-blue-50 text-slate-900 prose prose-slate prose-sm max-w-none prose-p:leading-relaxed prose-p:my-0 prose-headings:my-0 prose-ul:my-0 prose-li:my-0" 
+                            : "bg-transparent text-slate-800 prose prose-slate prose-sm max-w-none prose-p:leading-relaxed prose-p:my-0 prose-headings:my-0 prose-ul:my-0 prose-li:my-0"
                         )}>                          {Array.isArray(m.parts) ? (
                             m.parts.map((part: any, i: number) => (
                               <div key={i}>
@@ -447,8 +522,22 @@ return (
             </div>
           </div>
 
+          <AnimatePresence>
+            {showScrollButton && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                onClick={scrollToBottom}
+                className="absolute bottom-32 left-1/2 -translate-x-1/2 p-3 rounded-full bg-white border border-slate-200 shadow-xl text-slate-500 hover:text-blue-600 hover:border-blue-100 transition-all z-20 group"
+              >
+                <ArrowDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
           {/* 底部输入区 (TextArea 版) */}
-          <div className="p-8 bg-white border-t border-slate-100 z-10">
+          <div className="p-8 z-10 bg-transparent">
             {/* 文件预览 */}
             <AnimatePresence>
               {selectedFiles.length > 0 && (
@@ -474,7 +563,7 @@ return (
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      onFormSubmit();
+                      if (!isLoading) onFormSubmit();
                     }
                   }}
                   placeholder={t('chat.placeholder')}
@@ -486,13 +575,24 @@ return (
                     <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><ImageIcon className="w-4 h-4" /></button>
                     <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><Plus className="w-4 h-4" /></button>
                   </div>
-                  <button onClick={() => onFormSubmit()} disabled={isLoading || !localInput.trim()} className="p-2 rounded-xl bg-blue-600 text-white disabled:opacity-20 transition-all"><ArrowUp className="w-4 h-4" /></button>
+                  <button 
+                    onClick={() => isLoading ? stop() : onFormSubmit()} 
+                    disabled={!isLoading && !localInput.trim()} 
+                    className={cn(
+                      "p-2 rounded-xl transition-all",
+                      isLoading 
+                        ? "bg-slate-900 text-white" 
+                        : "bg-blue-600 text-white disabled:opacity-20"
+                    )}
+                  >
+                    {isLoading ? <Square className="w-4 h-4 fill-current" /> : <ArrowUp className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </>
-      ) : activeTab === 'dashboard' ? (<Dashboard />) : activeTab === 'skill_library' ? (<SkillLibrary />) : activeTab === 'node_monitor' ? (<NodeMonitor />) : (<UIGallery />)}
+        </div>
+      ) : activeTab === 'dashboard' ? (<Dashboard />) : activeTab === 'skill_library' ? (<SkillLibrary />) : (<UIGallery />)}
     </main>
     <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
   </div>

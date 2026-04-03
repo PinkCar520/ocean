@@ -98,7 +98,6 @@ export function Sidebar({
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), color: 'text-indigo-500' },
     { id: 'chat', icon: MessageSquare, label: t('nav.chat'), color: 'text-blue-500' },
-    { id: 'node_monitor', icon: Activity, label: t('node.title'), color: 'text-rose-500' },
     { id: 'skill_library', icon: Cpu, label: t('nav.skill_library'), color: 'text-emerald-500' },
     { id: 'database', icon: Database, label: t('nav.database'), color: 'text-amber-500' },
   ];

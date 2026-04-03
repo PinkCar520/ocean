@@ -10,20 +10,45 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/uclaw?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - VLLM_API_BASE=${VLLM_API_BASE:-http://host.docker.internal:11434/v1}
-      - VLLM_API_KEY=${VLLM_API_KEY:-mock-key}
       - ZENTAO_BASE_URL=http://zentao:80
-      - ZENTAO_API_TOKEN=${ZENTAO_API_TOKEN:-your-admin-token}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+
+  # UClaw AI 可视化面板 (React/Vite + Nginx)
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: uclaw-web
+    restart: always
+    ports:
+      - "8081:80"
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 128M
+    depends_on:
+      gateway:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 
   # 用户中心持久化核心 (影子用户, 偏好, 会话漫游)
   postgres:
@@ -52,6 +77,7 @@ services:
     ports:
       - "8080:80"
     environment:
+      - MYSQL_INTERNAL=false
       - MYSQL_HOST=zentao-db
       - MYSQL_PORT=3306
       - MYSQL_USER=zentao
