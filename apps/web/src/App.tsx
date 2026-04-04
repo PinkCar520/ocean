@@ -7,7 +7,7 @@ import {
   Copy, RotateCcw, Check,
   Plus, FileText, X as CloseIcon, Image as ImageIcon,
   ChevronDown, Cloud, Cpu, Square, Paperclip, ArrowRight, BadgeCheck,
-  Bell as BellIcon, Settings, Database, Activity, Globe
+  Bell as BellIcon, Settings, Database, Activity, Globe, Menu
 } from 'lucide-react';
 import { ChatSession } from './components/ChatSession';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -66,7 +66,7 @@ function AppContent() {
 
   const [activeTab, setActiveTab] = useState('chat');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
   
@@ -484,6 +484,8 @@ function AppContent() {
     <div className="flex h-screen w-full bg-[#f6f3f2] font-sans selection:bg-[#EC5B14]/10 selection:text-[#EC5B14]">
       {/* 1. 侧边栏 (Fixed App Shell) */}
       <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         activeMainTab={activeTab}
         onMainTabChange={(id) => {
           setActiveTab(id);
@@ -501,8 +503,19 @@ function AppContent() {
         user={user}
         onLogout={handleLogout}
       />{/* 2. 主区域 (Fluid Workspace) */}
-      <main className="ml-64 flex-1 flex flex-col relative h-screen">
-        {/* Header removed as styling is now fully minimalist */}
+      <main className="md:ml-64 flex-1 flex flex-col relative h-screen max-w-full overflow-hidden">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center justify-between p-3 border-b border-[#E8E4E2] bg-white shrink-0 z-30">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 -ml-2 text-[#716B67] hover:bg-[#F6F3F2] rounded-lg transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="font-display font-bold text-[#1C1B1B] text-lg">uClaw</span>
+          <div className="w-9" /> {/* spacer for center alignment */}
+        </div>
+
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Chat / Left Panel */}

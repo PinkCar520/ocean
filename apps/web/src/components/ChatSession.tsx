@@ -198,6 +198,42 @@ export function ChatSession({
     const data = await res.json();
     return { name: file.name, contentType: file.type || 'application/octet-stream', url: data.url };
   };
+  
+  const handleRegenerate = async (msgId: string) => {
+    if (isLoading) return;
+    
+    // 找到当前点击的消息索引
+    const idx = messages.findIndex((m: any) => m.id === msgId);
+    if (idx === -1) return;
+    
+    // 向上寻找最近的一条用户消息
+    let userMsgIdx = -1;
+    for (let i = idx; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userMsgIdx = i;
+        break;
+      }
+    }
+    
+    if (userMsgIdx === -1) return;
+    
+    const userMsg = messages[userMsgIdx];
+    
+    // 回滚消息列表：保留到该条用户消息之前
+    const newMessages = messages.slice(0, userMsgIdx);
+    setMessages(newMessages);
+    
+    // 重新发送该消息
+    try {
+      await sendMessage({
+        content: userMsg.content,
+        role: 'user',
+        experimental_attachments: userMsg.experimental_attachments
+      } as any);
+    } catch (err) {
+      console.error('Regenerate failed:', err);
+    }
+  };
 
   const onFormSubmit = async (e?: any) => {
     if (e) e.preventDefault();
@@ -325,29 +361,29 @@ export function ChatSession({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-8 py-4 scroll-smooth"
+          className="flex-1 overflow-y-auto px-4 md:px-8 py-4 scroll-smooth"
         >
           <div className="max-w-[800px] mx-auto space-y-8">
             <AnimatePresence mode="popLayout" initial={false}>
               {messages.length === 0 ? (
-                <div className="flex flex-col mt-10">
-                  <div className="flex items-start gap-6 bg-[#f6f3f2] p-8 rounded-[24px] mb-8 border border-transparent">
-                    <div className="w-12 h-12 rounded-[12px] bg-white flex items-center justify-center shrink-0 shadow-sm text-[#EC5B14]">
-                      <Sparkles className="w-6 h-6" />
+                <div className="flex flex-col mt-4 md:mt-10 w-full min-w-0">
+                  <div className="flex w-full min-w-0 flex-col items-start gap-4 overflow-hidden rounded-[24px] border border-transparent bg-[#f6f3f2] p-5 md:flex-row md:gap-6 md:p-8 mb-8">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-[12px] bg-white flex items-center justify-center shrink-0 shadow-sm text-[#EC5B14]">
+                      <Sparkles className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
-                    <div>
-                      <h3 className="text-xl font-bold font-display text-[#1C1B1B] mb-2 cursor-default">{t('chat.empty_state.title')}</h3>
-                      <p className="text-[#716B67] text-sm leading-relaxed max-w-xl">
+                    <div className="w-full min-w-0">
+                      <h3 className="mb-2 break-words text-lg font-bold font-display text-[#1C1B1B] cursor-default md:text-xl">{t('chat.empty_state.title')}</h3>
+                      <p className="max-w-xl break-words text-sm leading-relaxed text-[#716B67] md:text-base">
                         {t('chat.empty_state.desc')}
                       </p>
-                      <div className="flex gap-4 mt-6">
-                        <div className="bg-white px-5 py-4 rounded-[12px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] min-w-[140px]">
-                          <p className="text-[11px] text-[#716B67] font-semibold mb-1">{t('chat.empty_state.improvement_label')}</p>
-                          <p className="text-2xl font-bold font-display text-[#EC5B14]">{t('chat.empty_state.improvement_value')}</p>
+                      <div className="mt-6 grid w-full min-w-0 grid-cols-1 gap-3 md:gap-4 min-[420px]:grid-cols-2">
+                        <div className="min-w-0 rounded-[12px] bg-white px-4 py-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] md:px-5 md:py-4">
+                          <p className="text-[10px] md:text-[11px] text-[#716B67] font-semibold mb-1">{t('chat.empty_state.improvement_label')}</p>
+                          <p className="break-words text-xl font-bold font-display text-[#EC5B14] md:text-2xl">{t('chat.empty_state.improvement_value')}</p>
                         </div>
-                        <div className="bg-white px-5 py-4 rounded-[12px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] min-w-[140px]">
-                          <p className="text-[11px] text-[#716B67] font-semibold mb-1">{t('chat.empty_state.success_label')}</p>
-                          <p className="text-2xl font-bold font-display text-[#0066CC]">{t('chat.empty_state.success_value')}</p>
+                        <div className="min-w-0 rounded-[12px] bg-white px-4 py-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] md:px-5 md:py-4">
+                          <p className="text-[10px] md:text-[11px] text-[#716B67] font-semibold mb-1">{t('chat.empty_state.success_label')}</p>
+                          <p className="break-words text-xl font-bold font-display text-[#0066CC] md:text-2xl">{t('chat.empty_state.success_value')}</p>
                         </div>
                       </div>
                     </div>
@@ -438,7 +474,7 @@ export function ChatSession({
                       <div className={cn("flex items-center gap-3 mt-2", isUser ? "px-5 flex-row-reverse" : "px-12 flex-row")}>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => copyToClipboard(m)} className="p-1 hover:bg-[#F6F3F2] rounded-md text-[#716B67]">{copiedId === m.id ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}</button>
-                          {isAssistant && <button onClick={() => reload?.()} className="p-1 hover:bg-[#F6F3F2] rounded-md text-[#716B67]"><RotateCcw className="w-3 h-3" /></button>}
+                          {isAssistant && <button onClick={() => handleRegenerate(m.id)} className="p-1 hover:bg-[#F6F3F2] rounded-md text-[#716B67]"><RotateCcw className="w-3 h-3" /></button>}
                         </div>
                       </div>
                     </motion.div>
@@ -468,7 +504,7 @@ export function ChatSession({
           </div>
         </div>
 
-        <div className="pt-2 pb-8 px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
+        <div className="pt-2 pb-4 md:pb-8 px-4 md:px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
           <div className="max-w-[800px] mx-auto relative">
             <AnimatePresence>{showScrollButton && <motion.button initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.9 }} onClick={scrollToBottom} className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-8 h-8 bg-white rounded-full shadow-lg border border-[#E8E4E2] flex items-center justify-center text-[#716B67] hover:text-[#EC5B14] hover:border-[#EC5B14]/30 transition-all active:scale-95"><ArrowDown className="w-4 h-4" /></motion.button>}</AnimatePresence>
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] ring-1 ring-[#1C1B1B]/5 transition-all focus-within:ring-[#EC5B14]/30 focus-within:shadow-[0_10px_40px_-10px_rgba(236,91,20,0.15)]">
@@ -485,14 +521,14 @@ export function ChatSession({
                 )}
               </AnimatePresence>
               <textarea ref={textAreaRef} rows={1} value={localInput} onChange={(e) => setLocalInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!isLoading) onFormSubmit(); } }} placeholder={t('chat.placeholder')} className="w-full bg-transparent border-none text-[#1C1B1B] focus:ring-0 text-sm py-4 px-4 resize-none min-h-[56px] max-h-[200px] placeholder:text-[#716B67]/70 focus:outline-none" />
-              <div className="flex items-center justify-between px-4 pb-2">
-                <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between px-2 sm:px-4 pb-2">
+                <div className="flex items-center gap-0.5 sm:gap-1.5 overflow-hidden">
                   <DropdownMenu open={isModelDropdownOpen} onOpenChange={setIsModelDropdownOpen}>
                     <DropdownMenuTrigger asChild>
-                      <button className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[#716B67] hover:bg-[#eeece9] transition-all border border-transparent hover:border-[#E8E4E2]/40">
-                        <activeModel.icon className={cn("w-4 h-4", activeModel.color)} />
-                        <span className="text-[11px] font-bold tracking-tight">{activeDisplayName}</span>
-                        <ChevronDown className={cn("w-3 h-3 transition-transform", isModelDropdownOpen ? "rotate-180" : "")} />
+                      <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-[#716B67] hover:bg-[#eeece9] transition-all border border-transparent hover:border-[#E8E4E2]/40 shrink-0">
+                        <activeModel.icon className={cn("w-4 h-4 shrink-0", activeModel.color)} />
+                        <span className="text-[10px] sm:text-[11px] font-bold tracking-tight max-w-[60px] sm:max-w-none truncate">{activeDisplayName}</span>
+                        <ChevronDown className={cn("w-3 h-3 transition-transform shrink-0", isModelDropdownOpen ? "rotate-180" : "")} />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-60 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-1.5 backdrop-blur-xl bg-white/90">
@@ -511,35 +547,35 @@ export function ChatSession({
                       </div>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <div className="w-px h-4 bg-[#E8E4E2]/60 mx-1" />
-                  <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.onchange = (e: any) => { if (e.target.files) setSelectedFiles(prev => [...prev, ...Array.from(e.target.files as FileList)]); }; input.click(); }} className="p-2 rounded-lg text-[#716B67] hover:bg-[#eeece9] hover:text-[#1C1B1B] transition-all"><Paperclip className="w-4 h-4" /></button>
+                  <div className="w-px h-4 bg-[#E8E4E2]/60 mx-1 shrink-0" />
+                  <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.onchange = (e: any) => { if (e.target.files) setSelectedFiles(prev => [...prev, ...Array.from(e.target.files as FileList)]); }; input.click(); }} className="p-1.5 sm:p-2 rounded-lg text-[#716B67] hover:bg-[#eeece9] hover:text-[#1C1B1B] transition-all shrink-0"><Paperclip className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                   
                   <button
                     onClick={() => setIsSearchMode(!isSearchMode)}
                     className={cn(
-                      "p-2 rounded-lg transition-all transform active:scale-95",
+                      "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
                       isSearchMode
                         ? "text-[#EC5B14] bg-[#EC5B14]/5"
                         : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
                     )}
                   >
-                    <Globe className="w-5 h-5" />
+                    <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
 
                   <button
                     onClick={() => setIsKnowledgeMode(!isKnowledgeMode)}
                     className={cn(
-                      "p-2 rounded-lg transition-all transform active:scale-95",
+                      "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
                       isKnowledgeMode
                         ? "text-[#EC5B14] bg-[#EC5B14]/5"
                         : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
                     )}
                   >
-                    <Database className="w-5 h-5" />
+                    <Database className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
-                <button onClick={() => isLoading ? stop() : onFormSubmit()} className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all", isLoading ? "bg-[#1C1B1B] text-white" : ((!localInput.trim() && selectedFiles.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-[#EC5B14] text-white shadow-lg hover:scale-105 active:scale-95"))}>
-                  {isLoading ? <Square className="w-4 h-4 fill-current" /> : <ArrowRight className="w-5 h-5" />}
+                <button onClick={() => isLoading ? stop() : onFormSubmit()} className={cn("w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl flex items-center justify-center transition-all", isLoading ? "bg-[#1C1B1B] text-white" : ((!localInput.trim() && selectedFiles.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-[#EC5B14] text-white shadow-lg hover:scale-105 active:scale-95"))}>
+                  {isLoading ? <Square className="w-4 h-4 fill-current" /> : <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />}
                 </button>
               </div>
             </div>
@@ -548,7 +584,10 @@ export function ChatSession({
       </div>
 
       {/* Sidebar Right (Meta + Preview) */}
-      <aside className="w-80 border-l border-[#E8E4E2] bg-[#fcf9f8]/80 backdrop-blur-md flex flex-col h-full overflow-hidden">
+      <aside className={cn(
+        "absolute lg:relative right-0 top-0 bottom-0 z-40 w-full lg:w-80 border-l border-[#E8E4E2] bg-[#fcf9f8] lg:bg-[#fcf9f8]/80 backdrop-blur-md flex-col h-full overflow-hidden transition-transform duration-300",
+        previewAttachment ? "translate-x-0 flex" : "translate-x-full lg:translate-x-0 hidden lg:flex"
+      )}>
         {previewAttachment ? (
           /* ── File Preview Overrides Aside (Claude/Deepseek style) ── */
           <div className="flex-1 flex flex-col h-full bg-white animate-in slide-in-from-right duration-300">

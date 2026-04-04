@@ -50,6 +50,8 @@ interface Conversation {
 }
 
 interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
   activeMainTab: string;
   onMainTabChange: (id: string) => void;
   onOpenSettings: () => void;
@@ -231,6 +233,8 @@ function ChatRow({
 
 // ── Main Sidebar ──
 export function Sidebar({
+  isOpen,
+  onClose,
   activeMainTab,
   onMainTabChange,
   onOpenSettings,
@@ -257,20 +261,35 @@ export function Sidebar({
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#f6f3f2] flex flex-col shrink-0 z-50">
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      <aside className={cn(
+        "fixed left-0 top-0 h-screen w-64 bg-[#f6f3f2] flex flex-col shrink-0 z-50 transition-transform duration-300 ease-in-out md:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
 
-      {/* 1. Logo Header */}
-      <div className="p-6 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-[#EC5B14] p-1.5 rounded-lg shadow-sm">
-            <Sparkles className="w-5 h-5 text-white" />
+        {/* 1. Logo Header */}
+        <div className="p-6 pb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#EC5B14] p-1.5 rounded-lg shadow-sm">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-display font-bold text-[#1C1B1B] text-xl leading-none">uClaw</span>
+              <span className="text-[9px] font-bold text-[#716B67] uppercase tracking-widest mt-0.5">{t('sidebar.enterprise_ai')}</span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="font-display font-bold text-[#1C1B1B] text-xl leading-none">uClaw</span>
-            <span className="text-[9px] font-bold text-[#716B67] uppercase tracking-widest mt-0.5">{t('sidebar.enterprise_ai')}</span>
-          </div>
+          {/* Mobile close button */}
+          <button className="md:hidden p-1.5 text-[#716B67]" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      </div>
 
       {/* 2. New Chat CTA */}
       <div className="px-5 space-y-3 mt-4">
@@ -351,5 +370,6 @@ export function Sidebar({
       </div>
 
     </aside>
+    </>
   );
 }
