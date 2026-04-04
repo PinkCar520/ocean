@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>uClaw AI | Knowledge Base &amp; Projects</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#fdfcff",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#ffb599",
+                        "surface-container": "#f0edec",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#763011",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#ebe7e7",
+                        "inverse-primary": "#ffb599",
+                        "on-surface": "#1c1b1b",
+                        "on-secondary-fixed": "#370e00",
+                        "outline": "#8e7166",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#ffdbce",
+                        "surface": "#fcf9f8",
+                        "surface-variant": "#e5e2e1",
+                        "on-primary-fixed": "#370e00",
+                        "primary-container": "#cc4900",
+                        "tertiary-container": "#0078c8",
+                        "on-surface-variant": "#5a4138",
+                        "on-background": "#1c1b1b",
+                        "on-tertiary-fixed-variant": "#00497d",
+                        "inverse-surface": "#313030",
+                        "tertiary-fixed": "#d1e4ff",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-primary-container": "#fffbff",
+                        "surface-container-low": "#f6f3f2",
+                        "outline-variant": "#e2bfb3",
+                        "secondary-fixed-dim": "#ffb599",
+                        "surface-bright": "#fcf9f8",
+                        "on-secondary-fixed-variant": "#783112",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#a73a00",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#fd9a73",
+                        "surface-dim": "#dcd9d9",
+                        "tertiary": "#005fa0",
+                        "secondary-fixed": "#ffdbce",
+                        "tertiary-fixed-dim": "#9ecaff",
+                        "on-primary-fixed-variant": "#802a00",
+                        "error": "#ba1a1a",
+                        "secondary": "#964828",
+                        "on-tertiary-fixed": "#001d36",
+                        "on-secondary": "#ffffff",
+                        "primary": "#a33800",
+                        "background": "#fcf9f8"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf9f8; }
+        h1, h2, h3, h4 { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .cta-gradient { background: linear-gradient(135deg, #a33800 0%, #cc4900 100%); }
+        .glass-panel { backdrop-filter: blur(16px); background: rgba(255, 255, 255, 0.7); }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- SideNavBar (from JSON) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 h-screen w-64 border-r-0 bg-[#f6f3f2] dark:bg-stone-900 z-50">
+<div class="flex items-center gap-3 mb-8 px-2">
+<div class="w-8 h-8 rounded bg-[#ec5b14] flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tighter text-[#1c1b1b] dark:text-stone-100">uClaw</h1>
+<p class="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Enterprise AI</p>
+</div>
+</div>
+<button class="cta-gradient text-white w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 mb-8 shadow-md scale-95 duration-200 ease-in-out hover:scale-100">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>New Analysis</span>
+</button>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-stone-500 dark:text-stone-400 font-manrope text-sm font-medium tracking-tight hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="add_box">add_box</span>
+<span>New Chat</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-stone-500 dark:text-stone-400 font-manrope text-sm font-medium tracking-tight hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="folder_open">folder_open</span>
+<span>Library</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-stone-500 dark:text-stone-400 font-manrope text-sm font-medium tracking-tight hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span>
+<span>Workflows</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#ec5b14] font-semibold bg-white dark:bg-stone-800 rounded-lg shadow-sm font-manrope text-sm tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span>Knowledge</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-stone-500 dark:text-stone-400 font-manrope text-sm font-medium tracking-tight hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span>Console</span>
+</a>
+</nav>
+<div class="pt-4 border-t border-stone-200/50 dark:border-stone-800 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-stone-500 dark:text-stone-400 font-manrope text-sm font-medium tracking-tight hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span>Profile</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-stone-500 dark:text-stone-400 font-manrope text-sm font-medium tracking-tight hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span>Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas Area -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar (from JSON) -->
+<header class="sticky top-0 z-40 flex justify-between items-center px-8 py-3 w-full bg-[#fcf9f8]/80 backdrop-blur-md dark:bg-stone-950/80 tonal shift no borders">
+<div class="flex items-center gap-6">
+<div class="relative">
+<span class="absolute inset-y-0 left-3 flex items-center text-stone-400">
+<span class="material-symbols-outlined text-sm">search</span>
+</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-lg text-sm w-80 focus:ring-2 focus:ring-primary-container/20 placeholder-stone-400 transition-all" placeholder="Search knowledge..." type="text"/>
+</div>
+<nav class="hidden md:flex gap-6">
+<a class="font-manrope text-sm text-stone-600 dark:text-stone-400 hover:text-[#ec5b14] transition-all" href="#">Dashboard</a>
+<a class="font-manrope text-sm text-[#ec5b14] border-b-2 border-[#ec5b14] transition-all" href="#">Knowledge Base</a>
+<a class="font-manrope text-sm text-stone-600 dark:text-stone-400 hover:text-[#ec5b14] transition-all" href="#">Analytics</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center text-stone-600 hover:bg-surface-container-high rounded-full transition-colors opacity-80 hover:opacity-100">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-stone-600 hover:bg-surface-container-high rounded-full transition-colors opacity-80 hover:opacity-100">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full object-cover" data-alt="portrait of a professional male executive in a neutral studio setting with soft lighting and grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApNdOMVlJpNAHcAKBa7oElXivhCyKw1MQkpP7xjy4Wzcs99g-DbdgfowgWfM4WunsWiKqo9l1CofHz1NJ_o0s0M-NGDEQA3vQSTdZn4OXVC4tryLT2Yqykww9vkS0Ve7H--AgwTKsZJ1fLOvMQs5wIfvIcntyWCut7PXLAo8uaA3AQnsAXDDUcZ88um6_K8Vt5otV_zyb7oJR9335A5RgZyygFKQhsoCDWsf4FIsPtKn7IW0p2ucUEznIeVpJXfIXrZ4Tk9wXhhJc"/>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-10 max-w-7xl mx-auto space-y-12">
+<!-- Hero / Header Section -->
+<section class="flex flex-col md:flex-row justify-between items-end gap-6">
+<div class="max-w-2xl">
+<h2 class="text-4xl font-extrabold tracking-tight text-on-surface mb-2">Knowledge Base</h2>
+<p class="text-on-surface-variant text-lg">Manage your organization's legal, operational, and policy data sources to power precise AI interactions.</p>
+</div>
+<div class="flex gap-3">
+<div class="px-4 py-2 bg-secondary-fixed text-on-secondary-fixed-variant rounded-lg text-sm font-semibold flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                        Index Healthy
+                    </div>
+</div>
+</section>
+<!-- Stats & Ingest Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Stats Column -->
+<div class="md:col-span-4 space-y-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-none flex items-center justify-between">
+<div>
+<p class="text-sm font-medium text-stone-500 mb-1">Active Sources</p>
+<h3 class="text-3xl font-bold">124</h3>
+</div>
+<div class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">database</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-none flex items-center justify-between">
+<div>
+<p class="text-sm font-medium text-stone-500 mb-1">Data Indexed</p>
+<h3 class="text-3xl font-bold">4.2 <span class="text-lg font-medium text-stone-400">TB</span></h3>
+</div>
+<div class="w-12 h-12 rounded-lg bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+</div>
+</div>
+</div>
+<!-- Ingest Area -->
+<div class="md:col-span-8 bg-surface-container-lowest rounded-xl shadow-sm border-none p-8 flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 group hover:bg-white transition-all cursor-pointer">
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary text-3xl">upload_file</span>
+</div>
+<h4 class="text-xl font-bold mb-2">Ingest New Data</h4>
+<p class="text-stone-500 text-center max-w-sm mb-6">Drag and drop documents, SQL dumps, or API endpoints to synchronize with your uClaw context.</p>
+<button class="bg-surface-container-high px-6 py-2.5 rounded-lg font-semibold text-sm hover:bg-stone-200 transition-colors">Select Files</button>
+</div>
+</section>
+<!-- Recent Projects Section -->
+<section class="space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="text-2xl font-bold tracking-tight">Recent Projects</h3>
+<button class="text-primary font-semibold text-sm flex items-center gap-1 hover:underline">
+                        View all projects <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Project Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border-none overflow-hidden group">
+<div class="h-32 bg-stone-100 relative">
+<img alt="Legal Review" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="abstract close-up of scales of justice and law books in a bright, modern architectural space with soft orange light reflections" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDG8WPcqVoaUhRdnwmmDwtH3lWyS_WiAjDJFdcPtA7H7Xlwi3bPPXYFo4DQQo0tqXVeE04o4jxytllsaxu_v9m9Nfg0e6en7urSDNihGQE46zWNZMr0DFRTlWEPd9SGOimj0F5Y_1NobP4sppdYcjL9F9jvMnWmoaeYfcSx0tTMDI-qg_Bgq2l1RNmOjLawZ1IjDACxdlnHlB3_W3zc1lGqYReiIU62bKOvCS7MWS5OET5g2ge5qZN1q4x_0NxgUzQtPcwfvIm2bFM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+</div>
+<div class="p-6 pt-2">
+<div class="flex items-center gap-2 mb-3">
+<span class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded">Legal</span>
+<span class="text-[10px] text-stone-400 font-medium">Updated 2h ago</span>
+</div>
+<h4 class="text-lg font-bold mb-1">Q3 Legal Review</h4>
+<p class="text-stone-500 text-sm mb-4 line-clamp-2">Quarterly audit of all internal contracts and compliance documentation.</p>
+<div class="flex -space-x-2">
+<img class="w-6 h-6 rounded-full border-2 border-white" data-alt="professional woman's headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCl3i_0RHfkPe_B_Y7V52m-CoqmIOpa2P4D5WwfQIgaFawvnm4MkrsgodHCUful7WdtPrp4enQW2gi79ncf_wMZ6QSSQJfnASZ1-sllawAxit_uc1mgPJMrw1ZRimxWYTu3etsYHfuR3jwkXH6_UGllSkJBcKjat2p4ixJeFrp90vrXT3s0Wvuw7ontHomem4eMtry1iroqFm1eTaBFUPnBaHmxb0boZ1zR_ZdY9Jp5tvHwDzQUR0MoUSsUlNd_3VrDx3O1qGMmcik"/>
+<img class="w-6 h-6 rounded-full border-2 border-white" data-alt="professional man's headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuBM0IjNID8luxOulRp1OtwvTbT6Afma3XwDEPYUtExwgGdBLfMhNFz7jUHjSbEUAGku1B2fNt8JBq4nfy0PUffnO37UHxiok0pLZbsm0Gnodm93XkQeNmt85wBx1aF54-IdLHEkO_D5yiEdr1LjyFG0P41rP7bIuRvO5rZ9xKLfScwMynEvEixHjJ6gROIFxrgE0UEN4HNaWLMXZpFO24UwVnq7qTellEc_GlPXVix0xz7UI6soPYr-t5olyQ3jSAIYL9f9ZXMCU"/>
+<div class="w-6 h-6 rounded-full bg-surface-container border-2 border-white flex items-center justify-center text-[8px] font-bold">+4</div>
+</div>
+</div>
+</div>
+<!-- Project Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border-none overflow-hidden group">
+<div class="h-32 bg-stone-100 relative">
+<img alt="Supply Chain" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="neatly organized shipping containers in a global port during sunrise with atmospheric haze and warm orange sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZfLfitECD1TpGAKXtHP1hTueZzHNR_F_uZy0kHfAkqJzyWZzUcphSRC6K3989PC204eMqob4Iapdc82fwgMeroz2ZAg5y7_ZGsbXR2dv61gbE0v9wR1WG0S4Onhz1B4w6VHIbuk-7N2Pff52V3pRJYCJrw_3Q_3UXfZhqzHDCp9YIQ5Wrx88jW6AU8vn0l8r0z0p2Db05oawq9wzUiOm1rLM81RIerzO1CJvty8Pgsgxv9-oeAvd1ZiYzyUNiyqR0Zzm_OsHMkP8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+</div>
+<div class="p-6 pt-2">
+<div class="flex items-center gap-2 mb-3">
+<span class="px-2 py-0.5 bg-tertiary/10 text-tertiary text-[10px] font-bold uppercase rounded">Operations</span>
+<span class="text-[10px] text-stone-400 font-medium">Updated 5h ago</span>
+</div>
+<h4 class="text-lg font-bold mb-1">Supply Chain v4</h4>
+<p class="text-stone-500 text-sm mb-4 line-clamp-2">Optimization analysis for global logistics and warehouse management.</p>
+<div class="flex -space-x-2">
+<img class="w-6 h-6 rounded-full border-2 border-white" data-alt="woman headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiEZqjBDR9pghTZC3U869673RkBPbPTcXfKnDm4ZUDJbwa1sS77xYjg-Nrp9V2UVc7xNqz94S3H2Gr8Jteekq4lLKVFMRi5NJgElYYXT59lYCOD3Sk3Njy4rTR55NGyGf4MdST3rzRbsMnKolDx2IXxSKd31bhARykL2hONWFkTmtX3rx343rojzArdiJTTxE0fOFTRG07JbNcXW8NG0b_Na81huEO6jaAWciU79WuKd-ISMhPKa2T1RAOVtr6jLiOwVEyUtL3pXc"/>
+<div class="w-6 h-6 rounded-full bg-surface-container border-2 border-white flex items-center justify-center text-[8px] font-bold">+2</div>
+</div>
+</div>
+</div>
+<!-- Project Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border-none overflow-hidden group">
+<div class="h-32 bg-stone-100 relative">
+<img alt="Policy Training" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="corporate boardroom interior with clean glass walls and minimal furniture under soft daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1cMvfbMHFWmLKSbg_6KfdqFhg025ylO0aK20VcoF7NK7ZaIf_G5cY7REqFqThl3YNuaFPaa3kZWAkEwGK7qY_yh3vp2ixdFMQDrvbE2zmL7FOC7KR2S63PVLKblTMM1LY59CaoZl7KwNXvrOQT7n6FH9go7CrBA9SwHMeBRApP8LCFdlaLX4OYoIbTnqCZ-39nm2nZJO3s12lnRXW-iWksAPcpgcPlow0FMf3oLGaVGAU8qCHViHWyjzVFaYYMkNynRZaJRgOLmE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+</div>
+<div class="p-6 pt-2">
+<div class="flex items-center gap-2 mb-3">
+<span class="px-2 py-0.5 bg-stone-200 text-stone-600 text-[10px] font-bold uppercase rounded">HR</span>
+<span class="text-[10px] text-stone-400 font-medium">Updated 1d ago</span>
+</div>
+<h4 class="text-lg font-bold mb-1">Policy Training</h4>
+<p class="text-stone-500 text-sm mb-4 line-clamp-2">Updated internal employee conduct guidelines and automated training modules.</p>
+<div class="flex -space-x-2">
+<img class="w-6 h-6 rounded-full border-2 border-white" data-alt="man headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgcUjDrUJXU5_s1CAaqpY2boug17jo_-XVhfP-70qg_zWLbltABwE-c8BAz8SiBJclgTmWYH1e3hbj3XaGVKE1LP8U9TwwT48cwRj6oW3XXHaoGSv9bM1G-uC2NnH0nh6dXFidpYUZaH26urUwCdzMCeGvz9RonBmP6LzyHNQxT6fnk1zT8q6QXdVP8gYDxx1Z72ATDhl5CpVj0qWLfJHylOE2z5D2kN4IZBaWsmaW1iIjisnf9XvBHg2lWm7NH_2P6CLb2moC1iM"/>
+<img class="w-6 h-6 rounded-full border-2 border-white" data-alt="woman headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIjoIiPn23q5MZHoABHHXgnId3p_rTDI2o_GJHgevSHxeZJoghpcG2QTgz2U1hORA54Ka3O3OjslvodWZzO14CRadUNDAxqDqaDbKfDP3qOCvhnHKwDpQETNt3APJfetTJLCgNXVPuccNY93nw2S22CxnYdR6_QS2OPIF5aPcBjwiSi6jjC8riLfsVOkPaKtA9soggYazY48TJrHnf3llFPRJ-w1skuqqP-qPJxCM0Zz1WNIgS9Ye1gLX56EMelzf1xok-7AIVKZ4"/>
+<img class="w-6 h-6 rounded-full border-2 border-white" data-alt="man headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXl9QDJVn8qUXpo6RoVk57RgpxY1meNmVQ8eJhja_wbKj1uoG_tJBh6nOj8BhgXqoalu1WO6Jlyi7qhbCUW8q4sJ63-2Cr3mp7h0XqsejWK-0L7jChIiHc0pvxO7cl7v8T7KFG2IPYv53NrXPW-W1c-4KibR7fWUuIdN0ce4-0jZKJHwfhM-rM4I7cvHbG3xVp_OBu4BEJWl0X-zQJtVTUP-osnmjVaKX40hbIRSzkFQvgI2GcZXRucVVmaoJk0-gr_iNTj9aiy1s"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Knowledge Assets Table (Asymmetric Layout) -->
+<section class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+<div class="lg:col-span-3 bg-surface-container-lowest rounded-xl shadow-sm p-8">
+<h3 class="text-2xl font-bold mb-6">Recent Knowledge Assets</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-stone-400 text-xs font-bold uppercase tracking-wider">
+<th class="pb-4">Asset Name</th>
+<th class="pb-4">Type</th>
+<th class="pb-4">Last Synced</th>
+<th class="pb-4 text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-stone-100">
+<tr class="group hover:bg-surface transition-colors">
+<td class="py-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container text-sm">description</span>
+<span class="font-medium">global_tax_compliance_2023.pdf</span>
+</td>
+<td class="py-4 text-stone-500 text-sm">PDF Document</td>
+<td class="py-4 text-stone-500 text-sm">Oct 12, 14:30</td>
+<td class="py-4 text-right">
+<span class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full">Indexed</span>
+</td>
+</tr>
+<tr class="group hover:bg-surface transition-colors">
+<td class="py-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container text-sm">table_chart</span>
+<span class="font-medium">customer_retention_data_v2</span>
+</td>
+<td class="py-4 text-stone-500 text-sm">SQL Database</td>
+<td class="py-4 text-stone-500 text-sm">Oct 12, 09:15</td>
+<td class="py-4 text-right">
+<span class="px-2 py-1 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full">Syncing</span>
+</td>
+</tr>
+<tr class="group hover:bg-surface transition-colors">
+<td class="py-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container text-sm">api</span>
+<span class="font-medium">Salesforce_Connector_Production</span>
+</td>
+<td class="py-4 text-stone-500 text-sm">API Endpoint</td>
+<td class="py-4 text-stone-500 text-sm">Oct 11, 23:45</td>
+<td class="py-4 text-right">
+<span class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full">Indexed</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- AI Insights Sidebar -->
+<div class="space-y-6">
+<div class="bg-primary-container p-6 rounded-xl text-white shadow-lg shadow-primary/20 relative overflow-hidden">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+<h4 class="text-lg font-bold mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                            uClaw Insight
+                        </h4>
+<p class="text-sm text-white/80 leading-relaxed mb-4">You have 12 orphaned documents in the "Library" that aren't linked to any active project.</p>
+<button class="text-xs font-bold bg-white text-primary px-4 py-2 rounded-lg hover:bg-stone-100 transition-colors">Clean Assets</button>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
+<h4 class="text-sm font-bold text-stone-400 uppercase tracking-widest mb-4">Suggested Chips</h4>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1.5 bg-secondary-fixed text-on-secondary-fixed-variant rounded-full text-xs font-medium cursor-pointer hover:bg-orange-200 transition-colors">Tax Review</span>
+<span class="px-3 py-1.5 bg-secondary-fixed text-on-secondary-fixed-variant rounded-full text-xs font-medium cursor-pointer hover:bg-orange-200 transition-colors">HR Policies</span>
+<span class="px-3 py-1.5 bg-secondary-fixed text-on-secondary-fixed-variant rounded-full text-xs font-medium cursor-pointer hover:bg-orange-200 transition-colors">GDPR Audit</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#783112",
+                        "primary-fixed-dim": "#ffb599",
+                        "on-tertiary-container": "#fdfcff",
+                        "surface": "#fcf9f8",
+                        "tertiary-fixed-dim": "#9ecaff",
+                        "primary-fixed": "#ffdbce",
+                        "on-tertiary": "#ffffff",
+                        "background": "#fcf9f8",
+                        "outline": "#8e7166",
+                        "on-tertiary-fixed": "#001d36",
+                        "surface-container": "#f0edec",
+                        "secondary-container": "#fd9a73",
+                        "secondary": "#964828",
+                        "on-surface-variant": "#5a4138",
+                        "surface-container-low": "#f6f3f2",
+                        "on-primary-fixed-variant": "#802a00",
+                        "on-primary-fixed": "#370e00",
+                        "on-background": "#1c1b1b",
+                        "tertiary": "#005fa0",
+                        "error": "#ba1a1a",
+                        "inverse-surface": "#313030",
+                        "surface-container-high": "#ebe7e7",
+                        "on-tertiary-fixed-variant": "#00497d",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#ffb599",
+                        "surface-bright": "#fcf9f8",
+                        "on-error": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "primary-container": "#cc4900",
+                        "surface-container-highest": "#e5e2e1",
+                        "surface-dim": "#dcd9d9",
+                        "on-surface": "#1c1b1b",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed": "#d1e4ff",
+                        "tertiary-container": "#0078c8",
+                        "outline-variant": "#e2bfb3",
+                        "on-secondary-container": "#763011",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#ffdbce",
+                        "inverse-on-surface": "#f3f0ef",
+                        "primary": "#a33800",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#a73a00",
+                        "secondary-fixed-dim": "#ffb599",
+                        "surface-variant": "#e5e2e1",
+                        "on-secondary-fixed": "#370e00",
+                        "on-primary-container": "#fffbff",
+                        "brand-orange": "#ec5b14"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1.25rem",
+                        "3xl": "1.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #a33800 0%, #cc4900 100%);
+        }
+        .popover-shadow {
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface h-screen overflow-hidden flex">
+<!-- SideNavBar (Predicted & Required) -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-stone-50 dark:bg-stone-900 z-50">
+<div class="flex flex-col h-full py-6 px-4">
+<!-- Header Section -->
+<div class="mb-8 flex items-center gap-3 px-2">
+<div class="w-8 h-8 rounded-lg primary-gradient flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-white text-lg" style="font-variation-settings: 'FILL' 1;">gavel</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tighter text-stone-900 font-headline leading-tight">uClaw</h1>
+<p class="text-[10px] font-medium text-primary tracking-widest uppercase opacity-70">Enterprise AI</p>
+</div>
+</div>
+<!-- Main Nav Items -->
+<nav class="flex-1 space-y-1">
+<!-- Active Item: New Chat -->
+<button class="w-full flex items-center gap-3 px-3 py-2 text-orange-600 dark:text-orange-500 font-bold border-r-2 border-orange-600 bg-stone-200/30 font-manrope tracking-tight text-sm transition-all duration-150 ease-in-out active:scale-95">
+<span class="material-symbols-outlined text-xl" data-icon="add_box">add_box</span>
+<span>New Chat</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 font-medium font-manrope tracking-tight text-sm hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-xl" data-icon="folder_open">folder_open</span>
+<span>Library</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 font-medium font-manrope tracking-tight text-sm hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-xl" data-icon="account_tree">account_tree</span>
+<span>Workflows</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 font-medium font-manrope tracking-tight text-sm hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-xl" data-icon="menu_book">menu_book</span>
+<span>Knowledge</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 font-medium font-manrope tracking-tight text-sm hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-xl" data-icon="terminal">terminal</span>
+<span>Console</span>
+</button>
+</nav>
+<!-- Footer Tabs (Updated Profile Section with Popover) -->
+<div class="mt-auto pt-6 border-t border-stone-100/50 relative">
+<!-- Profile Popover (Positioned above the button) -->
+<div class="absolute bottom-full left-0 mb-4 w-[280px] bg-white rounded-3xl popover-shadow p-5 flex flex-col gap-1 z-[60] border border-stone-100">
+<!-- User Profile Header -->
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center text-white text-lg font-bold">MI</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-base font-bold text-stone-900 truncate">Miss</h4>
+<p class="text-sm text-stone-500">Free version</p>
+</div>
+<span class="material-symbols-outlined text-stone-400 text-lg">chevron_right</span>
+</div>
+<!-- Upgrade Button -->
+<button class="w-full bg-stone-100 hover:bg-stone-200 text-stone-900 rounded-2xl py-4 px-4 flex items-center gap-3 transition-colors mb-3">
+<span class="material-symbols-outlined text-brand-orange" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-bold text-sm">Upgrade plan</span>
+</button>
+<!-- Nav List -->
+<div class="space-y-0.5">
+<button class="w-full flex items-center gap-3 px-2 py-3 text-stone-700 hover:bg-stone-50 rounded-xl transition-colors">
+<span class="material-symbols-outlined text-2xl">track_changes</span>
+<span class="text-sm font-medium">Personalization</span>
+</button>
+<button class="w-full flex items-center gap-3 px-2 py-3 text-stone-700 hover:bg-stone-50 rounded-xl transition-colors">
+<div class="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-[10px] text-white font-bold">MI</div>
+<span class="text-sm font-medium">Profile</span>
+</button>
+<button class="w-full flex items-center gap-3 px-2 py-3 text-stone-700 hover:bg-stone-50 rounded-xl transition-colors">
+<span class="material-symbols-outlined text-2xl">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</button>
+<div class="my-2 border-t border-stone-100"></div>
+<button class="w-full flex items-center gap-3 px-2 py-3 text-stone-700 hover:bg-stone-50 rounded-xl transition-colors">
+<span class="material-symbols-outlined text-2xl">support</span>
+<span class="text-sm font-medium">Help</span>
+<span class="material-symbols-outlined text-stone-400 text-lg ml-auto">chevron_right</span>
+</button>
+<button class="w-full flex items-center gap-3 px-2 py-3 text-stone-700 hover:bg-stone-50 rounded-xl transition-colors">
+<span class="material-symbols-outlined text-2xl">logout</span>
+<span class="text-sm font-medium">Sign Out</span>
+<span class="material-symbols-outlined text-stone-400 text-lg ml-auto">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Profile Trigger -->
+<div class="flex items-center justify-between bg-stone-100/50 rounded-2xl p-3 cursor-pointer group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">MI</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-stone-900">Miss</span>
+<span class="text-[10px] text-stone-500">Free version</span>
+</div>
+</div>
+<button class="bg-white border border-stone-200 rounded-full px-3 py-1 text-xs font-bold text-stone-900 shadow-sm hover:bg-stone-50">Upgrade</button>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar (Predicted) -->
+<header class="fixed top-0 left-64 right-0 h-16 flex items-center justify-between px-8 z-40 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-xl">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-lg">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-orange-500/20 transition-all outline-none" placeholder="Search case law, workflows, or documents..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-stone-400 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-64 mt-16 flex-1 flex flex-row h-[calc(100vh-64px)]">
+<!-- Conversation View -->
+<section class="flex-1 flex flex-col relative bg-surface">
+<!-- Chat Stream -->
+<div class="flex-1 overflow-y-auto px-8 py-12 space-y-12">
+<!-- User Message -->
+<div class="max-w-3xl mx-auto w-full flex flex-col items-end">
+<div class="bg-surface-container-low px-6 py-4 rounded-2xl rounded-tr-none max-w-[85%] text-on-surface">
+<p class="text-sm leading-relaxed">Can you review the Intellectual Property clause in the attached SaaS agreement and suggest improvements based on current California tech standards? Focus on the IP ownership section.</p>
+</div>
+</div>
+<!-- AI Response -->
+<div class="max-w-4xl mx-auto w-full space-y-6">
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-lg primary-gradient flex-shrink-0 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="flex-1 space-y-8">
+<!-- Reasoning Steps (Collapsible Style) -->
+<div class="bg-surface-container-low/50 rounded-xl p-4 border-l-4 border-orange-500/30">
+<button class="flex items-center gap-2 text-xs font-bold text-orange-700 tracking-wider uppercase font-headline">
+<span class="material-symbols-outlined text-sm">psychology</span>
+                                    Reasoning Process
+                                    <span class="material-symbols-outlined text-sm ml-auto">expand_more</span>
+</button>
+<div class="mt-3 space-y-2 text-xs text-on-surface-variant font-medium">
+<p>• Identified governing law as California per Clause 14.2.</p>
+<p>• Comparing against CA Labor Code § 2870 (Employee/Contractor IP exemptions).</p>
+<p>• Detecting aggressive 'Work Made for Hire' language without proper survival provisions.</p>
+</div>
+</div>
+<!-- Primary Response -->
+<div class="prose prose-sm max-w-none text-on-surface">
+<h3 class="text-lg font-bold font-headline mb-4 tracking-tight">IP Clause Analysis</h3>
+<p class="mb-4">The current draft of Section 8.1 (Intellectual Property) is significantly broader than typical "Silicon Valley Standard" agreements. Specifically, the definition of "Developed Works" lacks a carve-out for pre-existing IP.</p>
+<!-- Code/Text Block -->
+<div class="bg-surface-container-highest rounded-xl overflow-hidden my-6">
+<div class="flex items-center justify-between px-4 py-2 bg-stone-200/50">
+<span class="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Suggested Revision</span>
+<button class="text-stone-400 hover:text-stone-700 transition-colors">
+<span class="material-symbols-outlined text-sm">content_copy</span>
+</button>
+</div>
+<div class="p-5 font-mono text-xs leading-relaxed text-stone-800 bg-stone-50/50">
+<span class="text-stone-400 italic">// Amended Section 8.1 - IP Ownership</span><br/>
+                                        8.1. <span class="bg-orange-500/10 border-b border-orange-500/30">Subject to the provisions of CA Labor Code Section 2870</span>, Provider hereby assigns to Client all right, title and interest in and to all Deliverables developed <span class="bg-orange-500/10 border-b border-orange-500/30">solely in the performance of the Services</span> for Client...
+                                    </div>
+</div>
+<p>This change ensures that your background IP and tools remain protected while the client receives the specific output they paid for.</p>
+</div>
+<!-- Suggestion Chips -->
+<div class="flex flex-wrap gap-2 pt-4">
+<button class="px-3 py-1.5 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant text-xs font-semibold hover:bg-secondary-container transition-colors">Compare with 2024 NVCA models</button>
+<button class="px-3 py-1.5 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant text-xs font-semibold hover:bg-secondary-container transition-colors">Draft Indemnification clause</button>
+<button class="px-3 py-1.5 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant text-xs font-semibold hover:bg-secondary-container transition-colors">Explain CA § 2870</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Minimalist Message Input -->
+<div class="p-8 pt-0">
+<div class="max-w-4xl mx-auto relative">
+<div class="glass-panel rounded-2xl p-2 shadow-2xl shadow-stone-900/5 ring-1 ring-stone-900/5">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-sm py-4 px-4 resize-none min-h-[56px] placeholder:text-stone-400" placeholder="Type your instruction..." rows="1"></textarea>
+<div class="flex items-center justify-between px-4 pb-2">
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-lg text-stone-400 hover:bg-stone-100 transition-colors">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<button class="p-2 rounded-lg text-stone-400 hover:bg-stone-100 transition-colors">
+<span class="material-symbols-outlined">language</span>
+</button>
+<button class="p-2 rounded-lg text-stone-400 hover:bg-stone-100 transition-colors">
+<span class="material-symbols-outlined">database</span>
+</button>
+</div>
+<button class="brand-orange-bg text-white w-10 h-10 rounded-xl flex items-center justify-center hover:scale-[1.02] transition-transform active:scale-95 shadow-lg shadow-orange-500/20" style="background-color: #ec5b14;">
+<span class="material-symbols-outlined">arrow_upward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Active Context Side-Panel -->
+<aside class="w-80 bg-surface-container-low p-6 flex flex-col gap-8">
+<div>
+<h4 class="text-[10px] font-extrabold text-stone-400 uppercase tracking-widest mb-4 font-headline">Active Context</h4>
+<div class="space-y-3">
+<!-- Context Card -->
+<div class="bg-surface-container-lowest p-3 rounded-xl shadow-sm ring-1 ring-stone-900/[0.02] flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-xs font-bold text-on-surface truncate">saas_agreement_v2.pdf</p>
+<p class="text-[10px] text-stone-400">142 KB • PDF Document</p>
+</div>
+<button class="text-stone-300 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+<!-- MCP / Tool Status -->
+<div class="bg-surface-container-lowest p-3 rounded-xl shadow-sm ring-1 ring-stone-900/[0.02] flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined">account_balance</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-xs font-bold text-on-surface truncate">LexisNexis Database</p>
+<p class="text-[10px] text-green-600 flex items-center gap-1">
+<span class="w-1 h-1 rounded-full bg-green-600"></span> Connected
+                            </p>
+</div>
+</div>
+</div>
+</div>
+<div>
+<h4 class="text-[10px] font-extrabold text-stone-400 uppercase tracking-widest mb-4 font-headline">Conversation Meta</h4>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<span class="text-xs text-stone-500">Model</span>
+<span class="text-xs font-bold text-on-surface flex items-center gap-1">
+                            uClaw-4o <span class="material-symbols-outlined text-xs text-orange-500">verified</span>
+</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs text-stone-500">Tokens used</span>
+<span class="text-xs font-mono font-bold text-on-surface">1,402</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs text-stone-500">Legal Review Mode</span>
+<span class="bg-orange-500/10 text-orange-700 px-2 py-0.5 rounded-full text-[10px] font-bold">STRICT</span>
+</div>
+</div>
+</div>
+<div class="mt-auto">
+<div class="relative rounded-2xl overflow-hidden aspect-square group cursor-pointer">
+<img alt="Office View" class="absolute inset-0 w-full h-full object-cover grayscale opacity-20 transition-all duration-700 group-hover:scale-110" data-alt="blurred modern architecture building interior with warm sunlight hitting wood panels and glass" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAr81NID_90Yy5CvYiCWyQuR_y9N_VafML_ttYyYtfSjf9jKr6XGdQbphqaCw1RNRV7cXKmhd7mCGXKD7zFngPrXo_X9rsn5SOJ_Zm33YJYNwgHgqAMynf0rzM6r8fHecJFgX3JfJUo09Gcb_tYo4uzHiM9j8dPiCGm-gia9TTdnFa3LGPxoKpBvdM0OACh_MqUpC0qNufnob3xIDqaVuMh5orjOJfsmCRQRTUQlwwnBkvCyMbhVztwLZqJMRJuxsJODFHj3ECVE40"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+<div class="relative h-full p-4 flex flex-col justify-end">
+<p class="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-1">Weekly Insight</p>
+<p class="text-xs font-medium text-stone-900 leading-snug">New California labor regulations take effect Jan 1, 2025.</p>
+<button class="mt-3 text-[10px] font-bold text-orange-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                            Review Update <span class="material-symbols-outlined text-[10px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</aside>
+</main>
+</body></html>

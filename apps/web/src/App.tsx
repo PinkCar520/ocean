@@ -6,8 +6,8 @@ import {
   Search, 
   Copy, RotateCcw, Check,
   Plus, FileText, X as CloseIcon, Image as ImageIcon,
-  ChevronDown, Cloud, Cpu, Square,
-  Bell as BellIcon, Settings, Database, Activity
+  ChevronDown, Cloud, Cpu, Square, Paperclip, ArrowRight, BadgeCheck,
+  Bell as BellIcon, Settings, Database, Activity, Globe
   } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation, Trans } from 'react-i18next';
@@ -18,8 +18,10 @@ import { BugCard } from './components/BugCard';
 import { Dashboard } from './components/Dashboard';
 import { PipelineCard } from './components/PipelineCard';
 import { TaskPlan } from './components/TaskPlan';
+import { Settings as SettingsView } from './components/Settings';
 import { UIGallery } from './components/UIGallery';
 import { SkillLibrary } from './components/SkillLibrary';
+import { KnowledgeBase } from './components/KnowledgeBase';
 import { NodeMonitor } from './components/NodeMonitor';
 import {
   DropdownMenu,
@@ -56,6 +58,8 @@ function AppContent() {
   const [isDragging, setIsDragging] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
 
   // 对话持久化逻辑
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -250,6 +254,7 @@ const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   if (e.target.files) {
     const files = Array.from(e.target.files);
     setSelectedFiles(prev => [...prev, ...files]);
+    e.target.value = ''; // Fix re-upload bug by clearing value
   }
 };
 
@@ -306,7 +311,16 @@ const onFormSubmit = async (e?: any) => {
   const filesToUpload = [...selectedFiles];
   setSelectedFiles([]);
   try {
-    await sendMessage({ text: val }, { body: { modelId: selectedModelId } });
+    const attachments = filesToUpload.map(f => ({
+      name: f.name,
+      contentType: f.type,
+      url: URL.createObjectURL(f),
+    }));
+    
+    await sendMessage({ text: val }, { 
+      experimental_attachments: attachments,
+      body: { modelId: selectedModelId } 
+    });
   } catch (err) {
     console.error(err);
     setLocalInput(val);
@@ -373,7 +387,7 @@ return (
     />
 
     {/* 2. 主区域 (Fluid Workspace) */}
-    <main className="ml-64 flex-1 flex flex-col relative min-h-screen">
+    <main className="ml-64 flex-1 flex flex-col relative h-screen">
 
       {/* Drag Overlay */}
       <AnimatePresence>
@@ -389,34 +403,7 @@ return (
         )}
       </AnimatePresence>
 
-      {/* Header: Search, Nav Tabs, Icons */}
-      <header className="h-[88px] flex items-center justify-between px-8 bg-[#FCF9F8]/90 backdrop-blur-md sticky top-0 z-40">
-        <div className="flex-1 max-w-2xl">
-          <div className="relative flex items-center w-full bg-white rounded-full px-4 py-2 border border-[#E8E4E2]/50 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-            <Search className="w-4 h-4 text-[#716B67] mr-3" />
-            <input 
-              type="text" 
-              placeholder="Search insights, pipelines or docs..."
-              className="flex-1 bg-transparent border-none text-[#1C1B1B] text-sm focus:outline-none placeholder:text-[#716B67]/70"
-            />
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-10 ml-8">
-          <nav className="flex items-center gap-6 font-semibold text-sm">
-            <button className="text-[#EC5B14] border-b-2 border-[#EC5B14] pb-1 cursor-default">Dashboard</button>
-            <button className="text-[#716B67] hover:text-[#1C1B1B] transition-colors pb-1">Analytics</button>
-          </nav>
-          
-          <div className="flex items-center gap-4 text-[#716B67]">
-            <button className="hover:text-[#1C1B1B] transition-colors"><BellIcon className="w-5 h-5" /></button>
-            <button className="hover:text-[#1C1B1B] transition-colors" onClick={() => setIsSettingsOpen(true)}><Settings className="w-5 h-5" /></button>
-            <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden ml-2 cursor-pointer border border-[#E8E4E2]">
-               <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=WangEr" alt="profile" />
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Header removed as styling is now fully minimalist */}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -474,7 +461,27 @@ return (
                             m.role === 'user' 
                               ? "bg-white border border-[#E8E4E2]/60 text-[#1C1B1B] shadow-[0_4px_20px_rgba(0,0,0,0.02)]" 
                               : "bg-transparent text-[#1C1B1B]"
-                          )}>                          
+                          )}>
+                            {/* Visual Attachment Indicators */}
+                            {m.experimental_attachments && m.experimental_attachments.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mb-3 pb-3 border-b border-[#E8E4E2]/40">
+                                {m.experimental_attachments.map((at: any, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-2 bg-[#F6F3F2] px-3 py-1.5 rounded-xl border border-[#E8E4E2]/60 max-w-[200px]">
+                                    {at.contentType?.startsWith('image/') ? (
+                                      <div className="w-6 h-6 rounded-md bg-white border border-[#E8E4E2] overflow-hidden flex items-center justify-center shrink-0">
+                                        <img src={at.url} alt={at.name} className="w-full h-full object-cover" />
+                                      </div>
+                                    ) : (
+                                      <FileText className="w-4 h-4 text-[#716B67] shrink-0" />
+                                    )}
+                                    <span className="text-[11px] font-bold text-[#1C1B1B] truncate" title={at.name}>
+                                      {at.name}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
                             {Array.isArray(m.parts) ? (
                               m.parts.map((part: any, i: number) => (
                                 <div key={i} className="prose prose-slate prose-sm max-w-none">
@@ -504,48 +511,122 @@ return (
               </div>
             </div>
 
-            {/* Bottom Input Area */}
+             {/* Bottom Input Area */}
             <div className="pt-2 pb-8 px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
-              <div className="max-w-[800px] mx-auto">
-                <div className="relative flex flex-col bg-white border border-[#E8E4E2]/50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] rounded-[24px] p-2 transition-all group focus-within:ring-2 focus-within:ring-[#EC5B14]/20 focus-within:border-[#EC5B14]/40">
-                  <div className="flex items-end">
-                    <button onClick={() => fileInputRef.current?.click()} className="p-3 text-[#716B67] hover:text-[#EC5B14] transition-colors"><ImageIcon className="w-5 h-5 flex-shrink-0" /></button>
-                    <textarea
-                      ref={textAreaRef}
-                      rows={1}
-                      value={localInput}
-                      onChange={(e) => setLocalInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          if (!isLoading) onFormSubmit();
-                        }
-                      }}
-                      placeholder="Type a message or command..."
-                      className="flex-1 bg-transparent border-none text-[#1C1B1B] text-[15px] focus:ring-0 focus:outline-none p-3 resize-none min-h-[48px] max-h-[200px]"
-                    />
+              <div className="max-w-[800px] mx-auto relative">
+                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] ring-1 ring-[#1C1B1B]/5 transition-all focus-within:ring-[#EC5B14]/30 focus-within:shadow-[0_10px_40px_-10px_rgba(236,91,20,0.15)]">
+                  
+                  {/* File Preview Bar */}
+                  <AnimatePresence>
+                    {selectedFiles.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="flex flex-wrap gap-2 px-4 py-2 border-b border-[#E8E4E2]/40 overflow-hidden"
+                      >
+                        {selectedFiles.map((file, idx) => (
+                          <motion.div 
+                            key={`${file.name}-${idx}`}
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            className="flex items-center gap-2 bg-[#F6F3F2] px-3 py-1.5 rounded-xl border border-[#E8E4E2]/60 group transition-all hover:border-[#EC5B14]/30"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-[#716B67]" />
+                            <span className="text-xs font-semibold text-[#1C1B1B] max-w-[120px] truncate">{file.name}</span>
+                            <button 
+                              onClick={() => removeFile(idx)}
+                              className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-white text-[#716B67] hover:text-red-500 transition-colors"
+                            >
+                              <CloseIcon className="w-3 h-3" />
+                            </button>
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <textarea
+                    ref={textAreaRef}
+                    rows={1}
+                    value={localInput}
+                    onChange={(e) => setLocalInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!isLoading) onFormSubmit();
+                      }
+                    }}
+                    placeholder="Type your instruction..." 
+                    className="w-full bg-transparent border-none text-[#1C1B1B] focus:ring-0 text-sm py-4 px-4 resize-none min-h-[56px] max-h-[200px] placeholder:text-[#716B67]/70 focus:outline-none"
+                  />
+                  <div className="flex items-center justify-between px-4 pb-2">
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          onChange={onFileChange} 
+                          className="hidden" 
+                          multiple 
+                        />
+                        <button 
+                          onClick={() => fileInputRef.current?.click()} 
+                          className={cn(
+                            "p-2 rounded-lg transition-colors group relative",
+                            selectedFiles.length > 0 ? "text-[#EC5B14]" : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
+                          )}
+                        >
+                          <Paperclip className="w-5 h-5" />
+                          {selectedFiles.length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-[#EC5B14] text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white">
+                              {selectedFiles.length}
+                            </span>
+                          )}
+                        </button>
+
+                        <button 
+                          onClick={() => setIsSearchMode(!isSearchMode)} 
+                          className={cn(
+                            "p-2 rounded-lg transition-all transform active:scale-95",
+                            isSearchMode 
+                              ? "text-[#EC5B14]" 
+                              : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
+                          )}
+                        >
+                          <Globe className="w-5 h-5" />
+                        </button>
+
+                        <button 
+                          onClick={() => setIsKnowledgeMode(!isKnowledgeMode)} 
+                          className={cn(
+                            "p-2 rounded-lg transition-all transform active:scale-95",
+                            isKnowledgeMode 
+                              ? "text-[#EC5B14]" 
+                              : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
+                          )}
+                        >
+                          <Database className="w-5 h-5" />
+                        </button>
+                      </div>
                     <button 
                       onClick={() => isLoading ? stop() : onFormSubmit()} 
                       disabled={!isLoading && !localInput.trim()} 
                       className={cn(
-                        "m-2 p-2.5 rounded-[12px] transition-all flex-shrink-0",
+                        "text-white w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:shadow-none shadow-lg",
                         isLoading 
-                          ? "bg-[#1C1B1B] text-white" 
-                          : "btn-kinetic disabled:opacity-30 disabled:shadow-none hover:shadow-lg focus:outline-none"
+                          ? "bg-[#1C1B1B] hover:bg-[#1C1B1B]/80 shadow-[#1C1B1B]/20" 
+                          : "bg-gradient-to-br from-[#EC5B14] to-[#cc4900] hover:scale-[1.02] active:scale-95 shadow-[#EC5B14]/30"
                       )}
                     >
-                      {isLoading ? <Square className="w-5 h-5 fill-current" /> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 translate-x-0.5"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>}
+                      {isLoading ? <Square className="w-4 h-4 fill-current" /> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>}
                     </button>
                   </div>
-                </div>
-                <div className="flex items-center justify-center gap-4 mt-4 text-[10px] font-bold text-[#716B67] uppercase tracking-widest">
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div> All systems operational</div>
-                  <div className="flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> AI powered by uClaw Core v3</div>
                 </div>
               </div>
             </div>
           </div>
-        ) : activeTab === 'library' ? (<SkillLibrary />) : activeTab === 'console' ? (<Dashboard />) : (<UIGallery />)}
+        ) : activeTab === 'settings' ? (<SettingsView />) : activeTab === 'library' ? (<SkillLibrary />) : activeTab === 'knowledge' ? (<KnowledgeBase />) : activeTab === 'console' ? (<Dashboard />) : (<UIGallery />)}
         
         {/* Sidebar right Integrations Panel (only in Chat view) */}
         {(activeTab === 'chat' || !activeTab) && (
@@ -593,44 +674,44 @@ return (
               </div>
             </div>
 
-            {/* Contextual Actions */}
+            {/* Conversation Meta */}
             <div>
-              <h4 className="text-[10px] uppercase tracking-widest font-bold text-[#716B67] mb-3">Contextual Actions</h4>
-              <div className="flex flex-wrap gap-2">
-                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Summarize MR #842</button>
-                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Fix Jenkins config</button>
-                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Export Analysis PDF</button>
-                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Sync ZenTao tasks</button>
+              <h4 className="text-[10px] font-extrabold text-[#716B67] uppercase tracking-widest mb-4">Conversation Meta</h4>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#716B67]">Model</span>
+                  <span className="text-xs font-bold text-[#1C1B1B] flex items-center gap-1">
+                    uClaw-4o <BadgeCheck className="w-3 h-3 text-[#EC5B14]" />
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#716B67]">Tokens used</span>
+                  <span className="text-xs font-mono font-bold text-[#1C1B1B]">1,402</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#716B67]">Legal Review Mode</span>
+                  <span className="bg-[#EC5B14]/10 text-[#EC5B14] px-2 py-0.5 rounded-full text-[10px] font-bold">STRICT</span>
+                </div>
               </div>
             </div>
 
-            {/* Real-time Performance */}
-            <div className="card-floating p-5 mt-auto">
-              <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-4 h-4 text-[#EC5B14]" />
-                <h4 className="font-bold text-sm text-[#1C1B1B]">Real-time Performance</h4>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-xs font-semibold text-[#716B67] mb-1.5">
-                    <span>Pipeline Velocity</span>
-                    <span className="text-[#1C1B1B]">12.4m avg</span>
-                  </div>
-                  <div className="w-full bg-[#F6F3F2] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#EC5B14] h-full" style={{ width: '82%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs font-semibold text-[#716B67] mb-1.5">
-                    <span>Merge Conflict Rate</span>
-                    <span className="text-[#1C1B1B]">4.2%</span>
-                  </div>
-                  <div className="w-full bg-[#F6F3F2] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#0066CC] h-full" style={{ width: '15%' }}></div>
-                  </div>
+            {/* Weekly Insight Module */}
+            <div className="mt-auto">
+              <div className="relative rounded-[16px] overflow-hidden aspect-square group cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-[#E8E4E2]/50">
+                <img 
+                  alt="Office View" 
+                  className="absolute inset-0 w-full h-full object-cover grayscale opacity-20 transition-all duration-700 group-hover:scale-110" 
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAr81NID_90Yy5CvYiCWyQuR_y9N_VafML_ttYyYtfSjf9jKr6XGdQbphqaCw1RNRV7cXKmhd7mCGXKD7zFngPrXo_X9rsn5SOJ_Zm33YJYNwgHgqAMynf0rzM6r8fHecJFgX3JfJUo09Gcb_tYo4uzHiM9j8dPiCGm-gia9TTdnFa3LGPxoKpBvdM0OACh_MqUpC0qNufnob3xIDqaVuMh5orjOJfsmCRQRTUQlwwnBkvCyMbhVztwLZqJMRJuxsJODFHj3ECVE40"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#F6F3F2] via-[#F6F3F2]/50 to-transparent"></div>
+                <div className="relative h-full p-5 flex flex-col justify-end">
+                  <p className="text-[10px] font-bold text-[#716B67] uppercase tracking-widest mb-1.5">Weekly Insight</p>
+                  <p className="text-sm font-bold text-[#1C1B1B] leading-snug">New California labor regulations take effect Jan 1, 2025.</p>
+                  <button className="mt-3 text-[11px] font-bold text-[#EC5B14] flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Review Update <ArrowRight className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
-              <p className="text-[10px] text-[#716B67] mt-4">uClaw is monitoring <strong className="text-[#EC5B14]">8 repositories</strong> across your stack.</p>
             </div>
 
           </aside>
@@ -638,7 +719,14 @@ return (
       </div>
 
     </main>
-    <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(true)} />
+    <SettingsModal 
+      isOpen={isSettingsOpen} 
+      onClose={() => setIsSettingsOpen(false)} 
+      onNavigateSettings={() => {
+        setActiveTab('settings');
+        setIsSettingsOpen(false);
+      }}
+    />
   </div>
 );
 }

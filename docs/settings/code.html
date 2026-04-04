@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-container": "#fdfcff",
+                    "tertiary-fixed": "#d1e4ff",
+                    "primary-fixed-dim": "#ffb599",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-secondary-fixed-variant": "#783112",
+                    "tertiary": "#005fa0",
+                    "surface-container": "#f0edec",
+                    "surface-variant": "#e5e2e1",
+                    "on-surface-variant": "#5a4138",
+                    "on-secondary-fixed": "#370e00",
+                    "on-tertiary-fixed": "#001d36",
+                    "on-error": "#ffffff",
+                    "surface": "#fcf9f8",
+                    "on-primary-fixed": "#370e00",
+                    "on-primary-fixed-variant": "#802a00",
+                    "secondary-fixed-dim": "#ffb599",
+                    "secondary": "#964828",
+                    "background": "#fcf9f8",
+                    "surface-dim": "#dcd9d9",
+                    "primary-fixed": "#ffdbce",
+                    "primary": "#a33800",
+                    "on-background": "#1c1b1b",
+                    "secondary-container": "#fd9a73",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed": "#ffdbce",
+                    "on-error-container": "#93000a",
+                    "on-tertiary": "#ffffff",
+                    "surface-bright": "#fcf9f8",
+                    "on-primary-container": "#fffbff",
+                    "inverse-surface": "#313030",
+                    "surface-container-low": "#f6f3f2",
+                    "on-primary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-surface": "#1c1b1b",
+                    "tertiary-container": "#0078c8",
+                    "tertiary-fixed-dim": "#9ecaff",
+                    "error": "#ba1a1a",
+                    "on-secondary-container": "#763011",
+                    "primary-container": "#cc4900",
+                    "inverse-primary": "#ffb599",
+                    "surface-container-high": "#ebe7e7",
+                    "outline-variant": "#e2bfb3",
+                    "surface-tint": "#a73a00",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-tertiary-fixed-variant": "#00497d",
+                    "outline": "#8e7166"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .filled-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        .kinetic-gradient {
+            background: linear-gradient(135deg, #a33800 0%, #cc4900 100%);
+        }
+        .glass-panel {
+            background: rgba(252, 249, 248, 0.8);
+            backdrop-filter: blur(20px);
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-[#f6f3f2] dark:bg-zinc-900 p-4 space-y-2 z-50">
+<div class="flex items-center gap-3 px-3 py-6 mb-4">
+<div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined filled-icon">gavel</span>
+</div>
+<div>
+<h1 class="text-lg font-black tracking-tighter text-zinc-900 dark:text-white leading-none">uClaw</h1>
+<p class="text-[10px] font-medium text-zinc-500 tracking-wider uppercase">Legal Intelligence</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-zinc-500 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-zinc-800/50 hover:text-[#EC5B14] transition-all duration-200 ease-in-out font-manrope text-sm font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-zinc-500 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-zinc-800/50 hover:text-[#EC5B14] transition-all duration-200 ease-in-out font-manrope text-sm font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+                Personalization
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-zinc-500 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-zinc-800/50 hover:text-[#EC5B14] transition-all duration-200 ease-in-out font-manrope text-sm font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+                Profile
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#EC5B14] font-semibold bg-white dark:bg-zinc-800 rounded-lg transition-all duration-200 ease-in-out font-manrope text-sm" href="#">
+<span class="material-symbols-outlined filled-icon" data-icon="settings">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-zinc-500 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-zinc-800/50 hover:text-[#EC5B14] transition-all duration-200 ease-in-out font-manrope text-sm font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+                Help
+            </a>
+</nav>
+<div class="pt-4 border-t border-outline-variant/10">
+<div class="mb-4 px-3">
+<button class="w-full kinetic-gradient text-white py-2 rounded-lg text-sm font-semibold hover:shadow-lg transition-shadow">Upgrade</button>
+</div>
+<!-- Profile Popover Context (IMAGE_8) -->
+<div class="relative group">
+<div class="absolute bottom-16 left-0 w-64 glass-panel rounded-xl shadow-2xl border border-outline-variant/10 p-2 z-[60]">
+<div class="flex items-center gap-3 p-3 border-b border-outline-variant/10">
+<img alt="User Profile" class="w-10 h-10 rounded-full object-cover" data-alt="professional portrait of a man with short hair wearing a navy blue blazer in a brightly lit modern office" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZlDMJk1uJ8EtEfmEntgsXgBcR9mhEFXeDka0ijjlusU7sXkaU6rXBCekriVfEnq20OBpOcL7VNBYxRAhY5ThHGuowd1Ajaeb23aW8GAoGe2P0IIeSYL_A_X6IqmE_d60HEgUQbF89uuuNN8xOhQP5LjOpIoeWChh5LjqECpnBT9vwS5KUzDDuJ1A1DtL3miFpmyxWmfBzBGlr4bZmu5LeM4senixu13MU__wIlEA9yNW_yqWpFTNKixYdPp2-HWEs9rQOgc1RFmI"/>
+<div class="overflow-hidden">
+<p class="text-sm font-bold truncate">Marcus Thorne</p>
+<p class="text-xs text-zinc-500 truncate">Senior Counsel</p>
+</div>
+</div>
+<div class="py-1">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-on-surface hover:bg-surface-container transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-zinc-400">account_circle</span>
+                            View Profile
+                        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-on-surface hover:bg-surface-container transition-colors rounded-lg text-error" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                            Sign Out
+                        </a>
+</div>
+</div>
+<div class="flex items-center gap-3 px-3 py-3 rounded-xl bg-surface-container-high/50 cursor-pointer">
+<img alt="Marcus Thorne" class="w-8 h-8 rounded-full" data-alt="close-up of a professional user's face for an avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcJwZshTNjIhr28ZVgkwg3XyYr-7-yULHP6yve-F2XwkbWIUSI38Mitm7yB_49wGyG2yEzKLC-bxMviHJ5Z5uMIEI8KYfLV5tB_TOBLKVgyA35sh_esSHzcRj1w3exu12CpKf7DvWITAUU144jq1xxvstK_1gWPy35zOLtmQeyAZe0urXhYkwRquP6BIyaOmgUdzUQgLt2Hjr3Gju0sRer2-Dr4a3gn9RoR3Z1vi2yyA8QHDMNvjoJIRLIWQ7zEQTHKrsmP6BteMY"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold truncate">Marcus Thorne</p>
+<p class="text-[10px] text-zinc-500 font-medium">PRO PLAN</p>
+</div>
+<span class="material-symbols-outlined text-zinc-400 text-sm">unfold_more</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 p-8 md:p-12">
+<header class="mb-12 max-w-4xl">
+<h2 class="text-4xl font-extrabold tracking-tight text-on-surface mb-2">Settings</h2>
+<p class="text-on-surface-variant text-lg">Manage your account preferences, integrations, and workspace configuration.</p>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-6xl">
+<!-- Left Column: Navigation/Summary -->
+<div class="lg:col-span-3 space-y-4">
+<div class="flex flex-col space-y-1">
+<button class="flex items-center justify-between px-4 py-3 bg-surface-container-lowest text-primary font-bold rounded-lg text-left transition-all">
+                        General
+                        <span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+<button class="flex items-center justify-between px-4 py-3 text-on-surface-variant hover:bg-surface-container transition-all rounded-lg text-left">
+                        Profile
+                    </button>
+<button class="flex items-center justify-between px-4 py-3 text-on-surface-variant hover:bg-surface-container transition-all rounded-lg text-left">
+                        API Keys
+                    </button>
+<button class="flex items-center justify-between px-4 py-3 text-on-surface-variant hover:bg-surface-container transition-all rounded-lg text-left">
+                        Billing
+                    </button>
+</div>
+</div>
+<!-- Right Column: Bento Grid Settings -->
+<div class="lg:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- General Settings Card -->
+<section class="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl space-y-6">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary">display_settings</span>
+<h3 class="text-xl font-bold tracking-tight">General Preferences</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">App Theme</label>
+<div class="flex gap-2 p-1 bg-surface-container rounded-xl">
+<button class="flex-1 flex items-center justify-center gap-2 py-2 bg-white rounded-lg shadow-sm font-semibold text-sm">
+<span class="material-symbols-outlined text-sm">light_mode</span> Light
+                                    </button>
+<button class="flex-1 flex items-center justify-center gap-2 py-2 text-on-surface-variant font-medium text-sm">
+<span class="material-symbols-outlined text-sm">dark_mode</span> Dark
+                                    </button>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Language</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-high border-none rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20">
+<option>English (US)</option>
+<option>German (Deutsch)</option>
+<option>French (Français)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-3 pointer-events-none text-zinc-400">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Profile Card -->
+<section class="bg-surface-container-lowest p-8 rounded-xl space-y-6">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary">person</span>
+<h3 class="text-xl font-bold tracking-tight">Profile Details</h3>
+</div>
+<div class="space-y-4">
+<div class="relative">
+<img alt="Current Avatar" class="w-16 h-16 rounded-full" data-alt="close up of a professional male headshot in bright office light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwJTcCWf0zETWcDJGVSqO7Y1spNWTec4l9rs6I64_RPx-kwsJWDjAFjWvwsldg12viUL4yZiMYVewFCjz-KP8X0G73uYVPj-_JTotHE2DdPq0hp1Dd4NiFsgermAbOcf5VzFLCZe6h_YfbzFoOsmaeoYqtPCbM75pn5imNfvTtWbvK7cBcgCavKkY3VeT-EhbvNZlhEj-10_q3Tc7Nu7cHgYmyAzCALbGTN5avHovCGeJvxcf-zYPccvms0fXSz8abizti3ECNTTo"/>
+<button class="absolute bottom-0 left-12 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-[10px] shadow-lg">
+<span class="material-symbols-outlined text-xs">edit</span>
+</button>
+</div>
+<div>
+<label class="block text-xs font-bold text-zinc-400 mb-1">Full Name</label>
+<input class="w-full bg-surface-container border-none rounded-lg px-4 py-2 text-sm" type="text" value="Marcus Thorne"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-zinc-400 mb-1">Email Address</label>
+<input class="w-full bg-surface-container border-none rounded-lg px-4 py-2 text-sm" type="email" value="m.thorne@uclaw.ai"/>
+</div>
+<button class="text-primary text-xs font-bold hover:underline">Change Password</button>
+</div>
+</section>
+<!-- Billing Card -->
+<section class="bg-surface-container-lowest p-8 rounded-xl space-y-6">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary">payments</span>
+<h3 class="text-xl font-bold tracking-tight">Subscription</h3>
+</div>
+<div class="p-4 bg-primary/5 rounded-xl border border-primary/10">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-primary font-bold">Pro Enterprise</p>
+<p class="text-xs text-on-surface-variant">$49/month • Billed Monthly</p>
+</div>
+<span class="bg-primary text-white text-[10px] px-2 py-0.5 rounded-full font-bold">ACTIVE</span>
+</div>
+<div class="w-full bg-surface-container-high h-1 rounded-full overflow-hidden mb-2">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant font-medium">650 / 1,000 queries used this month</p>
+</div>
+<button class="w-full py-2 border border-outline-variant rounded-lg text-sm font-semibold hover:bg-surface-container transition-colors">Manage Billing</button>
+</section>
+<!-- API Keys Card -->
+<section class="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">key</span>
+<h3 class="text-xl font-bold tracking-tight">API &amp; Integrations</h3>
+</div>
+<button class="text-primary text-sm font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span> New Integration
+                        </button>
+</div>
+<div class="space-y-4">
+<!-- API Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[#FC6D26]">developer_board</span>
+</div>
+<div>
+<p class="text-sm font-bold">GitLab Integration</p>
+<p class="text-xs text-on-surface-variant">Last used 2 hours ago</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<code class="bg-surface-container px-3 py-1 rounded text-[10px] font-mono text-zinc-600">••••••••••••4f2a</code>
+<button class="text-zinc-400 hover:text-primary"><span class="material-symbols-outlined text-sm">more_vert</span></button>
+</div>
+</div>
+<!-- API Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[#00AEEF]">rocket_launch</span>
+</div>
+<div>
+<p class="text-sm font-bold">ZenTao Intelligence</p>
+<p class="text-xs text-on-surface-variant">Connected since Feb 2024</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<code class="bg-surface-container px-3 py-1 rounded text-[10px] font-mono text-zinc-600">••••••••••••92k1</code>
+<button class="text-zinc-400 hover:text-primary"><span class="material-symbols-outlined text-sm">more_vert</span></button>
+</div>
+</div>
+</div>
+</section>
+<!-- Security Quick Actions -->
+<section class="md:col-span-2 flex flex-wrap gap-4 items-center justify-center pt-8 border-t border-outline-variant/10">
+<button class="px-6 py-2 rounded-full text-xs font-bold text-error border border-error/20 hover:bg-error/5 transition-colors uppercase tracking-widest">Delete Workspace</button>
+<button class="px-6 py-2 rounded-full text-xs font-bold text-on-surface-variant border border-outline-variant hover:bg-surface-container-high transition-colors uppercase tracking-widest">Download Data Export</button>
+<div class="flex-grow"></div>
+<button class="kinetic-gradient px-8 py-3 rounded-xl text-sm font-bold text-white shadow-xl shadow-primary/20">Save All Changes</button>
+</section>
+</div>
+</div>
+</main>
+<!-- Mobile Bottom Navigation (Destination Rule) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 glass-panel border-t border-outline-variant/10 px-6 py-3 flex justify-between items-center z-50">
+<button class="flex flex-col items-center gap-1 text-zinc-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px]">Dashboard</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-zinc-400">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px]">Profile</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined filled-icon">settings</span>
+<span class="text-[10px] font-bold">Settings</span>
+</button>
+</nav>
+</body></html>
