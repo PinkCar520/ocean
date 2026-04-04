@@ -17,6 +17,7 @@ model User {
   email       String?
   avatar      String?
   department  String?
+  password    String? // Hashed password for local authentication
 
   // 关联信息
   preferences UserPreference?

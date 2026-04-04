@@ -18,7 +18,7 @@ import { BugCard } from './components/BugCard';
 import { Dashboard } from './components/Dashboard';
 import { PipelineCard } from './components/PipelineCard';
 import { TaskPlan } from './components/TaskPlan';
-import { Settings as SettingsView } from './components/Settings';
+import { UserCenter } from './components/UserCenter';
 import { UIGallery } from './components/UIGallery';
 import { SkillLibrary } from './components/SkillLibrary';
 import { KnowledgeBase } from './components/KnowledgeBase';
@@ -34,6 +34,7 @@ import {
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { CommandMenu } from './components/CommandMenu';
+import { AuthPage } from './components/AuthPage';
 
 interface Conversation {
   id: string;
@@ -62,37 +63,146 @@ function AppContent() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<{ name: string; contentType: string; url: string } | null>(null);
+  
+  // ── Global Authentication & Identity State ──
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('uclaw_auth_token'));
+  const [user, setUser] = useState<any>(null);
+
+  const handleLoginSuccess = (newToken: string, userData: any) => {
+    localStorage.setItem('uclaw_auth_token', newToken);
+    localStorage.setItem('uclaw_user_id', userData.workId);
+    setToken(newToken);
+    setUser(userData);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('uclaw_auth_token');
+    localStorage.removeItem('uclaw_user_id');
+    setToken(null);
+    setUser(null);
+    navigate('/');
+  };
+
+  // --- IndexedDB Storage Helper ---
+  const idb = {
+    db: null as IDBDatabase | null,
+    async getDb() {
+      if (this.db) return this.db;
+      return new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('uclaw_db', 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains('chats')) {
+            request.result.createObjectStore('chats');
+          }
+        };
+        request.onsuccess = () => {
+          this.db = request.result;
+          resolve(request.result);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    },
+    async get(key: string): Promise<any> {
+      try {
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('chats', 'readonly');
+          const store = tx.objectStore('chats');
+          const request = store.get(key);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      } catch (e) {
+        return null;
+      }
+    },
+    async set(key: string, val: any): Promise<void> {
+      try {
+        const db = await this.getDb();
+        return new Promise<void>((resolve, reject) => {
+          const tx = db.transaction('chats', 'readwrite');
+          const store = tx.objectStore('chats');
+          const request = store.put(val, key);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      } catch (e) {
+        console.error('IDB Set Error:', e);
+      }
+    }
+  };
 
   // 对话持久化逻辑
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
 
-  // 1. 初始化加载历史
+  // 1. 初始化加载历史 (含 LocalStorage 迁移)
   useEffect(() => {
-    const saved = localStorage.getItem('uclaw_chats');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setConversations(parsed);
+    const initStorage = async () => {
+      // 检查迁移
+      const legacy = localStorage.getItem('uclaw_chats');
+      let initialData: Conversation[] = [];
+      
+      if (legacy) {
+        try {
+          initialData = JSON.parse(legacy);
+          await idb.set('uclaw_chats', initialData);
+          localStorage.removeItem('uclaw_chats');
+          console.log('Migrated legacy chats to IndexedDB');
+        } catch (e) {
+          console.error('Migration failed:', e);
+        }
+      } else {
+        const saved = await idb.get('uclaw_chats');
+        if (saved) initialData = saved;
+      }
 
-        // 如果当前 URL 有 ID，尝试恢复对话
-        const match = pathname.match(/\/chat\/(.+)/);
-        const chatIdFromUrl = match ? match[1] : null;
-        if (chatIdFromUrl) {
-          const chat = parsed.find((c: any) => c.id === chatIdFromUrl);
-          if (chat) {
-            setMessages(chat.messages);
-            setCurrentChatId(chat.id);
+      setConversations(initialData);
+
+      if (!token) return;
+
+      // Fetch User Center assets from backend
+      try {
+        const res = await fetch('/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'x-user-id': localStorage.getItem('uclaw_user_id') || ''
           }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setUser(data.profile);
+        } else if (res.status === 401) {
+          handleLogout();
         }
       } catch (e) {
-        console.error('Failed to load history:', e);
+        console.error('Core user sync failed');
       }
-    }
+
+      // 如果当前 URL 有 ID，尝试恢复对话
+      const match = pathname.match(/\/chat\/(.+)/);
+      const chatIdFromUrl = match ? match[1] : null;
+      if (chatIdFromUrl) {
+        const chat = initialData.find((c: any) => c.id === chatIdFromUrl);
+        if (chat) {
+          setMessages(chat.messages);
+          setCurrentChatId(chat.id);
+        }
+      }
+    };
+
+    initStorage();
   }, []);
 
-  // 2. 监听 URL 变化，同步消息列表 (处理点击侧边栏或浏览器后退)
+  // 1b. 监听 conversations 变化并同步到 IndexedDB
+  useEffect(() => {
+    if (conversations.length > 0) {
+      idb.set('uclaw_chats', conversations);
+    }
+  }, [conversations]);
+
+  // 2. 监听 URL 变化，同步消息列表
   useEffect(() => {
     const match = pathname.match(/\/chat\/(.+)/);
     const chatIdFromUrl = match ? match[1] : null;
@@ -104,51 +214,49 @@ function AppContent() {
         setCurrentChatId(chat.id);
       }
     } else if (!chatIdFromUrl && pathname === '/' && currentChatId !== null) {
-      // 回到首页，清空当前对话
       setMessages([]);
       setCurrentChatId(null);
     }
   }, [pathname, conversations]);
 
-  // 3. 消息更新时同步到 LocalStorage 并更新 URL
+  // 3. 消息更新时同步到 IndexedDB 并更新 URL
   useEffect(() => {
     if (messages.length === 0) return;
-    const id = currentChatId || `chat_${Date.now()}`;
+    
+    const syncToIdb = async () => {
+      const id = currentChatId || `chat_${Date.now()}`;
 
-    // 如果是新对话产生的第一个 ID，更新 URL
-    if (!currentChatId) {
-      setCurrentChatId(id);
-      navigate(`/chat/${id}`, { replace: true });
-    }
+      if (!currentChatId) {
+        setCurrentChatId(id);
+        navigate(`/chat/${id}`, { replace: true });
+      }
 
-    setConversations(prev => {
-      const idx = prev.findIndex(c => c.id === id);
-      const existing = prev[idx];
+      const prevConversations = await idb.get('uclaw_chats') || [];
+      const idx = prevConversations.findIndex((c: any) => c.id === id);
+      const existing = prevConversations[idx];
 
       const firstMsg = messages.find((m: any) => m.role === 'user')?.content || 'New Conversation';
       const defaultTitle = firstMsg.slice(0, 25) + (firstMsg.length > 25 ? '...' : '');
       const title = existing ? existing.title : defaultTitle;
 
-      // 只有当消息数量增加时才更新时间戳，点击切换对话不应改变顺序
       const shouldUpdateTimestamp = !existing || messages.length > (existing.messages?.length || 0);
       const timestamp = shouldUpdateTimestamp ? Date.now() : (existing?.timestamp || Date.now());
 
-      const updated = { id, title, messages, timestamp: timestamp, favorited: existing?.favorited };
+      const updated = { id, title, messages, timestamp, favorited: existing?.favorited };
 
       let newList;
       if (idx > -1) {
-        // 如果内容没变且不需要更新时间戳，直接返回以避免不必要的 re-render
-        if (!shouldUpdateTimestamp && existing.title === title && existing.messages === messages && existing.favorited === updated.favorited) {
-          return prev;
-        }
-        newList = [...prev];
+        newList = [...prevConversations];
         newList[idx] = updated;
       } else {
-        newList = [updated, ...prev];
+        newList = [updated, ...prevConversations];
       }
-      localStorage.setItem('uclaw_chats', JSON.stringify(newList));
-      return newList;
-    });
+
+      await idb.set('uclaw_chats', newList);
+      setConversations(newList);
+    };
+
+    syncToIdb();
   }, [messages]);
 
   const handleNewChat = () => {
@@ -159,30 +267,18 @@ function AppContent() {
   };
 
   const handleRenameChat = (id: string, newTitle: string) => {
-    setConversations(prev => {
-      const newList = prev.map(c => c.id === id ? { ...c, title: newTitle } : c);
-      localStorage.setItem('uclaw_chats', JSON.stringify(newList));
-      return newList;
-    });
+    setConversations(prev => prev.map(c => c.id === id ? { ...c, title: newTitle } : c));
   };
 
   const handleDeleteChat = (id: string) => {
-    setConversations(prev => {
-      const newList = prev.filter(c => c.id !== id);
-      localStorage.setItem('uclaw_chats', JSON.stringify(newList));
-      return newList;
-    });
+    setConversations(prev => prev.filter(c => c.id !== id));
     if (currentChatId === id) {
       handleNewChat();
     }
   };
 
   const handleFavoriteChat = (id: string, favorited: boolean) => {
-    setConversations(prev => {
-      const newList = prev.map(c => c.id === id ? { ...c, favorited } : c);
-      localStorage.setItem('uclaw_chats', JSON.stringify(newList));
-      return newList;
-    });
+    setConversations(prev => prev.map(c => c.id === id ? { ...c, favorited } : c));
   };
 
   const loadConversation = (id: string) => {
@@ -205,7 +301,7 @@ function AppContent() {
       try {
         const res = await fetch('/api/chat/models', {
           headers: {
-            'Authorization': localStorage.getItem('uclaw_sso_token') || '',
+            'Authorization': token ? `Bearer ${token}` : '',
             'X-User-Id': localStorage.getItem('uclaw_user_id') || ''
           }
         });
@@ -237,8 +333,8 @@ function AppContent() {
         console.error('Failed to fetch models:', err);
       }
     };
-    fetchModels();
-  }, []);
+    if (token) fetchModels();
+  }, [token]);
 
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: Sparkles, color: 'text-slate-400' };
 
@@ -416,13 +512,23 @@ function AppContent() {
 
   const activeDisplayName = beautifyModelName(activeModel.name);
 
+  if (!token) {
+    return <AuthPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
-    <div className="min-h-screen bg-[#FCF9F8] text-[#1C1B1B] font-sans selection:bg-[#EC5B14]/20" onDragOver={handleDragOver}>
+    <div className="flex h-screen w-full bg-[#f6f3f2] font-sans selection:bg-[#EC5B14]/10 selection:text-[#EC5B14]" onDragOver={handleDragOver}>
       {/* 1. 侧边栏 (Fixed App Shell) */}
       <Sidebar
         activeMainTab={activeTab}
-        onMainTabChange={setActiveTab}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onMainTabChange={(id) => {
+          setActiveTab(id);
+          setMessages([]);
+          setCurrentChatId(null);
+        }}
+        onOpenSettings={() => {
+          setIsSettingsOpen(true);
+        }}
         onNewChat={handleNewChat}
         conversations={conversations}
         currentChatId={currentChatId}
@@ -430,8 +536,9 @@ function AppContent() {
         onRenameConversation={handleRenameChat}
         onDeleteConversation={handleDeleteChat}
         onFavoriteConversation={handleFavoriteChat}
-      />
-      {/* 2. 主区域 (Fluid Workspace) */}
+        user={user}
+        onLogout={handleLogout}
+      />{/* 2. 主区域 (Fluid Workspace) */}
       <main className="ml-64 flex-1 flex flex-col relative h-screen">
         {/* Drag Overlay */}
         <AnimatePresence>
@@ -713,7 +820,17 @@ function AppContent() {
                 </div>
               </div>
             </div>
-          ) : activeTab === 'settings' ? (<SettingsView />) : activeTab === 'library' ? (<SkillLibrary />) : activeTab === 'knowledge' ? (<KnowledgeBase />) : activeTab === 'console' ? (<Dashboard />) : (<UIGallery />)}
+          ) : activeTab === 'settings' ? (
+            <UserCenter />
+          ) : activeTab === 'library' ? (
+            <SkillLibrary />
+          ) : activeTab === 'knowledge' ? (
+            <KnowledgeBase />
+          ) : activeTab === 'console' ? (
+            <Dashboard />
+          ) : (
+            <UIGallery />
+          )}
 
           {/* Sidebar right: File Preview Panel OR Integrations Panel */}
           {(activeTab === 'chat' || !activeTab) && (
