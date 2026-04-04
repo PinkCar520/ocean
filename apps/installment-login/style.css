@@ -1,0 +1,465 @@
+/* 全局重置与变量 */
+:root {
+    --primary-red: #dd363b;
+    --dark-red: #b3000e;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-hint: #999999;
+    --bg-white: #ffffff;
+    --border-color: #f0f0f0;
+    --safe-area-bottom: env(safe-area-inset-bottom);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    max-width: 450px;
+}
+
+body {
+    /* 使用固定高度（320px）的红色渐变，其余部分统一为浅灰色 */
+    background-color: #f7f8fa;
+    background-image: linear-gradient(to bottom, #d61920 0%, #d61920 320px, #f7f8fa 500px);
+    background-repeat: no-repeat;
+    background-attachment: scroll;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+}
+
+/* 背景纹理 - 固定在顶部红区，不随页面拉伸 */
+.hex-pattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 400px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="208" viewBox="0 0 120 208"><path d="M60 0L120 34.64v69.28L60 138.56 0 103.92V34.64L60 0z" fill="white" fill-opacity="0.1" /></svg>');
+    background-repeat: repeat;
+    z-index: 0;
+    background-size: 100px;
+    opacity: 0.5;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to bottom, black 300px, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 300px, transparent 100%);
+}
+
+/* 状态栏模拟 */
+.status-bar {
+    height: 44px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 12px;
+    color: #fff;
+    position: relative;
+    z-index: 10;
+}
+
+.status-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.signal-dots {
+    display: flex;
+    gap: 2px;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.4);
+}
+
+.dot.active {
+    background-color: #fff;
+}
+
+.battery-icon {
+    width: 22px;
+    height: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 2px;
+    position: relative;
+    margin-left: 4px;
+}
+
+.battery-body {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    bottom: 1px;
+    right: 3px;
+    background-color: #fff;
+}
+
+.battery-tip {
+    width: 2px;
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.6);
+    position: absolute;
+    right: -4px;
+    top: 2px;
+}
+
+/* 内容区域 */
+.content {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px;
+}
+
+.brand-header {
+    padding: 20px 0 30px;
+    color: #fff;
+}
+
+.brand-name {
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.brand-sub {
+    font-size: 15px;
+    opacity: 0.9;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+}
+
+/* 卡片通用样式 */
+.card {
+    background: #fff;
+    border-radius: 6px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* 额度卡片 */
+.limit-card {
+    position: relative;
+}
+
+.card-top-bar {
+    height: 60px;
+    background: #cb161d;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+}
+
+.bank-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logo-text-box {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255, 255, 255, 0.5);
+    padding-right: 8px;
+}
+
+.logo-english {
+    color: #fff;
+    font-size: 8px;
+    transform: scale(0.85);
+    transform-origin: left;
+    opacity: 0.8;
+}
+
+.logo-text-type {
+    display: flex;
+    flex-direction: column;
+    padding-left: 8px;
+}
+
+.logo-circle {
+    width: 32px;
+    height: 32px;
+    background: #fff;
+    color: #cb161d;
+    border-radius: 50%;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+}
+
+.logo-text {
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 1px;
+}
+
+.card-body {
+    padding: 35px 16px;
+    text-align: center;
+}
+
+.limit-label {
+    font-size: 15px;
+    color: #666;
+    margin-bottom: 12px;
+    font-weight: 400;
+}
+
+.limit-value {
+    font-size: 54px;
+    font-weight: 550;
+    color: #333;
+    letter-spacing: -2px;
+    line-height: 1;
+}
+
+.limit-hint {
+    font-size: 14px;
+    color: #999;
+    margin-top: 16px;
+}
+
+/* 认证表单卡片 */
+.auth-card {
+    padding: 20px 16px;
+}
+
+.auth-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.auth-sub {
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 24px;
+}
+
+.form-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.form-item:last-child,
+.form-item.no-border {
+    border-bottom: none;
+}
+
+.form-item label {
+    font-size: 15px;
+    color: #333;
+}
+
+.form-input {
+    border: none;
+    outline: none;
+    text-align: right;
+    font-size: 15px;
+    width: 60%;
+    color: #333;
+}
+
+.form-input::placeholder {
+    color: #ddd;
+}
+
+.item-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.item-value {
+    font-size: 15px;
+    color: #333;
+}
+
+.sms-group {
+    display: flex;
+    align-items: center;
+    width: 65%;
+}
+
+.sms-input {
+    width: 50%;
+    text-align: left;
+    margin-right: 8px;
+}
+
+.divider {
+    width: 1px;
+    height: 18px;
+    background-color: #eee;
+    margin-right: 12px;
+}
+
+.get-code-btn {
+    border: none;
+    background: none;
+    color: var(--primary-red);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* 底部温馨提示 */
+.bottom-tip {
+    font-size: 12px;
+    /* color: rgba(255, 255, 255, 0.7); */
+    padding: 0 10px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+/* 粘性底部操作 */
+.action-footer {
+    padding: 10px;
+}
+
+.submit-btn {
+    width: 100%;
+    height: 50px;
+    background-color: var(--primary-red);
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.submit-btn:active {
+    opacity: 0.9;
+    transform: scale(0.99);
+}
+
+/* 选择面板模拟 */
+.picker-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.picker-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: var(--safe-area-bottom);
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+.picker-header {
+    height: 56px;
+    padding: 0 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.picker-title {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.picker-cancel,
+.picker-confirm {
+    border: none;
+    background: none;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.picker-cancel {
+    color: #999;
+}
+
+.picker-confirm {
+    color: var(--primary-red);
+    font-weight: 600;
+}
+
+.picker-body {
+    padding: 16px 0;
+}
+
+.picker-option {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #333;
+}
+
+.picker-option.active {
+    background-color: #fff8f8;
+    color: var(--primary-red);
+    font-weight: 600;
+}
+
+/* 交互反馈 */
+.ripple:active {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+@media (max-width: 375px) {
+    .limit-value {
+        font-size: 40px;
+    }
+
+    .brand-name {
+        font-size: 24px;
+    }
+}
+
+.status-right {
+    display: flex;
+    align-items: center;
+}

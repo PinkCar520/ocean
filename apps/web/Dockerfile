@@ -9,10 +9,10 @@ ENV PATH="$PNPM_HOME:$PATH"
 # 拷贝根配置
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web/package.json apps/web/
-COPY packages/channel-im/package.json packages/channel-im/
-COPY packages/mcp-zentao/package.json packages/mcp-zentao/
-COPY packages/shared-types/package.json packages/shared-types/
-COPY packages/tools-zentao/package.json packages/tools-zentao/
+COPY agent/mcp/mcp-im/package.json agent/mcp/mcp-im/
+COPY agent/mcp/mcp-zentao/package.json agent/mcp/mcp-zentao/
+COPY packages/shared/core/package.json packages/shared/core/
+COPY packages/tools/zentao/package.json packages/tools/zentao/
 
 # 安装全量依赖 (使用构建缓存加速)
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
@@ -21,7 +21,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 
 # 编译前端
-RUN pnpm --filter @uclaw/types build
+RUN pnpm --filter @uclaw/core build
 RUN pnpm --filter web build
 
 # 第二阶段：生产运行

@@ -8,7 +8,7 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import { io } from 'socket.io-client';
 import { ZentaoTool } from '@uclaw/tools-zentao';
-import { RPCMessage } from '@uclaw/types';
+import { RPCMessage } from '@uclaw/core';
 import * as dotenv from 'dotenv';
 
 // 加载环境变量：支持读取 monorepo 根目录或 gateway 目录下的 .env

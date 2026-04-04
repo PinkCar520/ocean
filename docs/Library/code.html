@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#783112",
+                        "primary-fixed-dim": "#ffb599",
+                        "on-tertiary-container": "#fdfcff",
+                        "surface": "#fcf9f8",
+                        "tertiary-fixed-dim": "#9ecaff",
+                        "primary-fixed": "#ffdbce",
+                        "on-tertiary": "#ffffff",
+                        "background": "#fcf9f8",
+                        "outline": "#8e7166",
+                        "on-tertiary-fixed": "#001d36",
+                        "surface-container": "#f0edec",
+                        "secondary-container": "#fd9a73",
+                        "secondary": "#964828",
+                        "on-surface-variant": "#5a4138",
+                        "surface-container-low": "#f6f3f2",
+                        "on-primary-fixed-variant": "#802a00",
+                        "on-primary-fixed": "#370e00",
+                        "on-background": "#1c1b1b",
+                        "tertiary": "#005fa0",
+                        "error": "#ba1a1a",
+                        "inverse-surface": "#313030",
+                        "surface-container-high": "#ebe7e7",
+                        "on-tertiary-fixed-variant": "#00497d",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#ffb599",
+                        "surface-bright": "#fcf9f8",
+                        "on-error": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "primary-container": "#cc4900",
+                        "surface-container-highest": "#e5e2e1",
+                        "surface-dim": "#dcd9d9",
+                        "on-surface": "#1c1b1b",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed": "#d1e4ff",
+                        "tertiary-container": "#0078c8",
+                        "outline-variant": "#e2bfb3",
+                        "on-secondary-container": "#763011",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#ffdbce",
+                        "inverse-on-surface": "#f3f0ef",
+                        "primary": "#a33800",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#a73a00",
+                        "secondary-fixed-dim": "#ffb599",
+                        "surface-variant": "#e5e2e1",
+                        "on-secondary-fixed": "#370e00",
+                        "on-primary-container": "#fffbff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .btn-primary-gradient {
+            background: linear-gradient(135deg, #a33800 0%, #cc4900 100%);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface selection:bg-primary-fixed selection:text-primary">
+<!-- SideNavBar Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-stone-50 dark:bg-stone-900 font-manrope tracking-tight text-sm font-medium z-50 overflow-hidden">
+<div class="flex flex-col h-full py-6 px-4">
+<!-- Brand Header -->
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-lg" data-icon="terminal">terminal</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tighter text-stone-900 dark:text-stone-50 leading-none">uClaw</h1>
+<p class="text-[10px] text-stone-400 uppercase tracking-widest mt-1">Enterprise AI</p>
+</div>
+</div>
+<!-- Navigation Main Tabs -->
+<nav class="space-y-1 flex-grow">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-stone-500 hover:bg-stone-200/50 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="add_box">add_box</span>
+<span>New Chat</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-orange-600 dark:text-orange-500 font-bold border-r-2 border-orange-600 bg-stone-100 dark:bg-stone-800/50 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="folder_open">folder_open</span>
+<span>Library</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-stone-500 hover:bg-stone-200/50 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_tree">account_tree</span>
+<span>Workflows</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-stone-500 hover:bg-stone-200/50 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="menu_book">menu_book</span>
+<span>Knowledge</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-stone-500 hover:bg-stone-200/50 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="terminal">terminal</span>
+<span>Console</span>
+</a>
+</nav>
+<!-- Footer Pinned User Profile -->
+<div class="mt-auto border-t border-stone-200/50 pt-6 space-y-1">
+<div class="flex items-center gap-3 px-3 py-3 mb-4 rounded-xl bg-surface-container-highest">
+<img alt="uClaw Logo" class="w-8 h-8 rounded-full border-2 border-surface-container-lowest" data-alt="professional headshot of a developer in a modern office setting with soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0oS2KtsdNSGQoheV6v31oxAq-NhwZzQ47xg8__EJhv8OqGKGnZL3wep9OPHmM8x2Ik6mpZYLUp_nlIoldi6DXVNzDnTDsq10ls1jkUj-t_evdmGKwkn_t5xfFRgHK6-mmcStkVS-zdI45IF3rmBL3mH9KmAB8N9AvKqU-Dv45N0-NNrOIrD2ZlsGh9MmfkPMjEPcNRAJQVNa20KRYE9eY-Svv7Taq6vVmmqM9HxckuxqA9UWUSYJjawCeP6JhTrR_2ym5Y9kmaeo"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">Alex Rivera</p>
+<p class="text-[10px] text-stone-400 truncate">Enterprise Admin</p>
+</div>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-stone-500 hover:bg-stone-200/50 transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_circle">account_circle</span>
+<span>Profile</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-stone-500 hover:bg-stone-200/50 transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span>Quick Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-stone-500 hover:bg-stone-200/50 transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+<span>Sign Out</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full z-40 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md flex items-center justify-between h-16 px-8 no-border tonal-shift font-manrope text-sm">
+<div class="flex items-center flex-1 max-w-2xl">
+<div class="relative w-full group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-primary transition-colors" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-orange-500/20 transition-all placeholder:text-stone-400" placeholder="Search Skill &amp; MCP Library..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4 ml-8">
+<button class="p-2 text-stone-400 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+<button class="ml-2 btn-primary-gradient px-4 py-2 rounded-lg text-on-primary font-semibold flex items-center gap-2 text-xs">
+<span class="material-symbols-outlined text-sm" data-icon="publish">publish</span>
+                    Submit Skill
+                </button>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-10 max-w-7xl mx-auto w-full">
+<!-- Hero / Title Section -->
+<section class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="font-headline text-4xl font-extrabold tracking-tight text-on-surface mb-3">Skill &amp; MCP Library <span class="text-primary-container">v3</span></h2>
+<p class="text-on-surface-variant max-w-xl text-lg leading-relaxed">
+                        Extend uClaw's intelligence with curated Model Context Protocol connectors and specialized agent skills for your enterprise ecosystem.
+                    </p>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-full text-xs font-semibold">124 Total Skills</span>
+<span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-xs font-semibold">12 New This Week</span>
+</div>
+</section>
+<!-- Filters Bar -->
+<div class="flex flex-wrap items-center gap-3 mb-10 overflow-x-auto pb-2">
+<button class="px-5 py-2 rounded-full bg-primary text-on-primary text-sm font-medium">All Extensions</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant text-sm font-medium transition-colors">Project Management</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant text-sm font-medium transition-colors">CI/CD Tools</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant text-sm font-medium transition-colors">Version Control</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant text-sm font-medium transition-colors">Communication</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant text-sm font-medium transition-colors">Data Science</button>
+</div>
+<!-- Bento Grid Marketplace -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+<!-- Card 1: ZenTao PM -->
+<div class="group bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:shadow-2xl hover:shadow-orange-500/5 transition-all flex flex-col">
+<div class="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="task_alt">task_alt</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-lg mb-2 group-hover:text-primary transition-colors">ZenTao PM Integration</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed mb-6">Sync uClaw tasks directly with ZenTao projects. Automate sprint planning and bug tracking via natural language.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-[10px] font-bold uppercase tracking-widest text-stone-400">MCP Connector</span>
+<button class="text-primary hover:bg-primary-fixed px-3 py-1 rounded-lg transition-colors text-xs font-bold">Install</button>
+</div>
+</div>
+<!-- Card 2: Jenkins CI/CD -->
+<div class="group bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:shadow-2xl hover:shadow-orange-500/5 transition-all flex flex-col">
+<div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-blue-600 text-2xl" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-lg mb-2 group-hover:text-primary transition-colors">Jenkins CI/CD</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed mb-6">Monitor pipelines, trigger builds, and analyze build logs directly within your chat session.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-[10px] font-bold uppercase tracking-widest text-stone-400">Skillset</span>
+<button class="text-primary hover:bg-primary-fixed px-3 py-1 rounded-lg transition-colors text-xs font-bold">Install</button>
+</div>
+</div>
+<!-- Card 3: GitLab Repo -->
+<div class="group bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:shadow-2xl hover:shadow-orange-500/5 transition-all flex flex-col">
+<div class="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-red-500 text-2xl" data-icon="account_tree">account_tree</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-lg mb-2 group-hover:text-primary transition-colors">GitLab Repo</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed mb-6">Advanced repository analysis. Perform code reviews and manage Merge Requests with AI-driven insights.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-[10px] font-bold uppercase tracking-widest text-stone-400">MCP Connector</span>
+<button class="text-primary hover:bg-primary-fixed px-3 py-1 rounded-lg transition-colors text-xs font-bold">Install</button>
+</div>
+</div>
+<!-- Card 4: Slack Bot -->
+<div class="group bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:shadow-2xl hover:shadow-orange-500/5 transition-all flex flex-col">
+<div class="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-purple-600 text-2xl" data-icon="forum">forum</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-lg mb-2 group-hover:text-primary transition-colors">Slack Bot Integration</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed mb-6">Bridge uClaw to your Slack workspace. Notify teams of AI milestones and query uClaw from channels.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-[10px] font-bold uppercase tracking-widest text-stone-400">Automation</span>
+<button class="text-primary hover:bg-primary-fixed px-3 py-1 rounded-lg transition-colors text-xs font-bold">Install</button>
+</div>
+</div>
+<!-- Card 5: Large Featured Slot -->
+<div class="md:col-span-2 bg-inverse-surface p-8 rounded-xl flex flex-col md:flex-row gap-8 items-center overflow-hidden relative">
+<div class="absolute -right-10 -bottom-10 w-64 h-64 bg-primary opacity-20 blur-[100px]"></div>
+<div class="relative z-10 flex-1">
+<div class="inline-flex items-center gap-2 bg-primary/20 text-primary-fixed-dim px-2 py-1 rounded text-[10px] font-bold uppercase mb-4">
+<span class="material-symbols-outlined text-[12px]" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+                            Featured by uClaw
+                        </div>
+<h3 class="font-headline font-bold text-2xl text-on-tertiary-container mb-3">Enterprise Knowledge Graph</h3>
+<p class="text-stone-400 text-sm leading-relaxed mb-6">Index your entire Confluence, Notion, and Jira workspace into a unified RAG pipeline for instant retrieval.</p>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg text-sm font-bold hover:brightness-110 transition-all">Enable Full Suite</button>
+</div>
+<div class="w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-2xl relative z-10 shrink-0">
+<img alt="Featured Extension" class="w-full h-full object-cover" data-alt="complex data visualization with glowing orange nodes and blue connections on a dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3nNo2Ee5zEnQAf5xZSHSdff3uJdoAInPnr6WFTQdpIeXgg9zlYblI7rmCBFP1UeRO3Ue1P2z3OkskNyUzV7uq6sukUF984t5qHhzdW9U5F2ThWdR4uQqc_rAcIYFg9BoXVSk4_weXJNKd2Tf_CP1IOzJGEEd7zxyTPjLCnF4Y9lExN8-S1ECPWfKAGfiK2ZzMFpJGFGzQa1JHh71t2Impm9fkhZWqX8slverdXoV61DR3VPI-SNs8pELVLw5ronw7MrOpzAHyi_I"/>
+</div>
+</div>
+<!-- Card 6: Docker Management -->
+<div class="group bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:shadow-2xl hover:shadow-orange-500/5 transition-all flex flex-col">
+<div class="w-12 h-12 rounded-lg bg-sky-50 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-sky-500 text-2xl" data-icon="container">box</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-lg mb-2 group-hover:text-primary transition-colors">Docker Control</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed mb-6">Interface with local or remote Docker engines. Start, stop, and inspect containers via voice or text.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-[10px] font-bold uppercase tracking-widest text-stone-400">DevOps</span>
+<button class="text-primary hover:bg-primary-fixed px-3 py-1 rounded-lg transition-colors text-xs font-bold">Install</button>
+</div>
+</div>
+<!-- Card 7: Google Workspace -->
+<div class="group bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:shadow-2xl hover:shadow-orange-500/5 transition-all flex flex-col">
+<div class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-green-600 text-2xl" data-icon="mail">mail</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-lg mb-2 group-hover:text-primary transition-colors">Google Workspace</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed mb-6">Draft emails, schedule calendar events, and organize Drive folders within your workflow.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-[10px] font-bold uppercase tracking-widest text-stone-400">Productivity</span>
+<button class="text-primary hover:bg-primary-fixed px-3 py-1 rounded-lg transition-colors text-xs font-bold">Install</button>
+</div>
+</div>
+</div>
+<!-- Footer Section -->
+<footer class="mt-20 pt-12 border-t border-stone-200/50 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex items-center gap-6 text-stone-400 text-sm">
+<a class="hover:text-on-surface transition-colors" href="#">Documentation</a>
+<a class="hover:text-on-surface transition-colors" href="#">API Keys</a>
+<a class="hover:text-on-surface transition-colors" href="#">Developer Portal</a>
+</div>
+<div class="text-stone-400 text-xs">
+                    © 2024 uClaw Enterprise AI. All MCP connectors verified.
+                </div>
+</footer>
+</div>
+</main>
+<!-- Contextual FAB (Only shown here as it's the main library) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 rounded-full btn-primary-gradient text-on-primary shadow-xl shadow-orange-500/20 flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined text-2xl" data-icon="add">add</span>
+</button>
+</body></html>

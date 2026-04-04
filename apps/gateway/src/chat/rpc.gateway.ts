@@ -6,12 +6,12 @@ import {
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import type { RPCResponse } from '@uclaw/types';
+import type { RPCResponse } from '@uclaw/core';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   // 记录在线的 CLI 客户端映射 (工号 -> SocketId)
   private clients = new Map<string, string>();

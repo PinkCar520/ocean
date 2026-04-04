@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>分期支付登录</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="page-background">
+        <!-- 十六进制几何纹理 -->
+        <div class="hex-pattern"></div>
+    </div>
+
+    <!-- 模拟状态栏 -->
+    <header class="status-bar">
+        <div class="status-left">
+            <div class="signal-dots">
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot"></span>
+            </div>
+            <span class="carrier">中国联通</span>
+            <svg class="wifi-icon" viewBox="0 0 24 24" width="14" height="14">
+                <path d="M12 21l-12-14.332c.478-.367 4.908-3.668 12-3.668s11.522 3.301 12 3.668l-12 14.332z"
+                    fill="#fff" />
+            </svg>
+        </div>
+        <div class="status-center">9:41 AM</div>
+        <div class="status-right">
+            <span class="battery-percent">100%</span>
+            <div class="battery-icon">
+                <div class="battery-body"></div>
+                <div class="battery-tip"></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="content">
+        <!-- 品牌头部 -->
+        <header class="brand-header">
+            <h1 class="brand-name">XX银行</h1>
+            <p class="brand-sub">信用卡家居商品分期</p>
+        </header>
+
+        <!-- 额度展示卡片 -->
+        <section class="card limit-card">
+            <div class="card-top-bar">
+                <div class="bank-logo">
+                    <div class="logo-circle">X</div>
+                    <div class="logo-text-box">
+                        <span class="logo-text">X X 银 行</span>
+                        <span class="logo-english">BANK OF XX</span>
+                    </div>
+                    <div class="logo-text-type">
+                        <span class="logo-text">信用卡</span>
+                        <span class="logo-english">CREDIT CARD</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="limit-label">最高可授信额度（元）</p>
+                <div class="limit-value">300,000</div>
+                <p class="limit-hint">最终获取额度，以实际审批结果为准</p>
+            </div>
+            <div class="card-pattern"></div>
+        </section>
+
+        <!-- 身份认证表单卡片 -->
+        <section class="card auth-card">
+            <h2 class="auth-title">身份认证</h2>
+            <p class="auth-sub">填写以下信息完成身份认证</p>
+
+            <form class="auth-form" onsubmit="return false">
+                <div class="form-item ripple">
+                    <label>证件类型</label>
+                    <div class="item-right" id="idTypeTrigger">
+                        <span class="item-value">身份证</span>
+                        <svg class="chevron" viewBox="0 0 24 24" width="18" height="18">
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" fill="#ccc" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="form-item">
+                    <label>身份证号</label>
+                    <input type="text" class="form-input" value="1423***********3648" readonly>
+                </div>
+                <div class="form-item">
+                    <label>查询密码</label>
+                    <input type="password" class="form-input" placeholder="请输入查询密码">
+                </div>
+                <div class="form-item no-border">
+                    <label>短信验证码</label>
+                    <div class="sms-group">
+                        <input type="text" class="form-input sms-input" placeholder="请输入验证码">
+                        <div class="divider"></div>
+                        <button class="get-code-btn" id="getCodeBtn">获取验证码</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- 温馨提示 -->
+        <div class="bottom-tip">
+            <p>温馨提示：</p>
+            <span>
+                短信验证码将发送至您申请信用卡时的预留手机号上。
+            </span>
+        </div>
+
+        <!-- 登录按钮 -->
+        <footer class="action-footer">
+            <button class="submit-btn" id="loginBtn">登录</button>
+        </footer>
+    </main>
+
+    <!-- 证件类型选择器模拟 -->
+    <div class="picker-overlay" id="pickerOverlay">
+        <div class="picker-panel">
+            <div class="picker-header">
+                <button class="picker-cancel" onclick="closePicker()">取消</button>
+                <span class="picker-title">选择证件类型</span>
+                <button class="picker-confirm" onclick="confirmPicker()">确定</button>
+            </div>
+            <div class="picker-body">
+                <div class="picker-option active">身份证</div>
+                <div class="picker-option">护照</div>
+                <div class="picker-option">军官证</div>
+                <div class="picker-option">港澳居民往来内地通行证</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 验证码获取逻辑
+        const getCodeBtn = document.getElementById('getCodeBtn');
+        let countdown = 0;
+        getCodeBtn.onclick = () => {
+            if (countdown > 0) return;
+            countdown = 60;
+            getCodeBtn.disabled = true;
+            const timer = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    clearInterval(timer);
+                    getCodeBtn.textContent = '获取验证码';
+                    getCodeBtn.disabled = false;
+                } else {
+                    getCodeBtn.textContent = `${countdown}s 后重新获取`;
+                }
+            }, 1000);
+        };
+
+        // 简易选择器逻辑
+        const idTypeTrigger = document.getElementById('idTypeTrigger');
+        const pickerOverlay = document.getElementById('pickerOverlay');
+        idTypeTrigger.onclick = () => pickerOverlay.style.display = 'block';
+        function closePicker() { pickerOverlay.style.display = 'none'; }
+        function confirmPicker() { closePicker(); }
+
+        document.querySelectorAll('.picker-option').forEach(opt => {
+            opt.onclick = function () {
+                document.querySelector('.picker-option.active').classList.remove('active');
+                this.classList.add('active');
+                document.querySelector('.item-value').textContent = this.textContent;
+            };
+        });
+
+        // 登录逻辑
+        document.getElementById('loginBtn').onclick = function () {
+            this.textContent = '正在验证...';
+            setTimeout(() => {
+                this.textContent = '登录成功';
+                alert('身份认证成功！');
+            }, 1000);
+        };
+    </script>
+</body>
+
+</html>

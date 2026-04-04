@@ -1,7 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap');
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 @plugin "@tailwindcss/typography";
-
 @theme {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -47,31 +47,48 @@
     from { height: var(--radix-accordion-content-height); }
     to { height: 0; }
   }
+
+  /* Font mapping */
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Manrope", sans-serif;
+  
+  /* Additional Tailwind variable bridges if necessary */
+  --color-sidebar: hsl(var(--sidebar));
 }
 
 @layer base {
   :root {
-    /* 极致专业浅色调 */
-    --background: 0 0% 100%;
-    --foreground: 222.2 47.4% 11.2%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
+    /* Kinetic Minimalism Core */
+    --background: 20 40% 98%; /* #fcf9f8 surface */
+    --foreground: 0 2% 11%;    /* #1c1b1b on-surface */
+    
+    --card: 0 0% 100%;         /* white surface_container_lowest */
+    --card-foreground: 0 2% 11%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 0 2% 11%;
+    
+    --primary: 20 86% 50%;     /* #EC5B14 Kinetic Orange */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 18 100% 90%;  /* #ffdbce secondary_fixed */
+    --secondary-foreground: 18 60% 30%;
+    
+    --muted: 22 17% 96%;       /* #F6F3F2 sidebar / surface_container_low */
+    --muted-foreground: 24 5% 43%; /* #716B67 muted */
+    
+    --accent: 20 17% 96%;
+    --accent-foreground: 0 2% 11%;
+    
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 215 20.2% 65.1%; /* 调淡聚焦环颜色，使其更柔和 */
-    --radius: 0.6rem;
+    
+    --border: 20 13% 90%;      /* #E8E4E2 Subtle Ghost borders */
+    --input: 20 13% 90%;
+    --ring: 20 86% 50%;        /* Primary orange glow on focus */
+    
+    --radius: 0.5rem;          /* 8px default */
+    --sidebar: 22 17% 96%;     /* #F6F3F2 */
   }
 }
 
@@ -80,11 +97,24 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
   }
 }
 
 .glass-morphism {
-  @apply bg-white/80 backdrop-blur-md border border-slate-200/50;
+  @apply bg-white/80 backdrop-blur-xl border border-border/40;
+}
+
+/* Gradient Primary Button specific to Kinetic */
+.btn-kinetic {
+  @apply bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white border-0 shadow-[0_4px_14px_0_rgba(204,73,0,0.39)] hover:shadow-[0_6px_20px_rgba(204,73,0,0.23)] hover:from-[#c24200] hover:to-[#e65200] transition-all;
+}
+
+/* Zero Elevation Depth Cards */
+.card-floating {
+  @apply bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[12px] border-none;
 }

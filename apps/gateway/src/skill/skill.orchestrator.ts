@@ -8,7 +8,7 @@ import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { SkillLoader } from './skill.loader';
 import { RpcGateway } from '../chat/rpc.gateway';
 import { z } from 'zod';
-import type { SkillContext } from '@uclaw/types';
+import type { SkillContext } from '@uclaw/core';
 
 /**
  * SkillOrchestrator
@@ -38,23 +38,44 @@ export class SkillOrchestrator {
   // ──────────────────────────────────────────────
   // Model
   // ──────────────────────────────────────────────
+  // ──────────────────────────────────────────────
+  // Model
+  // ──────────────────────────────────────────────
   private getModel(modelId?: string) {
-    const modelsRaw = this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b';
-    const models = modelsRaw.split(',').map((m) => m.trim());
-    const selectedModel = modelId && models.includes(modelId) ? modelId : models[0];
-
-    // 路由逻辑：识别百炼模型 (DashScope)
-    const isCloudModel = selectedModel.includes('deepseek') || selectedModel.includes('omni');
+    const vllmModels = (this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b').split(',').map(m => m.trim());
+    const omlxModel = this.configService.get<string>('AI_GATEWAY_MODEL')?.trim();
     
-    const baseURL = isCloudModel 
-      ? this.configService.get<string>('DASHSCOPE_API_BASE') 
-      : this.configService.get<string>('VLLM_API_BASE');
-      
-    const apiKey = isCloudModel 
-      ? this.configService.get<string>('DASHSCOPE_API_KEY') 
-      : (this.configService.get<string>('VLLM_API_KEY') || 'ollama');
+    // 合并所有模型池
+    const allModels = [...vllmModels];
+    if (omlxModel && !allModels.includes(omlxModel)) {
+      allModels.push(omlxModel);
+    }
 
-    this.logger.log(`[Orchestrator] Routing model "${selectedModel}" to ${isCloudModel ? 'DashScope' : 'Ollama'}`);
+    const selectedModel = (modelId && allModels.includes(modelId)) ? modelId : allModels[0];
+
+    // 路由逻辑
+    let baseURL: string;
+    let apiKey: string;
+    let providerLabel: string;
+
+    const isCloudModel = selectedModel.includes('deepseek') || selectedModel.includes('omni');
+    const isOmlxModel = omlxModel && selectedModel === omlxModel;
+
+    if (isCloudModel) {
+      baseURL = this.configService.get<string>('DASHSCOPE_API_BASE') || '';
+      apiKey = this.configService.get<string>('DASHSCOPE_API_KEY') || '';
+      providerLabel = 'DashScope (Cloud)';
+    } else if (isOmlxModel) {
+      baseURL = this.configService.get<string>('AI_GATEWAY_BASE_URL') || '';
+      apiKey = this.configService.get<string>('AI_GATEWAY_API_KEY') || 'unused';
+      providerLabel = 'oMLX (Local)';
+    } else {
+      baseURL = this.configService.get<string>('VLLM_API_BASE') || '';
+      apiKey = this.configService.get<string>('VLLM_API_KEY') || 'ollama';
+      providerLabel = 'Ollama (Local)';
+    }
+
+    this.logger.log(`[Orchestrator] Routing model "${selectedModel}" to ${providerLabel}`);
 
     return createOpenAI({
       baseURL,
@@ -63,17 +84,38 @@ export class SkillOrchestrator {
   }
 
   getAvailableModels() {
-    const modelsRaw = this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b';
-    return modelsRaw.split(',').map((id) => {
-      const modelId = id.trim();
+    const vllmModels = (this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b').split(',').map(m => m.trim());
+    const omlxModel = this.configService.get<string>('AI_GATEWAY_MODEL')?.trim();
+
+    const allModels = [...vllmModels];
+    if (omlxModel && !allModels.includes(omlxModel)) {
+      allModels.push(omlxModel);
+    }
+
+    return allModels.map((modelId) => {
       const isCloud = modelId.includes('deepseek') || modelId.includes('omni');
+      const isOmlx = omlxModel && modelId === omlxModel;
       
+      let provider = 'Private Ollama';
+      let icon = 'Cpu';
+      let color = 'text-blue-500';
+
+      if (isCloud) {
+        provider = 'Alibaba Bailian';
+        icon = 'Cloud';
+        color = 'text-orange-500';
+      } else if (isOmlx) {
+        provider = 'Local oMLX';
+        icon = 'Zap';
+        color = 'text-purple-500';
+      }
+
       return {
         id: modelId,
         name: modelId,
-        provider: isCloud ? 'Alibaba Bailian' : 'Private Ollama',
-        icon: isCloud ? 'Cloud' : 'Cpu',
-        color: isCloud ? 'text-orange-500' : 'text-blue-500',
+        provider,
+        icon,
+        color,
       };
     });
   }

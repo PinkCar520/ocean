@@ -1,0 +1,26 @@
+{
+  "name": "fix-bug-eval",
+  "description": "Verification of the full lifecycle for bug fixing in UClaw.",
+  "skill": "fix-bug",
+  "testCases": [
+    {
+      "id": "TC-001",
+      "input": "帮忙处理一下 BUG-123，它是关于登录超时的问题。",
+      "expectedSteps": [
+        "mcp.zentao.getBugInfo",
+        "mcp.git.status",
+        "mcp.git.commit",
+        "mcp.zentao.resolveBug"
+      ],
+      "validation": "Check if the bug status in ZenTao is 'Resolved' and a fix commit exists."
+    },
+    {
+      "id": "TC-002",
+      "input": "查询一下目前有哪些活跃的 Bug？",
+      "expectedSteps": [
+        "mcp.zentao.searchBugs"
+      ],
+      "validation": "Check if the agent returns a list of bugs."
+    }
+  ]
+}

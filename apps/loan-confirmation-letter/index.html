@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>申请信息确认</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- 模拟状态栏 -->
+    <header class="status-bar">
+        <div class="status-left">
+            <div class="signal-dots">
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+            </div>
+            <span class="carrier">中国联通</span>
+        </div>
+        <div class="status-center">15:46</div>
+        <div class="status-right">
+            <span class="battery-percent">100%</span>
+            <div class="battery-icon charging">
+                <div class="battery-body"></div>
+                <div class="battery-tip"></div>
+                <svg class="charging-lightning" viewBox="0 0 24 24" width="10" height="10">
+                    <path d="M13 2l-9 11h7l-1 9 9-11h-7z" fill="#fff" />
+                </svg>
+            </div>
+        </div>
+    </header>
+
+    <!-- 应用导航栏 -->
+    <nav class="app-nav">
+        <button class="nav-btn back-btn" onclick="history.back()">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="#333" />
+            </svg>
+        </button>
+        <h1 class="nav-title">申请信息确认</h1>
+        <div class="nav-actions">
+            <div class="capsule">
+                <button class="nav-btn more-btn">
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                        <circle cx="5" cy="12" r="2" fill="#333" />
+                        <circle cx="12" cy="12" r="2" fill="#333" />
+                        <circle cx="19" cy="12" r="2" fill="#333" />
+                    </svg>
+                </button>
+                <div class="divider"></div>
+                <button class="nav-btn close-btn">
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                        <circle cx="12" cy="12" r="9" fill="none" stroke="#333" stroke-width="2" />
+                        <circle cx="12" cy="12" r="3" fill="#333" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="document-container">
+        <h2 class="doc-title">银行信用卡家装分期付款业务借款确认书</h2>
+
+        <section class="info-section line-group">
+            <p><strong>甲方（申请人）：</strong><span class="placeholder"></span> <strong>身份证号：</strong><span
+                    class="placeholder"></span></p>
+            <p><strong>乙方（受理机构）：</strong>XXX银行股份有限公司</p>
+        </section>
+
+        <section class="intro-section">
+            <p>甲方通过业务平台申请，经乙方审批同意，双方约定费率、收款账户、借款用途等信息如下：</p>
+        </section>
+
+        <section class="content-section">
+            <h3 class="section-header">一、借款信息</h3>
+            <h4 class="sub-header">借款业务详情</h4>
+            <ul class="data-list">
+                <li><span class="label">借款人姓名：</span><span class="value"></span></li>
+                <li><span class="label">借款人身份证号：</span><span class="value"></span></li>
+                <li><span class="label">借款人信用卡号：</span><span class="value"></span></li>
+                <!-- <li><span class="label">借款金额：</span><span class="value"></span></li> -->
+                <li><span class="label">借款用途：</span><span class="value"></span></li>
+                <li><span class="label">借款期数：</span><span class="value"></span></li>
+                <li><span class="label">利息收取方式：</span><span class="value">商户全额补贴</span></li>
+                <!-- <li><span class="label">每月还款金额：</span><span class="value"></span></li> -->
+                <!-- <li><span class="label">每月还款本金：</span><span class="value"></span></li> -->
+                <li><span class="label">每月还款利息：</span><span class="value"></span></li>
+                <li><span class="label">分期利率：</span><span class="value"></span></li>
+                <li><span class="label">近似折算年化利率：</span><span class="value"></span></li>
+                <li><span class="label">借款日期：</span><span class="value"></span></li>
+            </ul>
+        </section>
+
+        <section class="declaration-section">
+            <p class="declaration-title">*授权声明：</p>
+            <p class="declaration-text">为了保护借款人的个人信息，本确认书在展示时，部分隐藏了借款人的身份信息和收款账户信息。借款人知晓且承诺本确认书对借款人个人信息的部分隐藏不影响本确认书的效力。
+            </p>
+        </section>
+
+        <section class="signature-section">
+            <div class="signature-line">
+                <span>客户手写签字：</span>
+                <div class="sign-trigger ripple" id="signTrigger">
+                    <svg class="pen-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path
+                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                            fill="#dd363b" />
+                    </svg>
+                    <span class="sign-text">点击签署</span>
+                </div>
+            </div>
+            <p class="date-line">日期：<span class="date-value">2024年9月26日</span></p>
+        </section>
+    </main>
+
+    <footer class="sticky-footer">
+        <button class="submit-btn" id="submitBtn">确认并提交申请</button>
+    </footer>
+
+    <!-- 简单的签署弹窗模拟 -->
+    <div class="modal" id="signModal">
+        <div class="modal-content">
+            <h3>请在此区域签署您的姓名</h3>
+            <div class="canvas-mock">
+                <!-- 模拟签字板 -->
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+                <button class="modal-btn confirm" onclick="confirmSign()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const signTrigger = document.getElementById('signTrigger');
+        const signModal = document.getElementById('signModal');
+        const submitBtn = document.getElementById('submitBtn');
+
+        signTrigger.onclick = () => {
+            signModal.style.display = 'flex';
+        };
+
+        function closeModal() {
+            signModal.style.display = 'none';
+        }
+
+        function confirmSign() {
+            const signText = document.querySelector('.sign-text');
+            signText.textContent = '已签署';
+            signText.style.color = '#333';
+            document.querySelector('.pen-icon').style.opacity = '0.5';
+            closeModal();
+            alert('签署成功！');
+        }
+
+        submitBtn.onclick = () => {
+            if (document.querySelector('.sign-text').textContent === '点击签署') {
+                alert('请先完成手写签字');
+                return;
+            }
+            submitBtn.textContent = '正在提交...';
+            submitBtn.style.opacity = '0.7';
+            setTimeout(() => {
+                alert('申请已成功提交！');
+                submitBtn.textContent = '已提交';
+            }, 1500);
+        };
+    </script>
+</body>
+
+</html>

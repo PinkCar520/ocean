@@ -1,11 +1,11 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ZentaoTool } from '@uclaw/tools-zentao';
-import { BugDetail } from '@uclaw/types';
+import { BugDetail } from '@uclaw/core';
 
 @Injectable()
 export class ZentaoService implements OnModuleInit {
-  private zentaoTool: ZentaoTool;
+  private zentaoTool!: ZentaoTool;
 
   constructor(private configService: ConfigService) {}
 

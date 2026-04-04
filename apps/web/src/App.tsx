@@ -6,8 +6,10 @@ import {
   Search, 
   Copy, RotateCcw, Check,
   Plus, FileText, X as CloseIcon, Image as ImageIcon,
-  ChevronDown, Cloud, Cpu, Square
-  } from 'lucide-react';import { motion, AnimatePresence } from 'framer-motion';
+  ChevronDown, Cloud, Cpu, Square,
+  Bell as BellIcon, Settings, Database, Activity
+  } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation, Trans } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -360,24 +362,18 @@ const renderToolResult = (part: any) => {
 };
 
 return (
-  <div className="flex h-screen bg-[#F9FAFB] text-slate-900 font-sans selection:bg-blue-100 overflow-hidden" onDragOver={handleDragOver}>
+  <div className="min-h-screen bg-[#FCF9F8] text-[#1C1B1B] font-sans selection:bg-[#EC5B14]/20" onDragOver={handleDragOver}>
 
-    {/* 1. 侧边栏 */}
-    <motion.div
-      animate={{ width: isSidebarOpen ? 280 : 64 }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="h-full overflow-hidden shrink-0"
-    >
-      <Sidebar
-        activeMainTab={activeTab} onMainTabChange={setActiveTab} onOpenSettings={() => setIsSettingsOpen(true)}
-        onNewChat={handleNewChat} isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        history={conversations} onSelectChat={loadConversation} currentChatId={currentChatId}
-        onRenameChat={handleRenameChat} onDeleteChat={handleDeleteChat}
-      />
-    </motion.div>
+    {/* 1. 侧边栏 (Fixed App Shell) */}
+    <Sidebar 
+      activeMainTab={activeTab} 
+      onMainTabChange={setActiveTab} 
+      onOpenSettings={() => setIsSettingsOpen(true)}
+      onNewChat={handleNewChat}
+    />
 
-    {/* 2. 主区域 */}
-    <main className="flex-1 flex flex-col relative bg-white overflow-hidden">
+    {/* 2. 主区域 (Fluid Workspace) */}
+    <main className="ml-64 flex-1 flex flex-col relative min-h-screen">
 
       {/* Drag Overlay */}
       <AnimatePresence>
@@ -385,216 +381,264 @@ return (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onDragLeave={handleDragLeave} onDrop={handleDrop}
-            className="absolute inset-0 z-50 bg-blue-600/5 backdrop-blur-[2px] border-4 border-dashed border-blue-500/20 m-4 rounded-[40px] flex flex-col items-center justify-center text-blue-600"
+            className="absolute inset-0 z-50 bg-[#EC5B14]/5 backdrop-blur-[2px] border-4 border-dashed border-[#EC5B14]/20 m-4 rounded-[40px] flex flex-col items-center justify-center text-[#EC5B14]"
           >
             <Plus className="w-12 h-12 mb-4" />
-            <p className="text-xl font-bold">{t('common.drag_drop')}</p>
+            <p className="text-xl font-bold font-display">{t('common.drag_drop')}</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <header className="h-16 border-b border-slate-100 flex items-center justify-between px-8 bg-white/80 backdrop-blur-xl sticky top-0 z-20">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition-all border border-slate-100 group focus:outline-none">
-                  <div className={cn("flex items-center justify-center shrink-0", activeModel.color)}>
-                    <activeModel.icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col items-start gap-0">
-                    <span className="text-[11px] font-black text-slate-800 leading-tight">
-                      {t(`common.model.${activeModel.id}`, { defaultValue: activeModel.name })}
-                    </span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                      {activeModel.provider}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-3 h-3 text-slate-400 ml-1" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuLabel>{t('common.model_select')}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {models.map((m) => (
-                  <DropdownMenuItem
-                    key={m.id}
-                    onClick={() => setSelectedModelId(m.id)}
-                    className={cn(
-                      "flex items-center gap-3 p-3 cursor-pointer",
-                      selectedModelId === m.id && "bg-slate-50"
-                    )}
-                  >
-                    <div className={cn("flex items-center justify-center shrink-0", m.color)}>
-                      <m.icon className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 flex flex-col items-start gap-0">
-                      <span className="text-xs font-bold text-slate-800">
-                        {t(`common.model.${m.id}`, { defaultValue: m.name })}
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
-                        {m.provider}
-                      </span>
-                    </div>
-                    {selectedModelId === m.id && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+      {/* Header: Search, Nav Tabs, Icons */}
+      <header className="h-[88px] flex items-center justify-between px-8 bg-[#FCF9F8]/90 backdrop-blur-md sticky top-0 z-40">
+        <div className="flex-1 max-w-2xl">
+          <div className="relative flex items-center w-full bg-white rounded-full px-4 py-2 border border-[#E8E4E2]/50 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+            <Search className="w-4 h-4 text-[#716B67] mr-3" />
+            <input 
+              type="text" 
+              placeholder="Search insights, pipelines or docs..."
+              className="flex-1 bg-transparent border-none text-[#1C1B1B] text-sm focus:outline-none placeholder:text-[#716B67]/70"
+            />
           </div>
         </div>
-        <div className="flex items-center gap-6">
-          <CommandMenu 
-            onSelectTab={(id) => {
-              // 映射 CommandMenu 的 ID 到路由
-              const routeMap: Record<string, string> = {
-                dashboard: '/',
-                chat: '/chat',
-                skill_library: '/skills',
-                database: '/database'
-              };
-              if (routeMap[id]) {
-                setActiveTab(id === 'dashboard' ? 'dashboard' : 'chat');
-                navigate(routeMap[id]);
-              }
-            }}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onNewChat={handleNewChat}
-          />
+        
+        <div className="flex items-center gap-10 ml-8">
+          <nav className="flex items-center gap-6 font-semibold text-sm">
+            <button className="text-[#EC5B14] border-b-2 border-[#EC5B14] pb-1 cursor-default">Dashboard</button>
+            <button className="text-[#716B67] hover:text-[#1C1B1B] transition-colors pb-1">Analytics</button>
+          </nav>
+          
+          <div className="flex items-center gap-4 text-[#716B67]">
+            <button className="hover:text-[#1C1B1B] transition-colors"><BellIcon className="w-5 h-5" /></button>
+            <button className="hover:text-[#1C1B1B] transition-colors" onClick={() => setIsSettingsOpen(true)}><Settings className="w-5 h-5" /></button>
+            <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden ml-2 cursor-pointer border border-[#E8E4E2]">
+               <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=WangEr" alt="profile" />
+            </div>
+          </div>
         </div>
       </header>
 
-      {activeTab === 'chat' ? (
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-[#F9FAFB]/30">
-          <div 
-            ref={scrollRef} 
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto px-6 py-12 scroll-smooth"
-          >
-            <div className="max-w-4xl mx-auto space-y-10">
-              <AnimatePresence mode="popLayout" initial={false}>
-                {messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 mb-8"><Sparkles className="w-12 h-12 text-blue-600" /></div>
-                    <h3 className="text-2xl font-bold text-slate-900">{t('chat.empty_title')}</h3>
-                    <p className="text-sm text-slate-400 mt-4 leading-relaxed"><Trans i18nKey="chat.empty_desc">Bridge your <span className="text-slate-900 font-semibold">CLI node</span> with enterprise workflows.</Trans></p>
-                  </div>
-                ) : (
-                  messages.map((m: any) => (
-                    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} key={m.id} className={cn("flex flex-col group", m.role === 'user' ? "items-end" : "items-start w-full")}>
-                      <div className={cn("flex flex-col space-y-2", m.role === 'user' ? "max-w-[85%] items-end" : "w-full")}>
-                        <div className={cn(
-                          "px-5 py-3 rounded-3xl leading-relaxed text-[15px]",
-                          m.role === 'user' 
-                            ? "bg-blue-50 text-slate-900 prose prose-slate prose-sm max-w-none prose-p:leading-relaxed prose-p:my-0 prose-headings:my-0 prose-ul:my-0 prose-li:my-0" 
-                            : "bg-transparent text-slate-800 prose prose-slate prose-sm max-w-none prose-p:leading-relaxed prose-p:my-0 prose-headings:my-0 prose-ul:my-0 prose-li:my-0"
-                        )}>                          {Array.isArray(m.parts) ? (
-                            m.parts.map((part: any, i: number) => (
-                              <div key={i}>
-                                {part.type === 'text' && (
-                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {part.text}
-                                  </ReactMarkdown>
-                                )}
-                                {renderToolResult(part)}
-                              </div>
-                            ))
-                          ) : (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {m.content}
-                            </ReactMarkdown>
-                          )}
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        
+        {/* Chat / Left Panel */}
+        {activeTab === 'chat' || !activeTab ? (
+          <div className="flex-1 flex flex-col relative overflow-hidden">
+            <div 
+              ref={scrollRef} 
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto px-8 py-4 scroll-smooth"
+            >
+              <div className="max-w-[800px] mx-auto space-y-8">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {messages.length === 0 ? (
+                    <div className="flex flex-col mt-10">
+                      <div className="flex items-start gap-6 bg-[#f6f3f2] p-8 rounded-[24px] mb-8 border border-transparent">
+                        <div className="w-12 h-12 rounded-[12px] bg-white flex items-center justify-center shrink-0 shadow-sm text-[#EC5B14]">
+                          <Sparkles className="w-6 h-6" />
                         </div>
-                        <div className={cn("flex items-center gap-3 px-2 mt-1", m.role === 'user' ? "flex-row-reverse" : "flex-row")}>
-                          <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{m.role === 'assistant' ? t('chat.role_assistant') : t('chat.role_user')}</span>
-                          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => copyToClipboard(m)} className="p-1 hover:bg-slate-100 rounded-md text-slate-400">{copiedId === m.id ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}</button>
-                            {m.role === 'assistant' && <button onClick={() => reload?.()} className="p-1 hover:bg-slate-100 rounded-md text-slate-400"><RotateCcw className="w-3 h-3" /></button>}
+                        <div>
+                          <h3 className="text-xl font-bold font-display text-[#1C1B1B] mb-2 cursor-default">Deployment Efficiency Optimized</h3>
+                          <p className="text-[#716B67] text-sm leading-relaxed max-w-xl">
+                            Based on current GitLab PR patterns and Jenkins pipeline history, I've identified a bottleneck in the staging environment.
+                          </p>
+                          <div className="flex gap-4 mt-6">
+                            <div className="bg-white px-5 py-4 rounded-[12px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] min-w-[140px]">
+                              <p className="text-[11px] text-[#716B67] font-semibold mb-1">Projected Improvement</p>
+                              <p className="text-2xl font-bold font-display text-[#EC5B14]">15% Faster Cycle</p>
+                            </div>
+                            <div className="bg-white px-5 py-4 rounded-[12px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] min-w-[140px]">
+                              <p className="text-[11px] text-[#716B67] font-semibold mb-1">Success Probability</p>
+                              <p className="text-2xl font-bold font-display text-[#0066CC]">94%</p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </motion.div>
-                  ))
-                )}
-              </AnimatePresence>
+                    </div>
+                  ) : (
+                    messages.map((m: any) => (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={m.id} className={cn("flex flex-col group", m.role === 'user' ? "items-end" : "items-start w-full")}>
+                        <div className={cn("flex gap-3", m.role === 'user' ? "flex-row-reverse max-w-[85%]" : "w-full")}>
+                          
+                          {/* Avatar */}
+                          <div className="shrink-0 pt-1">
+                            {m.role === 'user' ? (
+                               <div className="w-8 h-8 rounded-full border border-[#E8E4E2] overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=WangEr" alt="U" /></div>
+                            ) : (
+                               <div className="w-8 h-8 rounded-[8px] bg-[#EC5B14] flex items-center justify-center text-white shadow-sm"><Sparkles className="w-4 h-4" /></div>
+                            )}
+                          </div>
+
+                          <div className={cn(
+                            "py-3 px-5 rounded-[16px] text-[14px]",
+                            m.role === 'user' 
+                              ? "bg-white border border-[#E8E4E2]/60 text-[#1C1B1B] shadow-[0_4px_20px_rgba(0,0,0,0.02)]" 
+                              : "bg-transparent text-[#1C1B1B]"
+                          )}>                          
+                            {Array.isArray(m.parts) ? (
+                              m.parts.map((part: any, i: number) => (
+                                <div key={i} className="prose prose-slate prose-sm max-w-none">
+                                  {part.type === 'text' && <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>}
+                                  {renderToolResult(part)}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="prose prose-slate prose-sm max-w-none">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {m.content}
+                                </ReactMarkdown>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className={cn("flex items-center gap-3 px-12 mt-2", m.role === 'user' ? "flex-row-reverse" : "flex-row")}>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => copyToClipboard(m)} className="p-1 hover:bg-[#F6F3F2] rounded-md text-[#716B67]">{copiedId === m.id ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}</button>
+                            {m.role === 'assistant' && <button onClick={() => reload?.()} className="p-1 hover:bg-[#F6F3F2] rounded-md text-[#716B67]"><RotateCcw className="w-3 h-3" /></button>}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
-          </div>
 
-          <AnimatePresence>
-            {showScrollButton && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                onClick={scrollToBottom}
-                className="absolute bottom-32 left-1/2 -translate-x-1/2 p-3 rounded-full bg-white border border-slate-200 shadow-xl text-slate-500 hover:text-blue-600 hover:border-blue-100 transition-all z-20 group"
-              >
-                <ArrowDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
-              </motion.button>
-            )}
-          </AnimatePresence>
-
-          {/* 底部输入区 (TextArea 版) */}
-          <div className="p-8 z-10 bg-transparent">
-            {/* 文件预览 */}
-            <AnimatePresence>
-              {selectedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-3 mb-4 max-w-4xl mx-auto">
-                  {selectedFiles.map((file, i) => (
-                    <motion.div layout key={i} className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-4 py-2 rounded-2xl">
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      <span className="text-xs font-bold text-slate-700 truncate max-w-[120px]">{file.name}</span>
-                      <button onClick={() => removeFile(i)} className="p-1 rounded-full bg-slate-200 text-slate-500 hover:bg-rose-500 hover:text-white"><CloseIcon className="w-3 h-3" /></button>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </AnimatePresence>
-
-            <div className="relative max-w-4xl mx-auto">
-              <div className="relative flex flex-col bg-slate-50 border border-slate-200 rounded-[24px] p-2 transition-all">
-                <textarea
-                  ref={textAreaRef}
-                  rows={1}
-                  value={localInput}
-                  onChange={(e) => setLocalInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      if (!isLoading) onFormSubmit();
-                    }
-                  }}
-                  placeholder={t('chat.placeholder')}
-                  className="w-full bg-transparent border-none text-slate-800 text-sm focus:ring-0 focus:outline-none px-4 py-3 resize-none min-h-[44px] max-h-[200px]"
-                />
-                <div className="flex items-center justify-between px-2 pb-1 pt-1 border-t border-slate-100 mt-1">
-                  <div className="flex items-center gap-1">
-                    <input type="file" multiple ref={fileInputRef} onChange={onFileChange} className="hidden" />
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><ImageIcon className="w-4 h-4" /></button>
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><Plus className="w-4 h-4" /></button>
+            {/* Bottom Input Area */}
+            <div className="pt-2 pb-8 px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
+              <div className="max-w-[800px] mx-auto">
+                <div className="relative flex flex-col bg-white border border-[#E8E4E2]/50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] rounded-[24px] p-2 transition-all group focus-within:ring-2 focus-within:ring-[#EC5B14]/20 focus-within:border-[#EC5B14]/40">
+                  <div className="flex items-end">
+                    <button onClick={() => fileInputRef.current?.click()} className="p-3 text-[#716B67] hover:text-[#EC5B14] transition-colors"><ImageIcon className="w-5 h-5 flex-shrink-0" /></button>
+                    <textarea
+                      ref={textAreaRef}
+                      rows={1}
+                      value={localInput}
+                      onChange={(e) => setLocalInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (!isLoading) onFormSubmit();
+                        }
+                      }}
+                      placeholder="Type a message or command..."
+                      className="flex-1 bg-transparent border-none text-[#1C1B1B] text-[15px] focus:ring-0 focus:outline-none p-3 resize-none min-h-[48px] max-h-[200px]"
+                    />
+                    <button 
+                      onClick={() => isLoading ? stop() : onFormSubmit()} 
+                      disabled={!isLoading && !localInput.trim()} 
+                      className={cn(
+                        "m-2 p-2.5 rounded-[12px] transition-all flex-shrink-0",
+                        isLoading 
+                          ? "bg-[#1C1B1B] text-white" 
+                          : "btn-kinetic disabled:opacity-30 disabled:shadow-none hover:shadow-lg focus:outline-none"
+                      )}
+                    >
+                      {isLoading ? <Square className="w-5 h-5 fill-current" /> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 translate-x-0.5"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>}
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => isLoading ? stop() : onFormSubmit()} 
-                    disabled={!isLoading && !localInput.trim()} 
-                    className={cn(
-                      "p-2 rounded-xl transition-all",
-                      isLoading 
-                        ? "bg-slate-900 text-white" 
-                        : "bg-blue-600 text-white disabled:opacity-20"
-                    )}
-                  >
-                    {isLoading ? <Square className="w-4 h-4 fill-current" /> : <ArrowUp className="w-4 h-4" />}
-                  </button>
+                </div>
+                <div className="flex items-center justify-center gap-4 mt-4 text-[10px] font-bold text-[#716B67] uppercase tracking-widest">
+                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div> All systems operational</div>
+                  <div className="flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> AI powered by uClaw Core v3</div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      ) : activeTab === 'dashboard' ? (<Dashboard />) : activeTab === 'skill_library' ? (<SkillLibrary />) : (<UIGallery />)}
+        ) : activeTab === 'library' ? (<SkillLibrary />) : activeTab === 'console' ? (<Dashboard />) : (<UIGallery />)}
+        
+        {/* Sidebar right Integrations Panel (only in Chat view) */}
+        {(activeTab === 'chat' || !activeTab) && (
+          <aside className="w-[320px] bg-[#FCF9F8] border-l border-[#E8E4E2]/50 p-6 flex flex-col gap-8 overflow-y-auto hidden lg:flex">
+            
+            {/* Active Integrations */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-bold text-sm text-[#1C1B1B]">Active Integrations</h4>
+                <button className="text-[11px] font-bold text-[#EC5B14] hover:underline">Manage</button>
+              </div>
+              <div className="space-y-3">
+                <div className="card-floating p-4 flex items-center justify-between group cursor-pointer hover:ring-2 hover:ring-[#EC5B14]/20 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-[8px] bg-[#1C1B1B] flex items-center justify-center text-white font-bold text-xs">GL</div>
+                    <div>
+                      <p className="text-sm font-bold text-[#1C1B1B]">GitLab</p>
+                      <p className="text-[11px] text-[#716B67]">2 Pending MRs</p>
+                    </div>
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                </div>
+                <div className="card-floating p-4 flex items-center justify-between group cursor-pointer hover:ring-2 hover:ring-[#EC5B14]/20 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-[8px] bg-[#0E1529] flex items-center justify-center text-red-500 font-bold text-xs"><Cpu className="w-4 h-4"/></div>
+                    <div>
+                      <p className="text-sm font-bold text-[#1C1B1B]">Jenkins</p>
+                      <p className="text-[11px] text-[#716B67]">1 Pipeline Running</p>
+                    </div>
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-[#EC5B14]"></div>
+                </div>
+                <div className="card-floating p-4 flex items-center justify-between group flex-col items-start gap-2">
+                   <div className="w-full flex justify-between items-center">
+                     <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-[8px] bg-blue-100 flex items-center justify-center text-blue-600"><Database className="w-4 h-4"/></div>
+                        <div>
+                          <p className="text-sm font-bold text-[#1C1B1B]">ZenTao</p>
+                          <p className="text-[11px] text-[#716B67]">4 Active Tasks</p>
+                        </div>
+                      </div>
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Contextual Actions */}
+            <div>
+              <h4 className="text-[10px] uppercase tracking-widest font-bold text-[#716B67] mb-3">Contextual Actions</h4>
+              <div className="flex flex-wrap gap-2">
+                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Summarize MR #842</button>
+                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Fix Jenkins config</button>
+                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Export Analysis PDF</button>
+                <button className="px-3 py-1.5 rounded-full bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20 text-xs font-semibold transition-colors">Sync ZenTao tasks</button>
+              </div>
+            </div>
+
+            {/* Real-time Performance */}
+            <div className="card-floating p-5 mt-auto">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-4 h-4 text-[#EC5B14]" />
+                <h4 className="font-bold text-sm text-[#1C1B1B]">Real-time Performance</h4>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-xs font-semibold text-[#716B67] mb-1.5">
+                    <span>Pipeline Velocity</span>
+                    <span className="text-[#1C1B1B]">12.4m avg</span>
+                  </div>
+                  <div className="w-full bg-[#F6F3F2] h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-[#EC5B14] h-full" style={{ width: '82%' }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-semibold text-[#716B67] mb-1.5">
+                    <span>Merge Conflict Rate</span>
+                    <span className="text-[#1C1B1B]">4.2%</span>
+                  </div>
+                  <div className="w-full bg-[#F6F3F2] h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-[#0066CC] h-full" style={{ width: '15%' }}></div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-[#716B67] mt-4">uClaw is monitoring <strong className="text-[#EC5B14]">8 repositories</strong> across your stack.</p>
+            </div>
+
+          </aside>
+        )}
+      </div>
+
     </main>
-    <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(true)} />
   </div>
 );
 }

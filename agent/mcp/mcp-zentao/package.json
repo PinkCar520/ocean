@@ -1,0 +1,25 @@
+{
+  "name": "@uclaw/mcp-zentao",
+  "version": "1.0.0",
+  "description": "UClaw ZenTao MCP Server - Standard Model Context Protocol implementation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mcp-zentao": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "@uclaw/tools-zentao": "workspace:*",
+    "@uclaw/core": "workspace:*",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

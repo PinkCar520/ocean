@@ -1,0 +1,13 @@
+{
+  "name": "@uclaw/core",
+  "version": "1.0.0",
+  "description": "Core TypeScript library and shared types for UClaw Monorepo",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

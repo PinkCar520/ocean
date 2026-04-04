@@ -1,0 +1,17 @@
+{
+  "name": "@uclaw/secure-sandbox",
+  "version": "1.0.0",
+  "description": "Global enterprise-grade network sandbox and dirty words filtering for UClaw",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@uclaw/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

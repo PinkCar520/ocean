@@ -15,14 +15,55 @@ importers:
         specifier: ^5.4.0
         version: 5.9.3
 
-  apps/cli:
+  agent/mcp/mcp-im:
     dependencies:
+      '@uclaw/core':
+        specifier: workspace:*
+        version: link:../../../packages/shared/core
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.37
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
+  agent/mcp/mcp-zentao:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.0
+        version: 1.29.0(zod@3.25.76)
+      '@uclaw/core':
+        specifier: workspace:*
+        version: link:../../../packages/shared/core
       '@uclaw/tools-zentao':
         specifier: workspace:*
-        version: link:../../packages/tools-zentao
-      '@uclaw/types':
+        version: link:../../../packages/tools/zentao
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.15
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  agent/skills:
+    dependencies:
+      '@uclaw/core':
         specifier: workspace:*
-        version: link:../../packages/shared-types
+        version: link:../../packages/shared/core
+
+  apps/cli:
+    dependencies:
+      '@uclaw/core':
+        specifier: workspace:*
+        version: link:../../packages/shared/core
+      '@uclaw/tools-zentao':
+        specifier: workspace:*
+        version: link:../../packages/tools/zentao
       commander:
         specifier: ^12.0.0
         version: 12.1.0
@@ -78,15 +119,15 @@ importers:
       '@prisma/client':
         specifier: 7.6.0
         version: 7.6.0(prisma@7.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
-      '@uclaw/channel-im':
+      '@uclaw/core':
         specifier: workspace:*
-        version: link:../../packages/channel-im
+        version: link:../../packages/shared/core
+      '@uclaw/mcp-im':
+        specifier: workspace:*
+        version: link:../../agent/mcp/mcp-im
       '@uclaw/tools-zentao':
         specifier: workspace:*
-        version: link:../../packages/tools-zentao
-      '@uclaw/types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
+        version: link:../../packages/tools/zentao
       ai:
         specifier: ^6.0.141
         version: 6.0.141(zod@4.3.6)
@@ -312,52 +353,27 @@ importers:
         specifier: ^8.0.1
         version: 8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@24.12.0)(jiti@2.6.1)(terser@5.46.1)
 
-  packages/channel-im:
-    dependencies:
-      '@uclaw/types':
-        specifier: workspace:*
-        version: link:../shared-types
-    devDependencies:
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.19.37
-      typescript:
-        specifier: ^5.4.0
-        version: 5.9.3
-
-  packages/mcp-zentao:
-    dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.10.0
-        version: 1.29.0(zod@3.25.76)
-      '@uclaw/tools-zentao':
-        specifier: workspace:*
-        version: link:../tools-zentao
-      '@uclaw/types':
-        specifier: workspace:*
-        version: link:../shared-types
-      zod:
-        specifier: ^3.24.0
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.15
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-
-  packages/shared-types:
+  packages/shared/core:
     devDependencies:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
 
-  packages/tools-zentao:
+  packages/shared/sandbox:
     dependencies:
-      '@uclaw/types':
+      '@uclaw/core':
         specifier: workspace:*
-        version: link:../shared-types
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
+  packages/tools/zentao:
+    dependencies:
+      '@uclaw/core':
+        specifier: workspace:*
+        version: link:../../shared/core
       axios:
         specifier: ^1.14.0
         version: 1.14.0

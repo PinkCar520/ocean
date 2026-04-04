@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>分期信息确认</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- 模拟状态栏 -->
+    <header class="status-bar">
+        <div class="status-left">
+            <div class="signal-dots">
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+                <span class="dot active"></span>
+            </div>
+            <span class="carrier">中国联通</span>
+            <svg class="wifi-icon" viewBox="0 0 24 24" width="14" height="14">
+                <path d="M12 21l-12-14.332c.478-.367 4.908-3.668 12-3.668s11.522 3.301 12 3.668l-12 14.332z"
+                    fill="currentColor" />
+            </svg>
+        </div>
+        <div class="status-center">9:41 AM</div>
+        <div class="status-right">
+            <span class="battery-percent">100%</span>
+            <div class="battery-icon">
+                <div class="battery-body"></div>
+                <div class="battery-tip"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 应用导航栏 -->
+    <nav class="app-nav">
+        <button class="nav-btn back-btn">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="#333" />
+            </svg>
+        </button>
+        <h1 class="nav-title">分期信息确认</h1>
+        <div class="nav-actions">
+            <button class="nav-btn more-btn">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <circle cx="5" cy="12" r="2" fill="#333" />
+                    <circle cx="12" cy="12" r="2" fill="#333" />
+                    <circle cx="19" cy="12" r="2" fill="#333" />
+                </svg>
+            </button>
+            <button class="nav-btn capsule-btn">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                    <circle cx="12" cy="12" r="8" fill="none" stroke="#333" stroke-width="2" />
+                    <circle cx="12" cy="12" r="3" fill="#333" />
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <main class="content">
+        <!-- 账户信息卡片 -->
+        <section class="card profile-card">
+            <div class="field ripple">
+                <label>信用卡卡号</label>
+                <div class="value-group">
+                    <span class="value dark">6226***********3762</span>
+                    <svg class="chevron" viewBox="0 0 24 24" width="18" height="18">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" fill="#ccc" />
+                    </svg>
+                </div>
+            </div>
+            <div class="field">
+                <label>可用额度</label>
+                <div class="value-group">
+                    <span class="value dark">¥ 43500元</span>
+                    <a href="#" class="action-link">提额申请</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分期详细信息 -->
+        <section class="card detail-card">
+            <h4 class="section-label">分期信息</h2>
+                <div class="field ripple">
+                    <label>分期期数</label>
+                    <div class="value-group">
+                        <span class="value dark">12期</span>
+                        <svg class="chevron" viewBox="0 0 24 24" width="18" height="18">
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" fill="#ccc" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>消费转分期启始金额</label>
+                    <span class="value dark">500元</span>
+                </div>
+                <div class="field">
+                    <label>联机自动分期编号</label>
+                    <span class="value dark">1012</span>
+                </div>
+                <div class="field">
+                    <label>还款方式</label>
+                    <span class="value dark">每月均摊</span>
+                </div>
+                <div class="field">
+                    <label>总利息</label>
+                    <span class="value dark">¥ 0元</span>
+                </div>
+                <div class="field">
+                    <label>年化利率</label>
+                    <span class="value dark">0%</span>
+                </div>
+                <div class="field">
+                    <label>借款用途</label>
+                    <span class="value dark">家居消费</span>
+                </div>
+        </section>
+
+        <!-- 合同签署 -->
+        <section class="card contract-card">
+            <h6 class="section-label">分期合同签署</h6>
+            <div class="field ripple">
+                <label>分期合同</label>
+                <div class="value-group">
+                    <span class="value red">查看-待签署</span>
+                    <!-- <svg class="success-icon" viewBox="0 0 24 24" width="18" height="18">
+                        <circle cx="12" cy="12" r="10" fill="#e60012" />
+                        <path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" fill="none" />
+                    </svg> -->
+                </div>
+            </div>
+            <div class="field no-border">
+                <label>交易密码</label>
+                <input type="password" class="password-input" placeholder="请输入信用卡交易密码">
+            </div>
+        </section>
+    </main>
+
+    <!-- 底部按钮 -->
+    <footer class="footer">
+        <button class="submit-btn">确认申请</button>
+    </footer>
+
+    <script>
+        // 添加简单的点击回馈效果
+        document.querySelectorAll('.ripple').forEach(el => {
+            el.addEventListener('click', function () {
+                this.style.backgroundColor = 'rgba(0,0,0,0.05)';
+                setTimeout(() => {
+                    this.style.backgroundColor = 'transparent';
+                }, 200);
+            });
+        });
+
+        // 按钮点击效果
+        const submitBtn = document.querySelector('.submit-btn');
+        submitBtn.addEventListener('click', () => {
+            submitBtn.style.opacity = '0.8';
+            submitBtn.textContent = '正在提交...';
+            setTimeout(() => {
+                submitBtn.style.opacity = '1';
+                submitBtn.textContent = '确认申请';
+                alert('申请已提交，请耐心等待审核。');
+            }, 1000);
+        });
+    </script>
+</body>
+
+</html>

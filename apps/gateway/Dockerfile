@@ -11,10 +11,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 
 # 2. 仅拷贝所有 package.json 来安装依赖 (利用缓存)
 COPY apps/gateway/package.json apps/gateway/
-COPY packages/channel-im/package.json packages/channel-im/
-COPY packages/mcp-zentao/package.json packages/mcp-zentao/
-COPY packages/shared-types/package.json packages/shared-types/
-COPY packages/tools-zentao/package.json packages/tools-zentao/
+COPY agent/mcp/mcp-im/package.json agent/mcp/mcp-im/
+COPY agent/mcp/mcp-zentao/package.json agent/mcp/mcp-zentao/
+COPY packages/shared/core/package.json packages/shared/core/
+COPY packages/tools/zentao/package.json packages/tools/zentao/
+COPY agent/skills/package.json agent/skills/
+COPY packages/shared/sandbox/package.json packages/shared/sandbox/
 
 # 安装全量依赖 (使用缓存挂载加速)
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
@@ -28,10 +30,10 @@ RUN cd apps/gateway && ./node_modules/.bin/prisma generate
 COPY . .
 
 # 编译各个模块
-RUN pnpm --filter @uclaw/types build
-RUN pnpm --filter @uclaw/shared-types build
+RUN pnpm --filter @uclaw/core build
 RUN pnpm --filter @uclaw/tools-zentao build
 RUN pnpm --filter @uclaw/mcp-zentao build
+RUN pnpm --filter @uclaw/mcp-im build
 RUN pnpm --filter gateway build
 
 # 第二阶段：生产运行
@@ -47,6 +49,8 @@ COPY apps/gateway/package.json apps/gateway/
 COPY apps/gateway/prisma apps/gateway/prisma
 COPY apps/gateway/prisma.config.js apps/gateway/prisma.config.js
 COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/agent/mcp ./agent/mcp
+COPY --from=builder /app/agent/skills ./agent/skills
 
 # 安装生产依赖 (开启 frozen-lockfile 严谨校验)
 RUN pnpm install --prod --frozen-lockfile
@@ -59,9 +63,8 @@ COPY --from=builder /app/apps/gateway/dist ./apps/gateway/dist
 
 # 拷贝运行时需要的非编译文件
 COPY apps/gateway/mcp.config.json apps/gateway/mcp.config.json
-COPY skills skills
 
 EXPOSE 3000
 
-# 启动命令：在启动 main 之前尝试同步 db
-CMD ["sh", "-c", "cd apps/gateway && ./node_modules/.bin/prisma db push --schema prisma/schema.prisma && node dist/main"]
+# 启动建议：在 monorepo 模式下，nest build 的产物位于 dist/apps/gateway/src/main
+CMD ["sh", "-c", "cd apps/gateway && ./node_modules/.bin/prisma db push --schema prisma/schema.prisma && node dist/apps/gateway/src/main"]

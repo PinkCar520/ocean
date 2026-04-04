@@ -83,17 +83,45 @@ export class SkillLoader {
   private getDefaultScanDirs(): string[] {
     const dirs: string[] = [];
 
-    // 1. Built-in skills bundled with the repository
-    const builtIn = path.resolve(__dirname, '../../../../skills');
-    dirs.push(builtIn);
-
-    // 2. User-installed via UClawHub (~/.uclaw/skills)
-    const userHome = process.env.HOME || process.env.USERPROFILE || '';
-    if (userHome) {
-      dirs.push(path.join(userHome, '.uclaw', 'skills'));
+    // 1. Built-in skills from the @uclaw/skills package
+    // We try to resolve the package directory. If it fails, we fall back to a relative path
+    // that is standard for our new monorepo layout.
+    try {
+      // Use require.resolve to find the package entry, then get the directory
+      const skillsPkgPath = require.resolve('@uclaw/skills/package.json');
+      const skillsDir = path.dirname(skillsPkgPath);
+      dirs.push(skillsDir);
+      this.logger.log(`Scanning built-in skills from package: ${skillsDir}`);
+    } catch (e) {
+      // Monorepo specific: search upwards from process.cwd() for agent/skills
+      let current = process.cwd();
+      for (let i = 0; i < 4; i++) { // Max 4 levels up
+        const potential = path.resolve(current, 'agent/skills');
+        if (fs.existsSync(potential)) {
+          dirs.push(potential);
+          this.logger.debug(`Found built-in skills in monorepo layout: ${potential}`);
+          break;
+        }
+        current = path.dirname(current);
+      }
     }
 
-    return dirs;
+    // 2. Enterprise-level skill injection via Environment Variable
+    const envSkillsPath = process.env.AGP_SKILLS_PATH;
+    if (envSkillsPath) {
+      const paths = envSkillsPath.split(path.delimiter).filter(Boolean);
+      dirs.push(...paths);
+      this.logger.log(`Scanning external skills from AGP_SKILLS_PATH: ${paths.join(', ')}`);
+    }
+
+    // 3. User-installed via UClawHub (~/.uclaw/skills)
+    const userHome = process.env.HOME || process.env.USERPROFILE || '';
+    if (userHome) {
+      const userSkillsDir = path.join(userHome, '.uclaw', 'skills');
+      dirs.push(userSkillsDir);
+    }
+
+    return [...new Set(dirs)]; // Dedup
   }
 
   private async scanDir(dir: string): Promise<void> {

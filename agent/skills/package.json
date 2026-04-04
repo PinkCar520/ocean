@@ -1,0 +1,9 @@
+{
+  "name": "@uclaw/skills",
+  "version": "1.0.0",
+  "description": "SOP Business Workflow Orchestration Layer (Intelligence Zone) for UClaw",
+  "private": true,
+  "dependencies": {
+    "@uclaw/core": "workspace:*"
+  }
+}

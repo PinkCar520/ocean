@@ -139,9 +139,9 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
             // 完整保留参数的 type / description / required 等信息，
             // 避免 passthrough() 导致 LLM 不知道工具入参结构的问题。
             inputSchema: jsonSchema(
-              (toolDef.inputSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>,
+              (toolDef.inputSchema ?? { type: 'object', properties: {} }) as any,
             ),
-            execute: async (params: Record<string, unknown>) => {
+            execute: async (params: any) => {
               this.logger.debug(`[MCP:${serverId}] Calling tool: ${toolDef.name}`);
               try {
                 const result = await managed.client.callTool({

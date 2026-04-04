@@ -3,8 +3,8 @@ import type { Response } from 'express';
 import { ChatService } from './chat.service';
 import { SkillOrchestrator } from '../skill/skill.orchestrator';
 import { SkillLoader } from '../skill/skill.loader';
-import { UpChatHandler } from '@uclaw/channel-im';
-import type { SkillContext } from '@uclaw/types';
+import { UpChatHandler } from '@uclaw/mcp-im';
+import type { SkillContext } from '@uclaw/core';
 
 @Controller('api/chat')
 export class ChatController {
