@@ -5,6 +5,7 @@ import { ChatModule } from './chat/chat.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
 import { UploadModule } from './upload/upload.module';
+import { SessionModule } from './session/session.module';
 
 /**
  * AppModule
@@ -19,6 +20,7 @@ import { UploadModule } from './upload/upload.module';
     ChatModule,
     UserModule,   // 对外暴露用户中心接口
     UploadModule, // 文件上传模块
+    SessionModule, // 会话漫游数据接口模块
   ],
   controllers: [],
   providers: [],

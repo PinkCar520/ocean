@@ -17,10 +17,10 @@
 
 ### Phase 2: 后端会话数据接口建设（云端 SSOT 阶段）
 **目标**：全面激活后端 Prisma `Session` 模型，建立支持多端共享与身份隔离的增删改查（CRUD）REST API。
-- [ ] **2.1 会话模块建立 (`SessionModule`)**:
+- [x] **2.1 会话模块建立 (`SessionModule`)**:
   - 新建 `SessionController` 和 `SessionService`。
   - 接入鉴权 Guard，确保通过影子用户的 `dbId` 操作属于自己的 `Session` 表记录。
-- [ ] **2.2 会话 CRUD 接口实现**:
+- [x] **2.2 会话 CRUD 接口实现**:
   - `GET /api/session`: 会话列表摘要接口（屏蔽巨大的 `history` 内容），只回传 `id`, `title`, `updatedAt`, `channel` 等元信息用于客户端时间戳比对。
   - `GET /api/session/:id`: 单个会话详情接口，回传完整的 `history` 数组，用于 Web 端漫游拉取全量数据。
   - `PUT /api/session/:id`: UPSERT 接口，接收端侧发来的全量 `history` 或增量进行覆盖合并，记录来源 `channel`。

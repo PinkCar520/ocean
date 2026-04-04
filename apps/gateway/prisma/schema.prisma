@@ -69,6 +69,7 @@ model Session {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  title     String   @default("New Chat") // 会话标题
   channel   String   // 'web', 'cli', 'im'
   history   Json     // 对话上下文 JSONB (Vercel AI SDK 兼容格式)
   
