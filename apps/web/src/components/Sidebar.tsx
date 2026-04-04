@@ -82,6 +82,7 @@ function ChatRow({
   onDelete: () => void;
   onFavorite: () => void;
 }) {
+  const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(chat.title);
@@ -178,19 +179,19 @@ function ChatRow({
             <DropdownMenuContent align="end" className="w-44 border-[#dddddd] shadow-[0_5px_10px_rgba(0,0,0,0.01)]">
               <DropdownMenuItem onClick={onFavorite} className="gap-3 py-2.5 cursor-pointer">
                 <Star className={cn('w-4 h-4 transition-colors', chat.favorited ? 'text-amber-400 fill-amber-400' : 'text-[#716B67]')} />
-                <span>{chat.favorited ? 'Unfavorite' : 'Favorite'}</span>
+                <span>{chat.favorited ? t('sidebar.unfavorite') : t('sidebar.favorite')}</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => setIsRenaming(true)} className="gap-3 py-2.5 cursor-pointer">
                 <Pencil className="w-4 h-4 text-[#716B67]" />
-                <span>Rename</span>
+                <span>{t('sidebar.rename')}</span>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
               <DropdownMenuItem onClick={() => setIsConfirmOpen(true)} className="gap-3 py-2.5 text-[#EF4444] focus:text-[#EF4444] focus:bg-[#FEF2F2] cursor-pointer">
                 <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
+                <span>{t('sidebar.delete')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -200,10 +201,9 @@ function ChatRow({
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <DialogContent className="sm:max-w-[460px] sm:rounded-[16px] gap-0 p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[#1C1B1B]">Delete Chat?</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-[#1C1B1B]">{t('sidebar.delete_chat_title')}</DialogTitle>
             <DialogDescription className="pt-3 text-base text-[#716B67] leading-relaxed">
-              This will permanently delete the conversation "<span className="font-semibold text-[#1C1B1B]">{chat.title}</span>"<br />
-              and its message history. This action cannot be undone.
+              {t('sidebar.delete_chat_desc', { title: chat.title })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-10 flex sm:justify-end gap-3">
@@ -211,7 +211,7 @@ function ChatRow({
               onClick={() => setIsConfirmOpen(false)}
               className="px-8 py-2.5 rounded-[12px] border border-[#E8E4E2] text-sm font-bold text-[#716B67] hover:bg-[#F1EFEB] transition-colors min-w-[100px]"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={() => {
@@ -220,7 +220,7 @@ function ChatRow({
               }}
               className="px-8 py-2.5 rounded-[12px] bg-[#EF4444] text-sm font-bold text-white hover:bg-[#D93636] transition-all shadow-[0_4px_12px_rgba(239,68,68,0.05)] min-w-[100px]"
             >
-              Delete
+              {t('common.delete')}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -256,10 +256,10 @@ export function Sidebar({
     .slice(0, 12);
 
   const navItems = [
-    { id: 'library', icon: FolderOpen, label: 'Library' },
-    { id: 'workflows', icon: GitMerge, label: 'Workflows' },
-    { id: 'knowledge', icon: BookOpen, label: 'Knowledge' },
-    { id: 'console', icon: TerminalSquare, label: 'Console' },
+    { id: 'library', icon: FolderOpen, label: t('sidebar.library') },
+    { id: 'workflows', icon: GitMerge, label: t('sidebar.workflows') },
+    { id: 'knowledge', icon: BookOpen, label: t('sidebar.knowledge') },
+    { id: 'console', icon: TerminalSquare, label: t('sidebar.console') },
   ];
 
   return (
@@ -273,7 +273,7 @@ export function Sidebar({
           </div>
           <div className="flex flex-col">
             <span className="font-display font-bold text-[#1C1B1B] text-xl leading-none">uClaw</span>
-            <span className="text-[9px] font-bold text-[#716B67] uppercase tracking-widest mt-0.5">Enterprise AI</span>
+            <span className="text-[9px] font-bold text-[#716B67] uppercase tracking-widest mt-0.5">{t('sidebar.enterprise_ai')}</span>
           </div>
         </div>
       </div>
@@ -287,7 +287,7 @@ export function Sidebar({
           <div className="bg-[#EC5B14]/10 p-1 rounded-md">
             <Plus className="w-4 h-4 text-[#EC5B14]" />
           </div>
-          <span className="text-[#EC5B14] font-semibold text-sm">New Chat</span>
+          <span className="text-[#EC5B14] font-semibold text-sm">{t('sidebar.new_chat')}</span>
         </button>
       </div>
 
@@ -316,11 +316,11 @@ export function Sidebar({
       {/* 4. Recent Activity — real conversations */}
       <div className="flex-1 px-5 mt-10 overflow-y-auto no-scrollbar">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-[10px] font-bold text-[#716B67] uppercase tracking-widest">Recent Activity</h4>
+          <h4 className="text-[10px] font-bold text-[#716B67] uppercase tracking-widest">{t('sidebar.recent_activity')}</h4>
         </div>
         <div className="space-y-0.5 -mx-2">
           {recentChats.length === 0 ? (
-            <p className="px-2 text-[11px] text-[#716B67]/60 italic">No conversations yet</p>
+            <p className="px-2 text-[11px] text-[#716B67]/60 italic">{t('sidebar.no_conversations')}</p>
           ) : (
             recentChats.map((chat) => (
               <ChatRow
@@ -350,7 +350,7 @@ export function Sidebar({
           />
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-sm font-bold text-[#1C1B1B] truncate">{user?.name || 'Alex Rivera'}</span>
-            <span className="text-[10px] text-[#716B67] truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || 'Admin'}</span>
+            <span className="text-[10px] text-[#716B67] truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || t('sidebar.admin')}</span>
           </div>
           <ChevronUp className="w-4 h-4 text-[#716B67] shrink-0" />
         </button>

@@ -6,8 +6,10 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 export function KnowledgeBase() {
+  const { t } = useTranslation();
   return (
     <div className="flex-1 overflow-y-auto bg-[#FCF9F8] font-sans text-[#1C1B1B] p-10 relative pb-32">
       <div className="max-w-7xl mx-auto space-y-12 w-full">
@@ -15,13 +17,13 @@ export function KnowledgeBase() {
         {/* Hero / Header Section */}
         <section className="flex flex-col md:flex-row justify-between items-end gap-6">
           <div className="max-w-2xl">
-            <h2 className="text-4xl font-display font-extrabold tracking-tight text-[#1C1B1B] mb-2">Knowledge Base</h2>
-            <p className="text-[#716B67] text-lg">Manage your organization's legal, operational, and policy data sources to power precise AI interactions.</p>
+            <h2 className="text-4xl font-display font-extrabold tracking-tight text-[#1C1B1B] mb-2">{t('knowledge_base.title')}</h2>
+            <p className="text-[#716B67] text-lg">{t('knowledge_base.subtitle')}</p>
           </div>
           <div className="flex gap-3">
             <div className="px-4 py-2 bg-[#ffdbce] text-[#783112] rounded-lg text-sm font-semibold flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#EC5B14] animate-pulse"></span>
-              Index Healthy
+              {t('knowledge_base.status.healthy')}
             </div>
           </div>
         </section>
@@ -33,7 +35,7 @@ export function KnowledgeBase() {
             
             <div className="bg-white p-6 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#716B67] mb-1">Active Sources</p>
+                <p className="text-sm font-medium text-[#716B67] mb-1">{t('knowledge_base.stats.active_sources')}</p>
                 <h3 className="text-3xl font-display font-bold">124</h3>
               </div>
               <div className="w-12 h-12 rounded-lg bg-[#EC5B14]/10 flex items-center justify-center">
@@ -43,8 +45,8 @@ export function KnowledgeBase() {
             
             <div className="bg-white p-6 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#716B67] mb-1">Data Indexed</p>
-                <h3 className="text-3xl font-display font-bold">4.2 <span className="text-lg font-medium text-[#716B67]">TB</span></h3>
+                <p className="text-sm font-medium text-[#716B67] mb-1">{t('knowledge_base.stats.data_indexed')}</p>
+                <h3 className="text-3xl font-display font-bold">4.2 <span className="text-lg font-medium text-[#716B67]">{t('knowledge_base.stats.unit_tb')}</span></h3>
               </div>
               <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
                 <Cloud className="text-blue-600 w-6 h-6" />
@@ -58,18 +60,18 @@ export function KnowledgeBase() {
             <div className="w-16 h-16 rounded-full bg-[#F6F3F2] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                <UploadCloud className="text-[#EC5B14] w-8 h-8" />
             </div>
-            <h4 className="text-xl font-display font-bold mb-2">Ingest New Data</h4>
-            <p className="text-[#716B67] text-center max-w-sm mb-6">Drag and drop documents, SQL dumps, or API endpoints to synchronize with your uClaw context.</p>
-            <button className="bg-[#1C1B1B] text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-md hover:bg-[#1C1B1B]/80 transition-colors">Select Files</button>
+            <h4 className="text-xl font-display font-bold mb-2">{t('knowledge_base.ingest.title')}</h4>
+            <p className="text-[#716B67] text-center max-w-sm mb-6">{t('knowledge_base.ingest.desc')}</p>
+            <button className="bg-[#1C1B1B] text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-md hover:bg-[#1C1B1B]/80 transition-colors">{t('knowledge_base.ingest.button')}</button>
           </div>
         </section>
 
         {/* Recent Projects Section */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-display font-bold tracking-tight">Recent Projects</h3>
+            <h3 className="text-2xl font-display font-bold tracking-tight">{t('knowledge_base.projects.title')}</h3>
             <button className="text-[#EC5B14] font-semibold text-sm flex items-center gap-1 hover:underline">
-              View all projects <ArrowRight className="w-4 h-4" />
+              {t('knowledge_base.projects.view_all')} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -86,8 +88,8 @@ export function KnowledgeBase() {
               </div>
               <div className="p-6 pt-2">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="px-2.5 py-0.5 bg-[#EC5B14]/10 text-[#EC5B14] text-[10px] font-bold uppercase tracking-widest rounded-md">Legal</span>
-                  <span className="text-[10px] text-[#716B67] font-medium">Updated 2h ago</span>
+                  <span className="px-2.5 py-0.5 bg-[#EC5B14]/10 text-[#EC5B14] text-[10px] font-bold uppercase tracking-widest rounded-md">{t('knowledge_base.projects.tags.legal')}</span>
+                  <span className="text-[10px] text-[#716B67] font-medium">{t('knowledge_base.projects.updated', { time: '2h' })}</span>
                 </div>
                 <h4 className="text-lg font-display font-bold mb-1">Q3 Legal Review</h4>
                 <p className="text-[#716B67] text-sm mb-4 line-clamp-2">Quarterly audit of all internal contracts and compliance documentation.</p>
@@ -111,8 +113,8 @@ export function KnowledgeBase() {
               </div>
               <div className="p-6 pt-2">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded-md">Operations</span>
-                  <span className="text-[10px] text-[#716B67] font-medium">Updated 5h ago</span>
+                  <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded-md">{t('knowledge_base.projects.tags.operations')}</span>
+                  <span className="text-[10px] text-[#716B67] font-medium">{t('knowledge_base.projects.updated', { time: '5h' })}</span>
                 </div>
                 <h4 className="text-lg font-display font-bold mb-1">Supply Chain v4</h4>
                 <p className="text-[#716B67] text-sm mb-4 line-clamp-2">Optimization analysis for global logistics and warehouse management.</p>
@@ -135,8 +137,8 @@ export function KnowledgeBase() {
               </div>
               <div className="p-6 pt-2">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-widest rounded-md">HR</span>
-                  <span className="text-[10px] text-[#716B67] font-medium">Updated 1d ago</span>
+                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-widest rounded-md">{t('knowledge_base.projects.tags.hr')}</span>
+                  <span className="text-[10px] text-[#716B67] font-medium">{t('knowledge_base.projects.updated_1d')}</span>
                 </div>
                 <h4 className="text-lg font-display font-bold mb-1">Policy Training</h4>
                 <p className="text-[#716B67] text-sm mb-4 line-clamp-2">Updated internal employee conduct guidelines and automated training modules.</p>
@@ -155,15 +157,15 @@ export function KnowledgeBase() {
         <section className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           
           <div className="lg:col-span-3 bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-8 overflow-hidden">
-            <h3 className="text-2xl font-display font-bold mb-6">Recent Knowledge Assets</h3>
+            <h3 className="text-2xl font-display font-bold mb-6">{t('knowledge_base.assets.title')}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="text-[#716B67] text-xs font-bold uppercase tracking-widest border-b border-[#E8E4E2]">
-                    <th className="pb-4 font-bold">Asset Name</th>
-                    <th className="pb-4 font-bold">Type</th>
-                    <th className="pb-4 font-bold">Last Synced</th>
-                    <th className="pb-4 font-bold text-right">Status</th>
+                    <th className="pb-4 font-bold">{t('knowledge_base.assets.table.name')}</th>
+                    <th className="pb-4 font-bold">{t('knowledge_base.assets.table.type')}</th>
+                    <th className="pb-4 font-bold">{t('knowledge_base.assets.table.last_synced')}</th>
+                    <th className="pb-4 font-bold text-right">{t('knowledge_base.assets.table.status')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F6F3F2]">
@@ -175,10 +177,10 @@ export function KnowledgeBase() {
                       </div>
                       <span className="font-semibold text-sm">global_tax_compliance_2023.pdf</span>
                     </td>
-                    <td className="py-4 text-[#716B67] text-sm">PDF Document</td>
+                    <td className="py-4 text-[#716B67] text-sm">{t('knowledge_base.assets.types.pdf')}</td>
                     <td className="py-4 text-[#716B67] text-sm">Oct 12, 14:30</td>
                     <td className="py-4 text-right">
-                      <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-widest">Indexed</span>
+                      <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-widest">{t('knowledge_base.assets.status.indexed')}</span>
                     </td>
                   </tr>
 
@@ -189,10 +191,10 @@ export function KnowledgeBase() {
                       </div>
                       <span className="font-semibold text-sm">customer_retention_data_v2</span>
                     </td>
-                    <td className="py-4 text-[#716B67] text-sm">SQL Database</td>
+                    <td className="py-4 text-[#716B67] text-sm">{t('knowledge_base.assets.types.sql')}</td>
                     <td className="py-4 text-[#716B67] text-sm">Oct 12, 09:15</td>
                     <td className="py-4 text-right">
-                      <span className="px-2.5 py-1 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full uppercase tracking-widest">Syncing</span>
+                      <span className="px-2.5 py-1 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full uppercase tracking-widest">{t('knowledge_base.assets.status.syncing')}</span>
                     </td>
                   </tr>
 
@@ -203,10 +205,10 @@ export function KnowledgeBase() {
                       </div>
                       <span className="font-semibold text-sm">Salesforce_Connector_Production</span>
                     </td>
-                    <td className="py-4 text-[#716B67] text-sm">API Endpoint</td>
+                    <td className="py-4 text-[#716B67] text-sm">{t('knowledge_base.assets.types.api')}</td>
                     <td className="py-4 text-[#716B67] text-sm">Oct 11, 23:45</td>
                     <td className="py-4 text-right">
-                      <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-widest">Indexed</span>
+                      <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-widest">{t('knowledge_base.assets.status.indexed')}</span>
                     </td>
                   </tr>
 
@@ -219,25 +221,25 @@ export function KnowledgeBase() {
           <div className="space-y-6">
             
             <div className="bg-gradient-to-br from-[#cc4900] to-[#EC5B14] p-6 rounded-[16px] text-white shadow-lg shadow-[#EC5B14]/20 relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+               <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
               <h4 className="text-lg font-display font-bold mb-2 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#ffb599]" />
-                uClaw Insight
+                {t('knowledge_base.sidebar.insight_title')}
               </h4>
               <p className="text-sm text-white/90 leading-relaxed mb-6 font-medium">
-                You have 12 orphaned documents in the "Library" that aren't linked to any active project.
+                {t('knowledge_base.sidebar.insight_desc')}
               </p>
               <button className="text-[11px] uppercase tracking-widest font-black bg-white text-[#cc4900] px-4 py-2 rounded-lg hover:bg-[#F6F3F2] shadow-sm transition-colors w-full">
-                Clean Assets
+                {t('knowledge_base.sidebar.clean_button')}
               </button>
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-              <h4 className="text-[11px] font-bold text-[#716B67] uppercase tracking-widest mb-4">Suggested Chips</h4>
+              <h4 className="text-[11px] font-bold text-[#716B67] uppercase tracking-widest mb-4">{t('knowledge_base.sidebar.suggested')}</h4>
               <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1.5 bg-[#ffdbce] text-[#783112] rounded-full text-[11px] font-bold cursor-pointer hover:bg-[#EC5B14] hover:text-white transition-colors">Tax Review</span>
-                <span className="px-3 py-1.5 bg-[#ffdbce] text-[#783112] rounded-full text-[11px] font-bold cursor-pointer hover:bg-[#EC5B14] hover:text-white transition-colors">HR Policies</span>
-                <span className="px-3 py-1.5 bg-[#ffdbce] text-[#783112] rounded-full text-[11px] font-bold cursor-pointer hover:bg-[#EC5B14] hover:text-white transition-colors">GDPR Audit</span>
+                <span className="px-3 py-1.5 bg-[#ffdbce] text-[#783112] rounded-full text-[11px] font-bold cursor-pointer hover:bg-[#EC5B14] hover:text-white transition-colors">{t('knowledge_base.sidebar.chips.tax')}</span>
+                <span className="px-3 py-1.5 bg-[#ffdbce] text-[#783112] rounded-full text-[11px] font-bold cursor-pointer hover:bg-[#EC5B14] hover:text-white transition-colors">{t('knowledge_base.sidebar.chips.hr')}</span>
+                <span className="px-3 py-1.5 bg-[#ffdbce] text-[#783112] rounded-full text-[11px] font-bold cursor-pointer hover:bg-[#EC5B14] hover:text-white transition-colors">{t('knowledge_base.sidebar.chips.gdpr')}</span>
               </div>
             </div>
 

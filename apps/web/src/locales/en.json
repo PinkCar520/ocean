@@ -15,7 +15,35 @@
     "status_secured": "Enterprise Secured",
     "status_stable": "v1.1 Stable",
     "role_assistant": "UClaw Agent",
-    "role_user": "Developer"
+    "role_user": "Developer",
+    "empty_state": {
+      "title": "Deployment Efficiency Optimized",
+      "desc": "Based on current GitLab PR patterns and Jenkins pipeline history, I've identified performance bottlenecks in your staging environment.",
+      "improvement_label": "Est. Improvement",
+      "improvement_value": "15% Cycle Reduction",
+      "success_label": "Success Probability",
+      "success_value": "94%"
+    },
+    "integrations": {
+      "active_title": "Active Integrations",
+      "manage": "Manage",
+      "pending_mrs": "Pending MRs",
+      "pipeline_running": "Pipeline Running",
+      "active_tasks": "Active Tasks"
+    },
+    "meta": {
+      "title": "Conversation Meta",
+      "model": "Model",
+      "tokens": "Token Usage",
+      "review_mode": "Compliance Review",
+      "strict": "Strict Mode"
+    },
+    "weekly_insight": {
+      "title": "Weekly Insight",
+      "content": "New California labor laws will take effect on January 1, 2025.",
+      "cta": "View Update"
+    },
+    "available_models": "Available Models"
   },
   "dashboard": {
     "title": "Engineering Insights",
@@ -103,7 +131,21 @@
     "executed_command": "executed command",
     "mcp_active": "Active MCP Skills",
     "knowledge_base": "Project Context",
-    "add_knowledge": "Add Knowledge"
+    "add_knowledge": "Add Knowledge",
+    "library": "Library",
+    "workflows": "Workflows",
+    "knowledge": "Knowledge",
+    "console": "Console",
+    "new_chat": "New Chat",
+    "enterprise_ai": "Enterprise AI",
+    "no_conversations": "No conversations yet",
+    "unfavorite": "Unfavorite",
+    "favorite": "Favorite",
+    "rename": "Rename",
+    "delete": "Delete",
+    "delete_chat_title": "Delete Chat?",
+    "delete_chat_desc": "This will permanently delete the conversation \"{{title}}\" and its message history. This action cannot be undone.",
+    "admin": "Admin"
   },
   "node": {
     "title": "Node Monitor",
@@ -148,7 +190,8 @@
     "settings": "Settings",
     "help": "Help",
     "sign_out": "Sign Out",
-    "select_language": "Select Language"
+    "select_language": "Select Language",
+    "free_version": "Free version"
   },
   "library": {
     "v3": "v3",
@@ -278,8 +321,79 @@
       "storage": "Storage Used",
       "tokens": "Tokens Consumed",
       "plan": "Plan Details",
-      "upgrade": "Upgrade Plan"
+      "upgrade": "Upgrade Plan",
+      "unit_gb": "GB",
+      "unit_k": "k",
+      "pro_plan": "Pro Enterprise"
+    },
+    "common": {
+      "syncing": "Synchronizing User Assets...",
+      "id_label": "ID: ",
+      "user_label": "User: ",
+      "prompt_zentao": "Enter your ZenTao API Token:"
+    },
+    "models": {
+      "deepseek_v3": "DeepSeek V3 (Default)",
+      "qwen_turbo": "Qwen Turbo",
+      "gpt4o_mini": "GPT-4o Mini"
     },
     "logout": "Sign Out"
+  },
+  "knowledge_base": {
+    "title": "Knowledge Base",
+    "subtitle": "Manage your organization's legal, operational, and policy data sources to power precise AI interactions.",
+    "status": {
+      "healthy": "Index Healthy"
+    },
+    "stats": {
+      "active_sources": "Active Sources",
+      "data_indexed": "Data Indexed",
+      "unit_tb": "TB"
+    },
+    "ingest": {
+      "title": "Ingest New Data",
+      "desc": "Drag and drop documents, SQL dumps, or API endpoints to synchronize with your uClaw context.",
+      "button": "Select Files"
+    },
+    "projects": {
+      "title": "Recent Projects",
+      "view_all": "View all projects",
+      "tags": {
+        "legal": "Legal",
+        "operations": "Operations",
+        "hr": "HR"
+      },
+      "updated": "Updated {{time}} ago",
+      "updated_1d": "Updated 1d ago"
+    },
+    "assets": {
+      "title": "Recent Knowledge Assets",
+      "table": {
+        "name": "Asset Name",
+        "type": "Type",
+        "last_synced": "Last Synced",
+        "status": "Status"
+      },
+      "types": {
+        "pdf": "PDF Document",
+        "sql": "SQL Database",
+        "api": "API Endpoint"
+      },
+      "status": {
+        "indexed": "Indexed",
+        "syncing": "Syncing"
+      }
+    },
+    "sidebar": {
+      "insight_title": "uClaw Insight",
+      "insight_desc": "You have 12 orphaned documents in the \"Library\" that aren't linked to any active project.",
+      "clean_button": "Clean Assets",
+      "suggested": "Suggested Chips",
+      "chips": {
+        "tax": "Tax Review",
+        "hr": "HR Policies",
+        "gdpr": "GDPR Audit"
+      }
+    }
   }
 }

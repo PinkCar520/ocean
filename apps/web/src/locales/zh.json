@@ -132,7 +132,21 @@
     "executed_command": "执行了命令",
     "mcp_active": "活跃 MCP 技能",
     "knowledge_base": "项目上下文",
-    "add_knowledge": "添加知识"
+    "add_knowledge": "添加知识",
+    "library": "库",
+    "workflows": "工作流",
+    "knowledge": "知识",
+    "console": "控制台",
+    "new_chat": "新对话",
+    "enterprise_ai": "企业级 AI",
+    "no_conversations": "暂无对话",
+    "unfavorite": "取消收藏",
+    "favorite": "收藏",
+    "rename": "重命名",
+    "delete": "删除",
+    "delete_chat_title": "删除对话？",
+    "delete_chat_desc": "这将永久删除对话 \"{{title}}\" 及其消息历史。此操作无法撤销。",
+    "admin": "管理员"
   },
   "node": {
     "title": "节点监控",
@@ -177,7 +191,8 @@
     "settings": "设置",
     "help": "帮助",
     "sign_out": "退出登录",
-    "select_language": "选择语言"
+    "select_language": "选择语言",
+    "free_version": "免费版"
   },
   "library": {
     "v3": "v3",
@@ -324,5 +339,62 @@
       "gpt4o_mini": "GPT-4o Mini"
     },
     "logout": "退出登录"
+  },
+  "knowledge_base": {
+    "title": "知识库",
+    "subtitle": "管理您组织的法律、运营和政策数据源，为精确的 AI 交互提供动力。",
+    "status": {
+      "healthy": "索引健康"
+    },
+    "stats": {
+      "active_sources": "活跃数据源",
+      "data_indexed": "已索引数据",
+      "unit_tb": "TB"
+    },
+    "ingest": {
+      "title": "导入新数据",
+      "desc": "拖拽文档、SQL 导出文件或 API 端点以同步到您的 uClaw 上下文中。",
+      "button": "选择文件"
+    },
+    "projects": {
+      "title": "最近项目",
+      "view_all": "查看所有项目",
+      "tags": {
+        "legal": "法务",
+        "operations": "运营",
+        "hr": "人事"
+      },
+      "updated": "更新于 {{time}} 前",
+      "updated_1d": "更新于 1天前"
+    },
+    "assets": {
+      "title": "最近知识资产",
+      "table": {
+        "name": "资产名称",
+        "type": "类型",
+        "last_synced": "上次同步",
+        "status": "状态"
+      },
+      "types": {
+        "pdf": "PDF 文档",
+        "sql": "SQL 数据库",
+        "api": "API 端点"
+      },
+      "status": {
+        "indexed": "已索引",
+        "syncing": "同步中"
+      }
+    },
+    "sidebar": {
+      "insight_title": "uClaw 洞察",
+      "insight_desc": "您的“库”中有 12 个孤立文档未链接到任何活动项目。",
+      "clean_button": "清理资产",
+      "suggested": "建议标签",
+      "chips": {
+        "tax": "税务审查",
+        "hr": "人事政策",
+        "gdpr": "GDPR 审计"
+      }
+    }
   }
 }

@@ -87,7 +87,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
       <div className="flex-1 flex items-center justify-center bg-[#FCF9F8]">
         <div className="flex flex-col items-center gap-4">
           <RefreshCw className="w-8 h-8 text-[#EC5B14] animate-spin" />
-          <span className="text-[#716B67] font-bold tracking-widest text-[10px] uppercase">Synchronizing User Assets...</span>
+          <span className="text-[#716B67] font-bold tracking-widest text-[10px] uppercase">{t('user_center.common.syncing')}</span>
         </div>
       </div>
     );
@@ -102,7 +102,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
           <div className="flex items-center gap-3 mb-2">
             <span className="bg-[#EC5B14]/10 text-[#EC5B14] text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest uppercase">{t('user_center.member_center')}</span>
             <span className="text-[#E8E4E2]">•</span>
-            <span className="text-[#716B67] text-[10px] font-bold uppercase tracking-widest">ID: {userProfile?.workId}</span>
+            <span className="text-[#716B67] text-[10px] font-bold uppercase tracking-widest">{t('user_center.common.id_label')}{userProfile?.workId}</span>
           </div>
           <h2 className="text-4xl font-display font-extrabold tracking-tight text-[#1C1B1B] mb-2 text-balance lg:max-w-2xl">
             {t('user_center.welcome')}<span className="text-[#EC5B14]">{userProfile?.name || 'Alex'}</span>
@@ -140,15 +140,6 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
               ))}
             </div>
 
-            <div className="pt-6 mt-6 border-t border-[#E8E4E2]/50">
-               <button 
-                 onClick={onLogout}
-                 className="flex items-center gap-3 px-4 py-3 w-full text-red-500 font-bold hover:bg-red-50 rounded-xl transition-colors"
-                >
-                 <LogOut className="w-4 h-4" />
-                 {t('user_center.logout')}
-               </button>
-            </div>
           </div>
 
           {/* Right Column: Dynamic Content */}
@@ -175,9 +166,9 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
                           onChange={(e) => updatePreferences({ defaultModel: e.target.value })}
                           className="w-full bg-[#f6f3f2] border border-transparent focus:bg-white focus:border-[#E8E4E2]/50 rounded-xl px-4 py-3 text-sm font-bold text-[#1C1B1B] outline-none transition-all cursor-pointer"
                         >
-                          <option value="deepseek-v3">DeepSeek V3 (Default)</option>
-                          <option value="qwen-turbo">Qwen Turbo</option>
-                          <option value="gpt-4o-mini">GPT-4o Mini</option>
+                          <option value="deepseek-v3">{t('user_center.models.deepseek_v3')}</option>
+                          <option value="qwen-turbo">{t('user_center.models.qwen_turbo')}</option>
+                          <option value="gpt-4o-mini">{t('user_center.models.gpt4o_mini')}</option>
                         </select>
                       </div>
                       <div>
@@ -249,7 +240,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
                   <h3 className="text-xl font-bold text-[#1C1B1B]">{t('user_center.integrations.title')}</h3>
                   <button 
                     onClick={() => {
-                       const token = prompt('Enter your ZenTao API Token:');
+                       const token = prompt(t('user_center.common.prompt_zentao'));
                        if (token) addCredential('zentao', token, 'admin');
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-[#EC5B14] text-white text-xs font-bold rounded-xl shadow-lg shadow-[#EC5B14]/20"
@@ -271,7 +262,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
                           </div>
                           <div>
                             <p className="text-sm font-bold text-[#1C1B1B] uppercase tracking-tight">{cred.systemType}</p>
-                            <p className="text-[10px] font-bold text-[#716B67]">User: {cred.username}</p>
+                            <p className="text-[10px] font-bold text-[#716B67]">{t('user_center.common.user_label')}{cred.username}</p>
                           </div>
                         </div>
                         <span className="bg-green-500/10 text-green-500 text-[9px] font-black px-2 py-0.5 rounded-full tracking-widest uppercase">{t('user_center.integrations.active')}</span>
@@ -298,21 +289,21 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="p-6 bg-[#f6f3f2] rounded-[24px]">
                        <p className="text-[10px] font-black text-[#716B67] uppercase tracking-widest mb-4">{t('user_center.usage.storage')}</p>
-                       <p className="text-2xl font-bold text-[#1C1B1B]">1.2 <span className="text-sm text-[#716B67]">GB</span></p>
+                       <p className="text-2xl font-bold text-[#1C1B1B]">1.2 <span className="text-sm text-[#716B67]">{t('user_center.usage.unit_gb')}</span></p>
                        <div className="w-full h-1.5 bg-[#E8E4E2] rounded-full mt-4 overflow-hidden">
                           <div className="w-[12%] h-full bg-[#EC5B14]"></div>
                        </div>
                     </div>
                     <div className="p-6 bg-[#f6f3f2] rounded-[24px]">
                        <p className="text-[10px] font-black text-[#716B67] uppercase tracking-widest mb-4">{t('user_center.usage.tokens')}</p>
-                       <p className="text-2xl font-bold text-[#1C1B1B]">84 <span className="text-sm text-[#716B67]">k</span></p>
+                       <p className="text-2xl font-bold text-[#1C1B1B]">84 <span className="text-sm text-[#716B67]">{t('user_center.usage.unit_k')}</span></p>
                        <div className="w-full h-1.5 bg-[#E8E4E2] rounded-full mt-4 overflow-hidden">
                           <div className="w-[45%] h-full bg-[#EC5B14]"></div>
                        </div>
                     </div>
                     <div className="p-6 bg-[#EC5B14] text-white rounded-[32px] flex flex-col items-center justify-center text-center shadow-xl shadow-[#EC5B14]/20">
                        <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">{t('user_center.usage.plan')}</p>
-                       <p className="text-xl font-bold">Pro Enterprise</p>
+                       <p className="text-xl font-bold">{t('user_center.usage.pro_plan')}</p>
                        <button className="mt-4 bg-white/20 hover:bg-white/30 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all">{t('user_center.usage.upgrade')}</button>
                     </div>
                   </div>

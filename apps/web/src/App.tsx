@@ -934,7 +934,7 @@ function AppContent() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-[#716B67]">{t('chat.meta.model')}</span>
                         <span className="text-xs font-bold text-[#1C1B1B] flex items-center gap-1">
-                          uClaw-4o <BadgeCheck className="w-3 h-3 text-[#EC5B14]" />
+                          {activeDisplayName} <BadgeCheck className="w-3 h-3 text-[#EC5B14]" />
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
