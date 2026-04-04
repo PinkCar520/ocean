@@ -59,11 +59,16 @@ export function ChatSession({
       // 这里的 messages 是“之前的”列表，message 是“新的回答”
       const updatedMessages = [...messages, message];
       
-      if (chatId) {
-        onMessagesChange(chatId, updatedMessages);
+      // 使用实时的 Ref 来判断
+      const currentChatId = chatIdRef.current;
+      
+      if (currentChatId) {
+        onMessagesChange(currentChatId, updatedMessages);
         
-        // 智能标题摘要逻辑：如果是第一轮回答完毕 (通常消息列表长度为 2: user + assistant)
-        if (updatedMessages.length === 2 && token) {
+        // 智能标题摘要逻辑：如果是第一轮且尚未生成标题
+        if (updatedMessages.length >= 2 && !titleGeneratedRef.current && token) {
+          titleGeneratedRef.current = true; // 立即标记，防止重入
+          
           try {
             const res = await fetch('/api/chat/generate-title', {
               method: 'POST',
@@ -72,14 +77,13 @@ export function ChatSession({
                 'Authorization': `Bearer ${token}` 
               },
               body: JSON.stringify({ 
-                message: updatedMessages[0].content, // 使用用户的第一条消息
+                message: updatedMessages[0].content,
                 modelId: selectedModelId 
               })
             });
             const data = await res.json();
             if (data.success && data.title) {
-              // 完成后静默重命名会话
-              onRenameConversation?.(chatId, data.title);
+              onRenameConversation?.(currentChatId, data.title);
             }
           } catch (err) {
              console.warn('Auto title summary failed:', err);
@@ -91,10 +95,20 @@ export function ChatSession({
 
   // 只在首次挂载时设置历史消息，流式输出期间不再触发（防止覆盖正在输出的内容）
   const initializedRef = useRef(false);
+  const chatIdRef = useRef(chatId);
+  const titleGeneratedRef = useRef(false);
+
+  // 同步 ref，确保异步回调中总能拿到最新值
+  useEffect(() => {
+    chatIdRef.current = chatId;
+  }, [chatId]);
+
   useEffect(() => {
     if (!initializedRef.current && initialMessages.length > 0) {
       initializedRef.current = true;
       setMessages(initialMessages);
+      // 如果加载的是历史记录，标记为已生成标题，防止重复总结
+      titleGeneratedRef.current = true;
     }
   }, [initialMessages]);
 
@@ -380,9 +394,35 @@ export function ChatSession({
                 ))
               )}
               {isLoading && (messages[messages.length - 1]?.role === 'user' || (messages[messages.length - 1]?.role === 'assistant' && !messages[messages.length - 1]?.content)) && (
-                <motion.div key="thinking-indicator" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="flex flex-col items-start w-full mb-8 px-5">
+                <motion.div 
+                  key="thinking-indicator" 
+                  initial={{ opacity: 0, y: 10, scale: 0.8 }} 
+                  animate={{ opacity: 1, y: 0, scale: 1 }} 
+                  exit={{ opacity: 0, y: -5, scale: 0.8 }} 
+                  className="flex flex-col items-start w-full mb-8 px-5"
+                >
                   <div className="flex items-center gap-3 py-3">
-                    <div className="w-8 h-8 rounded-[10px] bg-[#EC5B14] flex items-center justify-center shadow-lg animate-bounce-subtle"><Sparkles className="w-4 h-4 text-white" /></div>
+                    <motion.div 
+                      animate={{ 
+                        scale: [1, 1.15, 1],
+                        rotate: [0, 5, -5, 0]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </motion.div>
+                    <motion.span 
+                      animate={{ opacity: [0.4, 1, 0.4] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                      className="text-[11px] font-bold text-[#EC5B14] uppercase tracking-widest ml-1"
+                    >
+                      {t('chat.thinking')}
+                    </motion.span>
                   </div>
                 </motion.div>
               )}
