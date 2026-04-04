@@ -658,6 +658,30 @@ function AppContent() {
                         </motion.div>
                       ))
                     )}
+                    {/* Thinking Indicator */}
+                    {status === 'submitting' && (
+                      <motion.div 
+                        key="thinking-indicator"
+                        initial={{ opacity: 0, y: 10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -5 }}
+                        className="flex flex-col items-start w-full mb-8 px-4"
+                      >
+                        <div className="flex items-center gap-3 px-5 py-3">
+                          <div className="w-9 h-9 rounded-[12px] bg-[#EC5B14] flex items-center justify-center shadow-sm animate-bounce-subtle">
+                            <Sparkles className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-[#716B67] italic">{t('chat.thinking')}</span>
+                            <div className="flex gap-1 items-center h-4">
+                              <span className="w-1 h-1 bg-[#EC5B14]/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                              <span className="w-1 h-1 bg-[#EC5B14]/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                              <span className="w-1 h-1 bg-[#EC5B14]/50 rounded-full animate-bounce"></span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </AnimatePresence>
                 </div>
               </div>
@@ -665,6 +689,21 @@ function AppContent() {
               {/* Bottom Input Area */}
               <div className="pt-2 pb-8 px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
                 <div className="max-w-[800px] mx-auto relative">
+                  {/* Scroll to Bottom Button */}
+                  <AnimatePresence>
+                    {showScrollButton && (
+                      <motion.button
+                        initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                        onClick={scrollToBottom}
+                        className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-8 h-8 bg-white rounded-full shadow-lg border border-[#E8E4E2] flex items-center justify-center text-[#716B67] hover:text-[#EC5B14] hover:border-[#EC5B14]/30 transition-all active:scale-95"
+                      >
+                        <ArrowDown className="w-4 h-4" />
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+
                   <div className="bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] ring-1 ring-[#1C1B1B]/5 transition-all focus-within:ring-[#EC5B14]/30 focus-within:shadow-[0_10px_40px_-10px_rgba(236,91,20,0.15)]">
 
                     {/* File Preview Bar */}
