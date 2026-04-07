@@ -54,7 +54,7 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#faf9f8]">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#faf9f8]">
       
       {/* ── Background Aesthetics ── */}
       <div className="absolute inset-0 pointer-events-none">
@@ -67,10 +67,11 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
              style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
       </div>
 
-      <div className="relative w-full max-w-[1100px] h-[720px] flex bg-white/40 backdrop-blur-3xl rounded-[40px] border border-white/60 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] overflow-hidden m-4">
+      <div className="flex min-h-full items-start justify-center px-3 py-4 sm:items-center sm:p-4">
+        <div className="relative flex w-full max-w-[1100px] flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/40 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl lg:h-[720px] lg:flex-row lg:rounded-[40px]">
         
         {/* ── Left Side: Brand & Visuals ── */}
-        <div className="hidden lg:flex flex-col flex-1 relative bg-[#1C1B1B] p-12 overflow-hidden">
+        <div className="relative hidden flex-1 overflow-hidden bg-[#1C1B1B] p-12 lg:flex lg:flex-col">
           {/* Visual Accents */}
           <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-white/10 rounded-full" />
@@ -110,20 +111,21 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
         </div>
 
         {/* ── Right Side: Auth Form ── */}
-        <div className="flex-[0.8] flex flex-col p-8 md:p-16 relative">
+        <div className="relative flex flex-1 flex-col items-center px-4 py-6 sm:p-8 md:p-10 lg:items-stretch lg:flex-[0.8] lg:p-16">
+          <div className="mx-auto flex w-full max-w-[320px] flex-1 flex-col sm:max-w-[348px] lg:mx-0 lg:max-w-none">
           
-          <div className="mb-10 text-center lg:text-left">
-            <h2 className="text-3xl font-display font-black text-[#1C1B1B]">
+          <div className="mb-8 w-full text-center lg:mb-10 lg:text-left">
+            <h2 className="text-2xl font-display font-black text-[#1C1B1B] sm:text-3xl">
               {mode === 'login' ? t('auth.login_title') : t('auth.register_title')}
             </h2>
-            <p className="text-[#716B67] font-medium mt-2">
+            <p className="mt-2 text-base font-medium text-[#716B67] sm:text-lg">
               {mode === 'login' 
                 ? t('auth.login_desc') 
                 : t('auth.register_desc')}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="w-full space-y-4 sm:space-y-5">
             <AnimatePresence mode="wait">
               {mode === 'register' && (
                 <motion.div 
@@ -191,7 +193,7 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
             <button 
               type="submit"
               disabled={isLoading}
-              className="w-full h-14 py-3 bg-[#1C1B1B] hover:bg-black text-white font-bold rounded-2xl transition-all shadow-[0_12px_24px_rgba(0,0,0,0.15)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="group h-14 w-full rounded-2xl bg-[#1C1B1B] py-3 font-bold text-white shadow-[0_12px_24px_rgba(0,0,0,0.15)] transition-all active:scale-[0.98] hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
             >
               <div className="flex items-center justify-center gap-2">
                 {isLoading ? (
@@ -206,24 +208,26 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
             </button>
           </form>
 
-          <div className="mt-8">
-            <div className="relative flex items-center py-5">
+          <div className="mt-6 w-full sm:mt-8">
+            <div className="relative flex items-center py-4 sm:py-5">
               <div className="flex-grow border-t border-[#E8E4E2]"></div>
               <span className="flex-shrink mx-4 text-[10px] font-bold text-[#716B67] uppercase tracking-widest">{t('auth.continue_with')}</span>
               <div className="flex-grow border-t border-[#E8E4E2]"></div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-               <button className="flex items-center justify-center gap-3 h-12 bg-white border border-[#E8E4E2] rounded-xl hover:bg-[#F6F3F2] transition-colors text-sm font-bold text-[#1C1B1B]">
-                 <Globe className="w-4 h-4 text-[#EC5B14]" /> {t('auth.sso_portal')}
+            <div className="flex w-full flex-col gap-3">
+               <button className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#E8E4E2] bg-white px-4 text-sm font-bold text-[#1C1B1B] transition-colors hover:bg-[#F6F3F2]">
+                 <Globe className="h-4 w-4 shrink-0 text-[#EC5B14]" />
+                 <span className="whitespace-nowrap">{t('auth.sso_portal')}</span>
                </button>
-               <button className="flex items-center justify-center gap-3 h-12 bg-white border border-[#E8E4E2] rounded-xl hover:bg-[#F6F3F2] transition-colors text-sm font-bold text-[#1C1B1B]">
-                 <Fingerprint className="w-4 h-4 text-[#EC5B14]" /> {t('auth.bio_logic')}
+               <button className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#E8E4E2] bg-white px-4 text-sm font-bold text-[#1C1B1B] transition-colors hover:bg-[#F6F3F2]">
+                 <Fingerprint className="h-4 w-4 shrink-0 text-[#EC5B14]" />
+                 <span className="whitespace-nowrap">{t('auth.bio_logic')}</span>
                </button>
             </div>
           </div>
 
-          <div className="mt-auto pt-8 text-center">
+          <div className="w-full pt-8 text-center lg:mt-auto">
             <p className="text-sm font-medium text-[#716B67]">
               {mode === 'login' ? t('auth.no_account') : t('auth.have_account')}{' '}
               <button 
@@ -234,6 +238,8 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
               </button>
             </p>
           </div>
+          </div>
+        </div>
         </div>
       </div>
     </div>
