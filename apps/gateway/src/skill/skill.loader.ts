@@ -18,9 +18,10 @@ export interface SkillEntry {
   skillDir: string;
   /** Space-delimited list of pre-approved tools (experimental) */
   allowedTools?: string[];
-  /** Raw frontmatter fields */
   metadata?: Record<string, string>;
   compatibility?: string;
+  /** Localized mapping overrides for the frontend UI (e.g. { zh: { displayName: "..." } }) */
+  locales?: Record<string, { displayName?: string; description?: string }>;
 }
 
 /**
@@ -77,6 +78,14 @@ export class SkillLoader {
 
     this.discovered = true;
     this.logger.log(`Skills discovery complete. Found: [${[...this.catalog.keys()].join(', ')}]`);
+    return [...this.catalog.values()];
+  }
+
+  /** Retrieve all skills from memory cache. Discovers if not yet initialized. */
+  async getAllSkills(): Promise<SkillEntry[]> {
+    if (!this.discovered) {
+      await this.discover();
+    }
     return [...this.catalog.values()];
   }
 
@@ -200,6 +209,7 @@ export class SkillLoader {
         : undefined,
       compatibility: fm['compatibility'] ? String(fm['compatibility']) : undefined,
       metadata: fm['metadata'] ? (fm['metadata'] as Record<string, string>) : undefined,
+      locales: fm['locales'] ? (fm['locales'] as Record<string, { displayName?: string; description?: string }>) : undefined,
     };
   }
 

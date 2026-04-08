@@ -18,9 +18,12 @@ import {
   ChevronRight,
   Globe,
   ChevronUp,
+  History,
+  Search,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
+import { GlobalSearchModal } from './GlobalSearchModal';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -249,6 +252,7 @@ export function Sidebar({
   onLogout,
 }: SidebarProps) {
   const { t, i18n } = useTranslation();
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   // 移除内部强制排序，严格遵循 App.tsx 传入的原始数组顺序（Index 排序）
   const recentChats = conversations.slice(0, 12);
@@ -291,21 +295,32 @@ export function Sidebar({
           </button>
         </div>
 
-      {/* 2. New Chat CTA */}
-      <div className="px-5 space-y-3 mt-4">
+      {/* 2. Global Actions (New Chat & Search) */}
+      <div className="px-5 space-y-1.5 mt-4">
         <button
           onClick={onNewChat}
-          className="w-full h-11 flex items-center justify-start gap-3 bg-white px-4 rounded-[8px] border border-[#E8E4E2]/50 shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.04)] transition-all"
+          className="w-full h-10 flex items-center justify-start gap-3 bg-white px-3 rounded-[8px] border border-[#E8E4E2]/50 shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.04)] transition-all"
         >
           <div className="bg-[#EC5B14]/10 p-1 rounded-md">
-            <Plus className="w-4 h-4 text-[#EC5B14]" />
+            <Plus className="w-3.5 h-3.5 text-[#EC5B14]" />
           </div>
-          <span className="text-[#EC5B14] font-semibold text-sm">{t('sidebar.new_chat')}</span>
+          <span className="text-[#1C1B1B] font-semibold text-sm">{t('sidebar.new_chat')}</span>
+        </button>
+
+        <button
+          onClick={() => setIsSearchModalOpen(true)}
+          className="w-full h-10 flex items-center justify-start gap-3 px-3 rounded-[8px] transition-all text-[#1C1B1B] hover:bg-[#1C1B1B]/5"
+        >
+          <div className="p-1">
+            <Search className="w-4 h-4 text-[#716B67]" />
+          </div>
+          <span className="font-medium text-sm">{i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}</span>
         </button>
       </div>
 
-      {/* 3. Navigation Links */}
-      <nav className="px-3 mt-8 space-y-1">
+      {/* 3. Navigation Links (Platform Modules) */}
+      <nav className="px-3 mt-6 space-y-1 relative">
+        <div className="absolute top-0 left-7 right-7 h-px bg-[#E8E4E2] -mt-3" />
         {navItems.map((item) => {
           const isActive = activeMainTab === item.id;
           return (
@@ -326,15 +341,28 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* 4. Recent Activity — real conversations */}
-      <div className="flex-1 px-5 mt-10 overflow-y-auto no-scrollbar">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-[10px] font-bold text-[#716B67] uppercase tracking-widest">{t('sidebar.recent_activity')}</h4>
+      {/* 4. Recent Activity & All Chats */}
+      <div className="flex-1 px-5 mt-8 overflow-y-auto no-scrollbar relative">
+        <div className="absolute top-0 left-3 right-3 h-px bg-[#E8E4E2] -mt-4 opacity-70" />
+        
+        <button
+          onClick={() => onMainTabChange('all_chats')}
+          className={cn(
+             'w-full flex items-center gap-3 px-1 py-2 mb-4 rounded-[8px] font-medium text-sm transition-all focus:outline-none -ml-1',
+             activeMainTab === 'all_chats' ? 'bg-white shadow-sm text-[#1C1B1B]' : 'text-[#1C1B1B] hover:bg-[#1C1B1B]/5'
+          )}
+        >
+          <History className="w-4 h-4 text-[#716B67]" />
+          <span>{t('sidebar.all_chats')}</span>
+        </button>
+
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-[10px] font-bold text-[#A8A4A1] uppercase tracking-widest">{t('sidebar.recent_activity')}</h4>
         </div>
         <div className="space-y-0.5 -mx-2">
-          {recentChats.length === 0 ? (
+          {recentChats.length === 0 ?
             <p className="px-2 text-[11px] text-[#716B67]/60 italic">{t('sidebar.no_conversations')}</p>
-          ) : (
+          : (
             recentChats.map((chat) => (
               <ChatRow
                 key={chat.id}
@@ -370,6 +398,14 @@ export function Sidebar({
       </div>
 
     </aside>
+    <GlobalSearchModal 
+      isOpen={isSearchModalOpen} 
+      onClose={() => setIsSearchModalOpen(false)} 
+      conversations={conversations}
+      onSelectChat={(id) => {
+        if (onLoadConversation) onLoadConversation(id);
+      }}
+    />
     </>
   );
 }

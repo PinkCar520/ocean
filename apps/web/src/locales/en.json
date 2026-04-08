@@ -99,7 +99,8 @@
     }
   },
   "common": {
-    "copy": "Copy message",
+    "copy": "Copy",
+    "copied": "Copied",
     "edit": "Modify message",
     "regenerate": "Regenerate",
     "upload_files": "Upload Files",
@@ -139,6 +140,7 @@
     "console": "Console",
     "new_chat": "New Chat",
     "enterprise_ai": "Enterprise AI",
+    "all_chats": "All Chats",
     "no_conversations": "No conversations yet",
     "unfavorite": "Unfavorite",
     "favorite": "Favorite",
@@ -396,5 +398,28 @@
         "gdpr": "GDPR Audit"
       }
     }
+  },
+  "all_chats": {
+    "title": "Chat History Manager",
+    "subtitle": "Manage and clean up all your historical exploration, code generation, and analysis sessions.",
+    "search_placeholder": "Search by chat title...",
+    "select_all": "Select All",
+    "deselect_all": "Deselect All",
+    "delete_selected": "Delete Selected ({{count}})",
+    "cancel": "Cancel",
+    "no_results": "No chats found containing this keyword",
+    "confirm_delete_title": "Confirm Delete History",
+    "confirm_delete_desc": "You are about to permanently delete {{count}} selected chat(s). This will wipe their associated context and linked assets irrevocably. Continue?",
+    "table": {
+      "title": "Chat Name",
+      "date": "Last Active",
+      "messages": "Messages"
+    }
+  },
+  "search_modal": {
+    "placeholder": "Search chats and projects...",
+    "no_results": "No chats found",
+    "recent_discussions": "Recent Discussions",
+    "shortcut_hint": "Use ↑↓ to navigate, Enter to select, Esc to close"
   }
 }

@@ -24,6 +24,7 @@ import { UIGallery } from './components/UIGallery';
 import { SkillLibrary } from './components/SkillLibrary';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { NodeMonitor } from './components/NodeMonitor';
+import { AllChatsManager } from './components/AllChatsManager';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -241,6 +242,7 @@ function AppContent() {
         setActiveSessionId(newSession.sessionId);
         return [...prev, newSession];
       });
+      setActiveTab('chat');
     } else if (!chatIdFromUrl && pathname === '/') {
       setCurrentChatId(null);
       // 保持 activeSessionId 指向当前的 null-chatId session（无需改变）
@@ -263,6 +265,7 @@ function AppContent() {
         'knowledge': t('sidebar.knowledge'),
         'console': t('sidebar.console'),
         'settings': t('settings.title'),
+        'all_chats': t('sidebar.all_chats'),
       };
       const name = tabNames[activeTab] || activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
       document.title = `uClaw - ${name}`;
@@ -394,23 +397,28 @@ function AppContent() {
   };
 
   const handleDeleteChat = (id: string) => {
-    setConversations(prev => prev.filter(c => c.id !== id));
+    handleDeleteConversations([id]);
+  };
+
+  const handleDeleteConversations = (ids: string[]) => {
+    setConversations(prev => prev.filter(c => !ids.includes(c.id)));
     if (token) {
-      // Execute delete immediately without debounce, with simple retry
       const attemptDelete = async (retries = 2) => {
         try {
-          await fetch(`/api/session/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
+          await Promise.allSettled(ids.map(id => 
+            fetch(`/api/session/${id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+          ));
         } catch (e) {
           if (retries > 0) setTimeout(() => attemptDelete(retries - 1), 2000);
-          else console.error(`Failed to delete session ${id} from server.`);
+          else console.error(`Failed to delete sessions from server.`);
         }
       };
       attemptDelete();
     }
-    if (currentChatId === id) {
+    if (currentChatId && ids.includes(currentChatId)) {
       handleNewChat();
     }
   };
@@ -421,6 +429,7 @@ function AppContent() {
 
   const loadConversation = (id: string) => {
     navigate(`/chat/${id}`);
+    setActiveTab('chat');
   };
 
   const [models, setModels] = useState<any[]>([]);
@@ -540,6 +549,12 @@ function AppContent() {
                 />
               ))}
             </div>
+          ) : activeTab === 'all_chats' ? (
+            <AllChatsManager
+              conversations={conversations}
+              onLoadConversation={loadConversation}
+              onDeleteConversations={handleDeleteConversations}
+            />
           ) : activeTab === 'settings' ? (
             <UserCenter onLogout={handleLogout} />
           ) : activeTab === 'library' ? (

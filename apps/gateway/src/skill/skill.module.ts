@@ -4,18 +4,22 @@ import { SkillLoader } from './skill.loader';
 import { MCPModule } from '../mcp/mcp.module';
 import { RpcModule } from '../chat/rpc.module';
 
+import { SkillController } from './skill.controller';
+
 /**
  * SkillModule
  *
  * Wires up the AgentSkills-compatible skill system:
  *   - SkillLoader: Discovery, Parse, Disclose (catalog), Activate (full content)
  *   - SkillOrchestrator: System Prompt builder + activate_skill tool + stream/text API
+ *   - SkillController: Serves catalog API to frontend
  *
  * SkillRegistry and AiguideLoader are removed — their logic is now in SkillLoader.
  * Depends on RpcModule (not ChatModule) to avoid circular dependency.
  */
 @Module({
   imports: [MCPModule, RpcModule],
+  controllers: [SkillController],
   providers: [SkillOrchestrator, SkillLoader],
   exports: [SkillOrchestrator, SkillLoader],
 })

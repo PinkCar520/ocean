@@ -44,7 +44,28 @@
       "cta": "查看更新"
     },
     "available_models": "可用模型",
-    "thinking": "思考处理中"
+    "thinking": "思考处理中",
+    "tool_status": {
+      "calling": "正在调用技能...",
+      "executing": "正在调用 {{name}}...",
+      "completed": "调用 {{name}} 的技能",
+      "error": "技能调用失败",
+      "names": {
+        "read_file": "读取文件",
+        "write_file": "写入文件",
+        "ls": "检查目录",
+        "git_status": "检查 Git 状态",
+        "git_add": "暂存更改",
+        "git_commit": "提交更改",
+        "npm_build": "执行构建",
+        "activate_skill": "专家技能",
+        "getBugInfo": "获取缺陷详情",
+        "searchBugs": "搜索缺陷库",
+        "getPipelineStatus": "检查流水线状态",
+        "proposePlan": "生成任务规划",
+        "runLocalCommand": "执行环境检查"
+      }
+    }
   },
   "dashboard": {
     "title": "研发效能大盘",
@@ -99,7 +120,8 @@
     }
   },
   "common": {
-    "copy": "复制消息",
+    "copy": "复制",
+    "copied": "已复制",
     "edit": "修改消息",
     "regenerate": "重新生成",
     "upload_files": "上传文件",
@@ -140,6 +162,7 @@
     "console": "控制台",
     "new_chat": "新对话",
     "enterprise_ai": "企业级 AI",
+    "all_chats": "全部历史",
     "no_conversations": "暂无对话",
     "unfavorite": "取消收藏",
     "favorite": "收藏",
@@ -314,7 +337,7 @@
     "integrations": {
       "title": "活跃连接器",
       "add": "添加集成",
-      "empty": "尚未连接任何系统",
+      "empty": "尚未连接 any 系统",
       "empty_desc": "连接 ZenTao 或 GitLab 以开启 AI 任务编排",
       "active": "已激活",
       "settings": "配置"
@@ -397,5 +420,28 @@
         "gdpr": "GDPR 审计"
       }
     }
+  },
+  "all_chats": {
+    "title": "全部对话记录",
+    "subtitle": "管理并且清理您所有的历史探索、代码生成与分析会话。",
+    "search_placeholder": "搜索会话标题...",
+    "select_all": "选择所有",
+    "deselect_all": "取消选择",
+    "delete_selected": "删除选中的会话 ({{count}})",
+    "cancel": "取消",
+    "no_results": "暂未找到包含该关键词的对话",
+    "confirm_delete_title": "确认清除历史记录",
+    "confirm_delete_desc": "您将彻底清除选中的 {{count}} 个对话。这将一并销毁其关联上下文与附带资产记录且不可恢复。是否继续？",
+    "table": {
+      "title": "会话名称",
+      "date": "最后活跃",
+      "messages": "消息数"
+    }
+  },
+  "search_modal": {
+    "placeholder": "搜索历史对话或项目...",
+    "no_results": "找不到相关对话",
+    "recent_discussions": "近期讨论",
+    "shortcut_hint": "按 ↑↓ 浏览，回车进入，Esc 退出"
   }
 }

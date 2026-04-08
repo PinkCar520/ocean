@@ -206,7 +206,10 @@ ${catalogXml}`;
             };
           }
           logger.log(`activate_skill: "${skill_name}" delivered to LLM`);
-          return { skill_content: content };
+          return { 
+            message: `Skill "${skill_name}" has been successfully activated. Instructions are provided below. Please follow them strictly for all subsequent steps in this task. Do NOT call activate_skill again for "${skill_name}".`,
+            skill_content: content 
+          };
         },
       } as any),
     };
