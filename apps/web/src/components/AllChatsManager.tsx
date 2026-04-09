@@ -2,25 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, MessageSquare, Calendar, Trash2, X, CheckSquare, Square, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from './ui/dialog';
-
-interface Conversation {
-  id: string;
-  title: string;
-  messages: any[];
-  timestamp: number;
-  favorited?: boolean;
-}
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import type { ConversationSummary } from '../lib/useConversations';
 
 interface AllChatsManagerProps {
-  conversations: Conversation[];
+  conversations: ConversationSummary[];
   onLoadConversation: (id: string) => void;
   onDeleteConversations: (ids: string[]) => void;
 }
@@ -170,11 +156,11 @@ export function AllChatsManager({
                     <div className="flex items-center gap-4 mt-1 text-xs text-[#716B67]">
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5" />
-                        {formatDate(chat.timestamp)}
+                        {formatDate(new Date(chat.updatedAt).getTime())}
                       </div>
                       <div className="flex items-center gap-1.5">
                         <MessageSquare className="w-3.5 h-3.5" />
-                        {chat.messages.length} {t('all_chats.table.messages', '消息数')}
+                        {chat.messageCount} {t('all_chats.table.messages', '消息数')}
                       </div>
                     </div>
                   </div>

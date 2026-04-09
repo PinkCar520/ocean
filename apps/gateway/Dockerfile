@@ -67,4 +67,4 @@ COPY apps/gateway/mcp.config.json apps/gateway/mcp.config.json
 EXPOSE 3000
 
 # 启动建议：在 monorepo 模式下，nest build 的产物位于 dist/apps/gateway/src/main
-CMD ["sh", "-c", "cd apps/gateway && ./node_modules/.bin/prisma db push --schema prisma/schema.prisma && node dist/apps/gateway/src/main"]
+CMD ["sh", "-c", "cd apps/gateway && ./node_modules/.bin/prisma db push --accept-data-loss --schema prisma/schema.prisma && node dist/apps/gateway/src/main"]

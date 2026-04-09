@@ -7,6 +7,7 @@ import { jsonSchema } from 'ai';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { SkillLoader } from './skill.loader';
 import { RpcGateway } from '../chat/rpc.gateway';
+import { SessionService } from '../session/session.service';
 import { z } from 'zod';
 import type { SkillContext } from '@uclaw/core';
 
@@ -33,6 +34,7 @@ export class SkillOrchestrator {
     private mcpManager: MCPClientManager,
     private skillLoader: SkillLoader,
     private rpcGateway: RpcGateway,
+    private sessionService: SessionService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -225,11 +227,32 @@ ${catalogXml}`;
     res: Response,
     ctx: SkillContext,
     modelId?: string,
+    sessionId?: string,
   ): Promise<void> {
     try {
       this.logger.debug(`streamResponse called with ${messages?.length} messages`);
       if (!Array.isArray(messages)) {
         throw new Error('messages must be an array');
+      }
+
+      // ── Step 1: 持久化用户消息（Server-First）────────────────
+      // 只持久化最后一条用户消息（新发送的那条）
+      if (sessionId) {
+        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) {
+          const userContent = typeof lastUserMsg.content === 'string'
+            ? lastUserMsg.content
+            : (Array.isArray(lastUserMsg.parts)
+                ? lastUserMsg.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')
+                : '');
+          await this.sessionService.addMessage(sessionId, {
+            role: 'user',
+            content: userContent,
+            parts: Array.isArray(lastUserMsg.parts) ? lastUserMsg.parts : undefined,
+            attachments: lastUserMsg.experimental_attachments ?? undefined,
+          });
+          this.logger.log(`[Orchestrator] Persisted user message to session ${sessionId}`);
+        }
       }
 
       // 兼容某些版本的 AI SDK (如 6.0.x)，确保 User/Assistant 消息具有 parts 属性
@@ -281,7 +304,6 @@ ${catalogXml}`;
         return { ...m, parts };
       });
 
-
       const modelMessages = await convertToModelMessages(sanitizedMessages);
       this.logger.debug(`modelMessages converted: ${modelMessages?.length}`);
 
@@ -305,6 +327,26 @@ ${catalogXml}`;
         onStepFinish: ({ stepNumber, toolCalls }) => {
           this.logger.debug(`Step ${stepNumber} finished. Tool calls: ${toolCalls?.length || 0}`);
         },
+        onFinish: async ({ text, response }) => {
+          // ── Step 2: 持久化 AI 回复（流完成后写库）────────────────
+          if (sessionId && text) {
+            try {
+              // 提取 parts（含 tool-invocation 等）
+              const assistantParts = response?.messages?.[0]?.content ?? undefined;
+              await this.sessionService.addMessage(sessionId, {
+                role: 'assistant',
+                content: text,
+                parts: Array.isArray(assistantParts) ? assistantParts : undefined,
+              });
+              this.logger.log(`[Orchestrator] Persisted assistant reply to session ${sessionId} (${text.length} chars)`);
+
+              // ── Step 3: 自动生成标题（第一轮对话时）─────────────
+              await this.maybeSummarizeTitle(sessionId, messages, text, modelId);
+            } catch (err: any) {
+              this.logger.error(`Failed to persist assistant reply: ${err.message}`);
+            }
+          }
+        },
       });
 
       result.pipeUIMessageStreamToResponse(res);
@@ -312,6 +354,38 @@ ${catalogXml}`;
       this.logger.error(`Stream error: ${err.message}`);
       if (err.stack) this.logger.error(err.stack);
       res.status(500).send(err.message);
+    }
+  }
+
+  /**
+   * 仅在会话第一轮（1条用户消息 + 1条 AI 回复）时自动生成标题
+   */
+  private async maybeSummarizeTitle(
+    sessionId: string,
+    messages: any[],
+    assistantReply: string,
+    modelId?: string,
+  ): Promise<void> {
+    // 只在第一条用户消息 + 第一条 AI 回复时触发
+    const userMsgCount = messages.filter(m => m.role === 'user').length;
+    if (userMsgCount !== 1) return;
+
+    const firstUserMsg = messages.find(m => m.role === 'user');
+    const userContent = typeof firstUserMsg?.content === 'string'
+      ? firstUserMsg.content
+      : '';
+    if (!userContent) return;
+
+    try {
+      const title = await this.generateTitle(userContent, modelId);
+      // 通过 sessionId 直接更新数据库标题（不需要 userId 鉴权，内部调用）
+      await this.sessionService['prisma'].session.update({
+        where: { id: sessionId },
+        data: { title },
+      });
+      this.logger.log(`[Orchestrator] Auto-titled session ${sessionId}: "${title}"`);
+    } catch (err: any) {
+      this.logger.warn(`Auto-title generation failed: ${err.message}`);
     }
   }
 

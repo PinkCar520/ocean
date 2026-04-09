@@ -3,7 +3,7 @@ import { SkillOrchestrator } from './skill.orchestrator';
 import { SkillLoader } from './skill.loader';
 import { MCPModule } from '../mcp/mcp.module';
 import { RpcModule } from '../chat/rpc.module';
-
+import { SessionModule } from '../session/session.module';
 import { SkillController } from './skill.controller';
 
 /**
@@ -16,11 +16,13 @@ import { SkillController } from './skill.controller';
  *
  * SkillRegistry and AiguideLoader are removed — their logic is now in SkillLoader.
  * Depends on RpcModule (not ChatModule) to avoid circular dependency.
+ * Depends on SessionModule for Server-First message persistence.
  */
 @Module({
-  imports: [MCPModule, RpcModule],
+  imports: [MCPModule, RpcModule, SessionModule],
   controllers: [SkillController],
   providers: [SkillOrchestrator, SkillLoader],
   exports: [SkillOrchestrator, SkillLoader],
 })
 export class SkillModule {}
+

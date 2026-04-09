@@ -35,22 +35,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
 } from './ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from './ui/dialog';
-
-interface Conversation {
-  id: string;
-  title: string;
-  messages: any[];
-  timestamp: number;
-  favorited?: boolean;
-}
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import type { ConversationSummary } from '../lib/useConversations';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -59,7 +45,7 @@ interface SidebarProps {
   onMainTabChange: (id: string) => void;
   onOpenSettings: () => void;
   onNewChat: () => void;
-  conversations?: Conversation[];
+  conversations?: ConversationSummary[];
   currentChatId?: string | null;
   onLoadConversation?: (id: string) => void;
   onRenameConversation?: (id: string, title: string) => void;
@@ -80,7 +66,7 @@ function ChatRow({
   onDelete,
   onFavorite,
 }: {
-  chat: Conversation;
+  chat: ConversationSummary;
   isActive: boolean;
   onLoad: () => void;
   onRename: (title: string) => void;

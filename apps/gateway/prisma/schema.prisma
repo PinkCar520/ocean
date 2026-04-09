@@ -63,19 +63,38 @@ model UserCredential {
   @@map("user_credentials")
 }
 
-// 跨端会话历史（支持 Web/CLI/IM 漫游）
+// 跨端会话（支持 Web/CLI/IM 漫游）
 model Session {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  title     String   @default("New Chat") // 会话标题
-  channel   String   // 'web', 'cli', 'im'
-  history   Json     // 对话上下文 JSONB (Vercel AI SDK 兼容格式)
-  
+  title     String    @default("New Chat") // 会话标题
+  channel   String    @default("web")      // 'web', 'cli', 'im'
+  status    String    @default("active")   // 'active' | 'archived'
+  messages  Message[]
+
   expiresAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("sessions")
+}
+
+// 对话消息（每条消息独立存储，Server as Source of Truth）
+model Message {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  role        String   // 'user' | 'assistant' | 'system'
+  content     String   @default("") // 消息文本内容
+  parts       Json?    // AI SDK UIMessage parts（含 tool-invocation 等）
+  attachments Json?    // 附件列表（url, name, contentType）
+  seq         Int      @default(0) // 消息序号，用于有序恢复
+
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId, seq])
+  @@map("messages")
 }

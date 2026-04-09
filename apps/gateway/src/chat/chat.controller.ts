@@ -81,6 +81,7 @@ export class ChatController {
   ) {
     const requestId = Math.random().toString(36).substring(7);
     const messages = body.messages || (body.text ? [{ role: 'user', content: body.text }] : []);
+    const sessionId: string | undefined = body.sessionId;
     
     // 提取最后一条用户消息文本，用于意图识别
     const userMessage: string =
@@ -90,16 +91,17 @@ export class ChatController {
         : '');
     const modelId: string | undefined = body.modelId || body.model;
 
-    console.log(`[Gateway] [${requestId}] Skill mode. Employee: ${req.user?.workId} (${req.user?.dbId}), msg: "${userMessage.slice(0, 60)}..."`);
+    console.log(`[Gateway] [${requestId}] Skill mode. Employee: ${req.user?.workId} (${req.user?.dbId}), session: ${sessionId || 'none'}, msg: "${userMessage.slice(0, 60)}..."`);
 
     const ctx: SkillContext = {
       userId: req.user?.workId || 'Anonymous',
       source: 'web',
       userMessage,
-      workspacePath: body.workspacePath, // 可选：客户端传入的工作区路径（供 .AIGUIDE.md 注入）
+      workspacePath: body.workspacePath,
     };
 
-    await this.skillOrchestrator.streamResponse(messages, res, ctx, modelId);
+    await this.skillOrchestrator.streamResponse(messages, res, ctx, modelId, sessionId);
+
   }
 
   /**

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../lib/utils';
@@ -29,58 +30,65 @@ import {
 } from './ui/tooltip';
 
 interface ChatSessionProps {
-  id: string; // Internal session ID
-  chatId: string | null; // Persisted chat ID (URL slug)
-  onChatCreated: (id: string, messages: any[]) => void;
-  onMessagesChange: (id: string, messages: any[]) => void;
-  onRenameConversation?: (id: string, title: string) => void;
-  initialMessages?: any[];
+  sessionId: string | null;                  // URL 中的会话 ID（null = 新对话）
+  initialMessages?: any[];                   // 从服务端拉取的历史消息
   models: any[];
   selectedModelId: string;
   setSelectedModelId: (id: string) => void;
   token: string | null;
   user: any;
-  isVisible: boolean;
+  createSession: () => Promise<string | null>; // 服务端创建新会话
+  onStreamFinished: (sessionId: string) => Promise<void>; // 流完成后刷新侧边栏
+  onRenameConversation?: (id: string, title: string) => void;
+  isLoadingHistory?: boolean;
   t: (key: string, options?: any) => string;
 }
 
 export function ChatSession({
-  id: sessionId,
-  chatId,
-  onChatCreated,
-  onMessagesChange,
-  onRenameConversation,
+  sessionId,
   initialMessages = [],
   models,
   selectedModelId,
   setSelectedModelId,
   token,
   user,
-  isVisible,
+  createSession,
+  onStreamFinished,
+  onRenameConversation,
+  isLoadingHistory,
   t
 }: ChatSessionProps) {
   const initializedRef = useRef(false);
-  const chatIdRef = useRef(chatId);
+  const sessionIdRef = useRef(sessionId);
   const titleGeneratedRef = useRef(false);
   
   // Custom Hook: globally fetches & caches dynamic skill names
   const { getLocalizedName } = useSkillCatalog();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // 同步 ref，确保异步回调中总能拿到最新值
   useEffect(() => {
-    chatIdRef.current = chatId;
-  }, [chatId]);
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
+  // 重置标题生成标志（切换到不同会话时）
   useEffect(() => {
-    if (!initializedRef.current && initialMessages.length > 0) {
-      initializedRef.current = true;
-      setMessages(initialMessages);
-      // 如果加载的是历史记录，标记为已生成标题，防止重复总结
-      titleGeneratedRef.current = true;
+    titleGeneratedRef.current = false;
+    initializedRef.current = false;
+  }, [sessionId]);
+
+  // 处理带有 autoSubmit 状态的跳转，将发送行为顺延到导航完成后进行
+  useEffect(() => {
+    if (sessionId && location.state?.autoSubmit) {
+      // 抹除路由 state 防止刷新重复发送
+      navigate(location.pathname, { replace: true, state: {} });
+      // 延迟到下一帧确保 Vercel SDK 完成新 ID 的挂载和重置
+      setTimeout(() => {
+        onFormSubmit();
+      }, 0);
     }
-  }, [initialMessages]);
-
-
+  }, [sessionId, location.state, navigate]);
 
   const [localInput, setLocalInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -93,46 +101,41 @@ export function ChatSession({
   const [isDragging, setIsDragging] = useState(false);
   const [isLocalThinking, setIsLocalThinking] = useState(false);
 
+  useEffect(() => {
+    if (sessionId !== sessionIdRef.current) {
+      sessionIdRef.current = sessionId;
+    }
+  }, [sessionId]);
+
   const { messages, sendMessage, status, reload, setMessages, stop } = (useChat as any)({
-    id: sessionId,
+    id: sessionId ?? 'new',  // 回归正常 React 状态设计
+    initialMessages: initialMessages, // 确保卸载重载时直接初始化为历史消息！
     api: '/api/chat',
     headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     body: {
       modelId: selectedModelId,
       search: isSearchMode,
-      knowledge: isKnowledgeMode
+      knowledge: isKnowledgeMode,
+      sessionId: sessionId,  // 核心：告知 Gateway 将消息写入哪个会话
     },
-    onFinish: async (message: any) => {
-      const updatedMessages = [...messages, message];
-      const currentChatId = chatIdRef.current;
-      
-      if (currentChatId) {
-        onMessagesChange(currentChatId, updatedMessages);
-        if (updatedMessages.length >= 2 && !titleGeneratedRef.current && token) {
-          titleGeneratedRef.current = true;
-          try {
-            const res = await fetch('/api/chat/generate-title', {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` 
-              },
-              body: JSON.stringify({ 
-                message: updatedMessages[0].content,
-                modelId: selectedModelId 
-              })
-            });
-            const data = await res.json();
-            if (data.success && data.title) {
-              onRenameConversation?.(currentChatId, data.title);
-            }
-          } catch (err) {
-             console.warn('Auto title summary failed:', err);
-          }
-        }
+    onFinish: async (_message: any) => {
+      // Server-First: 服务端已在 onFinish 中持久化消息
+      // 前端只需刷新侧边栏列表以显示最新标题/消息数
+      const sid = sessionIdRef.current;
+      if (sid) {
+        await onStreamFinished(sid);
       }
     }
   });
+
+  useEffect(() => {
+    if ((!initializedRef.current || messages.length === 0) && initialMessages.length > 0) {
+      initializedRef.current = true;
+      setMessages(initialMessages);
+      // 如果加载的是历史记录，标记为已生成标题，防止重复总结
+      titleGeneratedRef.current = true;
+    }
+  }, [initialMessages, messages.length, setMessages]);
 
   const isLoading = status === 'streaming' || status === 'submitting';
 
@@ -148,19 +151,12 @@ export function ChatSession({
 
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: Sparkles, color: 'text-slate-400' };
 
-  // Sync back to parent when messages change
-  useEffect(() => {
-    if (chatId && messages.length > 0) {
-      onMessagesChange(chatId, messages);
-    }
-  }, [messages, chatId]);
-
   // Scroll to bottom effect
   useEffect(() => {
-    if (isVisible && scrollRef.current) {
+    if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading, isVisible]);
+  }, [messages, isLoading]);
 
   // TextArea Resize
   useEffect(() => {
@@ -171,10 +167,10 @@ export function ChatSession({
   }, [localInput]);
 
   useEffect(() => {
-    if (isVisible && textAreaRef.current) {
+    if (textAreaRef.current) {
       textAreaRef.current.focus();
     }
-  }, [isVisible]);
+  }, []);
 
   const handleScroll = () => {
     if (scrollRef.current) {
@@ -255,24 +251,42 @@ export function ChatSession({
   const onFormSubmit = async (e?: any) => {
     if (e) e.preventDefault();
     if ((!localInput.trim() && selectedFiles.length === 0) || isLoading) return;
-    
-    // Set local thinking immediately for zero-latency UI feedback
+
+    // 若还没有 sessionId，先在服务端创建一个（Server-First：先有会话，再有消息）
+    let activeSessionId = sessionIdRef.current;
+    if (!activeSessionId) {
+      setIsLocalThinking(true);
+      const newId = await createSession();
+      if (!newId) {
+        setIsLocalThinking(false);
+        console.error('[ChatSession] Failed to create session');
+        return;
+      }
+      activeSessionId = newId;
+      sessionIdRef.current = newId;
+      
+      // 正常的 React Router 导航
+      navigate(`/chat/${newId}`, { state: { autoSubmit: true } });
+      return; // 终止当前提交，等待路由跳转完成并在新的生命周期发起消息流
+    }
+
     setIsLocalThinking(true);
-    
     const val = localInput;
     setLocalInput('');
     const filesToUpload = [...selectedFiles];
     setSelectedFiles([]);
+
     try {
       const attachments = filesToUpload.length > 0 ? await Promise.all(filesToUpload.map(uploadFile)) : undefined;
-      const isFirstMessage = messages.length === 0 && !chatId;
-      if (isFirstMessage) {
-        onChatCreated(sessionId, [{ content: val, role: 'user', experimental_attachments: attachments }]);
-      }
-
-      await sendMessage(
-        { content: val, role: 'user', experimental_attachments: attachments } as any
-      );
+      const userMessage = { content: val, role: 'user', experimental_attachments: attachments };
+      await sendMessage(userMessage as any, {
+        body: {
+          modelId: selectedModelId,
+          search: isSearchMode,
+          knowledge: isKnowledgeMode,
+          sessionId: activeSessionId,
+        }
+      });
     } catch (err) {
       console.error(err);
       setIsLocalThinking(false);
@@ -554,7 +568,7 @@ export function ChatSession({
 
   return (
     <div 
-      className={cn("flex-1 flex overflow-hidden h-full", !isVisible && "hidden")}
+      className="flex-1 flex overflow-hidden h-full"
       onDragOver={handleDragOver}
     >
       <div className="flex-1 flex flex-col relative overflow-hidden bg-white/40">
@@ -578,7 +592,17 @@ export function ChatSession({
         >
           <div className="max-w-[800px] mx-auto space-y-8">
             <AnimatePresence mode="popLayout" initial={false}>
-              {messages.length === 0 ? (
+              {isLoadingHistory ? (
+                <div className="flex flex-col mt-8 w-full gap-8 max-w-3xl mx-auto px-2">
+                  <div className="flex justify-end w-full opacity-60">
+                    <div className="bg-[#eeece9] w-2/3 h-14 rounded-[20px] animate-pulse rounded-tr-[4px]"></div>
+                  </div>
+                  <div className="flex justify-start w-full gap-4 mt-2 opacity-60">
+                    <div className="w-8 h-8 rounded-xl bg-[#E8E4E2] animate-pulse shrink-0"></div>
+                    <div className="flex-1 max-w-[80%] h-32 rounded-[20px] bg-[#fcfcfc] animate-pulse rounded-tl-[4px] border border-[#f0f0f0]"></div>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="flex flex-col mt-4 md:mt-10 w-full min-w-0">
                   <div className="flex w-full min-w-0 flex-col items-start gap-4 overflow-hidden rounded-[24px] border border-transparent bg-[#f6f3f2] p-5 md:flex-row md:gap-6 md:p-8 mb-8">
                     <div className="w-10 h-10 md:w-12 md:h-12 rounded-[12px] bg-white flex items-center justify-center shrink-0 shadow-sm text-[#EC5B14]">
