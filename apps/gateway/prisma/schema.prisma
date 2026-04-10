@@ -20,9 +20,10 @@ model User {
   password    String? // Hashed password for local authentication
 
   // 关联信息
-  preferences UserPreference?
-  credentials UserCredential[]
-  sessions    Session[]
+  preferences     UserPreference?
+  credentials     UserCredential[]
+  sessions        Session[]
+  skillInstallations SkillInstallation[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -97,4 +98,69 @@ model Message {
 
   @@index([sessionId, seq])
   @@map("messages")
+}
+
+// 技能注册表（兼容 Claude Code / OpenClaw Hub SKILL.md 标准）
+model Skill {
+  id            String   @id @default(uuid())
+  slug          String   @unique // URL 友好标识，如 "fix-bug"
+  name          String   // 显示名称
+  description   String?  @db.Text
+  category      String?  // 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science'
+  source        String   @default("internal") // 'openclaw-hub' | 'claude-code' | 'git' | 'local' | 'internal'
+  sourceUrl     String?  // 原始来源链接
+  version       String?  // 语义化版本
+  author        String?
+  license       String?
+  compatibility String?  // 依赖声明
+  manifest      Json?    // SKILL.md frontmatter 原始 JSON
+  content       String?  @db.Text // SKILL.md body 内容
+  isFeatured    Boolean  @default(false)
+  isPublic      Boolean  @default(true)
+  icon          String?  // lucide icon 名称
+  tags          String[] // 标签数组
+  installations SkillInstallation[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([category])
+  @@index([source])
+  @@index([isFeatured])
+  @@map("skills")
+}
+
+// 技能安装记录（工作空间/用户级别）
+model SkillInstallation {
+  id          String   @id @default(uuid())
+  skillId     String
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  userId      String?  // 安装用户（可选，为空表示工作空间级）
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String   @default("active") // 'active' | 'disabled' | 'pending'
+  config      Json?    // 用户自定义配置
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([skillId, userId])
+  @@index([userId])
+  @@map("skill_installations")
+}
+
+// MCP Server 注册表
+model MCPServer {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  category    String?  // 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science'
+  transport   String   @default("stdio") // 'stdio' | 'sse' | 'http'
+  command     String?  // 启动命令
+  args        Json?    // 启动参数
+  env         Json?    // 环境变量
+  status      String   @default("unknown") // 'online' | 'degraded' | 'offline' | 'unknown'
+  lastCheck   DateTime?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mcp_servers")
 }

@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  CheckCircle2, Rocket, GitPullRequest, MessageSquare, 
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  CheckCircle2, Rocket, GitPullRequest, MessageSquare,
   Star, Box, Mail
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -10,21 +10,88 @@ import { useTranslation } from 'react-i18next';
 
 type Category = 'all' | 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science';
 
-interface LibraryCard {
+interface SkillCard {
   id: string;
-  category: Category;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  titleKey: string;
-  descKey: string;
-  tagKey: string;
-  isFeatured?: boolean;
+  slug: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  source: string;
+  version: string | null;
+  author: string | null;
+  license: string | null;
+  isFeatured: boolean;
+  isPublic: boolean;
+  icon: string | null;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
 }
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  CheckCircle2: <CheckCircle2 className="w-6 h-6" />,
+  Rocket: <Rocket className="w-6 h-6" />,
+  GitPullRequest: <GitPullRequest className="w-6 h-6" />,
+  MessageSquare: <MessageSquare className="w-6 h-6" />,
+  Box: <Box className="w-6 h-6" />,
+  Mail: <Mail className="w-6 h-6" />,
+};
+
+const ICON_STYLE_MAP: Record<string, { bg: string; color: string }> = {
+  CheckCircle2: { bg: 'bg-orange-50', color: 'text-[#EC5B14]' },
+  Rocket: { bg: 'bg-blue-50', color: 'text-blue-600' },
+  GitPullRequest: { bg: 'bg-red-50', color: 'text-red-500' },
+  MessageSquare: { bg: 'bg-purple-50', color: 'text-purple-600' },
+  Box: { bg: 'bg-sky-50', color: 'text-sky-500' },
+  Mail: { bg: 'bg-emerald-50', color: 'text-emerald-600' },
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  'openclaw-hub': 'OpenClaw Hub',
+  'claude-code': 'Claude Code',
+  'git': 'Git',
+  'local': 'Local',
+  'internal': 'Internal',
+};
 
 export function SkillLibrary() {
   const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<Category>('all');
+  const [skills, setSkills] = useState<SkillCard[]>([]);
+  const [stats, setStats] = useState({ total: 0, newThisWeek: 0 });
+  const [loading, setLoading] = useState(true);
+  const initialFetchRef = React.useRef(true);
+
+  useEffect(() => {
+    // 切换筛选时先显示骨架屏
+    if (!initialFetchRef.current) {
+      setLoading(true);
+    }
+    initialFetchRef.current = false;
+
+    const fetchData = async () => {
+      const start = Date.now();
+      try {
+        const [skillsRes, statsRes] = await Promise.all([
+          fetch(`/api/skills${activeFilter !== 'all' ? `?category=${activeFilter}` : ''}`),
+          fetch('/api/skills/stats'),
+        ]);
+        const skillsData = await skillsRes.json();
+        const statsData = await statsRes.json();
+        setSkills(skillsData.data || []);
+        setStats(statsData.data || { total: 0, newThisWeek: 0 });
+      } catch (err) {
+        console.error('Failed to fetch skills:', err);
+      } finally {
+        // 保证骨架屏至少显示 300ms，让用户看到过渡动画
+        const elapsed = Date.now() - start;
+        const remaining = Math.max(0, 300 - elapsed);
+        await new Promise((resolve) => setTimeout(resolve, remaining));
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [activeFilter]);
 
   const filters: { id: Category; label: string }[] = [
     { id: 'all', label: t('library.filters.all') },
@@ -34,74 +101,6 @@ export function SkillLibrary() {
     { id: 'communication', label: t('library.filters.communication') },
     { id: 'data_science', label: t('library.filters.data_science') },
   ];
-
-  const allCards: LibraryCard[] = [
-    {
-      id: 'zentao',
-      category: 'pm',
-      icon: <CheckCircle2 className="w-6 h-6" />,
-      iconBg: 'bg-orange-50',
-      iconColor: 'text-[#EC5B14]',
-      titleKey: 'library.cards.zentao.title',
-      descKey: 'library.cards.zentao.desc',
-      tagKey: 'library.common.mcp_connector',
-    },
-    {
-      id: 'jenkins',
-      category: 'cicd',
-      icon: <Rocket className="w-6 h-6" />,
-      iconBg: 'bg-blue-50',
-      iconColor: 'text-blue-600',
-      titleKey: 'library.cards.jenkins.title',
-      descKey: 'library.cards.jenkins.desc',
-      tagKey: 'library.common.skillset',
-    },
-    {
-      id: 'gitlab',
-      category: 'vc',
-      icon: <GitPullRequest className="w-6 h-6" />,
-      iconBg: 'bg-red-50',
-      iconColor: 'text-red-500',
-      titleKey: 'library.cards.gitlab.title',
-      descKey: 'library.cards.gitlab.desc',
-      tagKey: 'library.common.mcp_connector',
-    },
-    {
-      id: 'slack',
-      category: 'communication',
-      icon: <MessageSquare className="w-6 h-6" />,
-      iconBg: 'bg-purple-50',
-      iconColor: 'text-purple-600',
-      titleKey: 'library.cards.slack.title',
-      descKey: 'library.cards.slack.desc',
-      tagKey: 'library.common.automation',
-    },
-    {
-      id: 'docker',
-      category: 'cicd',
-      icon: <Box className="w-6 h-6" />,
-      iconBg: 'bg-sky-50',
-      iconColor: 'text-sky-500',
-      titleKey: 'library.cards.docker.title',
-      descKey: 'library.cards.docker.desc',
-      tagKey: 'library.common.devops',
-    },
-    {
-      id: 'google',
-      category: 'communication',
-      icon: <Mail className="w-6 h-6" />,
-      iconBg: 'bg-emerald-50',
-      iconColor: 'text-emerald-600',
-      titleKey: 'library.cards.google.title',
-      descKey: 'library.cards.google.desc',
-      tagKey: 'library.common.productivity',
-    },
-  ];
-
-  const filteredCards = useMemo(() => {
-    if (activeFilter === 'all') return allCards;
-    return allCards.filter(card => card.category === activeFilter);
-  }, [activeFilter]);
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#fcf9f8] p-10 font-sans text-[#1c1b1b] relative pb-32">
@@ -119,10 +118,10 @@ export function SkillLibrary() {
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="bg-[#ffdbce] text-[#783112] px-3 py-1 rounded-full text-xs font-bold">
-              {t('library.stats.total_skills', { count: 124 })}
+              {t('library.stats.total_skills', { count: stats.total })}
             </span>
             <span className="bg-[#ebe7e7] text-[#5a4138] px-3 py-1 rounded-full text-xs font-bold">
-              {t('library.stats.new_this_week', { count: 12 })}
+              {t('library.stats.new_this_week', { count: stats.newThisWeek })}
             </span>
           </div>
         </section>
@@ -146,43 +145,74 @@ export function SkillLibrary() {
         </div>
 
         {/* Bento Grid Marketplace */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          
-          <AnimatePresence mode="popLayout">
-            {filteredCards.map((card) => (
-              <motion.div
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2 }}
-                key={card.id}
-                className="group card-floating p-6 flex flex-col hover:shadow-2xl hover:shadow-[#EC5B14]/5 transition-all"
-              >
-                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-6", card.iconBg, card.iconColor)}>
-                  {card.icon}
+        <AnimatePresence mode="wait">
+          {loading ? (
+            // Loading skeletons with fade animation
+            <motion.div
+              key="skeletons"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
+            >
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-6 rounded-2xl bg-[#F6F3F2]">
+                  <div className="w-12 h-12 rounded-xl bg-[#E8E4E2] mb-6 animate-pulse" />
+                  <div className="h-4 bg-[#E8E4E2] rounded w-3/4 mb-2 animate-pulse" />
+                  <div className="h-3 bg-[#E8E4E2] rounded w-full mb-6 animate-pulse" />
+                  <div className="flex justify-between mt-4">
+                    <div className="h-3 bg-[#E8E4E2] rounded w-20 animate-pulse" />
+                    <div className="h-6 bg-[#E8E4E2] rounded w-16 animate-pulse" />
+                  </div>
                 </div>
-                <div className="flex-grow">
-                  <h3 className="font-display font-bold text-lg mb-2 group-hover:text-[#EC5B14] transition-colors">{t(card.titleKey)}</h3>
-                  <p className="text-[13px] text-[#716B67] leading-relaxed mb-6 font-medium">
-                    {t(card.descKey)}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#a8a19c]">{t(card.tagKey)}</span>
-                  <button className="text-[#EC5B14] hover:bg-[#EC5B14]/10 px-4 py-1.5 rounded-lg transition-colors text-xs font-bold">{t('library.common.install')}</button>
-                </div>
-              </motion.div>
-            ))}
+              ))}
+            </motion.div>
+          ) : (
+            <div key="cards" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              <AnimatePresence mode="popLayout">
+                {skills.map((card) => {
+                  const iconEl = card.icon ? ICON_MAP[card.icon] : <Star className="w-6 h-6" />;
+                  const iconStyle = card.icon ? ICON_STYLE_MAP[card.icon] : { bg: 'bg-gray-50', color: 'text-gray-500' };
+                  return (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
+                      key={card.id}
+                      className="group card-floating p-6 flex flex-col hover:shadow-2xl hover:shadow-[#EC5B14]/5 transition-all"
+                    >
+                      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-6", iconStyle.bg, iconStyle.color)}>
+                        {iconEl}
+                      </div>
+                      <div className="flex-grow">
+                        <h3 className="font-display font-bold text-lg mb-2 group-hover:text-[#EC5B14] transition-colors">{card.name}</h3>
+                        <p className="text-[13px] text-[#716B67] leading-relaxed mb-6 font-medium">
+                          {card.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between mt-4">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#a8a19c]">
+                          {SOURCE_LABELS[card.source] || card.source}
+                        </span>
+                        <button className="text-[#EC5B14] hover:bg-[#EC5B14]/10 px-4 py-1.5 rounded-lg transition-colors text-xs font-bold">
+                          {t('library.common.install')}
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
 
-            {/* Featured Slot - Only show when "all" or specific logic applies, here we show it for "all" */}
-            {activeFilter === 'all' && (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="md:col-span-2 bg-[#2E2825] p-8 rounded-[24px] flex flex-col md:flex-row gap-8 items-center overflow-hidden relative shadow-2xl"
-              >
+                {/* Featured Slot */}
+                {activeFilter === 'all' && (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="md:col-span-2 bg-[#2E2825] p-8 rounded-[24px] flex flex-col md:flex-row gap-8 items-center overflow-hidden relative shadow-2xl"
+                  >
                 {/* Glowing orb background effect */}
                 <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-[#EC5B14] opacity-[0.15] blur-[80px] rounded-full pointer-events-none"></div>
                 
@@ -227,9 +257,10 @@ export function SkillLibrary() {
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
-
-        </div>
+              </AnimatePresence>
+            </div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>

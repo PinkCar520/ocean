@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
 import { UploadModule } from './upload/upload.module';
 import { SessionModule } from './session/session.module';
+import { SkillRegistryModule } from './skill-registry/skill-registry.module';
 
 /**
  * AppModule
@@ -21,6 +22,7 @@ import { SessionModule } from './session/session.module';
     UserModule,   // 对外暴露用户中心接口
     UploadModule, // 文件上传模块
     SessionModule, // 会话漫游数据接口模块
+    SkillRegistryModule, // 技能注册中心
   ],
   controllers: [],
   providers: [],
