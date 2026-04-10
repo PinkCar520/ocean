@@ -1,9 +1,13 @@
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { SkillService, CreateSkillDto, UpdateSkillDto } from './skill.service';
+import { SkillImportService, ImportSkillDto } from './skill-import.service';
 
 @Controller('api/skills')
 export class SkillController {
-  constructor(private readonly skillService: SkillService) {}
+  constructor(
+    private readonly skillService: SkillService,
+    private readonly skillImportService: SkillImportService,
+  ) {}
 
   /**
    * GET /api/skills
@@ -119,16 +123,21 @@ export class SkillController {
    */
   @Post('import')
   @HttpCode(HttpStatus.CREATED)
-  async importSkill(@Body() body: any) {
-    const { source, skillId, url, skillPath } = body;
-    // For now, return a placeholder — actual import adapters in Phase 3.2/3.3
-    return {
-      success: true,
-      data: {
-        message: `Import from ${source} is coming in the next update`,
-        source,
-        skillId,
-      },
-    };
+  async importSkill(@Body() body: ImportSkillDto) {
+    try {
+      const skill = await this.skillImportService.importSkill(body);
+      return {
+        success: true,
+        data: {
+          message: `Successfully imported skill "${skill.name}" from ${body.source}`,
+          skill,
+        },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
   }
 }

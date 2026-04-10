@@ -159,18 +159,27 @@ export function MCPServerManager() {
 
   const handleImportSkill = async () => {
     try {
+      const payload: any = { source: importSource };
+      if (importSource === 'openclaw-hub') {
+        payload.skillId = importUrl;
+      } else if (importSource === 'git') {
+        payload.url = importUrl;
+      } else if (importSource === 'claude-code') {
+        payload.skillPath = importUrl;
+      }
+
       const res = await fetch('/api/skills/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: importSource, url: importUrl }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
-        showToast(data.data?.message || 'Import started', 'success');
+        showToast(data.data?.message || 'Import completed successfully', 'success');
         setShowImportModal(false);
         setImportUrl('');
       } else {
-        showToast('Import failed', 'error');
+        showToast(data.error || 'Import failed', 'error');
       }
     } catch (err) {
       console.error('Import failed:', err);
@@ -604,14 +613,24 @@ export function MCPServerManager() {
 
                     <div>
                       <label className="block text-sm font-medium text-[#1C1B1B] mb-1">
-                        {importSource === 'git' ? 'Repository URL' : importSource === 'local' ? 'File Path' : 'Skill ID / URL'}
+                        {importSource === 'git' ? 'Repository URL' : importSource === 'local' ? 'SKILL.md Content' : importSource === 'openclaw-hub' ? 'Skill ID' : 'Local Path'}
                       </label>
-                      <input
-                        value={importUrl}
-                        onChange={(e) => setImportUrl(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none"
-                        placeholder={importSource === 'openclaw-hub' ? 'e.g., fix-bug' : importSource === 'git' ? 'https://github.com/user/repo' : '/path/to/skill'}
-                      />
+                      {importSource === 'local' ? (
+                        <textarea
+                          value={importUrl}
+                          onChange={(e) => setImportUrl(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm font-mono focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none resize-none"
+                          rows={4}
+                          placeholder='---&#10;name: my-skill&#10;description: "My custom skill"&#10;---&#10;&#10;# Instructions...'
+                        />
+                      ) : (
+                        <input
+                          value={importUrl}
+                          onChange={(e) => setImportUrl(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none"
+                          placeholder={importSource === 'openclaw-hub' ? 'e.g., fix-bug' : importSource === 'git' ? 'https://github.com/user/skill-repo' : '/path/to/skill'}
+                        />
+                      )}
                     </div>
                   </div>
 
