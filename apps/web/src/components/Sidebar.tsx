@@ -21,6 +21,7 @@ import {
   Search,
   PanelLeft,
   PanelRight,
+  Puzzle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -250,6 +251,7 @@ export function Sidebar({
 
   const navItems = [
     { id: 'library', icon: FolderOpen, label: t('sidebar.library') },
+    { id: 'mcp', icon: Puzzle, label: 'MCP Servers' },
     { id: 'workflows', icon: GitMerge, label: t('sidebar.workflows') },
     { id: 'knowledge', icon: BookOpen, label: t('sidebar.knowledge') },
     { id: 'console', icon: TerminalSquare, label: t('sidebar.console') },

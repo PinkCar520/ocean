@@ -12,6 +12,7 @@ import { Dashboard } from './components/Dashboard';
 import { UserCenter } from './components/UserCenter';
 import { UIGallery } from './components/UIGallery';
 import { SkillLibrary } from './components/SkillLibrary';
+import { MCPServerManager } from './components/MCPServerManager';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { AllChatsManager } from './components/AllChatsManager';
 import { Sidebar } from './components/Sidebar';
@@ -233,6 +234,8 @@ function AppContent() {
             <UserCenter onLogout={handleLogout} />
           ) : activeTab === 'library' ? (
             <SkillLibrary />
+          ) : activeTab === 'mcp' ? (
+            <MCPServerManager />
           ) : activeTab === 'knowledge' ? (
             <KnowledgeBase />
           ) : activeTab === 'console' ? (

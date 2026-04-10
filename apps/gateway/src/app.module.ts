@@ -7,6 +7,7 @@ import { UserModule } from './user/user.module';
 import { UploadModule } from './upload/upload.module';
 import { SessionModule } from './session/session.module';
 import { SkillRegistryModule } from './skill-registry/skill-registry.module';
+import { MCPServerModule } from './mcp-server/mcp-server.module';
 
 /**
  * AppModule
@@ -23,6 +24,7 @@ import { SkillRegistryModule } from './skill-registry/skill-registry.module';
     UploadModule, // 文件上传模块
     SessionModule, // 会话漫游数据接口模块
     SkillRegistryModule, // 技能注册中心
+    MCPServerModule, // MCP Server 管理
   ],
   controllers: [],
   providers: [],
