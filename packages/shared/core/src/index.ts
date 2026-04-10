@@ -96,3 +96,32 @@ export interface SkillExecutionReport {
   startedAt: number;
   completedAt?: number;
 }
+
+// ──────────────────────────────────────────────
+// Generative UI Protocol v1
+// ──────────────────────────────────────────────
+export type {
+  UIComponentType,
+  UIBase,
+  UIBugCardProps,
+  UIBugCard,
+  UIBugListProps,
+  UIBugList,
+  UIStep,
+  UIPipelineCardProps,
+  UIPipelineCard,
+  UITaskStep,
+  UITaskPlanProps,
+  UITaskPlan,
+  UIApprovalCardProps,
+  UIApprovalCard,
+  UICodeBlockProps,
+  UICodeBlock,
+  UIStatsMetric,
+  UIStatsCardProps,
+  UIStatsCard,
+  UITextProps,
+  UIText,
+  UIKit,
+  ToolResult,
+} from './ui-protocol';

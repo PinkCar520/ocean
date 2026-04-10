@@ -1,27 +1,35 @@
-import React from 'react';
 import { Play, CheckCircle2, CircleDot, XCircle, Clock, ExternalLink, Terminal } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
+import type { UIPipelineCardProps, UIStep } from '../types/ui-protocol';
 
-type Step = {
-  name: string;
-  status: 'success' | 'running' | 'waiting' | 'failed';
-  duration?: string;
-};
+export type { UIPipelineCardProps };
 
-type PipelineCardProps = {
-  id: string;
-  name: string;
-  branch: string;
-  status: 'success' | 'running' | 'failed' | 'paused';
-  steps: Step[];
-  startTime: string;
-};
+export interface PipelineCardProps extends UIPipelineCardProps {
+  onViewLogs?: (pipelineId: string) => void;
+  onRetry?: (pipelineId: string) => void;
+}
 
-export function PipelineCard({ id, name, branch, status, steps, startTime }: PipelineCardProps) {
+interface StatusStyle {
+  text: string;
+  bg: string;
+  border: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+export function PipelineCard({
+  id,
+  name,
+  branch,
+  status,
+  steps,
+  startTime,
+  onViewLogs,
+  onRetry,
+}: PipelineCardProps) {
   const { t } = useTranslation();
 
-  const statusStyles = {
+  const statusStyles: Record<string, StatusStyle> = {
     success: { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', icon: CheckCircle2 },
     running: { text: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', icon: CircleDot },
     failed: { text: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', icon: XCircle },
@@ -49,19 +57,22 @@ export function PipelineCard({ id, name, branch, status, steps, startTime }: Pip
             </p>
           </div>
         </div>
-        <button className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 hover:text-blue-500">
-          <ExternalLink className="w-4 h-4" />
-        </button>
+        {onViewLogs && (
+          <button
+            onClick={() => onViewLogs(id)}
+            className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 hover:text-blue-500"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Steps Flow */}
       <div className="space-y-4 relative">
-        {/* Vertical Line */}
         <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100" />
-        
-        {steps.map((step, i) => (
+
+        {steps.map((step: UIStep, i: number) => (
           <div key={i} className="flex items-center justify-between relative pl-8">
-            {/* Status Indicator */}
             <div className={cn(
               "absolute left-0 w-6 h-6 rounded-full border-2 bg-white flex items-center justify-center z-10",
               step.status === 'success' ? "border-emerald-500" :
@@ -94,12 +105,30 @@ export function PipelineCard({ id, name, branch, status, steps, startTime }: Pip
 
       {/* Footer Actions */}
       <div className="mt-8 pt-6 border-t border-slate-100 flex gap-3">
-        <button className="flex-1 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-100 transition-all uppercase tracking-widest">
-          View Logs
+        <button
+          onClick={() => onViewLogs?.(id)}
+          disabled={!onViewLogs}
+          className={cn(
+            "flex-1 py-2 rounded-xl border text-[11px] font-bold transition-all uppercase tracking-widest",
+            onViewLogs
+              ? "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+              : "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
+          )}
+        >
+          {t('pipeline.view_logs', 'View Logs')}
         </button>
         {status === 'failed' && (
-          <button className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition-all uppercase tracking-widest">
-            Retry Build
+          <button
+            onClick={() => onRetry?.(id)}
+            disabled={!onRetry}
+            className={cn(
+              "flex-1 py-2 rounded-xl text-white text-[11px] font-bold transition-all uppercase tracking-widest",
+              onRetry
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-slate-300 cursor-not-allowed"
+            )}
+          >
+            {t('pipeline.retry_build', 'Retry Build')}
           </button>
         )}
       </div>

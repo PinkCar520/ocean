@@ -19,6 +19,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/uclaw?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - GATEWAY_ROOT=/app
       - ZENTAO_BASE_URL=http://zentao:80
     depends_on:
       postgres:

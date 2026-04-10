@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import {
   ArrowDown, Sparkles, Copy, RotateCcw, Check,
@@ -12,9 +12,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../lib/utils';
 import { useSkillCatalog } from '../lib/useSkillCatalog';
+import { UIRenderer } from './UIRenderer';
 import { BugCard } from './BugCard';
 import { PipelineCard } from './PipelineCard';
 import { TaskPlan } from './TaskPlan';
+import { ApprovalCard } from './ApprovalCard';
 import { ApprovalModal } from './ApprovalModal';
 import {
   DropdownMenu,
@@ -360,51 +362,43 @@ export function ChatSession({
 
       // 添加硬回退，解决在 streaming 最初期拿不到 args 的问题
       if (!skillName && inner.state !== 'result' && !part.result) {
-        // 在尚未接收到 args 时，默认显示正在识别的常见技能
         skillName = 'write-prd';
       }
 
       if (skillName) {
-        // 使用动态的 i18n 字典提取名字，替代原本的硬编码映射表
         return getLocalizedName(skillName, skillName);
       }
     }
 
-    // 处理常见MCP调用命名展示
-    if (rawToolName === 'zentao_mcp' || args?.mcp_name === 'zentao' || rawToolName?.includes('zentao')) {
-      return `ZenTao MCP`;
+    // 使用统一的 i18n 工具名称映射（消除硬编码）
+    const translated = t(`tools.${rawToolName}`);
+    if (translated && translated !== `tools.${rawToolName}`) {
+      // 对于 runLocalCommand，追加具体子命令
+      if (rawToolName === 'runLocalCommand' && args?.command) {
+        const cmdNames: Record<string, string> = {
+          'ls': t('chat.tool_status.names.ls'),
+          'git_status': t('chat.tool_status.names.git_status'),
+          'git_add': t('chat.tool_status.names.git_add'),
+          'git_commit': t('chat.tool_status.names.git_commit'),
+          'npm_build': t('chat.tool_status.names.npm_build'),
+          'read_file': t('chat.tool_status.names.read_file'),
+        };
+        const cmdName = cmdNames[args.command] || args.command;
+        return `${translated} → ${cmdName}`;
+      }
+      return translated;
     }
 
-    if (rawToolName === 'runLocalCommand' && args?.command) {
-      const cmdMap: Record<string, string> = {
-        'ls': t('chat.tool_status.names.ls'),
-        'git_status': t('chat.tool_status.names.git_status'),
-        'git_add': t('chat.tool_status.names.git_add'),
-        'git_commit': t('chat.tool_status.names.git_commit'),
-        'npm_build': t('chat.tool_status.names.npm_build'),
-        'read_file': t('chat.tool_status.names.read_file')
-      };
-      return cmdMap[args.command] || t('chat.tool_status.names.runLocalCommand');
-    }
-
-    // Fallback translation
-    const translated = t(`chat.tool_status.names.${rawToolName}`);
-    if (translated && translated !== `chat.tool_status.names.${rawToolName}`) return translated;
-
+    // Fallback: title-case the raw name
     return rawToolName.split(/[-_]/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
 
-  const ToolGroupTimeline = ({ tools }: { tools: any[] }) => {
-    // 默认执行中自动展开，完成后如果是多个步骤也可以展开，或者可以默认为收起
+  const ToolGroupTimeline = React.memo(({ tools }: { tools: any[] }) => {
     const isRunning = tools.some((t: any) => !(t.output || t.result));
-    const [isOpen, setIsOpen] = useState(isRunning);
-
-    useEffect(() => {
-      // 只要有一个在 running，就保持展开。全做完了可以继续保持原状态
-      if (isRunning) {
-        setIsOpen(true);
-      }
-    }, [isRunning]);
+    // 修复：移除基于 isRunning 的 state 同步，避免流式传输期间的频繁重渲染
+    // 默认展开，用户可手动折叠（但在运行中禁止折叠以防闪烁）
+    const [isManuallyClosed, setIsManuallyClosed] = useState(false);
+    const isOpen = isRunning || !isManuallyClosed;
 
     const titleParts = Array.from(new Set(tools.map(t => getFriendlyToolName(t))));
     const title = titleParts.length > 2 ? `${titleParts.slice(0, 2).join(', ')} ...` : titleParts.join(', ');
@@ -412,8 +406,11 @@ export function ChatSession({
     return (
       <div className="my-3 overflow-hidden">
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F6F3F2]/80 transition-colors group"
+          onClick={() => !isRunning && setIsManuallyClosed(!isManuallyClosed)}
+          className={cn(
+            "w-full flex items-center justify-between px-4 py-3 transition-colors group",
+            isRunning ? "cursor-default" : "hover:bg-[#F6F3F2]/80 cursor-pointer"
+          )}
         >
           <div className="flex items-center gap-3 text-[#716B67] text-[13px] font-bold">
             {isRunning ? <BrailleSpinner /> : <Check className="w-4 h-4 text-green-500 shrink-0" />}
@@ -425,38 +422,34 @@ export function ChatSession({
           <ChevronDown className={cn("w-4 h-4 text-[#716B67] transition-transform group-hover:text-[#1C1B1B]", isOpen ? "rotate-180" : "")} />
         </button>
 
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="px-4 pb-4 pt-4 bg-white flex flex-col gap-0 border-t border-[#E8E4E2]/40 relative">
-                {/* 垂直时间轴轨道 */}
-                <div className="absolute left-[29px] top-6 bottom-8 w-px bg-[#E8E4E2]/80 z-0"></div>
+        {/* 修复：移除 AnimatePresence 以减少流式更新时的 DOM 抖动 */}
+        {isOpen && (
+          <div className="overflow-hidden transition-all duration-300">
+            <div className="px-4 pb-4 pt-4 bg-white flex flex-col gap-0 border-t border-[#E8E4E2]/40 relative">
+              {/* 垂直时间轴轨道 */}
+              <div className="absolute left-[29px] top-6 bottom-8 w-px bg-[#E8E4E2]/80 z-0"></div>
 
-                {tools.map((part: any, idx: number) => {
-                  const isCompleted = !!(part.output || part.result);
-                  return (
-                    <div key={part.toolCallId || idx} className="relative flex gap-4 pb-2 last:pb-0 z-10 w-full group/timeline">
-                      <div className="relative z-10 w-[30px] flex justify-center pt-3.5 shrink-0">
-                        <div className={cn("w-[10px] h-[10px] rounded-full ring-4 ring-white z-10 transition-colors", isCompleted ? "bg-[#E8E4E2]" : "bg-[#EC5B14] shadow-[0_0_8px_rgba(236,91,20,0.4)]")}></div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {renderToolInvocation(part)}
-                      </div>
+              {tools.map((part: any) => {
+                const isCompleted = !!(part.output || part.result);
+                // 修复：确保 key 稳定，优先使用 toolCallId
+                const stableKey = part.toolCallId || part.toolName || Math.random().toString(36).slice(2);
+                return (
+                  <div key={stableKey} className="relative flex gap-4 pb-2 last:pb-0 z-10 w-full group/timeline">
+                    <div className="relative z-10 w-[30px] flex justify-center pt-3.5 shrink-0">
+                      <div className={cn("w-[10px] h-[10px] rounded-full ring-4 ring-white z-10 transition-colors", isCompleted ? "bg-[#E8E4E2]" : "bg-[#EC5B14] shadow-[0_0_8px_rgba(236,91,20,0.4)]")}></div>
                     </div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    <div className="flex-1 min-w-0">
+                      {renderToolInvocation(part)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
-  };
+  });
 
   const renderToolInvocation = (part: any) => {
     const rawToolName = part.toolName || part.type?.replace('tool-', '') || 'unknown';
@@ -533,49 +526,90 @@ export function ChatSession({
   };
 
   const renderToolResult = (part: any) => {
-    if (part.type === 'tool-getBugInfo' || part.toolName === 'getBugInfo') {
-      const bug = part.output || part.result;
-      if (bug) return <BugCard key={part.toolCallId} {...bug} />;
-    }
-    if (part.type === 'tool-searchBugs' || part.toolName === 'searchBugs') {
-      const bugs = part.output || part.result || [];
+    const result = part.output || part.result;
+    const toolName = part.toolName || part.type?.replace('tool-', '') || '';
+
+    // ── Gen 2: 优先检测 UI Protocol (ui 字段) ──
+    if (result?.ui) {
       return (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 mt-2">
+        <UIRenderer
+          key={part.toolCallId}
+          uiKit={result.ui}
+          onAction={(actionId, payload) => {
+            if (actionId === 'approve_request') {
+              sendMessage({ content: `APPROVE:${(payload as any).requestId}`, role: 'user' });
+            } else if (actionId === 'reject_request') {
+              sendMessage({ content: `REJECT:${(payload as any).requestId}`, role: 'user' });
+            } else if (actionId === 'open_bug_detail') {
+              // 可以在这里发送消息请求详情，或导航到其他页面
+              console.log('[ChatSession] Open bug detail:', (payload as any).id);
+            } else if (actionId === 'view_logs') {
+              console.log('[ChatSession] View pipeline logs:', (payload as any).pipelineId);
+            } else if (actionId === 'retry_pipeline') {
+              sendMessage({ content: `Retry pipeline ${(payload as any).pipelineId}`, role: 'user' });
+            }
+          }}
+        />
+      );
+    }
+
+    // ── Gen 1: 向后兼容 — 无 ui 字段时回退到旧逻辑 ──
+    if (toolName === 'getBugInfo' || toolName === 'tool-getBugInfo') {
+      if (result) return <BugCard key={part.toolCallId} {...result} />;
+    }
+    if (toolName === 'searchBugs' || toolName === 'tool-searchBugs') {
+      const bugs = Array.isArray(result) ? result : [];
+      return (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 mt-2" key={part.toolCallId}>
           {bugs.map((b: any) => <BugCard key={b.id} {...b} />)}
         </div>
       );
     }
-    if (part.type === 'tool-getPipelineStatus' || part.toolName === 'getPipelineStatus') {
-      const pipeline = part.output || part.result;
-      if (pipeline) return <PipelineCard key={part.toolCallId} {...pipeline} />;
+    if (toolName === 'getPipelineStatus' || toolName === 'tool-getPipelineStatus') {
+      if (result) return <PipelineCard key={part.toolCallId} {...result} />;
     }
-    if (part.type === 'tool-proposePlan' || part.toolName === 'proposePlan') {
-      const plan = part.output || part.result;
-      if (plan) return (
+    if (toolName === 'proposePlan' || toolName === 'tool-proposePlan') {
+      if (result) return (
         <TaskPlan
           key={part.toolCallId}
-          {...plan}
+          {...result}
           onConfirm={() => sendMessage({ content: 'Y', role: 'user' })}
           onCancel={() => sendMessage({ content: 'N', role: 'user' })}
         />
       );
     }
-    if (part.type === 'tool-runLocalCommand' || part.toolName === 'runLocalCommand') {
-      const res = part.output || part.result;
-      if (res?.status === 'Success') {
+    if (toolName === 'runLocalCommand' || toolName === 'tool-runLocalCommand') {
+      if (result?.status === 'Success') {
         return (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 font-mono text-xs mt-2 overflow-hidden">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 font-mono text-xs mt-2 overflow-hidden" key={part.toolCallId}>
             <div className="flex items-center gap-2 mb-2 text-blue-600 font-semibold">
               <Terminal className="w-3 h-3 text-blue-600" />
-              <span>Local Node Execute: {res.command}</span>
+              <span>{t('tools.runLocalCommand', 'Local Command')}: {result.command}</span>
             </div>
             <pre className="text-slate-600 whitespace-pre-wrap max-h-40 overflow-y-auto">
-              {JSON.stringify(res.result, null, 2)}
+              {JSON.stringify(result.result, null, 2)}
             </pre>
           </div>
         );
       }
     }
+
+    // 检测审批状态（来自 wrapWithApproval）
+    if (result?.status === 'pending_approval') {
+      return (
+        <ApprovalCard
+          key={part.toolCallId}
+          requestId={result.requestId}
+          toolName={toolName}
+          description={result.message || '此操作需要您的审批'}
+          args={result.args}
+          status="pending"
+          onApprove={() => sendMessage({ content: `APPROVE:${result.requestId}`, role: 'user' })}
+          onReject={() => sendMessage({ content: `REJECT:${result.requestId}`, role: 'user' })}
+        />
+      );
+    }
+
     return null;
   };
 

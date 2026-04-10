@@ -3,7 +3,14 @@
     "allow": [
       "Bash(npx *)",
       "Bash(docker compose up *)",
-      "Bash(pnpm *)"
+      "Bash(pnpm *)",
+      "Bash(mv *)",
+      "Bash(docker-compose *)",
+      "Bash(docker exec *)",
+      "Bash(docker compose build *)",
+      "Bash(docker inspect *)",
+      "Bash(find *)",
+      "Bash(git *)"
     ]
   },
   "$version": 3

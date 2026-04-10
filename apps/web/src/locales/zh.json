@@ -133,6 +133,8 @@
     "commits": "提交",
     "cancel": "取消",
     "confirm": "确定",
+    "show_more": "展开全文",
+    "show_less": "收起",
     "rename": "重命名",
     "delete": "删除",
     "search_placeholder": "快速搜索...",
@@ -197,7 +199,8 @@
       "high": "紧急",
       "medium": "中等",
       "low": "低"
-    }
+    },
+    "has_screenshot": "此缺陷包含截图，点击卡片查看详情"
   },
   "settings": {
     "title": "系统设置",
@@ -455,5 +458,44 @@
     "no_results": "找不到相关对话",
     "recent_discussions": "近期讨论",
     "shortcut_hint": "按 ↑↓ 浏览，回车进入，Esc 退出"
+  },
+  "pipeline": {
+    "view_logs": "查看日志",
+    "retry_build": "重新构建"
+  },
+  "task_plan": {
+    "proposed_strategy": "建议方案",
+    "awaiting_authorization": "等待授权",
+    "reject": "拒绝",
+    "confirm": "确认"
+  },
+  "approval": {
+    "title": "操作需要您的审批",
+    "status": {
+      "pending": "待审批",
+      "approved": "已同意",
+      "rejected": "已拒绝"
+    },
+    "view_args": "查看参数",
+    "confirm_message": "确认执行此操作？",
+    "approve": "同意",
+    "reject": "拒绝"
+  },
+  "tools": {
+    "getBugInfo": "获取缺陷详情",
+    "searchBugs": "搜索缺陷库",
+    "resolveBug": "解决缺陷",
+    "getBugStats": "缺陷统计",
+    "getPipelineStatus": "流水线状态",
+    "proposePlan": "生成任务规划",
+    "runLocalCommand": "本地命令",
+    "activate_skill": "技能激活",
+    "zentao_mcp": "禅道 MCP",
+    "createProductStory": "创建需求",
+    "getStoryInfo": "获取需求详情",
+    "searchProductStories": "搜索需求",
+    "listProducts": "产品列表",
+    "createProduct": "创建产品",
+    "createProject": "创建项目"
   }
 }

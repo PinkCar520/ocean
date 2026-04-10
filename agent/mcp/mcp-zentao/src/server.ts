@@ -6,12 +6,25 @@
  * 将 ZenTao 缺陷管理能力以 MCP 协议暴露给 Gateway MCPClientManager。
  *
  * 通信方式：Stdio（由 Gateway 以子进程方式启动）
+ *
+ * UI Protocol 集成：
+ * 每个工具返回的文本中可包含 __UI__:{"uiType":"...","props":{...}} 标记，
+ * 由 Gateway 的 MCPClientManager 解析并附加到结果对象中，供前端 UIRenderer 渲染。
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { ZentaoTool } from '@uclaw/tools-zentao';
+
+// ──────────────────────────────────────────────
+// UI Protocol 辅助函数
+// ──────────────────────────────────────────────
+
+/** 将结构化 UI 数据嵌入 MCP 返回文本中（供 Gateway 解析） */
+function withUI(uiType: string, props: Record<string, unknown>, textContent: string): string {
+  return `${textContent}\n\n__UI__:${JSON.stringify({ uiType, props })}`;
+}
 
 // 从环境变量读取配置（由 Gateway 启动子进程时注入）
 const zentao = new ZentaoTool({
@@ -45,8 +58,20 @@ server.tool(
         isError: true,
       };
     }
+    const textSummary = `缺陷 #${bug.id}: ${bug.title}\n状态: ${bug.status}\n指派人: ${bug.assignee}\n严重程度: ${bug.severity}`;
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify(bug, null, 2) }],
+      content: [{
+        type: 'text' as const,
+        text: withUI('bug_card', {
+          id: String(bug.id),
+          title: bug.title,
+          status: bug.status,
+          assignee: bug.assignee,
+          severity: bug.severity,
+          description: bug.description,
+          createdAt: bug.createdAt,
+        }, textSummary),
+      }],
     };
   },
 );
@@ -62,16 +87,25 @@ server.tool(
   },
   async ({ query }: { query: string }) => {
     const bugs = await zentao.searchBugs(query);
+    const textContent = bugs.length > 0
+      ? `找到 ${bugs.length} 个与 "${query}" 相关的缺陷\n${bugs.map((b: any) => `  #${b.id}: ${b.title} [${b.status}]`).join('\n')}`
+      : `未找到与 "${query}" 相关的缺陷`;
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text:
-            bugs.length > 0
-              ? JSON.stringify(bugs, null, 2)
-              : `未找到与 "${query}" 相关的缺陷`,
-        },
-      ],
+      content: [{
+        type: 'text' as const,
+        text: withUI('bug_list', {
+          title: `搜索结果: "${query}"`,
+          items: bugs.map((b: any) => ({
+            id: String(b.id),
+            title: b.title,
+            status: b.status,
+            assignee: b.assignee,
+            severity: b.severity,
+            description: b.description,
+            createdAt: b.createdAt,
+          })),
+        }, textContent),
+      }],
     };
   },
 );
@@ -93,15 +127,22 @@ server.tool(
   async ({ bugId, resolution }: { bugId: string; resolution?: string }) => {
     const res = (resolution ?? 'fixed') as 'fixed' | 'wontfix' | 'bydesign' | 'duplicate' | 'external';
     const success = await zentao.resolveBug(bugId, res);
+    const textMsg = success
+      ? `✅ 缺陷 ${bugId} 已成功标记为已解决（${res}）`
+      : `❌ 解决缺陷 ${bugId} 失败，请检查权限或缺陷状态`;
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: success
-            ? `✅ 缺陷 ${bugId} 已成功标记为已解决（${res}）`
-            : `❌ 解决缺陷 ${bugId} 失败，请检查权限或缺陷状态`,
-        },
-      ],
+      content: [{
+        type: 'text' as const,
+        text: success
+          ? withUI('approval_card', {
+              requestId: `resolve-${bugId}-${Date.now()}`,
+              toolName: 'resolveBug',
+              description: `将缺陷 #${bugId} 标记为已解决（方案: ${res}）`,
+              args: { bugId, resolution: res },
+              status: success ? 'approved' as const : 'rejected' as const,
+            }, textMsg)
+          : textMsg,
+      }],
       isError: !success,
     };
   },
@@ -123,21 +164,19 @@ server.tool(
   async ({ productId }: { productId?: number }) => {
     const pid = productId ?? 4;
     const stats = await zentao.getBugStats(pid);
+    const summary = `共 ${stats.total} 个缺陷，活跃 ${stats.active} 个，已解决 ${stats.resolved} 个`;
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              productId: pid,
-              ...stats,
-              summary: `共 ${stats.total} 个缺陷，活跃 ${stats.active} 个，已解决 ${stats.resolved} 个`,
-            },
-            null,
-            2,
-          ),
-        },
-      ],
+      content: [{
+        type: 'text' as const,
+        text: withUI('stats_card', {
+          title: '禅道产品缺陷统计',
+          metrics: [
+            { label: '总缺陷', value: stats.total ?? 0, trend: 'neutral' as const },
+            { label: '活跃', value: stats.active ?? 0, trend: 'down' as const },
+            { label: '已解决', value: stats.resolved ?? 0, trend: 'up' as const },
+          ],
+        }, summary),
+      }],
     };
   },
 );

@@ -1,8 +1,6 @@
-import React from 'react';
 import { BugCard } from './BugCard';
 import { PipelineCard } from './PipelineCard';
 import { TaskPlan } from './TaskPlan';
-import { motion } from 'framer-motion';
 
 export function UIGallery() {
   return (
@@ -16,16 +14,16 @@ export function UIGallery() {
       <section className="space-y-6">
         <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-600 border-b border-blue-100 pb-2">1. Bug Tracking (ZenTao)</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <BugCard 
-            bugId="BUG-2048"
+          <BugCard
+            id="BUG-2048"
             title="Core gateway timeout when handling large payload"
             status="active"
             assignee="Wang Er"
             severity="high"
             description="The system fails to process JSON files larger than 50MB, causing the worker thread to hang."
           />
-          <BugCard 
-            bugId="BUG-1024"
+          <BugCard
+            id="BUG-1024"
             title="Localization missing for settings page"
             status="resolved"
             assignee="Li Si"
@@ -38,7 +36,7 @@ export function UIGallery() {
       <section className="space-y-6">
         <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-600 border-b border-emerald-100 pb-2">2. CI/CD Pipelines (Jenkins)</h3>
         <div className="grid grid-cols-1 gap-8">
-          <PipelineCard 
+          <PipelineCard
             id="742"
             name="Production Deployment - Main Branch"
             branch="main"
@@ -51,7 +49,7 @@ export function UIGallery() {
               { name: 'Blue/Green Deploy', status: 'waiting' }
             ]}
           />
-          <PipelineCard 
+          <PipelineCard
             id="741"
             name="Hotfix: Bug-2048 Patch"
             branch="hotfix/gateway-timeout"
@@ -69,7 +67,7 @@ export function UIGallery() {
       <section className="space-y-6">
         <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-600 border-b border-indigo-100 pb-2">3. Strategic Planning (Plan Mode)</h3>
         <div className="grid grid-cols-1 gap-6">
-          <TaskPlan 
+          <TaskPlan
             title="Workflow: Automated Bug Resolution"
             steps={[
               { tool: 'tools-zentao', label: 'Extract Bug Context', description: 'Analyze BUG-2048 requirement and stack trace.' },

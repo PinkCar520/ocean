@@ -194,9 +194,33 @@ ${catalogXml}`;
         execute: async ({ userId, command, args }) => {
           try {
             const result = await this.rpcGateway.sendToCli(userId, command, args || {});
-            return { status: 'Success', command, result };
+            const output = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+            return {
+              data: result,
+              ui: {
+                uiType: 'code_block',
+                props: {
+                  command,
+                  output,
+                  status: 'success' as const,
+                  language: 'bash',
+                },
+              },
+            };
           } catch (err: any) {
-            return { status: 'Error', message: err.message };
+            return {
+              data: null,
+              ui: {
+                uiType: 'code_block',
+                props: {
+                  command,
+                  output: err.message || '执行失败',
+                  status: 'error' as const,
+                  language: 'bash',
+                },
+              },
+              error: err.message,
+            };
           }
         },
       } as any),

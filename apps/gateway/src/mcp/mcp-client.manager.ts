@@ -36,8 +36,8 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   // 生命周期：启动
   // ──────────────────────────────────────────────
   async onModuleInit() {
-    const configPath = path.join(__dirname, '../../mcp.config.json');
-    
+    const configPath = path.join(__dirname, '../../../../../mcp.config.json');
+
     if (!fs.existsSync(configPath)) {
       this.logger.warn(`mcp.config.json not found at ${configPath}. MCP layer disabled.`);
       return;
@@ -52,7 +52,22 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const enabledServers = fileConfig.mcpServers.filter((s) => s.enabled);
+    // 解析配置中的 ${VAR} 占位符（包括 command、args、env）
+    const replaceVars = (val: string): string =>
+      val.replace(/\$\{(\w+)\}/g, (_, name) => {
+        return this.configService.get<string>(name) || process.env[name] || '';
+      });
+
+    const resolvedServers = fileConfig.mcpServers.map((srv) => ({
+      ...srv,
+      command: replaceVars(srv.command),
+      args: (srv.args || []).map(replaceVars),
+      env: Object.fromEntries(
+        Object.entries(srv.env || {}).map(([k, v]) => [k, replaceVars(v)]),
+      ),
+    }));
+
+    const enabledServers = resolvedServers.filter((s) => s.enabled);
     this.logger.log(`Found ${enabledServers.length} enabled MCP server(s): ${enabledServers.map((s) => s.id).join(', ')}`);
 
     // 并行启动所有 enabled MCP Servers
@@ -151,7 +166,23 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
                 // MCP 返回 content 数组，取第一个 text 内容
                 const content = result.content as Array<{ type: string; text?: string }>;
                 const textContent = content.find((c) => c.type === 'text');
-                return textContent?.text ?? JSON.stringify(content);
+                const rawText = textContent?.text ?? JSON.stringify(content);
+
+                // ── UI Protocol 解析 ──
+                // 检测 __UI__:{"uiType":"...","props":{...}} 标记
+                const uiMatch = rawText.match(/__UI__:([\s\S]*?)$/);
+                if (uiMatch) {
+                  try {
+                    const uiData = JSON.parse(uiMatch[1]);
+                    const cleanText = rawText.replace(/__UI__:.*$/, '').trim();
+                    // 返回包含 ui 字段的对象，AI SDK 会将其作为 tool result 返回给 LLM
+                    return { content: cleanText, ui: uiData };
+                  } catch (parseErr) {
+                    this.logger.warn(`[MCP:${serverId}] Failed to parse __UI__ marker: ${(parseErr as Error).message}`);
+                  }
+                }
+
+                return { content: rawText, ui: undefined };
               } catch (err) {
                 this.logger.error(`[MCP:${serverId}] Tool call failed: ${(err as Error).message}`);
                 throw err;
@@ -174,7 +205,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   // ──────────────────────────────────────────────
   getServerStatus(): Array<{ id: string; name: string; connected: boolean }> {
     const allConfigs: MCPServerConfig[] = [];
-    const configPath = path.join(__dirname, '../../mcp.config.json');
+    const configPath = path.join(__dirname, '../../../../../mcp.config.json');
     if (fs.existsSync(configPath)) {
       try {
         const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as MCPServerFileConfig;

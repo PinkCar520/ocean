@@ -4,19 +4,19 @@
       "id": "zentao",
       "name": "ZenTao Bug Management",
       "command": "node",
-      "args": ["../../../agent/mcp/mcp-zentao/dist/server.js"],
+      "args": ["${GATEWAY_ROOT}/agent/mcp/mcp-zentao/dist/server.js"],
       "env": {
         "ZENTAO_BASE_URL": "${ZENTAO_BASE_URL}",
         "ZENTAO_API_TOKEN": "${ZENTAO_API_TOKEN}"
       },
       "enabled": true,
-      "description": "禅道缺陷管理与需求管理工具集（getBugInfo / searchBugs / resolveBug / createProductStory / getStoryInfo / getBugStats）"
+      "description": "禅道缺陷管理与需求管理工具集"
     },
     {
       "id": "local-fs",
       "name": "Local FileSystem & CLI",
       "command": "node",
-      "args": ["../../../agent/mcp/mcp-local-fs/dist/server.js"],
+      "args": ["${GATEWAY_ROOT}/agent/mcp/mcp-local-fs/dist/server.js"],
       "env": {},
       "enabled": false,
       "description": "（待实现）本地文件系统与 CLI RPC 桥接工具集"
@@ -25,7 +25,7 @@
       "id": "jenkins",
       "name": "Jenkins CI/CD",
       "command": "node",
-      "args": ["../../../agent/mcp/mcp-jenkins/dist/server.js"],
+      "args": ["${GATEWAY_ROOT}/agent/mcp/mcp-jenkins/dist/server.js"],
       "env": {
         "JENKINS_BASE_URL": "${JENKINS_BASE_URL}",
         "JENKINS_TOKEN": "${JENKINS_TOKEN}"
@@ -37,7 +37,7 @@
       "id": "gitlab",
       "name": "GitLab Repository",
       "command": "node",
-      "args": ["../../../agent/mcp/mcp-gitlab/dist/server.js"],
+      "args": ["${GATEWAY_ROOT}/agent/mcp/mcp-gitlab/dist/server.js"],
       "env": {
         "GITLAB_BASE_URL": "${GITLAB_BASE_URL}",
         "GITLAB_TOKEN": "${GITLAB_TOKEN}"

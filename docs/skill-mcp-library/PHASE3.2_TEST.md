@@ -13,12 +13,21 @@ cd apps/web && pnpm dev
 
 ## 步骤 1：通过 API 测试导入
 
-### 1.1 导入本地 Skill (OpenClaw Hub 模拟)
+### 1.1 从 ClawHub 导入 (真实 API)
+
 ```bash
+# 导入 ClawHub 上的公开技能
 curl -X POST http://localhost:3000/api/skills/import \
   -H "Content-Type: application/json" \
   -d '{"source":"openclaw-hub","skillId":"fix-bug"}' | jq
+
+# 指定版本导入
+curl -X POST http://localhost:3000/api/skills/import \
+  -H "Content-Type: application/json" \
+  -d '{"source":"openclaw-hub","skillId":"fix-bug","version":"1.2.0"}' | jq
 ```
+
+**原理**：调用 ClawHub 官方 API `GET https://clawhub.ai/api/v1/skills/{slug}/file?path=SKILL.md`，如果网络失败则回退到本地 `agent/skills/`。
 
 ### 1.2 导入本地 Skill (Claude Code 路径)
 ```bash

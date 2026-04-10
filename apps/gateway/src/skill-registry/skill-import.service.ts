@@ -11,6 +11,7 @@ export interface ImportSkillDto {
   url?: string;          // For git
   skillPath?: string;    // For claude-code or local
   fileContent?: string;  // For local upload
+  version?: string;      // Optional: specific version for openclaw-hub (defaults to "latest")
 }
 
 interface ParsedSkill {
@@ -60,9 +61,9 @@ export class SkillImportService {
   }
 
   /**
-   * Import from OpenClaw Hub
-   * In production, this would call the OpenClaw Hub API.
-   * For Phase 3.2, we simulate with a local fallback.
+   * Import from OpenClaw Hub (ClawHub)
+   * Uses the official ClawHub API: GET /api/v1/skills/{slug}/file?path=SKILL.md
+   * Falls back to local agent/skills directory if network fails.
    */
   private async importFromOpenClawHub(dto: ImportSkillDto) {
     const skillId = dto.skillId;
@@ -70,19 +71,39 @@ export class SkillImportService {
       throw new Error('skillId is required for OpenClaw Hub import');
     }
 
-    // TODO: Replace with actual OpenClaw Hub API call
-    // const response = await fetch(`https://api.openclaw.hub/skills/${skillId}`);
-    // const data = await response.json();
+    const version = dto.version || 'latest';
+    const clawhubUrl = `https://clawhub.ai/api/v1/skills/${skillId}/file?path=SKILL.md&version=${version}`;
 
-    // For now, try to find the skill in local agent/skills directory
-    const localPath = path.join(process.cwd(), `agent/skills/${skillId}/SKILL.md`);
-    if (!fs.existsSync(localPath)) {
-      throw new Error(`Skill "${skillId}" not found in local registry or OpenClaw Hub`);
+    let content: string;
+
+    // Step 1: Try to fetch from ClawHub API
+    try {
+      this.logger.log(`Fetching skill "${skillId}" from ClawHub: ${clawhubUrl}`);
+      const response = await fetch(clawhubUrl);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Skill "${skillId}" not found on ClawHub`);
+        }
+        throw new Error(`ClawHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      content = await response.text();
+      this.logger.log(`Successfully fetched "${skillId}" from ClawHub (${content.length} bytes)`);
+    } catch (err: any) {
+      // Step 2: Fallback to local agent/skills directory
+      this.logger.warn(`ClawHub fetch failed: ${err.message}. Trying local fallback...`);
+      
+      const localPath = path.join(process.cwd(), `agent/skills/${skillId}/SKILL.md`);
+      if (!fs.existsSync(localPath)) {
+        throw new Error(`Skill "${skillId}" not found on ClawHub or in local registry`);
+      }
+
+      content = fs.readFileSync(localPath, 'utf-8');
+      this.logger.log(`Loaded "${skillId}" from local fallback`);
     }
 
-    const content = fs.readFileSync(localPath, 'utf-8');
     const parsed = this.parseSkillMd(content, 'openclaw-hub');
-    
     return this.saveSkill(parsed);
   }
 

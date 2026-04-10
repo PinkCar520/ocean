@@ -112,6 +112,8 @@
     "commits": "Commits",
     "cancel": "Cancel",
     "confirm": "Confirm",
+    "show_more": "Show More",
+    "show_less": "Show Less",
     "rename": "Rename",
     "delete": "Delete",
     "search_placeholder": "Quick search...",
@@ -175,7 +177,8 @@
       "high": "High",
       "medium": "Medium",
       "low": "Low"
-    }
+    },
+    "has_screenshot": "This bug includes screenshots. Click card for details."
   },
   "settings": {
     "title": "System Settings",
@@ -433,5 +436,44 @@
     "no_results": "No chats found",
     "recent_discussions": "Recent Discussions",
     "shortcut_hint": "Use ↑↓ to navigate, Enter to select, Esc to close"
+  },
+  "pipeline": {
+    "view_logs": "View Logs",
+    "retry_build": "Retry Build"
+  },
+  "task_plan": {
+    "proposed_strategy": "Proposed Strategy",
+    "awaiting_authorization": "Awaiting Authorization",
+    "reject": "Reject",
+    "confirm": "Confirm"
+  },
+  "approval": {
+    "title": "Action Requires Approval",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "view_args": "View Parameters",
+    "confirm_message": "Confirm execution of this action?",
+    "approve": "Approve",
+    "reject": "Reject"
+  },
+  "tools": {
+    "getBugInfo": "Get Bug Info",
+    "searchBugs": "Search Bugs",
+    "resolveBug": "Resolve Bug",
+    "getBugStats": "Bug Statistics",
+    "getPipelineStatus": "Pipeline Status",
+    "proposePlan": "Propose Plan",
+    "runLocalCommand": "Local Command",
+    "activate_skill": "Skill Activation",
+    "zentao_mcp": "ZenTao MCP",
+    "createProductStory": "Create Story",
+    "getStoryInfo": "Get Story Info",
+    "searchProductStories": "Search Stories",
+    "listProducts": "List Products",
+    "createProduct": "Create Product",
+    "createProject": "Create Project"
   }
 }
