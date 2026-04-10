@@ -44,7 +44,8 @@
       "cta": "查看更新"
     },
     "available_models": "可用模型",
-    "thinking": "思考处理中",
+    "thinking": "思考中",
+    "thinking_done": "已完成",
     "tool_status": {
       "calling": "正在调用技能...",
       "executing": "正在调用 {{name}}...",

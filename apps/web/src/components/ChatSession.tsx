@@ -415,45 +415,88 @@ export function ChatSession({
   const ToolGroupTimeline = React.memo(({ tools }: { tools: any[] }) => {
     const isRunning = tools.some((t: any) => !(t.output || t.result));
     const [isManuallyClosed, setIsManuallyClosed] = useState(false);
-    const isOpen = isRunning || !isManuallyClosed;
+    const prevIsRunningRef = useRef(isRunning);
+
+    // Claude 式行为：完成后自动折叠
+    useEffect(() => {
+      if (prevIsRunningRef.current && !isRunning) {
+        setIsManuallyClosed(true);
+      }
+      prevIsRunningRef.current = isRunning;
+    }, [isRunning]);
+
+    const isOpen = !isManuallyClosed;
 
     return (
       <div className="my-3 overflow-hidden">
         <button
-          onClick={() => !isRunning && setIsManuallyClosed(!isManuallyClosed)}
+          onClick={() => setIsManuallyClosed(!isManuallyClosed)}
           className={cn(
-            "w-full flex items-center justify-between px-4 py-3 transition-colors group",
-            isRunning ? "cursor-default" : "hover:bg-[#F6F3F2]/80 cursor-pointer"
+            "w-full flex items-center justify-between px-4 py-2.5 transition-colors group rounded-lg",
+            "hover:bg-[#F6F3F2]/80 cursor-pointer"
           )}
         >
-          <div className="flex items-center gap-3 text-[#716B67] text-[13px] font-bold">
-            {isRunning ? <BrailleSpinner /> : <Check className="w-4 h-4 text-green-500 shrink-0" />}
-            <span className="truncate max-w-[200px] sm:max-w-xs text-[#1C1B1B]">{t('chat.thinking', 'Thinking...')}</span>
-            <span className="text-[11px] font-medium text-[#716B67]/70 bg-[#F6F3F2] px-2 py-0.5 rounded-full hidden sm:inline-block">
+          <div className="flex items-center gap-2.5">
+            {isRunning ? (
+              <div className="w-2 h-2 rounded-full bg-[#EC5B14] animate-pulse" />
+            ) : (
+              <Check className="w-4 h-4 text-green-500 shrink-0" />
+            )}
+            <span className={cn(
+              "text-[13px] font-medium",
+              isRunning ? "text-[#716B67]" : "text-[#716B67]/70"
+            )}>
+              {isRunning ? t('chat.thinking', 'Thinking') : t('chat.thinking_done', 'Done')}
+            </span>
+            <span className="text-[11px] font-medium text-[#716B67]/50 bg-[#F6F3F2] px-2 py-0.5 rounded-full">
               {tools.length} {t('chat.tools.calls_count', 'steps')}
             </span>
           </div>
-          <ChevronDown className={cn("w-4 h-4 text-[#716B67] transition-transform group-hover:text-[#1C1B1B]", isOpen ? "rotate-180" : "")} />
+          <ChevronDown className={cn(
+            "w-4 h-4 text-[#716B67]/50 transition-transform group-hover:text-[#1C1B1B]",
+            isOpen ? "rotate-180" : ""
+          )} />
         </button>
 
-        {/* 修复：移除 AnimatePresence 以减少流式更新时的 DOM 抖动 */}
         {isOpen && (
           <div className="overflow-hidden transition-all duration-300">
-            <div className="px-4 pb-4 pt-4 bg-white flex flex-col gap-0 border-t border-[#E8E4E2]/40 relative">
+            <div className="px-4 pb-4 pt-3 bg-[#FAFAFA] flex flex-col gap-0 border-t border-[#E8E4E2]/40 relative mt-1 rounded-b-lg">
               {/* 垂直时间轴轨道 */}
-              <div className="absolute left-[29px] top-6 bottom-8 w-px bg-[#E8E4E2]/80 z-0"></div>
+              <div className="absolute left-[28px] top-5 bottom-6 w-px bg-[#E8E4E2]/80 z-0"></div>
 
               {tools.map((part: any) => {
                 const isCompleted = !!(part.output || part.result);
-                // 修复：确保 key 稳定，优先使用 toolCallId
                 const stableKey = part.toolCallId || part.toolName || Math.random().toString(36).slice(2);
+                const toolDisplayName = getFriendlyToolName(part);
+                const args = part.args || part.invocation?.args;
+
                 return (
                   <div key={stableKey} className="relative flex gap-4 pb-2 last:pb-0 z-10 w-full group/timeline">
-                    <div className="relative z-10 w-[30px] flex justify-center pt-3.5 shrink-0">
-                      <div className={cn("w-[10px] h-[10px] rounded-full ring-4 ring-white z-10 transition-colors", isCompleted ? "bg-[#E8E4E2]" : "bg-[#EC5B14] shadow-[0_0_8px_rgba(236,91,20,0.4)]")}></div>
+                    <div className="relative z-10 w-[28px] flex justify-center pt-3 shrink-0">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full ring-4 ring-[#FAFAFA] z-10 transition-colors",
+                        isCompleted ? "bg-[#D1D5DB]" : "bg-[#EC5B14]"
+                      )}></div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      {renderToolInvocation(part)}
+                      <div className="flex items-center gap-2 text-[11px] text-[#716B67]">
+                        <span className="font-semibold text-[#1C1B1B]">{toolDisplayName}</span>
+                        {isCompleted && (
+                          <span className="text-[#716B67]/50">{t('chat.tool_status.completed', { name: '' }).replace(' 的技能', '').trim()}</span>
+                        )}
+                        {!isCompleted && (
+                          <div className="flex gap-0.5">
+                            <span className="w-0.5 h-0.5 rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.3s]"></span>
+                            <span className="w-0.5 h-0.5 rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="w-0.5 h-0.5 rounded-full bg-[#EC5B14] animate-bounce"></span>
+                          </div>
+                        )}
+                      </div>
+                      {args && Object.keys(args).length > 0 && (
+                        <div className="mt-0.5 text-[10px] text-[#716B67]/50 font-mono truncate">
+                          {JSON.stringify(args)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -532,9 +575,6 @@ export function ChatSession({
             <ArrowRight className="w-2.5 h-2.5 ml-1 opacity-0 group-hover/invocation:opacity-100 transition-opacity translate-x-[-4px] group-hover/invocation:translate-x-0" />
           )}
         </div>
-
-        {/* If we have the result, render the specific UI for it */}
-        {isCompleted && renderToolResult(part)}
       </div>
     );
   };
@@ -626,6 +666,22 @@ export function ChatSession({
 
     return null;
   };
+
+  // 工具结果渲染：在消息正文层展示可交互的 UI 组件（BugCard, PipelineCard 等）
+  const ToolResults = React.memo(({ tools }: { tools: any[] }) => {
+    const completedTools = tools.filter((t: any) => !!(t.output || t.result));
+    if (completedTools.length === 0) return null;
+
+    return (
+      <div className="flex flex-col gap-3 mt-3">
+        {completedTools.map((part: any) => (
+          <React.Fragment key={part.toolCallId}>
+            {renderToolResult(part)}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  });
 
   const beautifyModelName = (name: string) => {
     return name
@@ -797,7 +853,10 @@ export function ChatSession({
                                           )}
                                         </div>
                                       ) : (
-                                        <ToolGroupTimeline key={i} tools={group.tools} />
+                                        <React.Fragment key={i}>
+                                          <ToolGroupTimeline tools={group.tools} />
+                                          <ToolResults tools={group.tools} />
+                                        </React.Fragment>
                                       )
                                     ));
                                   })()}
