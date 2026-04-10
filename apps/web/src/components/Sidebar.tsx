@@ -272,44 +272,29 @@ export function Sidebar({
 
         {/* 1. Logo Header */}
         <div className={cn(
-          "flex items-center border-b border-[#E8E4E2]/60",
-          isCollapsed ? "p-2 justify-center" : "p-5 pb-3 justify-between"
+          "flex items-center border-b border-[#E8E4E2]/60 h-14",
+          isCollapsed ? "px-3 justify-center" : "px-5 justify-between"
         )}>
-          {!isCollapsed ? (
-            <>
-              <div className="flex items-center gap-2.5">
-                <div className="bg-[#EC5B14] p-1.5 rounded-lg shadow-sm">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-display font-bold text-[#1C1B1B] text-lg leading-none">uClaw</span>
-                  <span className="text-[8px] font-bold text-[#716B67] uppercase tracking-widest mt-0.5">{t('sidebar.enterprise_ai')}</span>
-                </div>
-              </div>
-              {/* Toggle button (desktop only) */}
-              <button
-                className="hidden md:flex p-2 rounded-lg hover:bg-[#1C1B1B]/5 text-[#716B67] hover:text-[#EC5B14] transition-colors"
-                onClick={onToggle}
-                title="收起侧边栏"
-              >
-                <PanelLeft className="w-5 h-5" />
-              </button>
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="bg-[#EC5B14] p-2 rounded-lg shadow-sm">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              {/* Toggle button (desktop only) */}
-              <button
-                className="hidden md:flex p-2 rounded-lg hover:bg-[#1C1B1B]/5 text-[#716B67] hover:text-[#EC5B14] transition-colors"
-                onClick={onToggle}
-                title="展开侧边栏"
-              >
-                <PanelRight className="w-5 h-5" />
-              </button>
+          <div className="flex items-center gap-2.5">
+            <div className="bg-[#EC5B14] p-1.5 rounded-lg shadow-sm">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
-          )}
+            {!isCollapsed && (
+              <span className="font-display font-bold text-[#1C1B1B] text-lg leading-none">uClaw</span>
+            )}
+          </div>
+          {/* Toggle button (desktop only) */}
+          <button
+            className="hidden md:flex p-2 rounded-lg hover:bg-[#1C1B1B]/5 text-[#716B67] hover:text-[#EC5B14] transition-colors"
+            onClick={onToggle}
+            title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          >
+            {isCollapsed ? (
+              <PanelRight className="w-5 h-5" />
+            ) : (
+              <PanelLeft className="w-5 h-5" />
+            )}
+          </button>
           {/* Mobile close button */}
           <button className="md:hidden p-1.5 text-[#716B67]" onClick={onClose}>
             <X className="w-5 h-5" />
@@ -373,6 +358,9 @@ export function Sidebar({
             );
           })}
         </nav>
+
+        {/* Separator */}
+        <div className={cn("border-t border-[#E8E4E2]/60", isCollapsed ? "mx-3 mt-3" : "mx-3 mt-4")} />
 
         {/* 4. Recent Activity & All Chats */}
         <div className={cn("flex-1 mt-5 overflow-y-auto no-scrollbar relative", isCollapsed ? "px-2 hidden" : "px-3")}>
