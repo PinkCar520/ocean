@@ -28,7 +28,7 @@ export class ChatService {
     const models = modelsRaw.split(',').map(m => m.trim());
     const selectedModel = (modelId && models.includes(modelId)) ? modelId : models[0];
 
-    const isCloudModel = selectedModel.includes('deepseek') || selectedModel.includes('omni');
+    const isCloudModel = selectedModel.includes('deepseek') || selectedModel.includes('omni') || selectedModel.includes('qwen');
     
     const baseURL = isCloudModel 
       ? this.configService.get<string>('DASHSCOPE_API_BASE') 

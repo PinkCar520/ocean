@@ -46,6 +46,8 @@
     "available_models": "可用模型",
     "thinking": "思考中",
     "thinking_done": "已完成",
+    "reasoning": "思考过程",
+    "reasoning.chars": "字",
     "tools": {
       "count": "步"
     },
@@ -501,5 +503,57 @@
     "listProducts": "产品列表",
     "createProduct": "创建产品",
     "createProject": "创建项目"
+  },
+  "gallery": {
+    "title": "Stitch 设计画廊",
+    "description": "Stitch 设计组件的视觉回归测试。",
+    "sections": {
+      "thinking_pills": "思考过程指示器",
+      "zentao_task": "禅道任务集成",
+      "leave_request": "请假申请表",
+      "code_diff": "代码差异查看器",
+      "print_console": "打印控制台"
+    },
+    "labels": {
+      "pills_active": "指示器（进行中）",
+      "pills_all_done": "指示器（全部完成）",
+      "list_variant": "列表变体"
+    },
+    "stitch_labels": {
+      "image_1": "Stitch 图1",
+      "image_2": "Stitch 图2",
+      "image_3": "Stitch 图3",
+      "image_4": "Stitch 图4"
+    },
+    "demo_data": {
+      "thinking": {
+        "checking_zentao": "检查禅道项目看板",
+        "fetching_member": "获取成员可用性",
+        "optimizing_allocation": "优化资源分配",
+        "locating_report": "定位 report.pdf",
+        "checking_printer": "检查 Printer-03 状态",
+        "reading_gitlab": "读取 gitlab-api-v4.ts...",
+        "comparing_oauth": "对比 OAuth 2.1 最佳实践...",
+        "identifying_leakage": "识别日志中潜在的令牌泄露..."
+      },
+      "zentao": {
+        "title": "认证重构",
+        "assignee_1": "Sarah Chen",
+        "assignee_2": "Marcus Thorne",
+        "sprint_name": "迭代 24：Q3 安全 overhaul",
+        "sprint_starts": "12小时后开始"
+      },
+      "diff_viewer": {
+        "file_name": "gitlab-api-v4.ts"
+      },
+      "print_console": {
+        "printer_name": "OfficeJet X-900",
+        "location": "3楼",
+        "paper_tray": "纸盒 1：已装载",
+        "document_name": "Q4_财务摘要.pdf",
+        "document_generated": "2小时前",
+        "security_message": "本文档包含敏感的财务数据。打印权限仅限于授权的3楼人员。"
+      }
+    }
   }
 }

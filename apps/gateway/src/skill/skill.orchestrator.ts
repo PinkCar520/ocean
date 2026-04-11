@@ -62,7 +62,7 @@ export class SkillOrchestrator {
     let apiKey: string;
     let providerLabel: string;
 
-    const isCloudModel = selectedModel.includes('deepseek') || selectedModel.includes('omni');
+    const isCloudModel = selectedModel.includes('deepseek') || selectedModel.includes('omni') || selectedModel.includes('qwen');
     const isOmlxModel = omlxModel && selectedModel === omlxModel;
 
     if (isCloudModel) {
@@ -81,10 +81,26 @@ export class SkillOrchestrator {
 
     this.logger.log(`[Orchestrator] Routing model "${selectedModel}" to ${providerLabel}`);
 
-    return createOpenAI({
+    // For DeepSeek models via DashScope, inject enable_thinking into request body
+    const provider = createOpenAI({
       baseURL,
       apiKey,
-    }).chat(selectedModel);
+      // Custom fetch to inject DashScope-specific parameters
+      ...(isCloudModel && selectedModel.includes('deepseek') ? {
+        fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.body && typeof init.body === 'string') {
+            try {
+              const body = JSON.parse(init.body);
+              body.enable_thinking = true;
+              init.body = JSON.stringify(body);
+            } catch { /* ignore parse errors */ }
+          }
+          return globalThis.fetch(input, init);
+        },
+      } : {}),
+    });
+
+    return provider.chat(selectedModel);
   }
 
   getAvailableModels() {
@@ -408,8 +424,15 @@ ${catalogXml}`;
 
       this.logger.log(`[Orchestrator] AgentSkills mode for user ${ctx.userId}`);
 
-      // Accumulate tool invocations across ALL steps (onFinish only gives last step)
+      // Accumulate tool invocations, text, AND reasoning across ALL steps
+      // (onFinish only gives the last step's data in newer AI SDK versions)
       const allToolInvocations: any[] = [];
+      let fullText = '';
+      let fullReasoning = '';
+      // Build a complete parts array interleaving reasoning, text and tool invocations
+      const allParts: any[] = [];
+      // Track the last reasoning block so we can append deltas to it
+      let lastReasoningPart: any = null;
 
       const result = streamText({
         model: this.getModel(modelId),
@@ -418,53 +441,78 @@ ${catalogXml}`;
         stopWhen: stepCountIs(10),
         system: systemPrompt,
         tools,
-        onStepFinish: ({ stepNumber, toolCalls, toolResults }) => {
-          this.logger.debug(`Step ${stepNumber} finished. Tool calls: ${toolCalls?.length || 0}`);
+        // ── Real-time chunk handling: capture reasoning deltas ──
+        onChunk: ({ chunk }) => {
+          if (chunk.type === 'reasoning-delta') {
+            fullReasoning += chunk.text;
+            if (lastReasoningPart) {
+              lastReasoningPart.text += chunk.text;
+            } else {
+              lastReasoningPart = { type: 'reasoning', text: chunk.text };
+              allParts.push(lastReasoningPart);
+            }
+          }
+          // Reasoning naturally ends when a different chunk type appears
+          // Reset tracker on text-delta, tool-call, etc.
+          if (chunk.type === 'text-delta' || chunk.type === 'tool-call') {
+            lastReasoningPart = null;
+          }
+        },
+        onStepFinish: ({ stepNumber, toolCalls, toolResults, text }) => {
+          this.logger.debug(`Step ${stepNumber} finished. Tool calls: ${toolCalls?.length || 0}, text: ${text?.length ?? 0} chars`);
+
+          // Accumulate text from each step
+          if (text) {
+            fullText += text;
+            // Save text as a part so frontend renders it in Branch 1 (parts-based)
+            allParts.push({ type: 'text', text });
+          }
 
           // Accumulate tool invocations from each step
           if (toolResults && toolResults.length > 0) {
             for (const tr of toolResults as any[]) {
-              allToolInvocations.push({
+              const part = {
                 type: 'tool-invocation',
                 toolCallId: tr.toolCallId,
                 toolName: tr.toolName,
                 args: tr.input,
                 output: tr.output,
                 result: tr.output,
-              });
+              };
+              allToolInvocations.push(part);
+              allParts.push(part);
             }
           } else if (toolCalls && toolCalls.length > 0) {
             for (const tc of toolCalls as any[]) {
-              allToolInvocations.push({
+              const part = {
                 type: 'tool-invocation',
                 toolCallId: tc.toolCallId,
                 toolName: tc.toolName,
                 args: tc.input,
-              });
+              };
+              allToolInvocations.push(part);
+              allParts.push(part);
             }
           }
         },
-        onFinish: async ({ text }) => {
+        onFinish: async () => {
           // ── Step 2: 持久化 AI 回复（流完成后写库）────────────────
-          if (sessionId && text) {
+          if (sessionId && fullText) {
             try {
-              // Use accumulated tool invocations from ALL steps, not just the last one
-              const toolCallParts = allToolInvocations;
-
               const messageId = await this.sessionService.addMessage(sessionId, {
                 role: 'assistant',
-                content: text,
-                parts: toolCallParts.length > 0 ? toolCallParts : undefined,
+                content: fullText,
+                parts: allParts.length > 0 ? allParts : undefined,
               });
-              this.logger.log(`[Orchestrator] Persisted assistant reply: ${text.length} chars, ${toolCallParts.length} tool parts (accumulated from ${allToolInvocations.length} steps)`);
+              this.logger.log(`[Orchestrator] Persisted assistant reply: ${fullText.length} chars, ${allParts.length} parts (${allToolInvocations.length} tool invocations, ${fullReasoning.length} chars reasoning, accumulated from all steps)`);
 
               // ── Step 2b: 提取 UI 快照并持久化（Capsule 快照存储）────
-              if (toolCallParts.length > 0) {
-                await this.saveCapsuleSnapshots(messageId, sessionId, toolCallParts);
+              if (allToolInvocations.length > 0) {
+                await this.saveCapsuleSnapshots(messageId, sessionId, allToolInvocations);
               }
 
               // ── Step 3: 自动生成标题（第一轮对话时）─────────────
-              await this.maybeSummarizeTitle(sessionId, messages, text, modelId);
+              await this.maybeSummarizeTitle(sessionId, messages, fullText, modelId);
             } catch (err: any) {
               this.logger.error(`Failed to persist assistant reply: ${err.message}`);
               this.logger.error(err.stack);

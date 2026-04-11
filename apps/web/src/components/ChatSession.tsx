@@ -1,6 +1,53 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ThinkingPills, type ThinkingStep } from './ThinkingPills';
+import { type ThinkingStep } from './ThinkingPills';
+import { ThinkingList } from './ThinkingList';
 import { DiffViewer } from './DiffViewer';
+
+// Parse reasoning text into ThinkingStep[] for ThinkingList rendering.
+// Splits by newlines or sentences, marking the last step as 'active' during streaming.
+function parseReasoningToSteps(reasoning: string, isStreaming: boolean, isLastStep = true): ThinkingStep[] {
+  if (!reasoning || !reasoning.trim()) return [];
+
+  const trimmed = reasoning.trim();
+
+  // Split by newlines first, filter empty lines
+  const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // If we have multiple lines, use them directly
+  if (lines.length > 1) {
+    return lines.map((label, i) => {
+      const isLast = isLastStep && i === lines.length - 1;
+      return {
+        label,
+        status: isLast && isStreaming ? 'active' : 'done',
+      };
+    });
+  }
+
+  // Single line: try sentence-level splitting (by common sentence boundaries)
+  // Split by period, exclamation, question mark followed by space or end of string
+  const sentences = trimmed
+    .split(/(?<=[.!。！？\n])\s*(?=[A-Z\u4e00-\u9fff])/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  // If we got multiple sentences, use them
+  if (sentences.length > 1) {
+    return sentences.map((label, i) => {
+      const isLast = isLastStep && i === sentences.length - 1;
+      return {
+        label: label.replace(/[.。!！?？]+$/, ''),
+        status: isLast && isStreaming ? 'active' : 'done',
+      };
+    });
+  }
+
+  // Fallback: treat as a single step
+  return [{
+    label: trimmed,
+    status: isLastStep && isStreaming ? 'active' : 'done',
+  }];
+}
 
 // 提升到模块级：避免在 ChatSession 每次渲染时重新定义，导致 React 视其为全新组件而重挂载
 // 重挂载会清除 setInterval，造成 BrailleSpinner 在流式传输期间频繁闪烁
@@ -88,7 +135,8 @@ import { useChat } from '@ai-sdk/react';
 import {
   ArrowDown, Sparkles, Copy, RotateCcw, Check,
   Plus, FileText, X as CloseIcon, Image as ImageIcon,
-  ChevronDown, Paperclip, ArrowRight, ArrowUp, Terminal, Cpu, Database, BadgeCheck, Globe, Square
+  ChevronDown, Paperclip, ArrowRight, ArrowUp, Terminal, Cpu, Database, BadgeCheck, Globe, Square,
+  ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -191,6 +239,8 @@ export function ChatSession({
   const [pendingApproval, setPendingApproval] = useState<any>(null);
   // Capsule state: which tool result is expanded in the right panel
   const [activeCapsule, setActiveCapsule] = useState<{ toolCallId: string; uiKit: any; } | null>(null);
+  // Message feedback state: messageId -> 'up' | 'down'
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, 'up' | 'down'>>({});
 
   // Poll for approval requests
   useEffect(() => {
@@ -472,166 +522,6 @@ export function ChatSession({
     return rawToolName.split(/[-_]/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
 
-  // 自定义比较函数：只在工具数量、完成状态或结果内容变化时才允许重渲
-  // 流式传输期间父组件频繁刷新，但 tools 数组的「重要状态」未变，不应重渲 ToolGroupTimeline
-  const toolGroupAreEqual = (prev: { tools: any[] }, next: { tools: any[] }) => {
-    if (prev.tools.length !== next.tools.length) return false;
-    for (let i = 0; i < prev.tools.length; i++) {
-      const p = prev.tools[i];
-      const n = next.tools[i];
-      const prevDone = !!(p.output || p.result);
-      const nextDone = !!(n.output || n.result);
-      if (prevDone !== nextDone) return false;
-      if (nextDone && JSON.stringify(p.result ?? p.output) !== JSON.stringify(n.result ?? n.output)) return false;
-    }
-    return true;
-  };
-
-  const ToolGroupTimeline = React.memo(({ tools }: { tools: any[] }) => {
-    const isRunning = tools.some((t: any) => !(t.output || t.result));
-    const [isManuallyClosed, setIsManuallyClosed] = useState(false);
-    const [elapsedMs, setElapsedMs] = useState(0);
-    const startTimeRef = useRef(Date.now());
-    const finalElapsedRef = useRef<number | null>(null);
-    const prevIsRunningRef = useRef(isRunning);
-
-    // 实时计时器：流式期间每 100ms 更新一次
-    useEffect(() => {
-      if (!isRunning) return;
-      startTimeRef.current = Date.now();
-      const id = setInterval(() => setElapsedMs(Date.now() - startTimeRef.current), 100);
-      return () => clearInterval(id);
-    }, [isRunning]);
-
-    // Claude 式行为：完成后自动折叠，并定格耗时
-    useEffect(() => {
-      if (prevIsRunningRef.current && !isRunning) {
-        finalElapsedRef.current = elapsedMs;
-        setTimeout(() => setIsManuallyClosed(true), 800); // 短暂延迟让用户看到完成态
-      }
-      prevIsRunningRef.current = isRunning;
-    }, [isRunning]);
-
-    const isOpen = !isManuallyClosed;
-    const displayElapsed = isRunning ? elapsedMs : (finalElapsedRef.current ?? elapsedMs);
-    const elapsedSec = (displayElapsed / 1000).toFixed(1);
-
-    return (
-      <div className={cn(
-        "mb-2 rounded-xl border transition-all duration-300",
-        isRunning
-          ? "border-[#EC5B14]/15 bg-[#FFF8F5]"
-          : "border-[#E8E4E2]/60 bg-transparent"
-      )}>
-        {/* 标题栏 */}
-        <button
-          onClick={() => setIsManuallyClosed(!isManuallyClosed)}
-          className="w-full flex items-center justify-between px-3.5 py-2.5 group"
-        >
-          <div className="flex items-center gap-2">
-            {isRunning ? (
-              // 流式中：动态橙点
-              <div className="relative flex items-center justify-center w-4 h-4 shrink-0">
-                <div className="w-2 h-2 rounded-full bg-[#EC5B14] animate-pulse" />
-                <div className="absolute w-4 h-4 rounded-full bg-[#EC5B14]/20 animate-ping" />
-              </div>
-            ) : (
-              // 完成：绿色勾
-              <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-                <Check className="w-3.5 h-3.5 text-emerald-500" />
-              </div>
-            )}
-
-            {isRunning ? (
-              <span className={cn(
-                "text-[12.5px] font-semibold tracking-tight text-[#1C1B1B]"
-              )}>
-                {t('chat.thinking', '正在思考')}
-              </span>
-            ) : (
-              <span className="text-[12.5px] font-semibold tracking-tight text-[#716B67]">
-                {t('chat.thinking_done', '已完成')}
-                <span className="text-[11px] font-normal text-[#A8A4A1] ml-1">
-                  · {tools.length} {t('chat.tools.count', '步')}
-                  {displayElapsed > 0 && ` · ${elapsedSec}s`}
-                </span>
-              </span>
-            )}
-          </div>
-
-          <ChevronDown className={cn(
-            "w-3.5 h-3.5 transition-all duration-200",
-            isRunning ? "text-[#EC5B14]/60" : "text-[#716B67]/40 group-hover:text-[#716B67]",
-            isOpen ? "rotate-180" : ""
-          )} />
-        </button>
-
-        {/* 展开内容 — 平滑高度动画 */}
-        <div className={cn(
-          "overflow-hidden transition-all duration-300 ease-in-out",
-          isOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
-        )}>
-          <div className="px-3.5 pb-3.5 pt-0 flex flex-col gap-0 border-t border-[#E8E4E2]/40 relative">
-            {/* 垂直时间轴轨道 */}
-            <div className="absolute left-[26px] top-3 bottom-5 w-px bg-[#E8E4E2] z-0" />
-
-            {tools.map((part: any, tIdx: number) => {
-              const isCompleted = !!(part.output || part.result);
-              const stableKey = part.toolInvocation?.toolCallId
-                || part.toolCallId
-                || part.toolName
-                || `tool-${tIdx}`;
-              const toolDisplayName = getFriendlyToolName(part);
-              const args = part.args || part.invocation?.args;
-
-              return (
-                <div key={stableKey} className="relative flex gap-3 pt-3 last:pb-0 z-10 w-full">
-                  {/* 时间轴节点 */}
-                  <div className="relative z-10 w-[22px] flex justify-center pt-0.5 shrink-0">
-                    <div className={cn(
-                      "w-[7px] h-[7px] rounded-full ring-[3px] z-10 transition-all duration-300",
-                      isCompleted
-                        ? "bg-[#D1D5DB] ring-white"
-                        : "bg-[#EC5B14] ring-[#FFF3EE] shadow-[0_0_6px_rgba(236,91,20,0.4)]"
-                    )} />
-                  </div>
-
-                  {/* 内容 */}
-                  <div className="flex-1 min-w-0 pb-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={cn(
-                        "text-[11.5px] font-semibold leading-none transition-colors",
-                        isCompleted ? "text-[#716B67]" : "text-[#1C1B1B]"
-                      )}>
-                        {toolDisplayName}
-                      </span>
-
-                      {isCompleted ? (
-                        <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                      ) : (
-                        <div className="flex gap-[3px] items-center">
-                          <span className="w-[3px] h-[3px] rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.3s]" />
-                          <span className="w-[3px] h-[3px] rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.15s]" />
-                          <span className="w-[3px] h-[3px] rounded-full bg-[#EC5B14] animate-bounce" />
-                        </div>
-                      )}
-                    </div>
-
-                    {args && Object.keys(args).length > 0 && (
-                      <div className="mt-1 text-[10px] text-[#716B67]/40 font-mono truncate max-w-[280px]">
-                        {JSON.stringify(args)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  }, toolGroupAreEqual);
-
   const renderToolInvocation = (part: any) => {
     const rawToolName = part.toolName || part.type?.replace('tool-', '') || 'unknown';
     const args = part.args || part.invocation?.args;
@@ -709,7 +599,7 @@ export function ChatSession({
 
     // ── Gen 2: UI Protocol (ui 字段) → 不再内联渲染，交给 CapsuleAnchor ──
     if (result?.ui) {
-      return null; // Will be rendered as CapsuleAnchor in ToolResults
+      return null; // Will be rendered as CapsuleAnchor inline in the unified message loop
     }
 
     // ── Gen 1: 向后兼容 — 无 ui 字段时回退到旧逻辑 ──
@@ -802,37 +692,6 @@ export function ChatSession({
 
     return null;
   };
-
-  // 工具结果渲染：在消息正文层展示可交互的 UI 组件（BugCard, PipelineCard 等）
-  const ToolResults = React.memo(({ tools }: { tools: any[] }) => {
-    const completedTools = tools.filter((t: any) => !!(t.output || t.result));
-    if (completedTools.length === 0) return null;
-
-    return (
-      <div className="flex flex-wrap gap-2">
-        {completedTools.map((part: any) => {
-          const result = part.output || part.result;
-          // Gen 2: UI Protocol → CapsuleAnchor
-          if (result?.ui) {
-            return (
-              <CapsuleAnchor
-                key={part.toolCallId}
-                uiType={result.ui.uiType}
-                isActive={activeCapsule?.toolCallId === part.toolCallId}
-                onClick={() => setActiveCapsule({ toolCallId: part.toolCallId, uiKit: result.ui })}
-              />
-            );
-          }
-          // Gen 1: 向后兼容 — 无 ui 字段时保持内联渲染
-          return (
-            <React.Fragment key={part.toolCallId}>
-              {renderToolResult(part)}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    );
-  });
 
   const beautifyModelName = (name: string) => {
     return name
@@ -934,7 +793,7 @@ export function ChatSession({
                       const isAssistant = m.role === 'assistant';
                       const isUser = m.role === 'user';
                       const isStreaming = isLast && isLoading && isAssistant;
-                      const hasContent = m.content || (Array.isArray(m.parts) && m.parts.some((p: any) => p.text));
+                      const hasContent = m.content || (Array.isArray(m.parts) && m.parts.some((p: any) => p.text || p.type === 'reasoning'));
 
                       return (
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
@@ -971,64 +830,95 @@ export function ChatSession({
                               )}
 
                               {!hasContent && isAssistant && isLoading ? (
-                                <div className="flex items-center py-2 gap-2">
-                                  <div className="relative flex items-center justify-center w-3 h-3 shrink-0">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
-                                    <div className="absolute w-3 h-3 rounded-full bg-[#EC5B14]/20 animate-ping" />
-                                  </div>
-                                  <span className="text-[12px] font-bold text-[#716B67] tracking-tight">
-                                    {t('chat.thinking')}
-                                  </span>
-                                </div>
+                                <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
                               ) : Array.isArray(m.parts) ? (
                                 <div className="flex flex-col gap-1">
                                   {(() => {
-                                    const groupedParts = m.parts.reduce((acc: any[], part: any) => {
-                                      const isTool = part.type === 'tool-invocation' || part.toolName || part.type?.startsWith('tool-');
-                                      if (isTool) {
-                                        if (acc.length > 0 && acc[acc.length - 1].type === 'tools') {
-                                          acc[acc.length - 1].tools.push(part);
-                                        } else {
-                                          acc.push({ type: 'tools', tools: [part] });
-                                        }
-                                      } else {
-                                        acc.push({ type: 'text', part });
-                                      }
-                                      return acc;
-                                    }, []);
+                                    // Collect all thinking steps from both reasoning and tool-invocation
+                                    const allThinkingSteps: ThinkingStep[] = [];
+                                    const completedTools: any[] = [];
+                                    const textParts: any[] = [];
 
-                                    return groupedParts.map((group: any, i: number) => (
-                                      group.type === 'text' ? (
-                                        <div key={i} className="prose prose-slate prose-sm max-w-none">
-                                          {group.part.type === 'text' && (
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-                                              {group.part.text}
-                                            </ReactMarkdown>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <React.Fragment key={i}>
-                                          <ToolGroupTimeline tools={group.tools} />
-                                          {/* Tool Results — UI Components in message body */}
-                                          <ToolResults tools={group.tools} />
-                                        </React.Fragment>
-                                      )
-                                    ));
+                                    m.parts.forEach((part: any) => {
+                                      const isTool = part.type === 'tool-invocation' || part.toolName || part.type?.startsWith('tool-');
+                                      const isReasoning = part.type === 'reasoning';
+
+                                      if (isTool) {
+                                        const isCompleted = !!(part.output || part.result);
+                                        allThinkingSteps.push({
+                                          label: getFriendlyToolName(part),
+                                          status: isCompleted ? 'done' : 'active',
+                                        });
+                                        if (isCompleted) {
+                                          completedTools.push(part);
+                                        }
+                                      } else if (isReasoning) {
+                                        const reasoningSteps = parseReasoningToSteps(part.text, isStreaming, false);
+                                        allThinkingSteps.push(...reasoningSteps);
+                                      } else {
+                                        textParts.push(part);
+                                      }
+                                    });
+
+                                    // If streaming and last step is active, keep it active; otherwise mark all done
+                                    if (isStreaming && allThinkingSteps.length > 0) {
+                                      // Mark last step as active during streaming (only if still in thinking phase)
+                                      const hasTextContent = textParts.some(p => p.type === 'text' && p.text?.trim());
+                                      if (!hasTextContent) {
+                                        allThinkingSteps[allThinkingSteps.length - 1].status = 'active';
+                                      }
+                                    } else if (allThinkingSteps.length > 0 && !isStreaming) {
+                                      allThinkingSteps.forEach(s => s.status = 'done');
+                                    }
+
+                                    // If there's no content at all but we're streaming, show a placeholder
+                                    const hasAnySteps = allThinkingSteps.length > 0 || completedTools.length > 0;
+
+                                    return (
+                                      <>
+                                        {/* Unified ThinkingList - merges tool steps + reasoning steps */}
+                                        {allThinkingSteps.length > 0 && (
+                                          <ThinkingList steps={allThinkingSteps} />
+                                        )}
+                                        {/* Placeholder during streaming when no steps yet */}
+                                        {!hasAnySteps && isStreaming && (
+                                          <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
+                                        )}
+                                        {/* Text content */}
+                                        {textParts.map((part: any, i: number) => (
+                                          <div key={i} className="prose prose-slate prose-sm max-w-none">
+                                            {part.type === 'text' && (
+                                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
+                                                {part.text}
+                                              </ReactMarkdown>
+                                            )}
+                                          </div>
+                                        ))}
+                                        {/* Tool results (CapsuleAnchor, BugCard, etc.) */}
+                                        {completedTools.map((part: any) => {
+                                          const result = part.output || part.result;
+                                          if (result?.ui) {
+                                            return (
+                                              <CapsuleAnchor
+                                                key={part.toolCallId}
+                                                uiType={result.ui.uiType}
+                                                isActive={activeCapsule?.toolCallId === part.toolCallId}
+                                                onClick={() => setActiveCapsule({ toolCallId: part.toolCallId, uiKit: result.ui })}
+                                              />
+                                            );
+                                          }
+                                          return <React.Fragment key={part.toolCallId}>{renderToolResult(part)}</React.Fragment>;
+                                        })}
+                                      </>
+                                    );
                                   })()}
-                                  {isStreaming && (
-                                    <div className="flex items-center mt-2 opacity-60 gap-2">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
-                                      <span className="text-[11px] text-[#716B67] font-bold tracking-tight">{t('chat.thinking')}</span>
-                                    </div>
-                                  )}
                                 </div>
                               ) : (
                                 <div className="prose prose-slate prose-sm max-w-none relative">
                                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>{m.content}</ReactMarkdown>
                                   {isStreaming && (
-                                    <div className="flex items-center mt-2 opacity-60 gap-2">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
-                                      <span className="text-[11px] text-[#716B67] font-bold tracking-tight">{t('chat.thinking')}</span>
+                                    <div className="mt-1">
+                                      <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
                                     </div>
                                   )}
                                 </div>
@@ -1052,39 +942,75 @@ export function ChatSession({
                                 </TooltipContent>
                               </Tooltip>
                               {isAssistant && (
-                                <Tooltip delayDuration={0}>
-                                  <TooltipTrigger asChild>
-                                    <button onClick={() => handleRegenerate(m.id)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67]">
-                                      <RotateCcw className="w-4 h-4" />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">
-                                    {t('common.regenerate')}
-                                  </TooltipContent>
-                                </Tooltip>
+                                <>
+                                  <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'up' ? undefined : 'up' }))}
+                                        className={cn(
+                                          "p-1.5 rounded-md transition-colors",
+                                          messageFeedback[m.id] === 'up'
+                                            ? "bg-[#EC5B14]/10 text-[#EC5B14]"
+                                            : "hover:bg-[#F6F3F2] text-[#716B67]"
+                                        )}
+                                      >
+                                        <ThumbsUp className="w-4 h-4" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">
+                                      {t('common.good_response', 'Good response')}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'down' ? undefined : 'down' }))}
+                                        className={cn(
+                                          "p-1.5 rounded-md transition-colors",
+                                          messageFeedback[m.id] === 'down'
+                                            ? "bg-red-500/10 text-red-500"
+                                            : "hover:bg-[#F6F3F2] text-[#716B67]"
+                                        )}
+                                      >
+                                        <ThumbsDown className="w-4 h-4" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">
+                                      {t('common.bad_response', 'Bad response')}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                      <button onClick={() => handleRegenerate(m.id)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67]">
+                                        <RotateCcw className="w-4 h-4" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">
+                                      {t('common.regenerate')}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </>
                               )}
                             </div>
+                            {/* Timestamp */}
+                            {m.createdAt && (
+                              <span className="text-[10px] text-[#716B67]/60 font-mono">
+                                {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
                           </div>
                         </motion.div>
                       );
                     })}
 
-                  {/* 当正在提交但 messages 列表还没更新出 assistant 回复时的“先行占位” */}
+                  {/* 当正在提交但 messages 列表还没更新出 assistant 回复时的"先行占位" */}
                   {(isLoading || isLocalThinking) && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex w-full gap-4 items-start mb-8">
                       <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
                         <Sparkles className="w-4 h-4" />
                       </div>
-                      <div className="flex flex-col gap-2 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex items-center justify-center w-3 h-3 shrink-0">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
-                            <div className="absolute w-3 h-3 rounded-full bg-[#EC5B14]/20 animate-ping" />
-                          </div>
-                          <span className="text-[12px] font-bold text-[#716B67] tracking-tight">
-                            {t('chat.thinking')}
-                          </span>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
                       </div>
                     </motion.div>
                   )}

@@ -46,6 +46,8 @@
     "available_models": "Available Models",
     "thinking": "Thinking",
     "thinking_done": "Completed",
+    "reasoning": "Reasoning Process",
+    "reasoning.chars": "chars",
     "tools": {
       "count": "steps"
     }
@@ -479,5 +481,57 @@
     "listProducts": "List Products",
     "createProduct": "Create Product",
     "createProject": "Create Project"
+  },
+  "gallery": {
+    "title": "Stitch Design Gallery",
+    "description": "Visual regression testing for all Stitch-designed components.",
+    "sections": {
+      "thinking_pills": "Thinking Pills",
+      "zentao_task": "ZenTao Task Integration",
+      "leave_request": "Leave Request Form",
+      "code_diff": "Code Diff Viewer",
+      "print_console": "Print Console"
+    },
+    "labels": {
+      "pills_active": "Pills (Active)",
+      "pills_all_done": "Pills (All Done)",
+      "list_variant": "List Variant"
+    },
+    "stitch_labels": {
+      "image_1": "Stitch 图1",
+      "image_2": "Stitch 图2",
+      "image_3": "Stitch 图3",
+      "image_4": "Stitch 图4"
+    },
+    "demo_data": {
+      "thinking": {
+        "checking_zentao": "Checking ZenTao project board",
+        "fetching_member": "Fetching member availability",
+        "optimizing_allocation": "Optimizing allocation",
+        "locating_report": "Locating report.pdf",
+        "checking_printer": "Checking Printer-03 status",
+        "reading_gitlab": "Reading gitlab-api-v4.ts...",
+        "comparing_oauth": "Comparing against OAuth 2.1 best practices...",
+        "identifying_leakage": "Identifying potential token leakage in logs..."
+      },
+      "zentao": {
+        "title": "Authentication Refactor",
+        "assignee_1": "Sarah Chen",
+        "assignee_2": "Marcus Thorne",
+        "sprint_name": "Sprint 24: Q3 Security Overhaul",
+        "sprint_starts": "Starts in 12h"
+      },
+      "diff_viewer": {
+        "file_name": "gitlab-api-v4.ts"
+      },
+      "print_console": {
+        "printer_name": "OfficeJet X-900",
+        "location": "Floor 03",
+        "paper_tray": "Tray 1: Loaded",
+        "document_name": "Q4_Financial_Summary.pdf",
+        "document_generated": "2h ago",
+        "security_message": "This document contains sensitive financial data. Printing is restricted to authorized 3rd floor personnel only."
+      }
+    }
   }
 }

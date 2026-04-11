@@ -27,6 +27,8 @@ interface CapsuleAnchorProps {
   onClick: () => void;
   /** Optional override for the display label */
   label?: string;
+  /** Full-width card mode to match Thinking Process style */
+  asCard?: boolean;
 }
 
 export const CapsuleAnchor: React.FC<CapsuleAnchorProps> = ({
@@ -34,10 +36,35 @@ export const CapsuleAnchor: React.FC<CapsuleAnchorProps> = ({
   isActive,
   onClick,
   label: labelOverride,
+  asCard = true,
 }) => {
   const meta = CAPSULE_META[uiType] ?? { label: '交互结果', icon: Pill };
   const label = labelOverride ?? meta.label;
   const IconComponent = meta.icon;
+
+  if (asCard) {
+    return (
+      <button
+        onClick={onClick}
+        className={cn(
+          'w-full flex items-center gap-3 px-5 py-3.5 rounded-[20px] text-[13px] font-semibold',
+          'transition-all duration-200 cursor-pointer select-none',
+          'border bg-white',
+          isActive
+            ? 'border-[#EC5B14]/30 shadow-[0_0_8px_rgba(236,91,20,0.1)] text-[#EC5B14]'
+            : 'border-[#E8E4E2]/60 text-[#716B67] hover:bg-[#EC5B14]/[0.03] hover:border-[#EC5B14]/20 hover:text-[#EC5B14]'
+        )}
+      >
+        <IconComponent className="w-4 h-4 shrink-0" />
+        <span className="tracking-tight">{label}</span>
+        {isActive && (
+          <span className="ml-auto text-[10px] font-medium text-[#EC5B14]">
+            已展开
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <button

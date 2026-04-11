@@ -14,7 +14,14 @@
       "Bash(curl *)",
       "Bash(select *)",
       "Bash('capsule_snapshots', *)",
-      "Bash(eof)"
+      "Bash(eof)",
+      "Bash(touch *)",
+      "Bash(docker logs *)",
+      "Bash(lsof *)",
+      "Bash(ls *)",
+      "Bash(strings *)",
+      "Bash(node *)",
+      "Bash(rm *)"
     ]
   },
   "$version": 3
