@@ -1,28 +1,24 @@
 ---
-protocol: AGP/1.0
 name: fix-bug
-description: "修复禅道缺陷的完整全链路工作流：拉取缺陷详情、分析相关代码、应用修复、Git 提交并在禅道关闭缺陷。当用户说修复、fix bug、解决缺陷、处理 BUG-xxx、帮我修时使用。"
-license: Proprietary
-compatibility: "需要 mcp-zentao MCP Server 和本地 CLI 节点在线（RPC 通道）"
-
-# AWP 动态沙盒：大模型本次会话只能看到以下工具
+description: "修复禅道缺陷的完整全链路工作流：拉取缺陷详情、分析相关代码、应用修复、Git 提交并在禅道关闭缺陷。触发条件：用户提到修复、fix bug、解决缺陷、处理 BUG-xxx、帮我修、关闭 bug 时激活。"
 allowed-tools:
   - getBugInfo
   - git_status
   - read_file
   - runLocalCommand
   - resolveBug
-
-# AWP 拦截断点：以下高危写操作必须经过人工 Y/N 确认后方可执行
 requires-approval:
   - git_add
   - git_commit
   - resolveBug
-
-metadata:
-  author: pinkcar
-  version: "1.1"
-  target-system: ZenTao + GitLab
+compatibility: "需要 mcp-zentao MCP Server 和本地 CLI 节点在线（RPC 通道）"
+locales:
+  zh:
+    displayName: "缺陷修复工作流"
+    description: "修复禅道缺陷的完整全链路工作流：拉取缺陷详情、分析相关代码、应用修复、Git 提交并在禅道关闭缺陷。"
+  en:
+    displayName: "Bug Fix Workflow"
+    description: "Complete workflow for fixing ZenTao bugs: fetch details, analyze code, apply fix, git commit, and resolve in ZenTao."
 ---
 
 # Fix Bug — Bug 修复全链路工作流

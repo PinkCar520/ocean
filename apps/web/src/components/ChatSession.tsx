@@ -797,6 +797,7 @@ export function ChatSession({
             severity={result.severity || 'medium'}
             description={result.description || ''}
             createdAt={result.createdAt || ''}
+            attachments={result.attachments}
             onAction={(action, data) => {
               // Mode B: 直调 API，不经过聊天流
               if (action === 'create_zentao_task') {

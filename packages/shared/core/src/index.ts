@@ -12,7 +12,7 @@ export interface BugDetail {
   severity: 'low' | 'medium' | 'high';
   createdAt: string;
   description: string;
-  attachments?: Array<{ url: string; name?: string; contentType?: string }>;
+  attachments?: Array<{ url: string; name?: string; contentType?: string; size?: number; extension?: string }>;
 }
 
 export interface UClawLocalActionRequest {

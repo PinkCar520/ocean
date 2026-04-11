@@ -23,6 +23,14 @@ export interface UIBase {
   uiMeta?: Record<string, unknown>;
 }
 
+export interface UIAttachment {
+  url: string;
+  name?: string;
+  contentType?: string;
+  size?: number;
+  extension?: string;
+}
+
 export interface UIBugCardProps {
   id: string;
   title: string;
@@ -31,7 +39,7 @@ export interface UIBugCardProps {
   severity: 'low' | 'medium' | 'high';
   description?: string;
   createdAt?: string;
-  attachments?: Array<{ url: string; name?: string; contentType?: string }>;
+  attachments?: UIAttachment[];
 }
 
 export interface UIBugCard extends UIBase {

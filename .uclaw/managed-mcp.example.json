@@ -1,0 +1,25 @@
+{
+  "_comment": "UClaw Managed MCP Config - Organization Policy (Cannot be overridden by users)",
+  "_organization": "Your Organization Name",
+  "_version": "1.0.0",
+
+  "organization": "UClaw Enterprise",
+  "version": "1.0.0",
+
+  "deniedServers": [
+    "experimental-mcp",
+    "untrusted-server"
+  ],
+
+  "forcedServers": {
+    "zentao": {
+      "enabled": true,
+      "command": "node",
+      "args": ["${GATEWAY_ROOT}/agent/mcp/mcp-zentao/dist/server.js"],
+      "env": {
+        "ZENTAO_BASE_URL": "${ZENTAO_BASE_URL}",
+        "ZENTAO_API_TOKEN": "${ZENTAO_API_TOKEN}"
+      }
+    }
+  }
+}

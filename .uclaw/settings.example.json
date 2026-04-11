@@ -1,0 +1,74 @@
+{
+  "_comment": "UClaw Permission Settings - Claude Code Compatible",
+  "_docs": "https://docs.anthropic.com/en/docs/claude-code/settings",
+  
+  "mode": "default",
+  
+  "maxMcpOutputTokens": 25000,
+  
+  "rules": [
+    {
+      "action": "deny",
+      "pattern": "Bash(rm -rf:*)",
+      "comment": "Block recursive delete operations"
+    },
+    {
+      "action": "deny",
+      "pattern": "Bash(sudo:*)",
+      "comment": "Block sudo operations"
+    },
+    {
+      "action": "deny",
+      "pattern": "Read(.env*)",
+      "comment": "Block reading environment files"
+    },
+    {
+      "action": "deny",
+      "pattern": "Read(secrets/**)",
+      "comment": "Block reading secrets directory"
+    }
+  ],
+  
+  "allow": [
+    "getBugInfo",
+    "searchBugs",
+    "getBugStats",
+    "listProducts",
+    "searchProductStories",
+    "getStoryInfo",
+    "git_status",
+    "read_file"
+  ],
+  
+  "deny": [
+    "Bash(rm:*)",
+    "Bash(del:*)"
+  ],
+  
+  "ask": [
+    "mcp__zentao:*",
+    "Bash(git:*)",
+    "Edit(**)"
+  ],
+  
+  "mcp": {
+    "servers": {
+      "zentao": {
+        "enabled": true,
+        "permissions": "ask"
+      },
+      "local-fs": {
+        "enabled": true,
+        "permissions": "ask"
+      },
+      "jenkins": {
+        "enabled": false,
+        "permissions": "deny"
+      },
+      "gitlab": {
+        "enabled": false,
+        "permissions": "deny"
+      }
+    }
+  }
+}

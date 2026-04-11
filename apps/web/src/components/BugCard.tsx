@@ -1,14 +1,141 @@
-import { Bug, AlertTriangle, Clock, CheckCircle2, ChevronDown, Users2, Rocket, Check, Loader2, Image as ImageIcon, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Bug, AlertTriangle, Clock, CheckCircle2, Users2, Rocket, Check, Loader2, ChevronUp, ChevronDown as ChevronDownIcon, X, Download, ExternalLink } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn, fixZenTaoImageUrl } from '../lib/utils';
-import type { UIBugCardProps } from '../types/ui-protocol';
+import { cn, fixZenTaoFileUrl, formatFileSize, getFileExtension, isImageFile, getFileIconInfo } from '../lib/utils';
+import type { UIAttachment, UIBugCardProps } from '../types/ui-protocol';
 
-export type { UIBugCardProps };
+export type { UIBugCardProps, UIAttachment };
 
 export interface BugCardProps extends UIBugCardProps {
   onClick?: (bugId: string) => void;
   onAction?: (action: string, data: Record<string, unknown>) => void;
+}
+
+/**
+ * 图片预览 Modal（内联）
+ */
+function ImagePreviewModal({
+  attachment,
+  onClose,
+}: {
+  attachment: UIAttachment;
+  onClose: () => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setError(false);
+  }, [attachment.url]);
+
+  // ESC 关闭
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 关闭按钮 */}
+        <button
+          onClick={onClose}
+          className="absolute -top-10 right-0 text-white/80 hover:text-white transition-colors"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        {/* 图片 */}
+        {!loaded && !error && (
+          <div className="flex items-center justify-center w-[300px] h-[200px] text-white/60">
+            <Loader2 className="w-8 h-8 animate-spin" />
+          </div>
+        )}
+        {error && (
+          <div className="flex flex-col items-center justify-center w-[300px] h-[200px] text-white/60 gap-2">
+            <Bug className="w-10 h-10" />
+            <span className="text-sm">图片加载失败</span>
+          </div>
+        )}
+        <img
+          src={fixZenTaoFileUrl(attachment.url)}
+          alt={attachment.name || 'Preview'}
+          className={cn(
+            'max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl',
+            loaded ? 'block' : 'hidden',
+          )}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+        />
+
+        {/* 底部信息栏 */}
+        <div className="mt-3 flex items-center gap-3 text-white/70 text-xs">
+          <span className="truncate max-w-[200px]">{attachment.name}</span>
+          {attachment.size && <span>{formatFileSize(attachment.size)}</span>}
+          <a
+            href={fixZenTaoFileUrl(attachment.url)}
+            download={attachment.name}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:text-white transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Download className="w-3.5 h-3.5" /> 下载
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 单个附件卡片（文档类）
+ */
+function DocumentAttachmentCard({ attachment }: { attachment: UIAttachment }) {
+  const ext = getFileExtension(attachment.name || '');
+  const iconInfo = getFileIconInfo(attachment.extension || ext);
+  const Icon = iconInfo.icon;
+
+  return (
+    <a
+      href={fixZenTaoFileUrl(attachment.url)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[#E8E4E2] bg-white hover:bg-[#F6F3F2] transition-colors group"
+    >
+      {/* 图标 */}
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `${iconInfo.color}15`, color: iconInfo.color }}
+      >
+        <Icon className="w-4 h-4" />
+      </div>
+
+      {/* 文件名 + 大小 */}
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-medium text-[#1C1B1B] truncate">{attachment.name || '未命名文件'}</div>
+        <div className="flex items-center gap-2 text-[10px] text-[#716B67]">
+          <span className="font-bold uppercase tracking-wider" style={{ color: iconInfo.color }}>
+            {iconInfo.label}
+          </span>
+          {attachment.size && <span>· {formatFileSize(attachment.size)}</span>}
+        </div>
+      </div>
+
+      {/* 打开图标 */}
+      <ExternalLink className="w-3.5 h-3.5 text-[#716B67] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+    </a>
+  );
 }
 
 export function BugCard({
@@ -25,6 +152,7 @@ export function BugCard({
   const { t } = useTranslation();
   const [actionState, setActionState] = useState<'idle' | 'loading' | 'success'>('idle');
   const [descExpanded, setDescExpanded] = useState(false);
+  const [previewImage, setPreviewImage] = useState<UIAttachment | null>(null);
 
   const normalizedStatus = (status ?? '').toLowerCase() as UIBugCardProps['status'];
   const normalizedSeverity = (severity ?? '').toLowerCase() as UIBugCardProps['severity'];
@@ -55,6 +183,11 @@ export function BugCard({
     ? (isLongDescription && !descExpanded ? cleanDescription.slice(0, 200) + '...' : cleanDescription)
     : null;
 
+  // 分离图片和文档
+  const imageAttachments = attachments?.filter(a => isImageFile(a.contentType, a.extension)) || [];
+  const documentAttachments = attachments?.filter(a => !isImageFile(a.contentType, a.extension)) || [];
+  const hasAttachments = attachments && attachments.length > 0;
+
   const handleAction = () => {
     setActionState('loading');
     onAction?.('create_zentao_task', {
@@ -62,9 +195,16 @@ export function BugCard({
       assignee: assignee || '',
       title: title,
     });
-    // Simulate async completion (in real usage, onAction would return a promise or emit an event)
     setTimeout(() => setActionState('success'), 800);
   };
+
+  const handlePreview = useCallback((attachment: UIAttachment) => {
+    setPreviewImage(attachment);
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewImage(null);
+  }, []);
 
   return (
     <div className="bg-white border border-[#E8E4E2] rounded-[20px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-2">
@@ -109,35 +249,63 @@ export function BugCard({
         </div>
       )}
 
-      {/* Attachments (Images) */}
-      {attachments && attachments.length > 0 && (
+      {/* Attachments */}
+      {hasAttachments && (
         <div className="px-6 pb-2">
-          <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
-            附图
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {attachments.map((img: { url: string; name?: string }, idx: number) => (
-              <div key={idx} className="rounded-[10px] overflow-hidden border border-[#E8E4E2] bg-[#F6F3F2]">
-                <img
-                  src={fixZenTaoImageUrl(img.url)}
-                  alt={img.name || `Attachment ${idx + 1}`}
-                  className="w-full h-24 object-cover"
-                  onError={(e) => {
-                    // 图片加载失败时显示占位符
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent && !parent.querySelector('.placeholder')) {
-                      const placeholder = document.createElement('div');
-                      placeholder.className = 'placeholder flex flex-col items-center justify-center h-24 text-[#716B67]/50';
-                      placeholder.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span class="text-[10px] mt-1">${img.name || 'Image'}</span>`;
-                      parent.appendChild(placeholder);
-                    }
-                  }}
-                />
+          {/* 图片附件 */}
+          {imageAttachments.length > 0 && (
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+                附图 ({imageAttachments.length})
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {imageAttachments.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handlePreview(img)}
+                    className="rounded-[10px] overflow-hidden border border-[#E8E4E2] bg-[#F6F3F2] relative group cursor-pointer hover:border-[#EC5B14]/40 transition-colors"
+                  >
+                    <img
+                      src={fixZenTaoFileUrl(img.url)}
+                      alt={img.name || `Attachment ${idx + 1}`}
+                      className="w-full h-24 object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector('.placeholder')) {
+                          const placeholder = document.createElement('div');
+                          placeholder.className = 'placeholder flex flex-col items-center justify-center h-24 text-[#716B67]/50';
+                          placeholder.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span class="text-[10px] mt-1">${img.name || 'Image'}</span>`;
+                          parent.appendChild(placeholder);
+                        }
+                      }}
+                    />
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                        点击查看
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* 文档附件 */}
+          {documentAttachments.length > 0 && (
+            <div>
+              <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+                附件 ({documentAttachments.length})
+              </label>
+              <div className="space-y-2">
+                {documentAttachments.map((doc, idx) => (
+                  <DocumentAttachmentCard key={idx} attachment={doc} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -189,6 +357,11 @@ export function BugCard({
           {actionState === 'success' && <><Check className="w-4 h-4" />Task Created</>}
         </button>
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <ImagePreviewModal attachment={previewImage} onClose={handleClosePreview} />
+      )}
     </div>
   );
 }

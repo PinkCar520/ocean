@@ -91,6 +91,11 @@ export class SkillLoader {
     return [...this.catalog.values()];
   }
 
+  /** Get a single skill by name from cache. Returns null if not found. */
+  getSkill(name: string): SkillEntry | null {
+    return this.catalog.get(name) ?? null;
+  }
+
   private getDefaultScanDirs(): string[] {
     const dirs: string[] = [];
 
@@ -226,7 +231,8 @@ export class SkillLoader {
 
   /**
    * Build the <available_skills> XML catalog to inject into System Prompt (Tier 1).
-   * Only name + description are included — ~100 tokens total for 10 skills.
+   * Includes name, description, allowed tools count, and trigger keywords.
+   * ~100-200 tokens total for 10 skills.
    *
    * Per spec behavioral instruction prepended so LLM knows how to activate:
    * "When a task matches a skill's description, call the activate_skill tool."
@@ -241,10 +247,23 @@ export class SkillLoader {
     }
 
     const items = [...this.catalog.values()]
-      .map(
-        (s) =>
-          `  <skill>\n    <name>${s.name}</name>\n    <description>${escapeXml(s.description)}</description>\n  </skill>`,
-      )
+      .map((s) => {
+        const allowedToolsCount = s.allowedTools?.length || 0;
+        const requiresApprovalCount = s.requiresApproval?.length || 0;
+        const compatibility = s.compatibility ? `\\n    <compatibility>${escapeXml(s.compatibility)}</compatibility>` : '';
+        const localesXml = s.locales
+          ? `\\n    <locales>${Object.entries(s.locales)
+              .map(([lang, loc]) => `<locale lang="${lang}"><displayName>${escapeXml(loc.displayName || '')}</displayName><description>${escapeXml(loc.description || '')}</description></locale>`)
+              .join('\\n      ')}</locales>`
+          : '';
+
+        return `  <skill>
+    <name>${s.name}</name>
+    <description>${escapeXml(s.description)}</description>
+    <allowed_tools_count>${allowedToolsCount}</allowed_tools_count>
+    <requires_approval_count>${requiresApprovalCount}</requires_approval_count>${compatibility}${localesXml}
+  </skill>`;
+      })
       .join('\n');
 
     return `<available_skills>\n${items}\n</available_skills>`;

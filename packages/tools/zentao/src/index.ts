@@ -496,29 +496,37 @@ export class ZentaoTool {
   }
 
   /**
-   * 从禅道 Bug 数据中提取图片附件
-   * 禅道通常在 files 或 attachments 字段中返回附件列表
+   * 从禅道 Bug 数据中提取所有附件（图片 + 文档）
    */
-  private extractAttachments(data: any): Array<{ url: string; name?: string; contentType?: string }> {
-    const attachments: Array<{ url: string; name?: string; contentType?: string }> = [];
-    
+  private extractAttachments(data: any): Array<{ url: string; name?: string; contentType?: string; size?: number; extension?: string }> {
+    const attachments: Array<{ url: string; name?: string; contentType?: string; size?: number; extension?: string }> = [];
+
     // 尝试多种可能的附件字段名
     const filesData = data.files || data.attachments || data.pics || [];
-    
+
     if (Array.isArray(filesData)) {
       for (const file of filesData) {
-        // 只提取图片类型
-        const contentType = file.type || file.contentType || file.extension || '';
-        const isImage = contentType.startsWith('image/') || 
-                        /\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i.test(file.name || file.title || file.path || '');
-        
-        if (isImage && (file.url || file.path || file.downloadUrl)) {
-          attachments.push({
-            url: file.url || file.path || file.downloadUrl,
-            name: file.name || file.title || file.realname || 'image',
-            contentType: contentType.startsWith('image/') ? contentType : undefined,
-          });
+        const url = file.url || file.path || file.downloadUrl;
+        if (!url) continue;
+
+        const name = file.name || file.title || file.realname || 'file';
+        const rawContentType = file.type || file.contentType || file.extension || '';
+        const extension = file.extension || this.getExtensionFromName(name) || this.getExtensionFromUrl(url);
+
+        // 尝试推断 MIME 类型
+        let contentType = rawContentType;
+        if (!contentType.includes('/')) {
+          // 如果是扩展名，查 MIME 类型
+          contentType = this.getMimeType(extension || rawContentType);
         }
+
+        attachments.push({
+          url,
+          name,
+          contentType: contentType || undefined,
+          size: file.size || file.fileSize || file.filesize || undefined,
+          extension: extension || undefined,
+        });
       }
     }
 
@@ -530,17 +538,71 @@ export class ZentaoTool {
       while ((match = imgRegex.exec(description)) !== null) {
         const imgSrc = match[1];
         if (imgSrc && !attachments.find(a => a.url === imgSrc)) {
-          // 提取 alt 文本作为 name
           const altMatch = match[0].match(/alt="([^"]*)"/i);
           attachments.push({
             url: imgSrc,
             name: altMatch ? altMatch[1] : 'screenshot',
             contentType: 'image/png',
+            extension: 'png',
           });
         }
       }
     }
 
     return attachments;
+  }
+
+  /**
+   * 从文件名获取扩展名
+   */
+  private getExtensionFromName(filename: string): string {
+    const parts = filename.split('.');
+    if (parts.length > 1) {
+      return parts.pop()?.toLowerCase() || '';
+    }
+    return '';
+  }
+
+  /**
+   * 从 URL 获取扩展名
+   */
+  private getExtensionFromUrl(url: string): string {
+    try {
+      const pathname = new URL(url, 'http://dummy').pathname;
+      const parts = pathname.split('.');
+      if (parts.length > 1) {
+        return parts.pop()?.toLowerCase() || '';
+      }
+    } catch {
+      // URL 解析失败，忽略
+    }
+    return '';
+  }
+
+  /**
+   * 根据扩展名获取 MIME 类型
+   */
+  private getMimeType(extension: string): string {
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      bmp: 'image/bmp',
+      svg: 'image/svg+xml',
+      pdf: 'application/pdf',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ppt: 'application/vnd.ms-powerpoint',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      txt: 'text/plain',
+      zip: 'application/zip',
+      rar: 'application/x-rar-compressed',
+      csv: 'text/csv',
+    };
+    return mimeMap[extension.toLowerCase()] || 'application/octet-stream';
   }
 }

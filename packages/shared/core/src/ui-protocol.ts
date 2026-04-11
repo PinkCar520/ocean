@@ -25,6 +25,14 @@ export interface UIBase {
 
 // ── 各类型具体属性 ──
 
+export interface UIAttachment {
+  url: string;
+  name?: string;
+  contentType?: string;
+  size?: number;
+  extension?: string;
+}
+
 export interface UIBugCardProps {
   id: string;
   title: string;
@@ -33,6 +41,7 @@ export interface UIBugCardProps {
   severity: 'low' | 'medium' | 'high';
   description?: string;
   createdAt?: string;
+  attachments?: UIAttachment[];
 }
 
 export interface UIBugCard extends UIBase {

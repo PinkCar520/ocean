@@ -27,7 +27,9 @@
       "Bash(file *)",
       "WebSearch",
       "WebFetch(github.com)",
-      "WebFetch(vercel.com)"
+      "WebFetch(vercel.com)",
+      "WebFetch(introl.com)",
+      "WebFetch(claude.com)"
     ]
   },
   "$version": 3

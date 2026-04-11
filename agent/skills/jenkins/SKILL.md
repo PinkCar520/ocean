@@ -1,6 +1,19 @@
 ---
 name: jenkins
-description: Interact with Jenkins CI/CD server via REST API. Use when you need to trigger builds, check build status, view console output, manage jobs, or monitor Jenkins nodes and queue. Supports deployment to different Jenkins instances via environment variables.
+description: "与 Jenkins CI/CD 服务器交互。触发条件：用户需要触发构建、检查构建状态、查看控制台输出、管理 Job、监控 Jenkins 队列和节点时使用。支持部署到不同 Jenkins 实例。"
+allowed-tools:
+  - runLocalCommand
+requires-approval:
+  - trigger_build
+  - stop_build
+compatibility: "需要设置 JENKINS_URL, JENKINS_USER, JENKINS_API_TOKEN 环境变量"
+locales:
+  zh:
+    displayName: "Jenkins CI/CD 管理"
+    description: "管理 Jenkins 流水线：触发构建、查看状态、监控队列"
+  en:
+    displayName: "Jenkins CI/CD Management"
+    description: "Manage Jenkins pipelines: trigger builds, check status, monitor queue"
 ---
 
 # Jenkins

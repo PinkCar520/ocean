@@ -1,0 +1,66 @@
+{
+  "_comment": "UClaw Managed Settings - Organization Policy (Cannot be overridden by users)",
+  "_organization": "Your Organization Name",
+  "_version": "1.0.0",
+
+  "organization": "UClaw Enterprise",
+  "version": "1.0.0",
+
+  "settings": {
+    "mode": "default",
+
+    "maxMcpOutputTokens": 25000,
+
+    "rules": [
+      {
+        "action": "deny",
+        "pattern": "Bash(rm -rf:*)",
+        "comment": "Organization policy: Block recursive delete"
+      },
+      {
+        "action": "deny",
+        "pattern": "Bash(sudo:*)",
+        "comment": "Organization policy: Block sudo operations"
+      },
+      {
+        "action": "deny",
+        "pattern": "Bash(chmod:*)",
+        "comment": "Organization policy: Block chmod operations"
+      },
+      {
+        "action": "deny",
+        "pattern": "Read(.env*)",
+        "comment": "Organization policy: Block reading env files"
+      },
+      {
+        "action": "deny",
+        "pattern": "Read(**/secrets/**)",
+        "comment": "Organization policy: Block reading secrets"
+      },
+      {
+        "action": "deny",
+        "pattern": "Bash(curl:* -H *Authorization*)",
+        "comment": "Organization policy: Block curl with auth headers"
+      }
+    ],
+
+    "deny": [
+      "Bash(npm install -g *)",
+      "Bash(pip install *)",
+      "Bash(brew install *)"
+    ],
+
+    "mcp": {
+      "servers": {
+        "zentao": {
+          "enabled": true,
+          "permissions": "ask"
+        },
+        "jenkins": {
+          "enabled": true,
+          "permissions": "ask"
+        }
+      }
+    }
+  }
+}

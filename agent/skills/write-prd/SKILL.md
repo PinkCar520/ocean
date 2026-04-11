@@ -1,28 +1,24 @@
 ---
-protocol: AGP/1.0
 name: write-prd
-description: "产品经理的智能需求助手：起草 PRD (产品需求文档) 并将其发布到禅道。当用户要求写需求、规划产品、创建 Story、写 PRD 时使用。"
-license: Proprietary
-compatibility: "需要 mcp-zentao MCP Server"
-
-# AWP 动态沙盒：大模型本次会话只能看到以下工具
+description: "产品经理的智能需求助手：起草 PRD (产品需求文档) 并将其发布到禅道。触发条件：用户要求写需求、规划产品、创建 Story、写 PRD、起草 PRD、我要做一个功能时激活。"
 allowed-tools:
   - listProducts
   - searchProductStories
   - createProduct
   - createProject
   - createProductStory
-
-# AWP 拦截断点：以下写操作必须经过人工 Y/N 确认后方可执行
 requires-approval:
   - createProductStory
   - createProduct
   - createProject
-
-metadata:
-  author: pinkcar
-  version: "1.1"
-  target-system: ZenTao
+compatibility: "需要 mcp-zentao MCP Server"
+locales:
+  zh:
+    displayName: "PRD 需求助手"
+    description: "起草 PRD 产品需求文档并发布到禅道系统"
+  en:
+    displayName: "PRD Writer Assistant"
+    description: "Draft PRD documents and publish them to ZenTao system"
 ---
 
 # Write PRD — 智能需求起草与同步工作流

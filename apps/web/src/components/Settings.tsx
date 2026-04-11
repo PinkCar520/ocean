@@ -1,11 +1,24 @@
-import React from 'react';
-import { 
-  ChevronRight, Sun, Moon, Globe, 
-  User, Edit2, CreditCard, Key, 
-  Plus, MoreVertical, TerminalSquare, Rocket, MonitorSmartphone
+import React, { useState } from 'react';
+import {
+  ChevronRight, Sun, Moon, Globe,
+  User, Edit2, CreditCard, Key,
+  Plus, MoreVertical, TerminalSquare, Rocket, MonitorSmartphone, Shield
 } from 'lucide-react';
+import { PermissionManager } from './PermissionManager';
+import { cn } from '../lib/utils';
+
+type SettingsTab = 'general' | 'permissions' | 'profile' | 'api' | 'billing';
 
 export function Settings() {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+
+  const navItems: { key: SettingsTab; label: string; icon?: React.ReactNode }[] = [
+    { key: 'general', label: 'General' },
+    { key: 'permissions', label: 'Permissions', icon: <Shield className="w-4 h-4" /> },
+    { key: 'profile', label: 'Profile' },
+    { key: 'api', label: 'API Keys' },
+    { key: 'billing', label: 'Billing' },
+  ];
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden bg-[#FCF9F8]">
       <div className="flex-1 overflow-y-auto px-8 md:px-12 py-8 scroll-smooth">
@@ -17,26 +30,38 @@ export function Settings() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-6xl">
           
           {/* Left Column: Navigation */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="flex flex-col space-y-1">
-              <button className="flex items-center justify-between px-4 py-3 bg-white text-[#EC5B14] shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#E8E4E2]/50 font-bold rounded-xl text-left transition-all">
-                General
-                <ChevronRight className="w-4 h-4" />
+          <div className="lg:col-span-3 space-y-1">
+            {navItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key)}
+                className={cn(
+                  'w-full flex items-center justify-between px-4 py-3 font-bold rounded-xl text-left transition-all',
+                  activeTab === item.key
+                    ? 'bg-white text-[#EC5B14] shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#E8E4E2]/50'
+                    : 'text-[#716B67] font-semibold hover:bg-[#F6F3F2] hover:text-[#1C1B1B]',
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  {item.icon}
+                  {item.label}
+                </span>
+                {activeTab === item.key && <ChevronRight className="w-4 h-4" />}
               </button>
-              <button className="flex items-center justify-between px-4 py-3 text-[#716B67] font-semibold hover:bg-[#F6F3F2] hover:text-[#1C1B1B] transition-all rounded-xl text-left">
-                Profile
-              </button>
-              <button className="flex items-center justify-between px-4 py-3 text-[#716B67] font-semibold hover:bg-[#F6F3F2] hover:text-[#1C1B1B] transition-all rounded-xl text-left">
-                API Keys
-              </button>
-              <button className="flex items-center justify-between px-4 py-3 text-[#716B67] font-semibold hover:bg-[#F6F3F2] hover:text-[#1C1B1B] transition-all rounded-xl text-left">
-                Billing
-              </button>
-            </div>
+            ))}
           </div>
 
           {/* Right Column: Bento Grid Settings */}
           <div className="lg:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {activeTab === 'permissions' && (
+              <section className="md:col-span-2">
+                <PermissionManager />
+              </section>
+            )}
+
+            {activeTab === 'general' && (
+              <>
             
             {/* General Settings Card */}
             <section className="md:col-span-2 bg-white border border-[#E8E4E2]/50 shadow-[0_2px_8px_rgba(0,0,0,0.02)] p-8 rounded-[24px] space-y-6">
@@ -201,6 +226,8 @@ export function Settings() {
                 Save All Changes
               </button>
             </section>
+              </>
+            )}
 
           </div>
         </div>

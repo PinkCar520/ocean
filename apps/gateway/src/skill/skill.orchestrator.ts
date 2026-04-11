@@ -6,6 +6,7 @@ import { streamText, generateText, convertToModelMessages, stepCountIs, tool } f
 import { jsonSchema } from 'ai';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { SkillLoader } from './skill.loader';
+import { PermissionService } from './permission.service';
 import { RpcGateway } from '../chat/rpc.gateway';
 import { SessionService } from '../session/session.service';
 import { ApprovalService } from './approval.service';
@@ -34,6 +35,7 @@ export class SkillOrchestrator {
     private configService: ConfigService,
     private mcpManager: MCPClientManager,
     private skillLoader: SkillLoader,
+    private permissionService: PermissionService,
     private rpcGateway: RpcGateway,
     private sessionService: SessionService,
     private approvalService: ApprovalService,
@@ -182,14 +184,33 @@ ${catalogXml}`;
     // MCP tools (dynamic from mcp.config.json)
     const mcpTools = await this.mcpManager.getAITools();
 
-    // Governance: Get active skill's governance rules (for Phase 4, we apply to all tools for demonstration)
-    // In a real scenario, we would look up the active skill for this session.
-    const requiresApproval = this.skillLoader.getRequiresApproval('fix-bug'); // Example: apply fix-bug rules
+    // Get workspace path for permission evaluation
+    const workspacePath = ctx.workspacePath;
 
-    // Wrap tools with approval logic
+    // Check permission mode - if bypassPermissions, skip all approval
+    const permissionMode = this.permissionService.getMode(workspacePath);
+    const bypassAll = permissionMode === 'bypassPermissions' as any;
+
+    // Get skill-level requires-approval rules (merged with settings.json rules)
+    const skillRequiresApproval = this.skillLoader.getRequiresApproval('fix-bug'); // Example: apply fix-bug rules
+
+    // Wrap tools with permission logic
     const wrappedMcpTools: Record<string, any> = {};
     for (const [name, toolDef] of Object.entries(mcpTools)) {
-      if (requiresApproval.includes(name)) {
+      // Check if tool is explicitly denied
+      if (this.permissionService.isDenied(name, workspacePath)) {
+        this.logger.debug(`[Permissions] Tool "${name}" is denied by settings.json`);
+        continue; // Skip adding this tool
+      }
+
+      // Check if tool requires approval (from settings.json OR skill definition)
+      const needsApproval = !bypassAll && (
+        this.permissionService.requiresApproval(name, workspacePath) ||
+        skillRequiresApproval.includes(name)
+      );
+
+      if (needsApproval) {
+        this.logger.debug(`[Permissions] Tool "${name}" requires approval`);
         wrappedMcpTools[name] = this.wrapWithApproval(name, toolDef, sessionId || '', ctx.userId);
       } else {
         wrappedMcpTools[name] = toolDef;
