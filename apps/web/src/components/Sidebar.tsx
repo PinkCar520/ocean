@@ -246,8 +246,55 @@ export function Sidebar({
   const { t, i18n } = useTranslation();
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
+  // Cmd+K / Ctrl+K 快捷键打开搜索
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // 移除内部强制排序，严格遵循 App.tsx 传入的原始数组顺序（Index 排序）
   const recentChats = conversations.slice(0, 12);
+
+  // 按日期分组：Today / Yesterday / Last 7 days / Older
+  type GroupKey = 'today' | 'yesterday' | 'last7' | 'older';
+  const groupOrder: GroupKey[] = ['today', 'yesterday', 'last7', 'older'];
+
+  const groupedChats = (() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayStart = todayStart - 86400000;
+    const last7Start = todayStart - 7 * 86400000;
+
+    const groups: Record<GroupKey, ConversationSummary[]> = {
+      today: [],
+      yesterday: [],
+      last7: [],
+      older: [],
+    };
+
+    conversations.forEach(chat => {
+      const updatedAt = new Date(chat.updatedAt).getTime();
+      if (updatedAt >= todayStart) groups.today.push(chat);
+      else if (updatedAt >= yesterdayStart) groups.yesterday.push(chat);
+      else if (updatedAt >= last7Start) groups.last7.push(chat);
+      else groups.older.push(chat);
+    });
+
+    return groups;
+  })();
+
+  const groupLabels: Record<GroupKey, string> = {
+    today: t('sidebar.today', 'Today'),
+    yesterday: t('sidebar.yesterday', 'Yesterday'),
+    last7: t('sidebar.last_7_days', 'Last 7 days'),
+    older: t('sidebar.older', 'Older'),
+  };
 
   const navItems = [
     { id: 'library', icon: FolderOpen, label: t('sidebar.library') },
@@ -329,7 +376,12 @@ export function Sidebar({
           >
             <Search className={cn("text-[#716B67]", "w-4 h-4")} />
             {!isCollapsed && (
-              <span className="font-medium text-[14px]">{i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}</span>
+              <span className="font-medium text-[14px] flex-1 text-left">{i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}</span>
+            )}
+            {!isCollapsed && (
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-[#A8A4A1] bg-white border border-[#E8E4E2]/60 shrink-0">
+                ⌘K
+              </kbd>
             )}
           </button>
         </div>
@@ -379,25 +431,36 @@ export function Sidebar({
             <span>{t('sidebar.all_chats')}</span>
           </button>
 
-          <div className="flex items-center justify-between px-2.5 mb-1.5 mt-2">
-            <h4 className="text-[10px] font-bold text-[#A8A4A1] uppercase tracking-widest">{t('sidebar.recent_activity')}</h4>
-          </div>
-          <div className="space-y-0.5">
-            {recentChats.length === 0 ?
+          {/* Grouped conversation list */}
+          <div className="space-y-3 mt-3">
+            {conversations.length === 0 ? (
               <p className="px-2 text-[11px] text-[#716B67]/60 italic">{t('sidebar.no_conversations')}</p>
-              : (
-                recentChats.map((chat) => (
-                  <ChatRow
-                    key={chat.id}
-                    chat={chat}
-                    isActive={chat.id === currentChatId}
-                    onLoad={() => onLoadConversation?.(chat.id)}
-                    onRename={(title) => onRenameConversation?.(chat.id, title)}
-                    onDelete={() => onDeleteConversation?.(chat.id)}
-                    onFavorite={() => onFavoriteConversation?.(chat.id, !chat.favorited)}
-                  />
-                ))
-              )}
+            ) : (
+              groupOrder.map(groupKey => {
+                const chats = groupedChats[groupKey];
+                if (chats.length === 0) return null;
+                return (
+                  <div key={groupKey}>
+                    <h4 className="text-[10px] font-bold text-[#A8A4A1] uppercase tracking-widest px-2.5 mb-1.5">
+                      {groupLabels[groupKey]}
+                    </h4>
+                    <div className="space-y-0.5">
+                      {chats.map(chat => (
+                        <ChatRow
+                          key={chat.id}
+                          chat={chat}
+                          isActive={chat.id === currentChatId}
+                          onLoad={() => onLoadConversation?.(chat.id)}
+                          onRename={(title) => onRenameConversation?.(chat.id, title)}
+                          onDelete={() => onDeleteConversation?.(chat.id)}
+                          onFavorite={() => onFavoriteConversation?.(chat.id, !chat.favorited)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

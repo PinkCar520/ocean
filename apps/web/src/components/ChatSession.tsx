@@ -3,6 +3,11 @@ import { type ThinkingStep } from './ThinkingPills';
 import { ThinkingList } from './ThinkingList';
 import { DiffViewer } from './DiffViewer';
 
+// 打字光标：流式输出时闪烁的光标
+const TypingCursor = () => (
+  <span className="inline-block w-[2px] h-[1.1em] bg-[#EC5B14] ml-[1px] align-text-bottom animate-blink" />
+);
+
 // Parse reasoning text into ThinkingStep[] for ThinkingList rendering.
 // Splits by newlines or sentences, marking the last step as 'active' during streaming.
 function parseReasoningToSteps(reasoning: string, isStreaming: boolean, isLastStep = true): ThinkingStep[] {
@@ -99,7 +104,7 @@ const CopyCodeButton = ({ code }: { code: string }) => {
   );
 };
 
-// ReactMarkdown 自定义渲染器：代码块带复制按鈕 + 语言标注
+// ReactMarkdown 自定义渲染器：代码块带语法高亮 + 复制按鈕 + 语言标注
 const MarkdownComponents = {
   code({ node, inline, className, children, ...props }: any) {
     const lang = /language-(\w+)/.exec(className || '')?.[1];
@@ -119,11 +124,23 @@ const MarkdownComponents = {
           </span>
         </div>
         <div className="relative">
-          <pre className="overflow-x-auto bg-[#282828] px-4 py-4 text-[13px] leading-relaxed m-0">
-            <code className={`font-mono text-[#E8E8E8] ${className || ''}`} {...props}>
-              {children}
-            </code>
-          </pre>
+          {lang ? (
+            <SyntaxHighlighter
+              language={lang}
+              style={vscDarkPlus}
+              customStyle={{ margin: 0, padding: '16px', fontSize: '13px', lineHeight: '1.6' }}
+              showLineNumbers={codeStr.split('\n').length > 3}
+              wrapLines={true}
+            >
+              {codeStr}
+            </SyntaxHighlighter>
+          ) : (
+            <pre className="overflow-x-auto bg-[#282828] px-4 py-4 text-[13px] leading-relaxed m-0">
+              <code className={`font-mono text-[#E8E8E8] ${className || ''}`} {...props}>
+                {children}
+              </code>
+            </pre>
+          )}
           <CopyCodeButton code={codeStr} />
         </div>
       </div>
@@ -136,13 +153,16 @@ import {
   ArrowDown, Sparkles, Copy, RotateCcw, Check,
   Plus, FileText, X as CloseIcon, Image as ImageIcon,
   ChevronDown, Paperclip, ArrowRight, ArrowUp, Terminal, Cpu, Database, BadgeCheck, Globe, Square,
-  ThumbsUp, ThumbsDown
+  ThumbsUp, ThumbsDown, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useReducedMotion } from '../lib/useReducedMotion';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from '../lib/utils';
 import { useSkillCatalog } from '../lib/useSkillCatalog';
 import { UIRenderer } from './UIRenderer';
@@ -194,6 +214,7 @@ export function ChatSession({
   isLoadingHistory,
   t
 }: ChatSessionProps) {
+  const reducedMotion = useReducedMotion();
   const initializedRef = useRef(false);
   const sessionIdRef = useRef(sessionId);
   const titleGeneratedRef = useRef(false);
@@ -241,6 +262,8 @@ export function ChatSession({
   const [activeCapsule, setActiveCapsule] = useState<{ toolCallId: string; uiKit: any; } | null>(null);
   // Message feedback state: messageId -> 'up' | 'down'
   const [messageFeedback, setMessageFeedback] = useState<Record<string, 'up' | 'down'>>({});
+  // Stopped generation indicator
+  const [isStopped, setIsStopped] = useState(false);
 
   // Poll for approval requests
   useEffect(() => {
@@ -283,7 +306,7 @@ export function ChatSession({
     }
   }, [sessionId]);
 
-  const { messages, sendMessage, status, reload, setMessages, stop } = (useChat as any)({
+  const { messages, sendMessage, status, reload, setMessages, stop, error } = (useChat as any)({
     id: sessionId ?? 'new',  // 回归正常 React 状态设计
     initialMessages: initialMessages, // 确保卸载重载时直接初始化为历史消息！
     api: '/api/chat',
@@ -324,14 +347,33 @@ export function ChatSession({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const userScrolledUpRef = useRef(false);
 
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: Sparkles, color: 'text-slate-400' };
 
-  // Scroll to bottom effect
-  useEffect(() => {
+  // Track if user has scrolled up (away from bottom)
+  const handleScroll = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      userScrolledUpRef.current = !isNearBottom;
+      setShowScrollButton(!isNearBottom);
     }
+  };
+
+  // Auto-scroll only when user is at the bottom
+  const prevMessagesLengthRef = useRef(0);
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    if (userScrolledUpRef.current) return; // Don't scroll if user scrolled up
+
+    // Only smooth scroll for new content during streaming
+    const shouldSmooth = messages.length > prevMessagesLengthRef.current || isLoading;
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: shouldSmooth ? 'smooth' : 'auto',
+    });
+    prevMessagesLengthRef.current = messages.length;
   }, [messages, isLoading]);
 
   // TextArea Resize
@@ -347,13 +389,6 @@ export function ChatSession({
       textAreaRef.current.focus();
     }
   }, []);
-
-  const handleScroll = () => {
-    if (scrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 300);
-    }
-  };
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
@@ -447,6 +482,7 @@ export function ChatSession({
     }
 
     setIsLocalThinking(true);
+    userScrolledUpRef.current = false; // Reset scroll lock on new message
     const val = localInput;
     setLocalInput('');
     const filesToUpload = [...selectedFiles];
@@ -470,6 +506,19 @@ export function ChatSession({
       setSelectedFiles(filesToUpload);
     }
   };
+
+  const handleStop = () => {
+    setIsStopped(true);
+    stop();
+  };
+
+  // Reset stopped state when new assistant message starts
+  useEffect(() => {
+    if (messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !isLoading) {
+      setIsStopped(false);
+    }
+  }, [messages, isLoading]);
+
   // BrailleSpinner 已提升到模块顶层，避免组件重新挂载导致 spinner 闪烁
 
   const getFriendlyToolName = (part: any) => {
@@ -762,7 +811,7 @@ export function ChatSession({
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex flex-col mt-4 md:mt-10 w-full min-w-0">
-                  <div className="flex w-full min-w-0 flex-col items-start gap-4 overflow-hidden rounded-[24px] border border-transparent bg-[#f6f3f2] p-5 md:flex-row md:gap-6 md:p-8 mb-8">
+                  <div className="flex w-full min-w-0 flex-col items-start gap-4 overflow-hidden rounded-[24px] border border-transparent bg-[#f6f3f2] p-5 md:flex-row md:gap-6 md:p-8 mb-6">
                     <div className="w-10 h-10 md:w-12 md:h-12 rounded-[12px] bg-white flex items-center justify-center shrink-0 shadow-sm text-[#EC5B14]">
                       <Sparkles className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
@@ -771,17 +820,30 @@ export function ChatSession({
                       <p className="max-w-xl break-words text-sm leading-relaxed text-[#716B67] md:text-base">
                         {t('chat.empty_state.desc')}
                       </p>
-                      <div className="mt-6 grid w-full min-w-0 grid-cols-1 gap-3 md:gap-4 min-[420px]:grid-cols-2">
-                        <div className="min-w-0 rounded-[12px] bg-white px-4 py-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] md:px-5 md:py-4">
-                          <p className="text-[10px] md:text-[11px] text-[#716B67] font-semibold mb-1">{t('chat.empty_state.improvement_label')}</p>
-                          <p className="break-words text-xl font-bold font-display text-[#EC5B14] md:text-2xl">{t('chat.empty_state.improvement_value')}</p>
-                        </div>
-                        <div className="min-w-0 rounded-[12px] bg-white px-4 py-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] md:px-5 md:py-4">
-                          <p className="text-[10px] md:text-[11px] text-[#716B67] font-semibold mb-1">{t('chat.empty_state.success_label')}</p>
-                          <p className="break-words text-xl font-bold font-display text-[#0066CC] md:text-2xl">{t('chat.empty_state.success_value')}</p>
-                        </div>
-                      </div>
                     </div>
+                  </div>
+                  {/* Suggested Prompts */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { icon: '🔍', label: t('chat.suggestions.bug_query', '查询缺陷详情'), prompt: '帮我查询缺陷 BUG-1 的详细信息' },
+                      { icon: '🛠️', label: t('chat.suggestions.fix_suggestion', '修复代码问题'), prompt: '分析一下当前项目的代码质量问题并给出修复建议' },
+                      { icon: '📋', label: t('chat.suggestions.create_task', '创建任务计划'), prompt: '帮我制定一个项目任务计划' },
+                      { icon: '🚀', label: t('chat.suggestions.pipeline_check', '检查流水线状态'), prompt: '查看当前流水线的构建状态' },
+                    ].map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setLocalInput(s.prompt);
+                          setTimeout(() => onFormSubmit(), 0);
+                        }}
+                        className="flex items-center gap-3 p-4 rounded-[16px] bg-white border border-[#E8E4E2]/60 hover:border-[#EC5B14]/30 hover:shadow-[0_4px_16px_rgba(236,91,20,0.08)] transition-all text-left group"
+                      >
+                        <span className="text-xl shrink-0">{s.icon}</span>
+                        <span className="text-sm font-medium text-[#1C1B1B] group-hover:text-[#EC5B14] transition-colors">
+                          {s.label}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               ) : (
@@ -795,8 +857,12 @@ export function ChatSession({
                       const isStreaming = isLast && isLoading && isAssistant;
                       const hasContent = m.content || (Array.isArray(m.parts) && m.parts.some((p: any) => p.text || p.type === 'reasoning'));
 
+                      const messageAnimation = reducedMotion
+                        ? { initial: false, animate: { opacity: 1 } }
+                        : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+
                       return (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
+                        <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
                           <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
                             {isAssistant && (
                               <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
@@ -894,6 +960,8 @@ export function ChatSession({
                                             )}
                                           </div>
                                         ))}
+                                        {/* Typing cursor during streaming */}
+                                        {isStreaming && <TypingCursor />}
                                         {/* Tool results (CapsuleAnchor, BugCard, etc.) */}
                                         {completedTools.map((part: any) => {
                                           const result = part.output || part.result;
@@ -916,6 +984,7 @@ export function ChatSession({
                               ) : (
                                 <div className="prose prose-slate prose-sm max-w-none relative">
                                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>{m.content}</ReactMarkdown>
+                                  {isStreaming && <TypingCursor />}
                                   {isStreaming && (
                                     <div className="mt-1">
                                       <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
@@ -1003,6 +1072,54 @@ export function ChatSession({
                       );
                     })}
 
+                  {/* Error Banner */}
+                  {error && (
+                    <motion.div
+                      {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })}
+                      className="flex w-full gap-4 items-start mb-8"
+                    >
+                      <div className="w-8 h-8 rounded-[10px] bg-red-50 flex items-center justify-center shrink-0 mt-1">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-red-50/80 border border-red-200 rounded-[20px] px-5 py-4">
+                          <p className="text-sm font-semibold text-red-700 mb-1">
+                            {t('chat.error.title', 'Request failed')}
+                          </p>
+                          <p className="text-xs text-red-500/80 break-words">
+                            {error.message || t('chat.error.message', 'Something went wrong while generating the response. Please try again.')}
+                          </p>
+                          <button
+                            onClick={() => reload()}
+                            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            {t('chat.error.retry', 'Retry')}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Stopped Banner */}
+                  {isStopped && (
+                    <motion.div
+                      {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })}
+                      className="flex w-full gap-4 items-start mb-8"
+                    >
+                      <div className="w-8 h-8 rounded-[10px] bg-[#F6F3F2] flex items-center justify-center shrink-0 mt-1">
+                        <Square className="w-3.5 h-3.5 fill-current text-[#716B67]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-[#F6F3F2]/80 border border-[#E8E4E2]/60 rounded-[20px] px-5 py-3">
+                          <p className="text-xs font-medium text-[#716B67]">
+                            {t('chat.stopped', 'Generation stopped')}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {/* 当正在提交但 messages 列表还没更新出 assistant 回复时的"先行占位" */}
                   {(isLoading || isLocalThinking) && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex w-full gap-4 items-start mb-8">
@@ -1023,7 +1140,7 @@ export function ChatSession({
 
         <div className="pt-2 pb-4 md:pb-8 px-4 md:px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
           <div className="max-w-[800px] mx-auto relative">
-            <AnimatePresence>{showScrollButton && <motion.button initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.9 }} onClick={scrollToBottom} className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-8 h-8 bg-white rounded-full shadow-lg border border-[#E8E4E2] flex items-center justify-center text-[#716B67] hover:text-[#EC5B14] hover:border-[#EC5B14]/30 transition-all active:scale-95"><ArrowDown className="w-4 h-4" /></motion.button>}</AnimatePresence>
+            <AnimatePresence>{showScrollButton && <motion.button {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10, scale: 0.9 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: 10, scale: 0.9 } })} onClick={scrollToBottom} className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-8 h-8 bg-white rounded-full shadow-lg border border-[#E8E4E2] flex items-center justify-center text-[#716B67] hover:text-[#EC5B14] hover:border-[#EC5B14]/30 transition-all active:scale-95"><ArrowDown className="w-4 h-4" /></motion.button>}</AnimatePresence>
             <div className="bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] ring-1 ring-[#1C1B1B]/5 transition-all focus-within:ring-[#EC5B14]/30 focus-within:shadow-[0_10px_40px_-10px_rgba(236,91,20,0.15)]">
               <AnimatePresence>
                 {selectedFiles.length > 0 && (
@@ -1037,7 +1154,32 @@ export function ChatSession({
                   </motion.div>
                 )}
               </AnimatePresence>
-              <textarea ref={textAreaRef} rows={1} value={localInput} onChange={(e) => setLocalInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!isLoading) onFormSubmit(); } }} placeholder={t('chat.placeholder')} className="w-full bg-transparent border-none text-[#1C1B1B] focus:ring-0 text-sm py-4 px-4 resize-none min-h-[56px] max-h-[200px] placeholder:text-[#716B67]/70 focus:outline-none" />
+              <textarea
+                ref={textAreaRef}
+                rows={1}
+                value={localInput}
+                onChange={(e) => setLocalInput(e.target.value)}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  const files: File[] = [];
+                  for (let i = 0; i < items.length; i++) {
+                    if (items[i].kind === 'file') {
+                      const file = items[i].getAsFile();
+                      if (file && file.type.startsWith('image/')) {
+                        files.push(file);
+                      }
+                    }
+                  }
+                  if (files.length > 0) {
+                    e.preventDefault();
+                    setSelectedFiles(prev => [...prev, ...files]);
+                  }
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!isLoading) onFormSubmit(); } }}
+                placeholder={t('chat.placeholder')}
+                className="w-full bg-transparent border-none text-[#1C1B1B] focus:ring-0 text-sm py-4 px-4 resize-none min-h-[56px] max-h-[200px] placeholder:text-[#716B67]/70 focus:outline-none"
+              />
               <div className="flex items-center justify-between px-2 sm:px-4 pb-2">
                 <div className="flex items-center gap-0.5 sm:gap-1.5 overflow-hidden">
                   <DropdownMenu open={isModelDropdownOpen} onOpenChange={setIsModelDropdownOpen}>
@@ -1091,7 +1233,7 @@ export function ChatSession({
                     <Database className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
-                <button onClick={() => isLoading ? stop() : onFormSubmit()} className={cn("w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all", isLoading ? "bg-[#1C1B1B] text-white" : ((!localInput.trim() && selectedFiles.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-[#EC5B14] text-white shadow-lg hover:scale-105 active:scale-95"))}>
+                <button onClick={() => isLoading ? handleStop() : onFormSubmit()} className={cn("w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all", isLoading ? "bg-[#1C1B1B] text-white" : ((!localInput.trim() && selectedFiles.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-[#EC5B14] text-white shadow-lg hover:scale-105 active:scale-95"))}>
                   {isLoading ? <Square className="w-4 h-4 fill-current" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
                 </button>
               </div>
