@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ThinkingPills, type ThinkingStep } from './ThinkingPills';
-import { ZenTaoTaskCard } from './ZenTaoTaskCard';
 import { DiffViewer } from './DiffViewer';
 
 // 提升到模块级：避免在 ChatSession 每次渲染时重新定义，导致 React 视其为全新组件而重挂载
@@ -18,6 +17,73 @@ const BrailleSpinner = () => {
   }, []);
   return <span className="font-mono text-[#716B67] mr-1">{pattern}</span>;
 };
+
+// 代码块复制按鈕组件（模块级，避免重复初始化）
+const CopyCodeButton = ({ code }: { code: string }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2.5 right-2.5 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-200 opacity-0 group-hover:opacity-100 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+      title="复制代码"
+    >
+      {copied ? (
+        <>
+          <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-emerald-400">已复制</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <span>复制</span>
+        </>
+      )}
+    </button>
+  );
+};
+
+// ReactMarkdown 自定义渲染器：代码块带复制按鈕 + 语言标注
+const MarkdownComponents = {
+  code({ node, inline, className, children, ...props }: any) {
+    const lang = /language-(\w+)/.exec(className || '')?.[1];
+    const codeStr = String(children).replace(/\n$/, '');
+    if (inline) {
+      return (
+        <code className="bg-[#F0EDE9] text-[#EC5B14] px-1.5 py-0.5 rounded text-[0.85em] font-mono" {...props}>
+          {children}
+        </code>
+      );
+    }
+    return (
+      <div className="relative group my-3 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2 bg-[#1E1E1E]">
+          <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
+            {lang || 'code'}
+          </span>
+        </div>
+        <div className="relative">
+          <pre className="overflow-x-auto bg-[#282828] px-4 py-4 text-[13px] leading-relaxed m-0">
+            <code className={`font-mono text-[#E8E8E8] ${className || ''}`} {...props}>
+              {children}
+            </code>
+          </pre>
+          <CopyCodeButton code={codeStr} />
+        </div>
+      </div>
+    );
+  },
+};
+
 import { useChat } from '@ai-sdk/react';
 import {
   ArrowDown, Sparkles, Copy, RotateCcw, Check,
@@ -32,10 +98,10 @@ import remarkGfm from 'remark-gfm';
 import { cn } from '../lib/utils';
 import { useSkillCatalog } from '../lib/useSkillCatalog';
 import { UIRenderer } from './UIRenderer';
+import { CapsuleAnchor } from './CapsuleAnchor';
 import { BugCard } from './BugCard';
 import { PipelineCard } from './PipelineCard';
 import { TaskPlan } from './TaskPlan';
-import { ApprovalCard } from './ApprovalCard';
 import { ApprovalModal } from './ApprovalModal';
 import {
   DropdownMenu,
@@ -123,6 +189,8 @@ export function ChatSession({
   const [isDragging, setIsDragging] = useState(false);
   const [isLocalThinking, setIsLocalThinking] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<any>(null);
+  // Capsule state: which tool result is expanded in the right panel
+  const [activeCapsule, setActiveCapsule] = useState<{ toolCallId: string; uiKit: any; } | null>(null);
 
   // Poll for approval requests
   useEffect(() => {
@@ -144,6 +212,10 @@ export function ChatSession({
   const handleApprovalResponse = async (status: 'approved' | 'denied') => {
     if (!pendingApproval) return;
     try {
+      // ✅ 正确：调用审批 API（不走聊天消息）
+      // 后端的 streamText 正在阻塞等待审批结果
+      // 一旦 API 更新审批状态，后端检测到后立即继续执行工具
+      // SSE 流自动恢复，前端无需 reload
       await fetch(`/api/chat/approvals/${pendingApproval.id}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -418,95 +490,144 @@ export function ChatSession({
   const ToolGroupTimeline = React.memo(({ tools }: { tools: any[] }) => {
     const isRunning = tools.some((t: any) => !(t.output || t.result));
     const [isManuallyClosed, setIsManuallyClosed] = useState(false);
+    const [elapsedMs, setElapsedMs] = useState(0);
+    const startTimeRef = useRef(Date.now());
+    const finalElapsedRef = useRef<number | null>(null);
     const prevIsRunningRef = useRef(isRunning);
 
-    // Claude 式行为：完成后自动折叠
+    // 实时计时器：流式期间每 100ms 更新一次
+    useEffect(() => {
+      if (!isRunning) return;
+      startTimeRef.current = Date.now();
+      const id = setInterval(() => setElapsedMs(Date.now() - startTimeRef.current), 100);
+      return () => clearInterval(id);
+    }, [isRunning]);
+
+    // Claude 式行为：完成后自动折叠，并定格耗时
     useEffect(() => {
       if (prevIsRunningRef.current && !isRunning) {
-        setIsManuallyClosed(true);
+        finalElapsedRef.current = elapsedMs;
+        setTimeout(() => setIsManuallyClosed(true), 800); // 短暂延迟让用户看到完成态
       }
       prevIsRunningRef.current = isRunning;
     }, [isRunning]);
 
     const isOpen = !isManuallyClosed;
+    const displayElapsed = isRunning ? elapsedMs : (finalElapsedRef.current ?? elapsedMs);
+    const elapsedSec = (displayElapsed / 1000).toFixed(1);
 
     return (
-      <div className="my-3 overflow-hidden">
+      <div className={cn(
+        "mb-2 rounded-xl border transition-all duration-300",
+        isRunning
+          ? "border-[#EC5B14]/15 bg-[#FFF8F5]"
+          : "border-[#E8E4E2]/60 bg-transparent"
+      )}>
+        {/* 标题栏 */}
         <button
           onClick={() => setIsManuallyClosed(!isManuallyClosed)}
-          className={cn(
-            "w-full flex items-center justify-between px-4 py-2.5 transition-colors group rounded-lg",
-            "hover:bg-[#F6F3F2]/80 cursor-pointer"
-          )}
+          className="w-full flex items-center justify-between px-3.5 py-2.5 group"
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {isRunning ? (
-              <div className="w-2 h-2 rounded-full bg-[#EC5B14] animate-pulse" />
+              // 流式中：动态橙点
+              <div className="relative flex items-center justify-center w-4 h-4 shrink-0">
+                <div className="w-2 h-2 rounded-full bg-[#EC5B14] animate-pulse" />
+                <div className="absolute w-4 h-4 rounded-full bg-[#EC5B14]/20 animate-ping" />
+              </div>
             ) : (
-              <Check className="w-4 h-4 text-green-500 shrink-0" />
+              // 完成：绿色勾
+              <div className="w-4 h-4 shrink-0 flex items-center justify-center">
+                <Check className="w-3.5 h-3.5 text-emerald-500" />
+              </div>
             )}
-            <span className={cn(
-              "text-[13px] font-medium",
-              isRunning ? "text-[#716B67]" : "text-[#716B67]/70"
-            )}>
-              {isRunning ? t('chat.thinking', 'Thinking') : t('chat.thinking_done', 'Done')}
-            </span>
-            <span className="text-[11px] font-medium text-[#716B67]/50 bg-[#F6F3F2] px-2 py-0.5 rounded-full">
-              {tools.length} {t('chat.tools.calls_count', 'steps')}
-            </span>
+
+            {isRunning ? (
+              <span className={cn(
+                "text-[12.5px] font-semibold tracking-tight text-[#1C1B1B]"
+              )}>
+                {t('chat.thinking', '正在思考')}
+              </span>
+            ) : (
+              <span className="text-[12.5px] font-semibold tracking-tight text-[#716B67]">
+                {t('chat.thinking_done', '已完成')}
+                <span className="text-[11px] font-normal text-[#A8A4A1] ml-1">
+                  · {tools.length} {t('chat.tools.count', '步')}
+                  {displayElapsed > 0 && ` · ${elapsedSec}s`}
+                </span>
+              </span>
+            )}
           </div>
+
           <ChevronDown className={cn(
-            "w-4 h-4 text-[#716B67]/50 transition-transform group-hover:text-[#1C1B1B]",
+            "w-3.5 h-3.5 transition-all duration-200",
+            isRunning ? "text-[#EC5B14]/60" : "text-[#716B67]/40 group-hover:text-[#716B67]",
             isOpen ? "rotate-180" : ""
           )} />
         </button>
 
-        {isOpen && (
-          <div className="overflow-hidden transition-all duration-300">
-            <div className="px-4 pb-4 pt-3 bg-[#FAFAFA] flex flex-col gap-0 border-t border-[#E8E4E2]/40 relative mt-1 rounded-b-lg">
-              {/* 垂直时间轴轨道 */}
-              <div className="absolute left-[28px] top-5 bottom-6 w-px bg-[#E8E4E2]/80 z-0"></div>
+        {/* 展开内容 — 平滑高度动画 */}
+        <div className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          isOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+        )}>
+          <div className="px-3.5 pb-3.5 pt-0 flex flex-col gap-0 border-t border-[#E8E4E2]/40 relative">
+            {/* 垂直时间轴轨道 */}
+            <div className="absolute left-[26px] top-3 bottom-5 w-px bg-[#E8E4E2] z-0" />
 
-              {tools.map((part: any) => {
-                const isCompleted = !!(part.output || part.result);
-                const stableKey = part.toolCallId || part.toolName || Math.random().toString(36).slice(2);
-                const toolDisplayName = getFriendlyToolName(part);
-                const args = part.args || part.invocation?.args;
+            {tools.map((part: any, tIdx: number) => {
+              const isCompleted = !!(part.output || part.result);
+              const stableKey = part.toolInvocation?.toolCallId
+                || part.toolCallId
+                || part.toolName
+                || `tool-${tIdx}`;
+              const toolDisplayName = getFriendlyToolName(part);
+              const args = part.args || part.invocation?.args;
 
-                return (
-                  <div key={stableKey} className="relative flex gap-4 pb-2 last:pb-0 z-10 w-full group/timeline">
-                    <div className="relative z-10 w-[28px] flex justify-center pt-3 shrink-0">
-                      <div className={cn(
-                        "w-2 h-2 rounded-full ring-4 ring-[#FAFAFA] z-10 transition-colors",
-                        isCompleted ? "bg-[#D1D5DB]" : "bg-[#EC5B14]"
-                      )}></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-[11px] text-[#716B67]">
-                        <span className="font-semibold text-[#1C1B1B]">{toolDisplayName}</span>
-                        {isCompleted && (
-                          <span className="text-[#716B67]/50">{t('chat.tool_status.completed', { name: '' }).replace(' 的技能', '').trim()}</span>
-                        )}
-                        {!isCompleted && (
-                          <div className="flex gap-0.5">
-                            <span className="w-0.5 h-0.5 rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.3s]"></span>
-                            <span className="w-0.5 h-0.5 rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.15s]"></span>
-                            <span className="w-0.5 h-0.5 rounded-full bg-[#EC5B14] animate-bounce"></span>
-                          </div>
-                        )}
-                      </div>
-                      {args && Object.keys(args).length > 0 && (
-                        <div className="mt-0.5 text-[10px] text-[#716B67]/50 font-mono truncate">
-                          {JSON.stringify(args)}
+              return (
+                <div key={stableKey} className="relative flex gap-3 pt-3 last:pb-0 z-10 w-full">
+                  {/* 时间轴节点 */}
+                  <div className="relative z-10 w-[22px] flex justify-center pt-0.5 shrink-0">
+                    <div className={cn(
+                      "w-[7px] h-[7px] rounded-full ring-[3px] z-10 transition-all duration-300",
+                      isCompleted
+                        ? "bg-[#D1D5DB] ring-white"
+                        : "bg-[#EC5B14] ring-[#FFF3EE] shadow-[0_0_6px_rgba(236,91,20,0.4)]"
+                    )} />
+                  </div>
+
+                  {/* 内容 */}
+                  <div className="flex-1 min-w-0 pb-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={cn(
+                        "text-[11.5px] font-semibold leading-none transition-colors",
+                        isCompleted ? "text-[#716B67]" : "text-[#1C1B1B]"
+                      )}>
+                        {toolDisplayName}
+                      </span>
+
+                      {isCompleted ? (
+                        <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                      ) : (
+                        <div className="flex gap-[3px] items-center">
+                          <span className="w-[3px] h-[3px] rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.3s]" />
+                          <span className="w-[3px] h-[3px] rounded-full bg-[#EC5B14] animate-bounce [animation-delay:-0.15s]" />
+                          <span className="w-[3px] h-[3px] rounded-full bg-[#EC5B14] animate-bounce" />
                         </div>
                       )}
                     </div>
+
+                    {args && Object.keys(args).length > 0 && (
+                      <div className="mt-1 text-[10px] text-[#716B67]/40 font-mono truncate max-w-[280px]">
+                        {JSON.stringify(args)}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
       </div>
     );
   }, toolGroupAreEqual);
@@ -586,54 +707,38 @@ export function ChatSession({
     const result = part.output || part.result;
     const toolName = part.toolName || part.type?.replace('tool-', '') || '';
 
-    // ── Gen 2: 优先检测 UI Protocol (ui 字段) ──
+    // ── Gen 2: UI Protocol (ui 字段) → 不再内联渲染，交给 CapsuleAnchor ──
     if (result?.ui) {
-      return (
-        <UIRenderer
-          key={part.toolCallId}
-          uiKit={result.ui}
-          onAction={(actionId, payload) => {
-            if (actionId === 'approve_request') {
-              sendMessage({ content: `APPROVE:${(payload as any).requestId}`, role: 'user' });
-            } else if (actionId === 'reject_request') {
-              sendMessage({ content: `REJECT:${(payload as any).requestId}`, role: 'user' });
-            } else if (actionId === 'open_bug_detail') {
-              // 可以在这里发送消息请求详情，或导航到其他页面
-              console.log('[ChatSession] Open bug detail:', (payload as any).id);
-            } else if (actionId === 'view_logs') {
-              console.log('[ChatSession] View pipeline logs:', (payload as any).pipelineId);
-            } else if (actionId === 'retry_pipeline') {
-              sendMessage({ content: `Retry pipeline ${(payload as any).pipelineId}`, role: 'user' });
-            }
-          }}
-        />
-      );
+      return null; // Will be rendered as CapsuleAnchor in ToolResults
     }
 
     // ── Gen 1: 向后兼容 — 无 ui 字段时回退到旧逻辑 ──
 
-    // ── Stitch Demo: 根据工具名渲染 Stitch 组件 ──
+    // ── Stitch BugCard: 可交互式 Bug 信息卡片 (Mode B: 直调 API) ──
     if (toolName === 'getBugInfo' || toolName === 'tool-getBugInfo') {
       if (result) {
-        // Stitch ZenTao Task Card
         return (
-          <ZenTaoTaskCard
+          <BugCard
             key={part.toolCallId}
-            title={result.title || 'Authentication Refactor'}
-            assignees={result.assignee ? [{ name: result.assignee }] : []}
-            priority={result.severity === 'high' ? 'High' : result.severity === 'medium' ? 'Medium' : 'Low'}
-            assignee={result.assignee || 'Sarah Chen'}
-            sprintName="Sprint 24: Q3 Security Overhaul"
-            sprintStartsIn="Starts in 12h"
-            onCreateTask={(data) => {
-              sendMessage({ content: `Create ZenTao task: ${JSON.stringify(data)}`, role: 'user' });
+            id={result.id || ''}
+            title={result.title || ''}
+            status={result.status || 'active'}
+            assignee={result.assignee || ''}
+            severity={result.severity || 'medium'}
+            description={result.description || ''}
+            createdAt={result.createdAt || ''}
+            onAction={(action, data) => {
+              // Mode B: 直调 API，不经过聊天流
+              if (action === 'create_zentao_task') {
+                sendMessage({ content: `Create ZenTao task for ${data.bugId}: priority=${data.priority}, assignee=${data.assignee}`, role: 'user' });
+              }
             }}
           />
         );
       }
     }
 
-    // Stitch Diff Viewer — 代码修复场景
+    // ── Stitch Diff Viewer — 代码修复场景 ──
     if (toolName === 'runLocalCommand' || toolName === 'tool-runLocalCommand') {
       if (result?.status === 'Success' && result.command === 'git_diff') {
         return (
@@ -653,9 +758,6 @@ export function ChatSession({
       }
     }
 
-    if (toolName === 'getBugInfo' || toolName === 'tool-getBugInfo') {
-      if (result) return <BugCard key={part.toolCallId} {...result} />;
-    }
     if (toolName === 'searchBugs' || toolName === 'tool-searchBugs') {
       const bugs = Array.isArray(result) ? result : [];
       return (
@@ -693,21 +795,10 @@ export function ChatSession({
       }
     }
 
-    // 检测审批状态（来自 wrapWithApproval）
-    if (result?.status === 'pending_approval') {
-      return (
-        <ApprovalCard
-          key={part.toolCallId}
-          requestId={result.requestId}
-          toolName={toolName}
-          description={result.message || '此操作需要您的审批'}
-          args={result.args}
-          status="pending"
-          onApprove={() => sendMessage({ content: `APPROVE:${result.requestId}`, role: 'user' })}
-          onReject={() => sendMessage({ content: `REJECT:${result.requestId}`, role: 'user' })}
-        />
-      );
-    }
+    // Note: pending_approval state is no longer returned as a tool result.
+    // With the blocking-wait approval pattern, the stream pauses during tool execution
+    // and resumes after the user approves/denies via the ApprovalModal.
+    // The tool result is either the actual data (approved) or a denial message (denied).
 
     return null;
   };
@@ -718,12 +809,27 @@ export function ChatSession({
     if (completedTools.length === 0) return null;
 
     return (
-      <div className="flex flex-col gap-3 mt-3">
-        {completedTools.map((part: any) => (
-          <React.Fragment key={part.toolCallId}>
-            {renderToolResult(part)}
-          </React.Fragment>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        {completedTools.map((part: any) => {
+          const result = part.output || part.result;
+          // Gen 2: UI Protocol → CapsuleAnchor
+          if (result?.ui) {
+            return (
+              <CapsuleAnchor
+                key={part.toolCallId}
+                uiType={result.ui.uiType}
+                isActive={activeCapsule?.toolCallId === part.toolCallId}
+                onClick={() => setActiveCapsule({ toolCallId: part.toolCallId, uiKit: result.ui })}
+              />
+            );
+          }
+          // Gen 1: 向后兼容 — 无 ui 字段时保持内联渲染
+          return (
+            <React.Fragment key={part.toolCallId}>
+              {renderToolResult(part)}
+            </React.Fragment>
+          );
+        })}
       </div>
     );
   });
@@ -865,14 +971,17 @@ export function ChatSession({
                               )}
 
                               {!hasContent && isAssistant && isLoading ? (
-                                <div className="flex items-center py-2 animate-pulse">
-                                  <BrailleSpinner />
+                                <div className="flex items-center py-2 gap-2">
+                                  <div className="relative flex items-center justify-center w-3 h-3 shrink-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
+                                    <div className="absolute w-3 h-3 rounded-full bg-[#EC5B14]/20 animate-ping" />
+                                  </div>
                                   <span className="text-[12px] font-bold text-[#716B67] tracking-tight">
                                     {t('chat.thinking')}
                                   </span>
                                 </div>
                               ) : Array.isArray(m.parts) ? (
-                                <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-1">
                                   {(() => {
                                     const groupedParts = m.parts.reduce((acc: any[], part: any) => {
                                       const isTool = part.type === 'tool-invocation' || part.toolName || part.type?.startsWith('tool-');
@@ -892,21 +1001,14 @@ export function ChatSession({
                                       group.type === 'text' ? (
                                         <div key={i} className="prose prose-slate prose-sm max-w-none">
                                           {group.part.type === 'text' && (
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
                                               {group.part.text}
                                             </ReactMarkdown>
                                           )}
                                         </div>
                                       ) : (
                                         <React.Fragment key={i}>
-                                          {/* Stitch Thinking Pills */}
-                                          <ThinkingPills
-                                            steps={group.tools.map((t: any) => ({
-                                              label: getFriendlyToolName(t),
-                                              status: (t.output || t.result) ? 'done' as const : 'active' as const,
-                                            }))}
-                                            variant="pills"
-                                          />
+                                          <ToolGroupTimeline tools={group.tools} />
                                           {/* Tool Results — UI Components in message body */}
                                           <ToolResults tools={group.tools} />
                                         </React.Fragment>
@@ -914,18 +1016,18 @@ export function ChatSession({
                                     ));
                                   })()}
                                   {isStreaming && (
-                                    <div className="flex items-center mt-2 opacity-60">
-                                      <BrailleSpinner />
+                                    <div className="flex items-center mt-2 opacity-60 gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
                                       <span className="text-[11px] text-[#716B67] font-bold tracking-tight">{t('chat.thinking')}</span>
                                     </div>
                                   )}
                                 </div>
                               ) : (
                                 <div className="prose prose-slate prose-sm max-w-none relative">
-                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>{m.content}</ReactMarkdown>
                                   {isStreaming && (
-                                    <div className="flex items-center mt-2 opacity-60">
-                                      <BrailleSpinner />
+                                    <div className="flex items-center mt-2 opacity-60 gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
                                       <span className="text-[11px] text-[#716B67] font-bold tracking-tight">{t('chat.thinking')}</span>
                                     </div>
                                   )}
@@ -974,8 +1076,11 @@ export function ChatSession({
                         <Sparkles className="w-4 h-4" />
                       </div>
                       <div className="flex flex-col gap-2 py-3">
-                        <div className="flex items-center animate-pulse">
-                          <BrailleSpinner />
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex items-center justify-center w-3 h-3 shrink-0">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14] animate-pulse" />
+                            <div className="absolute w-3 h-3 rounded-full bg-[#EC5B14]/20 animate-ping" />
+                          </div>
                           <span className="text-[12px] font-bold text-[#716B67] tracking-tight">
                             {t('chat.thinking')}
                           </span>
@@ -1076,12 +1181,57 @@ export function ChatSession({
         onClose={() => setPendingApproval(null)}
       />
 
-      {/* Sidebar Right (Meta + Preview) */}
+      {/* Sidebar Right (Capsule Panel + Preview + Meta) */}
       <aside className={cn(
         "absolute lg:relative right-0 top-0 bottom-0 z-40 border-l border-[#E8E4E2] bg-[#fcf9f8] lg:bg-[#fcf9f8]/80 backdrop-blur-md flex-col h-full overflow-hidden transition-all duration-300",
-        previewAttachment ? "translate-x-0 flex w-full lg:w-[450px]" : "translate-x-full lg:translate-x-0 hidden lg:flex lg:w-80"
+        (previewAttachment || activeCapsule) ? "translate-x-0 flex w-full lg:w-[450px]" : "translate-x-full lg:translate-x-0 hidden lg:flex lg:w-80"
       )}>
-        {previewAttachment ? (
+        {activeCapsule ? (
+          /* ── Capsule Panel ── */
+          <motion.div
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="flex-1 flex flex-col h-full bg-white"
+          >
+            <div className="px-4 py-3 border-b border-[#E8E4E2]/60 flex items-center justify-between bg-[#F6F3F2]/50">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-[#1C1B1B]">交互胶囊</span>
+                <span className="text-[10px] text-[#716B67] bg-[#E8E4E2] px-1.5 py-0.5 rounded-full">
+                  {activeCapsule.uiKit?.uiType}
+                </span>
+              </div>
+              <button
+                onClick={() => setActiveCapsule(null)}
+                className="p-1.5 hover:bg-[#eeece9] rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <UIRenderer
+                uiKit={activeCapsule.uiKit}
+                onAction={(actionId, payload) => {
+                  if (actionId === 'approve_request') {
+                    sendMessage({ content: `APPROVE:${(payload as any).requestId}`, role: 'user' });
+                  } else if (actionId === 'reject_request') {
+                    sendMessage({ content: `REJECT:${(payload as any).requestId}`, role: 'user' });
+                  } else if (actionId === 'create_zentao_task') {
+                    const d = payload as any;
+                    sendMessage({ content: `Create ZenTao task for ${d.bugId}: assignee=${d.assignee}`, role: 'user' });
+                  } else if (actionId === 'open_bug_detail') {
+                    console.log('[Capsule] Open bug detail:', (payload as any).id);
+                  } else if (actionId === 'view_logs') {
+                    console.log('[Capsule] View pipeline logs:', (payload as any).pipelineId);
+                  } else if (actionId === 'retry_pipeline') {
+                    sendMessage({ content: `Retry pipeline ${(payload as any).pipelineId}`, role: 'user' });
+                  }
+                }}
+              />
+            </div>
+          </motion.div>
+        ) : previewAttachment ? (
           /* ── File Preview Overrides Aside (Claude/Deepseek style) ── */
           <motion.div
             initial={{ x: '100%', opacity: 0 }}
@@ -1103,7 +1253,7 @@ export function ChatSession({
               ) : (
                 <div className="p-4">
                   <div className="prose prose-slate prose-xs max-w-none text-[13px]">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
                       {(() => {
                         try {
                           if (previewAttachment.url.startsWith('data:')) {
@@ -1163,3 +1313,6 @@ export function ChatSession({
     </div>
   );
 }
+// cache buster 1775898677
+// cache buster 1775898894
+// cache buster 1775899337

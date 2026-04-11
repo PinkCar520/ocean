@@ -73,8 +73,9 @@ export class SessionService {
 
   /**
    * 追加单条消息到会话（流式完成后由 ChatService 调用）
+   * @returns 创建的消息 ID（用于关联 CapsuleSnapshot）
    */
-  async addMessage(sessionId: string, dto: CreateMessageDto): Promise<void> {
+  async addMessage(sessionId: string, dto: CreateMessageDto): Promise<string> {
     // 计算下一条消息的序号
     const lastMsg = await this.prisma.message.findFirst({
       where: { sessionId },
@@ -83,7 +84,7 @@ export class SessionService {
     });
     const seq = (lastMsg?.seq ?? -1) + 1;
 
-    await this.prisma.message.create({
+    const created = await this.prisma.message.create({
       data: {
         sessionId,
         role: dto.role,
@@ -99,6 +100,8 @@ export class SessionService {
       where: { id: sessionId },
       data: { updatedAt: new Date() },
     });
+
+    return created.id;
   }
 
   /**

@@ -1,5 +1,5 @@
-import { Bug, User, AlertTriangle, CheckCircle2, Clock, Image as ImageIcon, ChevronDown, ChevronUp, Sparkles, Users2 } from 'lucide-react';
-import { useState, type ReactElement } from 'react';
+import { Bug, AlertTriangle, Clock, CheckCircle2, ChevronDown, Users2, Rocket, Check, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
 import type { UIBugCardProps } from '../types/ui-protocol';
@@ -8,36 +8,7 @@ export type { UIBugCardProps };
 
 export interface BugCardProps extends UIBugCardProps {
   onClick?: (bugId: string) => void;
-}
-
-function formatDescription(html: string): string {
-  if (!html) return '';
-  let text = html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/h[1-6]>/gi, '\n')
-    .replace(/<\/li>/gi, '\n');
-  text = text.replace(/<[^>]*>/g, '');
-  text = text
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
-  return text.trim().replace(/\n{3,}/g, '\n\n');
-}
-
-function extractImages(html: string): string[] {
-  if (!html) return [];
-  const imgRegex = /<img[^>]+src="([^">]+)"/gi;
-  const images: string[] = [];
-  let match;
-  while ((match = imgRegex.exec(html)) !== null) {
-    images.push(match[1]);
-  }
-  return images;
+  onAction?: (action: string, data: Record<string, unknown>) => void;
 }
 
 export function BugCard({
@@ -48,10 +19,10 @@ export function BugCard({
   severity,
   description,
   createdAt,
-  onClick,
+  onAction,
 }: BugCardProps) {
   const { t } = useTranslation();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [actionState, setActionState] = useState<'idle' | 'loading' | 'success'>('idle');
 
   const normalizedStatus = (status ?? '').toLowerCase() as UIBugCardProps['status'];
   const normalizedSeverity = (severity ?? '').toLowerCase() as UIBugCardProps['severity'];
@@ -62,7 +33,7 @@ export function BugCard({
     low: 'border-[#10B981] bg-[#10B981]/5 text-[#059669]',
   };
 
-  const statusIcons: Record<string, ReactElement> = {
+  const statusIcons: Record<string, React.JSX.Element> = {
     active: <Clock className="w-3.5 h-3.5 text-[#F59E0B]" />,
     resolved: <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />,
     closed: <CheckCircle2 className="w-3.5 h-3.5 text-[#716B67]" />,
@@ -72,21 +43,25 @@ export function BugCard({
     ? new Date(createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
     : null;
 
-  const cleanDescription = description ? formatDescription(description) : null;
-  const imageUrls = description ? extractImages(description) : [];
-  const hasImages = imageUrls.length > 0;
-  const mentionsImages = !hasImages && (description?.toLowerCase().includes('图片') || description?.toLowerCase().includes('image'));
+  const cleanDescription = description
+    ? description.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').trim()
+    : null;
+
+  const handleAction = () => {
+    setActionState('loading');
+    onAction?.('create_zentao_task', {
+      bugId: id,
+      assignee: assignee || '',
+      title: title,
+    });
+    // Simulate async completion (in real usage, onAction would return a promise or emit an event)
+    setTimeout(() => setActionState('success'), 800);
+  };
 
   return (
-    <div
-      className={cn(
-        "group bg-white border border-[#E8E4E2] rounded-[20px] overflow-hidden transition-all shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-4 max-w-[520px]",
-        onClick && "cursor-pointer hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
-      )}
-      onClick={() => onClick?.(id)}
-    >
+    <div className="bg-white border border-[#E8E4E2] rounded-[20px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-2 max-w-[520px]">
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 border-b border-[#E8E4E2]/60">
+      <div className="px-6 pt-5 pb-4 border-b border-[#E8E4E2]/60">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className="bg-blue-50 p-1.5 rounded-lg">
@@ -108,61 +83,59 @@ export function BugCard({
       {/* Description */}
       {cleanDescription && (
         <div className="px-6 py-4">
-          <div className={cn(
-            "text-[13px] text-[#716B67] leading-relaxed whitespace-pre-wrap bg-[#F6F3F2] p-4 rounded-[14px] transition-all duration-200",
-            !isExpanded && "line-clamp-4 overflow-hidden"
-          )}>
+          <div className="text-[13px] text-[#716B67] leading-relaxed whitespace-pre-wrap bg-[#F6F3F2] p-4 rounded-[14px] line-clamp-3 overflow-hidden">
             {cleanDescription}
           </div>
-          {(cleanDescription.split('\n').length > 4 || cleanDescription.length > 150) && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              className="mt-2 flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              {isExpanded ? t('common.show_less', '收起') : t('common.show_more', '展开全文')}
-            </button>
+        </div>
+      )}
+
+      {/* Interactive Body */}
+      <div className="px-6 py-4 space-y-4">
+        {/* Assignee */}
+        {assignee && (
+          <div>
+            <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+              Assignee
+            </label>
+            <div className="flex items-center gap-2.5 bg-[#F6F3F2] rounded-[10px] px-4 py-2.5 border border-[#E8E4E2]">
+              <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center border border-[#E8E4E2]">
+                <Users2 className="w-3.5 h-3.5 text-[#716B67]" />
+              </div>
+              <span className="text-[13px] font-medium text-[#1C1B1B]">{assignee}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Status + Date */}
+        <div className="flex items-center justify-between pt-2 border-t border-[#E8E4E2]/60">
+          <div className="flex items-center gap-2">
+            {statusIcons[normalizedStatus]}
+            <span className="text-[11px] font-bold text-[#716B67] capitalize">
+              {t(`bug.status.${normalizedStatus}`, normalizedStatus)}
+            </span>
+          </div>
+          {formattedDate && (
+            <span className="text-[11px] text-[#716B67]/70">{formattedDate}</span>
           )}
         </div>
-      )}
+      </div>
 
-      {/* Images */}
-      {hasImages && (
-        <div className="px-6 pb-4 flex flex-wrap gap-2">
-          {imageUrls.map((url, index) => (
-            <div key={index} className="relative aspect-video rounded-xl overflow-hidden border border-[#E8E4E2] bg-[#F6F3F2] min-w-[120px] max-w-[240px] flex-1">
-              <img src={url} alt={`Attachment ${index + 1}`} className="w-full h-full object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x225/f1f5f9/94a3b8?text=Image+Load+Error'; }} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {mentionsImages && (
-        <div className="px-6 pb-4 flex items-center gap-2 p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-[11px] text-blue-600">
-          <ImageIcon className="w-4 h-4 shrink-0" />
-          <span>{t('bug.has_screenshot', '此缺陷包含截图，点击卡片查看详情')}</span>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="px-6 py-4 border-t border-[#E8E4E2]/60 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-full bg-[#F6F3F2] flex items-center justify-center border border-[#E8E4E2]">
-            <Users2 className="w-3.5 h-3.5 text-[#716B67]" />
-          </div>
-          <span className="text-[12px] font-semibold text-[#1C1B1B]">{assignee}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {formattedDate && <span className="text-[11px] text-[#716B67]/70">{formattedDate}</span>}
-          {statusIcons[normalizedStatus]}
-          <span className="text-[11px] font-bold text-[#716B67]">
-            {t(`bug.status.${normalizedStatus}`, normalizedStatus)}
-          </span>
-        </div>
+      {/* CTA Button */}
+      <div className="px-6 pb-6">
+        <button
+          onClick={handleAction}
+          disabled={actionState === 'success'}
+          className={cn(
+            'w-full py-3.5 rounded-[16px] font-bold text-[14px] transition-all duration-200 flex items-center justify-center gap-2 border',
+            actionState === 'idle' && 'bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white border-0 shadow-[0_8px_24px_rgba(163,56,0,0.35)] hover:shadow-[0_12px_32px_rgba(163,56,0,0.45)] hover:from-[#c24200] hover:to-[#e65200] active:scale-[0.98]',
+            actionState === 'loading' && 'bg-[#F6F3F2] text-[#716B67] border-[#E8E4E2] cursor-wait',
+            actionState === 'success' && 'bg-[#10B981]/10 text-[#059669] border-[#10B981]/30 cursor-default'
+          )}
+        >
+          {actionState === 'idle' && <><Rocket className="w-4 h-4" />Create Task &amp; Sync to ZenTao</>}
+          {actionState === 'loading' && <><Loader2 className="w-4 h-4 animate-spin" />Creating...</>}
+          {actionState === 'success' && <><Check className="w-4 h-4" />Task Created</>}
+        </button>
       </div>
     </div>
   );

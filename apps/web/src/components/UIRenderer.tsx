@@ -20,6 +20,7 @@ function BugCardRenderer({ uiKit, onAction }: { uiKit: UIKit & { uiType: 'bug_ca
     <BugCard
       {...uiKit.props}
       onClick={(id) => onAction?.('open_bug_detail', { id })}
+      onAction={(action, data) => onAction?.(action, data)}
     />
   );
 }

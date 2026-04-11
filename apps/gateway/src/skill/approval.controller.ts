@@ -10,8 +10,8 @@ export class ApprovalController {
    * Get pending approvals for a session.
    */
   @Get(':sessionId')
-  getPending(@Param('sessionId') sessionId: string) {
-    const requests = this.approvalService.getSessionPendingRequests(sessionId);
+  async getPending(@Param('sessionId') sessionId: string) {
+    const requests = await this.approvalService.getSessionPendingRequests(sessionId);
     return { success: true, data: requests };
   }
 
@@ -20,11 +20,28 @@ export class ApprovalController {
    * Respond to an approval request.
    */
   @Post(':requestId/respond')
-  respond(@Param('requestId') requestId: string, @Body() body: any, @Req() req: any) {
-    const userId = req.user?.dbId || 'anonymous';
-    const { status } = body; // 'approved' or 'denied'
-    
-    const success = this.approvalService.respondToRequest(requestId, status, userId);
-    return { success, message: success ? `Request ${status}` : 'Request not found' };
+  async respond(
+    @Param('requestId') requestId: string,
+    @Body() body: { status: 'approved' | 'denied' },
+    @Req() req: any,
+  ) {
+    const userId = req.user?.workId || req.user?.dbId || 'anonymous';
+    const { status } = body;
+
+    const success = await this.approvalService.respondToRequest(requestId, status, userId);
+    return {
+      success,
+      message: success ? `Request ${status}` : 'Request not found or already resolved',
+    };
+  }
+
+  /**
+   * GET /api/chat/approvals/:requestId/status
+   * Check approval status (for polling from tool execution).
+   */
+  @Get(':requestId/status')
+  async getStatus(@Param('requestId') requestId: string) {
+    const status = await this.approvalService.getStatus(requestId);
+    return { success: true, status };
   }
 }

@@ -45,7 +45,10 @@
     },
     "available_models": "Available Models",
     "thinking": "Thinking",
-    "thinking_done": "Done"
+    "thinking_done": "Completed",
+    "tools": {
+      "count": "steps"
+    }
   },
   "dashboard": {
     "title": "Engineering Insights",

@@ -11,7 +11,10 @@
       "Bash(docker inspect *)",
       "Bash(find *)",
       "Bash(git *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(select *)",
+      "Bash('capsule_snapshots', *)",
+      "Bash(eof)"
     ]
   },
   "$version": 3

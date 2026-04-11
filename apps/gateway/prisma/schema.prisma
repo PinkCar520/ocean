@@ -74,6 +74,7 @@ model Session {
   channel   String    @default("web")      // 'web', 'cli', 'im'
   status    String    @default("active")   // 'active' | 'archived'
   messages  Message[]
+  approvalRequests ApprovalRequest[]       // 该会话的审批请求
 
   expiresAt DateTime?
   createdAt DateTime  @default(now())
@@ -94,10 +95,55 @@ model Message {
   attachments Json?    // 附件列表（url, name, contentType）
   seq         Int      @default(0) // 消息序号，用于有序恢复
 
+  capsuleSnapshots CapsuleSnapshot[]
+
   createdAt   DateTime @default(now())
 
   @@index([sessionId, seq])
   @@map("messages")
+}
+
+// Capsule（交互胶囊）快照表
+// 将工具返回的 UI 内容持久化为自包含快照，确保历史对话不依赖外部 API 也能准确还原
+// 设计原则：快照存储（非引用），离线可查看，跨设备一致
+model CapsuleSnapshot {
+  id          String   @id @default(uuid())
+  messageId   String
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  toolCallId  String   // 对应 tool invocation 的唯一标识
+  uiType      String   // 'bug_card' / 'pipeline_card' / 'approval_card' / ...
+  title       String   @default("")  // 快照标题，如 "缺陷 BUG-123"
+  content     Json     // 完整 UI props 快照（自包含，不依赖外部 API）
+  version     Int      @default(1)   // 同一 toolCall 的迭代版本号（未来支持 v1→v2 切换）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([messageId, toolCallId, version])  // 同一消息下同一工具调用的唯一快照
+  @@index([messageId])
+  @@map("capsule_snapshots")
+}
+
+// 审批请求持久化表
+// 替代原有的内存 Map 存储，支持多实例部署、重启不丢失、超时自动过期
+model ApprovalRequest {
+  id          String   @id @default(uuid()) @db.VarChar(64)
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  toolName    String                        // 需要审批的工具名称
+  args        Json                          // 工具调用参数快照
+  status      String   @default("pending")  // 'pending' | 'approved' | 'denied'
+  responseBy  String?  @db.VarChar(20)     // 操作人工号（谁批准的）
+  responseAt  DateTime?                     // 批准/拒绝时间
+  expiresAt   DateTime                      // 超时自动过期（默认 30 分钟）
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sessionId, status])
+  @@index([expiresAt])
+  @@map("approval_requests")
 }
 
 // 技能注册表（兼容 Claude Code / OpenClaw Hub SKILL.md 标准）

@@ -261,7 +261,14 @@ ${catalogXml}`;
 
   /**
    * Wraps a tool with approval logic.
-   * If the tool is in `requires-approval`, execution is paused and a request is created.
+   * Uses the "blocking wait" pattern (Claude Code Tier 3 approach):
+   * 1. Create approval request in DB
+   * 2. Poll DB every 1s waiting for user response
+   * 3. If approved → execute original tool
+   * 4. If denied/timeout → return denial to LLM
+   *
+   * This keeps the entire flow within a single streamText call.
+   * The HTTP connection stays open while waiting (typically < 60s).
    */
   private wrapWithApproval(toolName: string, toolDef: any, sessionId: string, userId: string): any {
     const originalExecute = toolDef.execute;
@@ -271,21 +278,34 @@ ${catalogXml}`;
     return tool({
       ...toolDef,
       execute: async (args: any) => {
-        logger.log(`[AGP] Tool "${toolName}" requires approval. Pausing execution...`);
-        
-        // Create approval request
-        const requestId = approvalService.createRequest({
+        logger.log(`[AGP] Tool "${toolName}" requires approval. Waiting for user decision...`);
+
+        // Step 1: Create approval request in DB
+        const requestId = await approvalService.createRequest({
           sessionId,
-          userId,
           toolName,
           args,
+          timeoutMs: 5 * 60 * 1000, // 5 分钟超时
         });
 
-        return {
-          status: 'pending_approval',
-          requestId,
-          message: `Action "${toolName}" requires your approval. Please check the UI to proceed.`,
-        };
+        logger.log(`[AGP] Approval request created: ${requestId}. Polling for response...`);
+
+        // Step 2: Block and wait for user to approve/deny (polls DB every 1s)
+        const approved = await approvalService.waitForApproval(requestId, 5 * 60 * 1000);
+
+        if (!approved) {
+          logger.log(`[AGP] Tool "${toolName}" was denied or timed out.`);
+          return {
+            status: 'denied',
+            requestId,
+            message: `Action "${toolName}" was denied by the user. Please choose a different approach.`,
+          };
+        }
+
+        logger.log(`[AGP] Tool "${toolName}" approved. Executing...`);
+
+        // Step 3: Approved — execute the original tool
+        return originalExecute(args);
       },
     } as any);
   }
@@ -388,6 +408,9 @@ ${catalogXml}`;
 
       this.logger.log(`[Orchestrator] AgentSkills mode for user ${ctx.userId}`);
 
+      // Accumulate tool invocations across ALL steps (onFinish only gives last step)
+      const allToolInvocations: any[] = [];
+
       const result = streamText({
         model: this.getModel(modelId),
         messages: modelMessages,
@@ -395,26 +418,56 @@ ${catalogXml}`;
         stopWhen: stepCountIs(10),
         system: systemPrompt,
         tools,
-        onStepFinish: ({ stepNumber, toolCalls }) => {
+        onStepFinish: ({ stepNumber, toolCalls, toolResults }) => {
           this.logger.debug(`Step ${stepNumber} finished. Tool calls: ${toolCalls?.length || 0}`);
+
+          // Accumulate tool invocations from each step
+          if (toolResults && toolResults.length > 0) {
+            for (const tr of toolResults as any[]) {
+              allToolInvocations.push({
+                type: 'tool-invocation',
+                toolCallId: tr.toolCallId,
+                toolName: tr.toolName,
+                args: tr.input,
+                output: tr.output,
+                result: tr.output,
+              });
+            }
+          } else if (toolCalls && toolCalls.length > 0) {
+            for (const tc of toolCalls as any[]) {
+              allToolInvocations.push({
+                type: 'tool-invocation',
+                toolCallId: tc.toolCallId,
+                toolName: tc.toolName,
+                args: tc.input,
+              });
+            }
+          }
         },
-        onFinish: async ({ text, response }) => {
+        onFinish: async ({ text }) => {
           // ── Step 2: 持久化 AI 回复（流完成后写库）────────────────
           if (sessionId && text) {
             try {
-              // 提取 parts（含 tool-invocation 等）
-              const assistantParts = response?.messages?.[0]?.content ?? undefined;
-              await this.sessionService.addMessage(sessionId, {
+              // Use accumulated tool invocations from ALL steps, not just the last one
+              const toolCallParts = allToolInvocations;
+
+              const messageId = await this.sessionService.addMessage(sessionId, {
                 role: 'assistant',
                 content: text,
-                parts: Array.isArray(assistantParts) ? assistantParts : undefined,
+                parts: toolCallParts.length > 0 ? toolCallParts : undefined,
               });
-              this.logger.log(`[Orchestrator] Persisted assistant reply to session ${sessionId} (${text.length} chars)`);
+              this.logger.log(`[Orchestrator] Persisted assistant reply: ${text.length} chars, ${toolCallParts.length} tool parts (accumulated from ${allToolInvocations.length} steps)`);
+
+              // ── Step 2b: 提取 UI 快照并持久化（Capsule 快照存储）────
+              if (toolCallParts.length > 0) {
+                await this.saveCapsuleSnapshots(messageId, sessionId, toolCallParts);
+              }
 
               // ── Step 3: 自动生成标题（第一轮对话时）─────────────
               await this.maybeSummarizeTitle(sessionId, messages, text, modelId);
             } catch (err: any) {
               this.logger.error(`Failed to persist assistant reply: ${err.message}`);
+              this.logger.error(err.stack);
             }
           }
         },
@@ -458,6 +511,76 @@ ${catalogXml}`;
     } catch (err: any) {
       this.logger.warn(`Auto-title generation failed: ${err.message}`);
     }
+  }
+
+  /**
+   * Extract UI snapshots from tool call parts and persist them as CapsuleSnapshot records.
+   *
+   * Design principle: Capsule content is a self-contained snapshot, not a reference.
+   * Even if the external data (e.g., ZenTao bug) is deleted, the historical capsule
+   * will still render correctly.
+   */
+  private async saveCapsuleSnapshots(messageId: string, sessionId: string, parts: any[]): Promise<void> {
+    const prisma = this.sessionService['prisma'];
+    let snapshotCount = 0;
+
+    for (const part of parts) {
+      const result = part.output || part.result;
+      if (result?.ui) {
+        const ui = result.ui;
+        const title = this.generateCapsuleTitle(ui);
+
+        try {
+          await prisma.capsuleSnapshot.create({
+            data: {
+              messageId,
+              toolCallId: part.toolCallId,
+              uiType: ui.uiType,
+              title,
+              content: ui.props, // Full snapshot of UI props
+              version: 1,
+            },
+          });
+          snapshotCount++;
+        } catch (err: any) {
+          // Non-fatal: snapshot failure should not break the main message persistence
+          this.logger.warn(`Failed to save capsule snapshot for ${part.toolCallId}: ${err.message}`);
+        }
+      }
+    }
+
+    if (snapshotCount > 0) {
+      this.logger.log(`[Orchestrator] Saved ${snapshotCount} capsule snapshot(s) for message ${messageId}`);
+    }
+  }
+
+  /**
+   * Generate a human-readable title for a capsule snapshot.
+   */
+  private generateCapsuleTitle(ui: any): string {
+    const props = ui.props || {};
+
+    // Try common title fields
+    if (props.title) return props.title;
+    if (props.name) return props.name;
+    if (props.id) return `#${props.id}`;
+
+    // Fallback to uiType
+    const typeLabels: Record<string, string> = {
+      bug_card: '缺陷详情',
+      bug_list: '缺陷列表',
+      pipeline_card: '流水线状态',
+      task_plan: '任务计划',
+      approval_card: '审批请求',
+      zentao_task_card: '禅道任务',
+      leave_request_form: '请假申请',
+      diff_viewer: '代码差异',
+      print_console: '打印控制台',
+      stats_card: '统计数据',
+      code_block: '代码片段',
+    };
+
+    return typeLabels[ui.uiType] || ui.uiType || '交互结果';
   }
 
   // ──────────────────────────────────────────────

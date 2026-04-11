@@ -68,12 +68,34 @@ export class ChatService {
   private getTools() {
     return {
       getBugInfo: tool({
-        description: '获取指定 Bug ID 的详细信息',
+        description: '获取指定 Bug ID 的详细信息，结果将以卡片形式展示',
         inputSchema: z.object({
           bugId: z.string().describe('缺陷的 ID，如 BUG-2048'),
         }),
         execute: async ({ bugId }) => {
-          return await this.zentaoService.getBugInfo(bugId);
+          const bug = await this.zentaoService.getBugInfo(bugId);
+          if (!bug) {
+            return { found: false, message: `未找到 BUG-${bugId}` };
+          }
+          // 关键：只返回最小信息给模型，避免模型复述卡片内容
+          // 完整数据通过 ui 字段传递给前端渲染
+          return {
+            found: true,
+            bugId: bug.id,
+            // 不返回 title/status/severity/assignee 等字段，防止模型复述
+            ui: {
+              uiType: 'bug_card',
+              props: {
+                id: bug.id,
+                title: bug.title,
+                status: bug.status,
+                assignee: bug.assignee,
+                severity: bug.severity,
+                description: bug.description,
+                createdAt: bug.createdAt,
+              },
+            },
+          };
         },
       }),
       searchBugs: tool({
