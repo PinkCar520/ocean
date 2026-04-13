@@ -1,34 +1,112 @@
 #!/usr/bin/env node
 
-import * as fs from 'node:fs/promises';
+/**
+ * UClaw CLI - Entry Point
+ * 
+ * Dual mode:
+ * - `uclaw <command>` - Single command execution
+ * - `uclaw` (no args) - Interactive REPL mode
+ */
+
+import { Command } from 'commander';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import * as path from 'node:path';
-import { Command } from 'commander';
-import inquirer from 'inquirer';
-import { io } from 'socket.io-client';
-import { ZentaoTool } from '@uclaw/tools-zentao';
-import { RPCMessage } from '@uclaw/core';
 import * as dotenv from 'dotenv';
+import chalk from 'chalk';
 
-// 加载环境变量：支持读取 monorepo 根目录或 gateway 目录下的 .env
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-dotenv.config({ path: path.resolve(__dirname, '../../../apps/gateway/.env') });
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+// ESM __dirname replacement
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load env
+// dist/index.js is at apps/cli/dist, .env is at project root
+// Need to go up 3 levels: dist -> cli -> apps -> project-root
+const envRoot = path.resolve(__dirname, '../../..');
+const envResult1 = dotenv.config({ path: path.join(envRoot, '.env'), override: true });
+const envResult2 = dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true });
+
+// Sanity check - always print, not just when DEBUG
+console.log(`[dotenv debug] __dirname=${__dirname}`);
+console.log(`[dotenv debug] envRoot=${envRoot}`);
+console.log(`[dotenv debug] envResult1 parsed keys=${Object.keys(envResult1.parsed || {}).length}`);
+console.log(`[dotenv debug] VLLM_API_BASE=${process.env.VLLM_API_BASE || '(undefined)'}`);
+console.log(`[dotenv debug] DASHSCOPE_API_BASE=${process.env.DASHSCOPE_API_BASE || '(undefined)'}`);
 
 const execAsync = promisify(exec);
+
+// Import submodules (will be created)
+import { runRepl } from './repl.js';
+import { runDaemon } from './daemon.js';
+
 const program = new Command();
 
-// 初始化禅道工具 (正式模式)
-const zentao = new ZentaoTool({
-  baseUrl: process.env.ZENTAO_BASE_URL || '',
-  token: process.env.ZENTAO_API_TOKEN || '',
-  isMock: !process.env.ZENTAO_BASE_URL // 如果没填 URL 则自动进入 Mock 模式
-});
+program
+  .name('uclaw')
+  .description('UClaw AI Workstream Terminal Node')
+  .version('1.0.0');
 
-/**
- * 自动探测本地身份：Git 用户名 > 系统用户名
- */
+// ─── Default: REPL Mode ──────────────────────────────────────
+program
+  .argument('[query]', 'Direct query (exits after answering)')
+  .option('-m, --model <model>', 'Model to use')
+  .option('-w, --workspace <path>', 'Workspace directory', process.cwd())
+  .option('-u, --user <userId>', 'User ID')
+  .action(async (query, options) => {
+    const userId = options.user || await getAutoUserId();
+    const workspace = path.resolve(options.workspace);
+
+    if (query) {
+      // Single query mode - non-interactive
+      console.log(chalk.cyan(`[UClaw] Query: ${query}`));
+      console.log(chalk.cyan(`[UClaw] User: ${userId}`));
+      console.log(chalk.cyan(`[UClaw] Workspace: ${workspace}\n`));
+      await runRepl({ userId, workspace, singleQuery: query });
+    } else {
+      // Interactive REPL
+      console.log(chalk.bold('\n🐼 UClaw Terminal AI'));
+      console.log(chalk.gray(`User: ${userId} | Workspace: ${workspace}`));
+      console.log(chalk.gray('Type your question or use /help for commands\n'));
+      await runRepl({ userId, workspace });
+    }
+  });
+
+// ─── Daemon Mode ─────────────────────────────────────────────
+program
+  .command('daemon')
+  .description('Start persistent UClaw node daemon to await commands from Gateway')
+  .option('-u, --user <userId>', 'User ID for identity binding (default: auto-detected)')
+  .action(async (options) => {
+    const userId = options.user || await getAutoUserId();
+    await runDaemon({ userId });
+  });
+
+// ─── Legacy: Start Command ───────────────────────────────────
+program
+  .command('start')
+  .description('Start UClaw interaction pointing to a task/bug')
+  .argument('[task_id]', 'ID of the ZenTao or GitLab task')
+  .action(async (taskId) => {
+    const userId = await getAutoUserId();
+    const workspace = process.cwd();
+
+    if (taskId) {
+      console.log(chalk.cyan(`[UClaw] Fetching ZenTao context for: ${taskId}...`));
+      console.log(chalk.cyan(`[UClaw] User: ${userId}\n`));
+      await runRepl({
+        userId,
+        workspace,
+        singleQuery: `帮我查看禅道缺陷 ${taskId} 的详情并分析如何修复`
+      });
+    } else {
+      console.log(chalk.cyan('[UClaw] Initializing general analysis...\n'));
+      await runRepl({ userId, workspace });
+    }
+  });
+
+// ─── Helpers ─────────────────────────────────────────────────
 async function getAutoUserId(): Promise<string> {
   try {
     const { stdout } = await execAsync('git config user.name');
@@ -37,154 +115,5 @@ async function getAutoUserId(): Promise<string> {
     return process.env.USER || 'unknown_dev';
   }
 }
-
-program
-  .name('uclaw')
-  .description('UClaw AI Workstream Terminal Node')
-  .version('1.0.0');
-
-// --- 命令 A: 交互式启动 ---
-program
-  .command('start')
-  .description('Start UClaw interaction pointing to a task/bug')
-  .argument('[task_id]', 'ID of the ZenTao or GitLab task')
-  .action(async (taskId) => {
-    if (taskId) {
-      console.log(`\x1b[36m[UClaw]\x1b[0m Fetching ZenTao context for: ${taskId}...`);
-      const bug = await zentao.getBugInfo(taskId);
-      
-      if (bug) {
-        console.log(`\x1b[32m[Context Found]\x1b[0m`);
-        console.log(` > Title: ${bug.title}`);
-        console.log(` > Assignee: ${bug.assignee}`);
-        console.log(` > Severity: ${bug.severity}`);
-      } else {
-        console.log(`\x1b[33m[UClaw WARN]\x1b[0m No bug found with ID: ${taskId}. Proceeding with general context.`);
-      }
-    } else {
-      console.log(`\x1b[36m[UClaw]\x1b[0m Initializing general analysis...`);
-    }
-    
-    const answers = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'confirmPlan',
-        message: 'Plan generated based on .AIGUIDE.md. Do you approve this AST refactor plan?',
-        default: true
-      }
-    ]);
-    
-    if (answers.confirmPlan) {
-      console.log('✅ AST Refactoring started...');
-    } else {
-      console.log('❌ Refactoring cancelled.');
-    }
-  });
-
-// --- 命令 B: 后台 Daemon 模式 (RPC 监听) ---
-program
-  .command('daemon')
-  .description('Start persistent UClaw node daemon to await commands from Gateway')
-  .option('-u, --user <userId>', 'User ID for identity binding (default: auto-detected)')
-  .action(async (options) => {
-    const userId = options.user || await getAutoUserId();
-    console.log(`\x1b[32m[UClaw Daemon]\x1b[0m Identity: \x1b[1m${userId}\x1b[0m`);
-    console.log(`\x1b[32m[UClaw Daemon]\x1b[0m Connecting to Gateway (http://localhost:3000)...`);
-
-    const socket = io('http://localhost:3000', {
-      query: { userId }
-    });
-
-    socket.on('connect', () => {
-      console.log(`✅ [\x1b[32mSUCCESS\x1b[0m] Connected as node: ${userId}`);
-    });
-
-    socket.on('rpc_request', async (data: RPCMessage) => {
-      console.log(`\x1b[36m[RPC Request]\x1b[0m ID: ${data.id}, Method: ${data.method}`);
-
-      let result: any = null;
-      let error: string | null = null;
-
-      try {
-        // 安全闸门：敏感操作需要人工 Y/N 确认
-        const sensitiveMethods = ['git_commit', 'npm_build', 'git_add'];
-        if (sensitiveMethods.includes(data.method)) {
-          console.log(`\x1b[33m[SECURITY ALERT]\x1b[0m Incoming sensitive command: \x1b[1m${data.method}\x1b[0m`);
-
-          const { confirmed } = await inquirer.prompt([{
-            type: 'confirm',
-            name: 'confirmed',
-            message: `[UClaw Security] Allow execution of "${data.method}"?`,
-            default: false
-          }]);
-
-          if (!confirmed) {
-            throw new Error('User manually denied command execution.');
-          }
-          console.log(`\x1b[32m[Security]\x1b[0m User approved. Executing...`);
-        }
-
-        // 获取 Git 根目录，确保指令全局有效
-        const getGitRoot = async () => {
-          const { stdout } = await execAsync('git rev-parse --show-toplevel');
-          return stdout.trim();
-        };
-
-        switch (data.method) {
-          case 'ls':
-            result = await fs.readdir(process.cwd());
-            break;
-          case 'git_status':
-            const { stdout: status } = await execAsync('git status');
-            result = status;
-            break;
-          case 'git_add':
-            const rootForAdd = await getGitRoot();
-            const files = data.params?.files || '.';
-            const { stdout: addOut } = await execAsync(`git add ${files}`, { cwd: rootForAdd });
-            result = addOut || `Successfully staged: ${files}`;
-            break;
-          case 'git_commit':
-            const rootForCommit = await getGitRoot();
-            const msg = (data.params?.message || 'UClaw auto-commit').replace(/"/g, '\\"');
-            // 注意：专业化处理，不再在 commit 里强行 add .，交给用户或 AI 先调用 git_add
-            const { stdout: commitOut } = await execAsync(`git commit -m "${msg}"`, { cwd: rootForCommit });
-            result = commitOut;
-            break;
-          case 'npm_build':
-            console.log('\x1b[33m[Build]\x1b[0m Running build process...');
-            const { stdout: buildOut } = await execAsync('npm run build');
-            result = buildOut;
-            break;
-          case 'read_file':
-            const filePath = data.params?.path;
-            if (!filePath) throw new Error('File path is required');
-            result = await fs.readFile(filePath, 'utf-8');
-            break;
-          default:
-            result = `Unknown method: ${data.method}`;
-        }
-      } catch (err: any) {
-
-        console.error(`\x1b[31m[RPC Error]\x1b[0m`, err.message);
-        error = err.message;
-      }
-
-      socket.emit('rpc_response', {
-        id: data.id,
-        result: result,
-        error: error
-      });
-      console.log(`\x1b[32m[RPC Response]\x1b[0m Sent result for ${data.id}`);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('\x1b[31m❌ Disconnected from Gateway.\x1b[0m');
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('\x1b[31m❌ Connection Error:\x1b[0m', err.message);
-    });
-  });
 
 program.parse(process.argv);

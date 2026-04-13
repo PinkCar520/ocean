@@ -41,7 +41,13 @@
       "Bash(docker compose exec *)",
       "Bash(docker compose down *)",
       "Bash(sudo *)",
-      "Bash(docker compose restart *)"
+      "Bash(docker compose restart *)",
+      "Read(//Users/caomeif/**)",
+      "Read(//Users/**)",
+      "Bash(mkdir *)",
+      "Bash(timeout *)",
+      "Bash(true)",
+      "Bash(gtimeout *)"
     ]
   },
   "$version": 3
