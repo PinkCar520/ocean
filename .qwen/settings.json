@@ -29,7 +29,19 @@
       "WebFetch(github.com)",
       "WebFetch(vercel.com)",
       "WebFetch(introl.com)",
-      "WebFetch(claude.com)"
+      "WebFetch(claude.com)",
+      "Bash(python3 *)",
+      "WebFetch(www.claudelog.com)",
+      "WebFetch(mcpplaygroundonline.com)",
+      "WebFetch(workos.com)",
+      "Bash(docker ps)",
+      "Bash(chmod *)",
+      "Bash(docker compose ps *)",
+      "Bash(docker compose logs *)",
+      "Bash(docker compose exec *)",
+      "Bash(docker compose down *)",
+      "Bash(sudo *)",
+      "Bash(docker compose restart *)"
     ]
   },
   "$version": 3

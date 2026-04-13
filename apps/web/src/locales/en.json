@@ -533,5 +533,59 @@
         "security_message": "This document contains sensitive financial data. Printing is restricted to authorized 3rd floor personnel only."
       }
     }
+  },
+  "permissions": {
+    "title": "Permission Settings",
+    "subtitle": "Claude Code compatible permission rule configuration",
+    "save": "Save",
+    "saving": "Saving...",
+    "refresh": "Refresh",
+    "loading": "Loading permissions...",
+    "error_fetch": "Failed to fetch settings",
+    "mode": {
+      "title": "Permission Mode",
+      "default": "Default",
+      "default_desc": "Prompt on first use",
+      "acceptEdits": "Accept Edits",
+      "acceptEdits_desc": "Auto-approve file edits, prompt for Bash commands",
+      "plan": "Plan Only",
+      "plan_desc": "Read-only mode, no write operations",
+      "bypass": "Bypass (CI/CD)",
+      "bypass_desc": "Skip all approvals, for CI/CD environments"
+    },
+    "token_limit": {
+      "title": "MCP Output Token Limit",
+      "hint": "Prevent MCP tool responses from exceeding context window (recommended: 25000)"
+    },
+    "patterns": {
+      "title": "Quick Patterns (allow / deny / ask)",
+      "hint": "Simple pattern lists. Evaluated in order: deny → allow → ask → rules.",
+      "placeholder": "Enter pattern and press Enter...",
+      "add": "Add"
+    },
+    "rules": {
+      "title": "Detailed Rules",
+      "hint": "Evaluated top-down, first match wins. Supports wildcards: *, ?",
+      "add": "Add Rule",
+      "empty": "No detailed rules configured yet.",
+      "action": "Action",
+      "pattern": "Pattern",
+      "comment": "Comment (optional)",
+      "comment_placeholder": "Description...",
+      "pattern_placeholder": "e.g. mcp__zentao:*, Bash(git:*)",
+      "cancel": "Cancel"
+    },
+    "test": {
+      "title": "Test Tool Evaluation",
+      "label": "Tool Name",
+      "placeholder": "e.g. getBugInfo, mcp__zentao:createProduct",
+      "evaluate": "Evaluate",
+      "result": "Tool \"{tool}\" → {action}"
+    },
+    "actions": {
+      "allow": "Allow",
+      "deny": "Deny",
+      "ask": "Ask"
+    }
   }
 }

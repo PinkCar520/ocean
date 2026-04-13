@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronRight, Sun, Moon, Globe, 
-  User, Edit2, CreditCard, Key, 
+import {
+  ChevronRight, Sun, Moon, Globe,
+  User, Edit2, CreditCard, Key,
   Plus, MoreVertical, TerminalSquare, Rocket, MonitorSmartphone,
-  Save, ShieldCheck, RefreshCw, LogOut
+  Save, ShieldCheck, RefreshCw, LogOut, Shield
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
+import { PermissionManager } from './PermissionManager';
 
 export function UserCenter({ onLogout }: { onLogout?: () => void }) {
   const { t, i18n } = useTranslation();
@@ -117,6 +118,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
             <div className="flex flex-col space-y-1">
               {[
                 { id: 'general', label: t('user_center.tabs.general'), icon: MonitorSmartphone },
+                { id: 'permissions', label: 'Permissions', icon: Shield },
                 { id: 'profile', label: t('user_center.tabs.profile'), icon: User },
                 { id: 'integrations', label: t('user_center.tabs.integrations'), icon: Key },
                 { id: 'billing', label: t('user_center.tabs.billing'), icon: CreditCard },
@@ -161,7 +163,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
                     <div className="space-y-6">
                       <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-[#716B67] mb-3">{t('user_center.general.default_model')}</label>
-                        <select 
+                        <select
                           value={preferredModel}
                           onChange={(e) => updatePreferences({ defaultModel: e.target.value })}
                           className="w-full bg-[#f6f3f2] border border-transparent focus:bg-white focus:border-[#E8E4E2]/50 rounded-xl px-4 py-3 text-sm font-bold text-[#1C1B1B] outline-none transition-all cursor-pointer"
@@ -187,7 +189,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
                     <div className="space-y-6">
                       <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-[#716B67] mb-3">{t('user_center.general.language')}</label>
-                        <select 
+                        <select
                           value={i18n.language?.startsWith('zh') ? 'zh' : 'en'}
                           onChange={(e) => i18n.changeLanguage(e.target.value)}
                           className="w-full bg-[#f6f3f2] border border-transparent focus:bg-white focus:border-[#E8E4E2]/50 rounded-xl px-4 py-3 text-sm font-bold text-[#1C1B1B] outline-none transition-all cursor-pointer"
@@ -204,6 +206,12 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
                   </div>
                 </section>
               </>
+            )}
+
+            {activeSubTab === 'permissions' && (
+              <section className="md:col-span-2">
+                <PermissionManager />
+              </section>
             )}
 
             {activeSubTab === 'profile' && (

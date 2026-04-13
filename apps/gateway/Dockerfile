@@ -13,6 +13,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/gateway/package.json apps/gateway/
 COPY agent/mcp/mcp-im/package.json agent/mcp/mcp-im/
 COPY agent/mcp/mcp-zentao/package.json agent/mcp/mcp-zentao/
+COPY agent/mcp/mcp-jenkins/package.json agent/mcp/mcp-jenkins/
+COPY agent/mcp/mcp-gitlab/package.json agent/mcp/mcp-gitlab/
 COPY packages/shared/core/package.json packages/shared/core/
 COPY packages/tools/zentao/package.json packages/tools/zentao/
 COPY agent/skills/package.json agent/skills/
@@ -33,6 +35,8 @@ COPY . .
 RUN pnpm --filter @uclaw/core build
 RUN pnpm --filter @uclaw/tools-zentao build
 RUN pnpm --filter @uclaw/mcp-zentao build
+RUN pnpm --filter @uclaw/mcp-jenkins build
+RUN pnpm --filter @uclaw/mcp-gitlab build
 RUN pnpm --filter @uclaw/mcp-im build
 RUN pnpm --filter gateway build
 
@@ -43,20 +47,16 @@ RUN corepack enable
 
 ENV NODE_ENV=production
 
-# 拷贝全量 package 配置
+# 拷贝运行时所需的 workspace 元数据与已安装依赖
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/gateway/package.json apps/gateway/
 COPY apps/gateway/prisma apps/gateway/prisma
 COPY apps/gateway/prisma.config.js apps/gateway/prisma.config.js
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/gateway/node_modules ./apps/gateway/node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/agent/mcp ./agent/mcp
 COPY --from=builder /app/agent/skills ./agent/skills
-
-# 安装生产依赖 (开启 frozen-lockfile 严谨校验)
-RUN pnpm install --prod --frozen-lockfile
-
-# 在运行时阶段生成 Prisma Client
-RUN cd apps/gateway && ./node_modules/.bin/prisma generate
 
 # 拷贝编译后的产物
 COPY --from=builder /app/apps/gateway/dist ./apps/gateway/dist

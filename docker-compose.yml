@@ -21,10 +21,16 @@ services:
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
       - ZENTAO_BASE_URL=http://zentao:80
+      - JENKINS_BASE_URL=http://jenkins:8080
+      - GITLAB_BASE_URL=http://gitlab:80
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_started
+      jenkins:
+        condition: service_started
+      gitlab:
         condition: service_started
 
   # UClaw AI 可视化面板 (React/Vite + Nginx)
@@ -119,9 +125,45 @@ services:
     volumes:
       - uclaw_redis_data:/data
 
+  # Jenkins CI/CD
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: uclaw-jenkins
+    restart: always
+    ports:
+      - "8082:8080"
+      - "50000:50000"
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    volumes:
+      - uclaw_jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # GitLab 代码托管
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: uclaw-gitlab
+    restart: always
+    ports:
+      - "8083:80"
+      - "443:443"
+      - "22:22"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8083'
+        gitlab_rails['initial_root_password'] = 'gitlab_admin_pass'
+    volumes:
+      - uclaw_gitlab_data:/etc/gitlab
+      - uclaw_gitlab_logs:/var/log/gitlab
+      - uclaw_gitlab_data:/var/opt/gitlab
+    shm_size: '256m'
+
 volumes:
   uclaw_postgres_data:
   uclaw_redis_data:
   uclaw_zentao_data:
   uclaw_zentao_mysql:
   uclaw_gateway_uploads:
+  uclaw_jenkins_data:
+  uclaw_gitlab_data:
+  uclaw_gitlab_logs:

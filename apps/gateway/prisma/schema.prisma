@@ -200,9 +200,13 @@ model MCPServer {
   description String?  @db.Text
   category    String?  // 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science'
   transport   String   @default("stdio") // 'stdio' | 'sse' | 'http'
-  command     String?  // 启动命令
-  args        Json?    // 启动参数
-  env         Json?    // 环境变量
+  command     String?  // 启动命令（stdio 模式）
+  args        Json?    // 启动参数（stdio 模式）
+  env         Json?    // 环境变量（stdio 模式）
+  url         String?  // 远程 URL（sse/http 模式）
+  headers     Json?    // 自定义请求头（sse/http 模式）
+  approved    Boolean  @default(false) // 是否已审批
+  approvalConfig Json? // 审批配置 JSON {mode, allowedTools, disallowedTools, patterns}
   status      String   @default("unknown") // 'online' | 'degraded' | 'offline' | 'unknown'
   lastCheck   DateTime?
   enabled     Boolean  @default(true)
@@ -210,4 +214,34 @@ model MCPServer {
   updatedAt   DateTime @updatedAt
 
   @@map("mcp_servers")
+}
+
+// MCP 提示词模板
+model MCPPrompt {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  serverId    String?  // 关联的 MCP Server ID（NULL 表示内置提示词）
+  template    String   @db.Text
+  variables   Json?    // 变量定义 [{name, description, required}]
+  version     String   @default("1.0.0")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mcp_prompts")
+}
+
+// MCP 资源缓存
+model MCPResourceCache {
+  id          String   @id @default(uuid())
+  uri         String   @unique
+  serverId    String?  // 来源 MCP Server ID
+  content     String   @db.Text
+  mimeType    String?  // MIME 类型
+  expiresAt   DateTime // 过期时间
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("mcp_resource_cache")
 }

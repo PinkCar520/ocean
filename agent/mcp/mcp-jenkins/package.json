@@ -1,0 +1,21 @@
+{
+  "name": "@uclaw/mcp-jenkins",
+  "version": "1.0.0",
+  "description": "Jenkins CI/CD MCP Server for UClaw",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "@uclaw/tools-jenkins": "workspace:*",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}
