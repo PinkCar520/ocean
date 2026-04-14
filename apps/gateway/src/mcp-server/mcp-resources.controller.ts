@@ -9,11 +9,15 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  SetMetadata,
 } from '@nestjs/common';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { MCPConfigWatcher } from '../mcp/mcp-config.watcher';
+import { IS_PUBLIC_KEY } from '../auth/sso.guard';
 import type { MCPPrompt, MCPResource, MCPResourceContents, MCPElicitationResponse } from '../mcp/mcp.types';
 import type { GetPromptResult } from '@modelcontextprotocol/sdk/types.js';
+
+const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 /**
  * MCP Resources & Prompts 控制器
@@ -38,6 +42,7 @@ export class MCPResourcesController {
    * GET /api/mcp/resources
    * 获取所有 MCP Server 的资源列表
    */
+  @Public()
   @Get('resources')
   async listResources(): Promise<{ success: boolean; data: MCPResource[] }> {
     const resources = await this.mcpManager.listResources();
@@ -48,6 +53,7 @@ export class MCPResourcesController {
    * GET /api/mcp/resource-templates
    * 获取所有资源模板列表
    */
+  @Public()
   @Get('resource-templates')
   async listResourceTemplates(): Promise<{ success: boolean; data: any[] }> {
     const templates = await this.mcpManager.listResourceTemplates();
@@ -59,6 +65,7 @@ export class MCPResourcesController {
    * 读取指定资源的内容
    * Query: uri (必需), serverId (可选)
    */
+  @Public()
   @Get('resources/read')
   async readResource(
     @Query('uri') uri: string,
@@ -76,6 +83,7 @@ export class MCPResourcesController {
    * GET /api/mcp/prompts
    * 获取所有提示词模板列表
    */
+  @Public()
   @Get('prompts')
   async listPrompts(): Promise<{ success: boolean; data: MCPPrompt[] }> {
     const prompts = await this.mcpManager.listPrompts();
@@ -87,6 +95,7 @@ export class MCPResourcesController {
    * 获取指定提示词的完整内容（含变量填充）
    * Body: { args?: Record<string, string>, serverId?: string }
    */
+  @Public()
   @Post('prompts/:name')
   @HttpCode(HttpStatus.OK)
   async getPrompt(
@@ -108,6 +117,7 @@ export class MCPResourcesController {
    * GET /api/mcp/elicitations
    * 获取待处理的征求请求列表
    */
+  @Public()
   @Get('elicitations')
   async getPendingElicitations(): Promise<{ success: boolean; data: any[] }> {
     const elicitations = this.mcpManager.getPendingElicitations();

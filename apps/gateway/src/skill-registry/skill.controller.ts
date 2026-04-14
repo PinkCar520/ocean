@@ -45,6 +45,33 @@ export class SkillController {
   }
 
   /**
+   * GET /api/skills/catalog
+   * 获取技能目录（名称 + 本地化信息，用于工具名称翻译）
+   */
+  @Public()
+  @Get('catalog')
+  async getCatalog() {
+    const skills = await this.skillService.getSkills({});
+    const catalog = skills.map((s: any) => ({
+      id: s.id,
+      slug: s.slug,
+      name: s.name,
+      description: s.description,
+      locales: {
+        zh: {
+          displayName: s.name,
+          description: s.description,
+        },
+        en: {
+          displayName: s.name,
+          description: s.description,
+        },
+      },
+    }));
+    return catalog;
+  }
+
+  /**
    * GET /api/skills/:id
    * 获取技能详情
    */

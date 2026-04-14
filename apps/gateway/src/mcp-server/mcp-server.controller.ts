@@ -1,5 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, HttpCode, HttpStatus, SetMetadata } from '@nestjs/common';
 import { MCPServerService, CreateMCPServerDto, UpdateMCPServerDto } from './mcp-server.service';
+import { IS_PUBLIC_KEY } from '../auth/sso.guard';
+
+const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 @Controller('api/mcp-servers')
 export class MCPServerController {
@@ -9,6 +12,7 @@ export class MCPServerController {
    * GET /api/mcp-servers
    * 获取 MCP Server 列表
    */
+  @Public()
   @Get()
   async getServers(@Body() body?: { category?: string; enabled?: boolean }) {
     const servers = await this.mcpServerService.getServers(body);
@@ -19,6 +23,7 @@ export class MCPServerController {
    * GET /api/mcp-servers/:id
    * 获取单个 MCP Server
    */
+  @Public()
   @Get(':id')
   async getServer(@Param('id') id: string) {
     const server = await this.mcpServerService.getServerById(id);
@@ -29,6 +34,7 @@ export class MCPServerController {
    * GET /api/mcp-servers/:id/health
    * 健康检查
    */
+  @Public()
   @Get(':id/health')
   async checkHealth(@Param('id') id: string) {
     const result = await this.mcpServerService.checkHealth(id);
@@ -39,6 +45,7 @@ export class MCPServerController {
    * POST /api/mcp-servers/health/all
    * 批量健康检查
    */
+  @Public()
   @Post('health/all')
   async checkAllHealth() {
     const statuses = await this.mcpServerService.checkAllServers();
@@ -49,6 +56,7 @@ export class MCPServerController {
    * POST /api/mcp-servers/sync
    * 从 mcp.config.json 同步到数据库
    */
+  @Public()
   @Post('sync')
   async syncFromConfig() {
     const result = await this.mcpServerService.syncFromConfig();

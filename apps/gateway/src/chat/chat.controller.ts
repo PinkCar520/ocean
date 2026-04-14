@@ -1,10 +1,13 @@
-import { Controller, Get, Post, Body, Req, Res, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Res, Headers, SetMetadata } from '@nestjs/common';
 import type { Response } from 'express';
 import { ChatService } from './chat.service';
 import { SkillOrchestrator } from '../skill/skill.orchestrator';
 import { SkillLoader } from '../skill/skill.loader';
 import { UpChatHandler } from '@uclaw/mcp-im';
 import type { SkillContext } from '@uclaw/core';
+import { IS_PUBLIC_KEY } from '../auth/sso.guard';
+
+const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 @Controller('api/chat')
 export class ChatController {
@@ -20,6 +23,7 @@ export class ChatController {
    * GET /api/chat/skills
    * 返回当前 Gateway 发现的所有技能列表（SKILL.md frontmatter）
    */
+  @Public()
   @Get('skills')
   async getSkills() {
     const skills = await this.skillLoader.discover();
@@ -40,6 +44,7 @@ export class ChatController {
    * GET /api/chat/models
    * 返回当前 Gateway 可用的模型列表，并附带当前影子用户的持久化 ID
    */
+  @Public()
   @Get('models')
   async getModels(@Req() req: any) {
     const models = this.skillOrchestrator.getAvailableModels();
@@ -109,6 +114,7 @@ export class ChatController {
    * 银联 UpChat IM Bot Webhook
    * 🔄 已切换到 SkillOrchestrator（非流式文本响应）
    */
+  @Public()
   @Post('webhook-im')
   async handleImWebhook(
     @Body() payload: any,

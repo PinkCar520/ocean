@@ -418,7 +418,7 @@ ${catalogXml}`;
                   const decoded = Buffer.from(base64Data, 'base64').toString('utf-8');
                   parts.push({
                     type: 'text',
-                    text: `\n\n---\n📎 **文件附件: ${name}**\n\`\`\`\n${decoded}\n\`\`\`\n---`,
+                    text: `\n\n---\n[ATTACH] **文件附件: ${name}**\n\`\`\`\n${decoded}\n\`\`\`\n---`,
                   });
                   this.logger.log(`[Orchestrator] Injected file content: "${name}" (${decoded.length} chars)`);
                 }

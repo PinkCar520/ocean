@@ -2,19 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { randomBytes, createHash } from 'crypto';
 
-export interface AuthCodeRecord {
-  code: string;
-  userId: string;
-  workId: string;
-  createdAt: number;
-}
-
-/**
- * Simple in-memory auth code store (codes expire in 5 minutes)
- * For production, use Redis or the database.
- */
-const codeStore = new Map<string, AuthCodeRecord>();
-const CODE_EXPIRY_MS = 5 * 60 * 1000;
+const CODE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
 @Injectable()
 export class OAuthService {
@@ -24,35 +12,56 @@ export class OAuthService {
    * Step 1: Generate an authorization code for a logged-in user.
    * Called after user completes login on the web.
    */
-  generateAuthCode(userId: string, workId: string): string {
+  async generateAuthCode(userId: string, workId: string): Promise<string> {
     const code = randomBytes(32).toString('hex');
-    codeStore.set(code, {
-      code,
-      userId,
-      workId,
-      createdAt: Date.now(),
+    const expiresAt = new Date(Date.now() + CODE_EXPIRY_MS);
+
+    await this.prisma.authCode.create({
+      data: {
+        code,
+        userId,
+        workId,
+        expiresAt,
+        consumed: false,
+      },
     });
-    // Auto-cleanup after expiry
-    setTimeout(() => codeStore.delete(code), CODE_EXPIRY_MS);
+
     return code;
   }
 
   /**
    * Step 2: Validate and consume an auth code.
-   * Returns user info or null if invalid/expired.
+   * Returns user info or null if invalid/expired/already consumed.
    */
   async consumeAuthCode(code: string): Promise<{ userId: string; workId: string } | null> {
-    const record = codeStore.get(code);
+    // Find the code in database
+    const record = await this.prisma.authCode.findUnique({
+      where: { code },
+    });
+
+    // Check existence
     if (!record) return null;
 
-    // Check expiry
-    if (Date.now() - record.createdAt > CODE_EXPIRY_MS) {
-      codeStore.delete(code);
+    // Check if already consumed (one-time use)
+    if (record.consumed) {
+      // Delete to prevent reuse
+      await this.prisma.authCode.delete({ where: { id: record.id } }).catch(() => {});
       return null;
     }
 
-    // Consume (one-time use)
-    codeStore.delete(code);
+    // Check expiry
+    if (new Date() > record.expiresAt) {
+      // Delete expired code
+      await this.prisma.authCode.delete({ where: { id: record.id } }).catch(() => {});
+      return null;
+    }
+
+    // Mark as consumed (atomic update)
+    await this.prisma.authCode.update({
+      where: { id: record.id },
+      data: { consumed: true },
+    });
+
     return { userId: record.userId, workId: record.workId };
   }
 

@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Query, Body, Req, Res, SetMetadata, UnauthorizedException } from '@nestjs/common';
 import { Response } from 'express';
+import { JwtService } from '@nestjs/jwt';
 import { OAuthService } from './oauth.service';
 import { IS_PUBLIC_KEY } from './sso.guard';
 
@@ -7,7 +8,10 @@ const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 @Controller('api/auth')
 export class OAuthController {
-  constructor(private oauthService: OAuthService) {}
+  constructor(
+    private oauthService: OAuthService,
+    private jwtService: JwtService,
+  ) {}
 
   /**
    * GET /api/auth/oauth/authorize
@@ -25,7 +29,7 @@ export class OAuthController {
   ) {
     // If user is already authenticated via JWT
     if (req.user?.workId) {
-      const code = this.oauthService.generateAuthCode(req.user.dbId, req.user.workId);
+      const code = await this.oauthService.generateAuthCode(req.user.dbId, req.user.workId);
       const callbackUrl = redirectUri || `http://localhost:${port}/callback`;
       const separator = callbackUrl.includes('?') ? '&' : '?';
       const finalUrl = `${callbackUrl}${separator}code=${code}&state=${state || ''}`;
@@ -132,16 +136,16 @@ export class OAuthController {
       throw new UnauthorizedException('Missing token.');
     }
 
-    // Decode JWT to get user info
+    // Decode JWT with signature verification
     let payload: any;
     try {
-      payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      payload = this.jwtService.verify(token);
     } catch {
-      throw new UnauthorizedException('Invalid token.');
+      throw new UnauthorizedException('Invalid or expired token.');
     }
 
     // Generate auth code
-    const code = this.oauthService.generateAuthCode(payload.sub, payload.workId);
+    const code = await this.oauthService.generateAuthCode(payload.sub, payload.workId);
 
     // Redirect to CLI local callback
     const callbackUrl = redirectUri || `http://localhost:${port}/callback`;

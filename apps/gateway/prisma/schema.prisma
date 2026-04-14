@@ -268,3 +268,18 @@ model MCPResourceCache {
   @@index([expiresAt])
   @@map("mcp_resource_cache")
 }
+
+// OAuth 授权码存储（支持多实例部署，5 分钟过期）
+model AuthCode {
+  id          String   @id @default(uuid())
+  code        String   @unique // 授权码
+  userId      String   // 用户 UUID
+  workId      String   // 工号
+  consumed    Boolean  @default(false) // 是否已被消费（一次性使用）
+  expiresAt   DateTime // 过期时间（5 分钟）
+  createdAt   DateTime @default(now())
+
+  @@index([code])
+  @@index([expiresAt])
+  @@map("auth_codes")
+}
