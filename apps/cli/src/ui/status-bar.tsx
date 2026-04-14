@@ -20,7 +20,7 @@ export function StatusBar({ userId, workspace, model, skills }: StatusBarProps) 
     <Box flexDirection="column" paddingBottom={1}>
       <Box>
         <Text bold color="cyan">
-          {'🦞 UClaw AI'}
+          {'🐼 UClaw'}
         </Text>
       </Box>
       <Box>

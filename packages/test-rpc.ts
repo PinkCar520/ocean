@@ -6,23 +6,23 @@ const socket = io('http://localhost:3000', {
 });
 
 socket.on('connect', () => {
-  console.log('✅ Connected as', userId);
+  console.log('✓ Connected as', userId);
 });
 
 socket.on('rpc_request', (data) => {
-  console.log('📥 Received Request:', data);
+  console.log('◁ Received Request:', data);
   socket.emit('rpc_response', {
     id: data.id,
     result: 'Mocked successful execution from test script'
   });
-  console.log('📤 Sent Response');
+  console.log('▷ Sent Response');
   
   // 验证完成后退出
   setTimeout(() => process.exit(0), 1000);
 });
 
 socket.on('connect_error', (err) => {
-  console.error('❌ Error:', err.message);
+  console.error('✗ Error:', err.message);
   process.exit(1);
 });
 

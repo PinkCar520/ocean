@@ -1,6 +1,6 @@
 ---
 name: gitlab
-description: "GitLab CI/CD 流水线管理与 Merge Request 操作。触发条件：用户需要列出项目、查看/创建/合并 MR、审查代码变更、管理合并请求、触发或查看流水线状态时使用。"
+description: "远程 GitLab 仓库管理。包括 CI/CD 流水线与 Merge Request 操作。触发条件：用户明确要求对远程项目进行列出、查看/创建/合并 MR、审查代码变更、管理合并请求、触发或查看流水线状态。注意：查看本地工作站代码或本地 Git 状态请使用本地工具。"
 allowed-tools:
   - listProjects
   - listMRs
@@ -15,20 +15,24 @@ requires-approval:
 compatibility: "需要 mcp-gitlab MCP Server 在线"
 locales:
   zh:
-    displayName: "GitLab 集成管理"
-    description: "GitLab CI/CD 流水线管理与 Merge Request 操作。支持触发流水线、查询状态、创建和管理 MR。"
+    displayName: "GitLab 远程集成"
+    description: "远程 GitLab 仓库管理。支持触发流水线、查询状态、创建和管理 MR。注意：本地代码查看请使用本地指令。"
   en:
-    displayName: "GitLab Integration"
-    description: "GitLab CI/CD pipeline management and Merge Request operations. Support triggering pipelines, checking status, creating and managing MRs."
+    displayName: "GitLab Remote Integration"
+    description: "Remote GitLab repository management. Support triggering pipelines, checking status, creating and managing MRs. Note: Use local commands for local code viewing."
 ---
 
-# GitLab — GitLab 项目管理与 MR 工作流
+# GitLab — 远程仓库管理与 MR 工作流
 
 ## 触发时机
 
-当用户提到以下任意关键词时，激活本 Skill：
-- 中文：GitLab、合并请求、MR、流水线、Pipeline、代码审查、Code Review、合并、合代码、看变更、变更文件
-- 英文：gitlab、merge request、MR、pipeline、code review、merge、changes、diff
+当用户明确提到以下远程操作关键词时，激活本 Skill：
+- 中文：远程仓库、GitLab、合并请求、MR、流水线、Pipeline、代码审查、Code Review、合并、合代码
+- 英文：remote repo, gitlab, merge request, MR, pipeline, code review, merge
+
+**重要区分**：
+- 如果用户只是说“看项目”、“看代码”、“看本地改动”，优先使用本地工作站指令。
+- 只有涉及远程同步、MR 流程或远端状态时，才激活本 Skill。
 
 ## 前置检查
 

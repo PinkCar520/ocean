@@ -271,12 +271,13 @@ function handleCommand(
   switch (command) {
     case 'help':
       console.log(chalk.bold('\n▤ Available Commands:'));
-      console.log('  /help              - Show this help');
-      console.log('  /clear             - Clear conversation history');
-      console.log('  /model [name]      - Switch model');
-      console.log('  /skills            - List available skills');
-      console.log('  /tools             - List available tools');
-      console.log('  /exit, /quit       - Exit REPL');
+      console.log(chalk.cyan('  /help              ') + chalk.white('- Show this help'));
+      console.log(chalk.cyan('  /clear             ') + chalk.white('- Clear conversation history'));
+      console.log(chalk.cyan('  /model [name]      ') + chalk.white('- Switch model'));
+      console.log(chalk.cyan('  /skills            ') + chalk.white('- List available skills'));
+      console.log(chalk.cyan('  /tools             ') + chalk.white('- List available tools'));
+      console.log(chalk.cyan('  /mcp               ') + chalk.white('- List MCP tools'));
+      console.log(chalk.cyan('  /exit, /quit       ') + chalk.white('- Exit REPL'));
       break;
     case 'clear':
       messages.length = 0;

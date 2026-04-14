@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
+import { getAuthHeaders } from '../lib/api';
 
 interface MCPServer {
   id: string;
@@ -78,7 +79,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   data_science: 'Data Science',
 };
 
-export function MCPServerManager() {
+export function MCPServerManager({ token }: { token?: string | null }) {
   const { t } = useTranslation();
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,11 +102,11 @@ export function MCPServerManager() {
 
   useEffect(() => {
     fetchServers();
-  }, []);
+  }, [token]);
 
   const fetchServers = async () => {
     try {
-      const res = await fetch('/api/mcp-servers');
+      const res = await fetch('/api/mcp-servers', { headers: getAuthHeaders(token) });
       const data = await res.json();
       setServers(data.data || []);
     } catch (err) {
@@ -120,7 +121,10 @@ export function MCPServerManager() {
     setCheckingHealth(true);
     setSpinKey((k) => k + 1);
     try {
-      const res = await fetch('/api/mcp-servers/health/all', { method: 'POST' });
+      const res = await fetch('/api/mcp-servers/health/all', { 
+        method: 'POST',
+        headers: getAuthHeaders(token)
+      });
       const data = await res.json();
       if (data.success) {
         await fetchServers();
@@ -141,7 +145,10 @@ export function MCPServerManager() {
     setSyncing(true);
     setSyncSpinKey((k) => k + 1);
     try {
-      const res = await fetch('/api/mcp-servers/sync', { method: 'POST' });
+      const res = await fetch('/api/mcp-servers/sync', { 
+        method: 'POST',
+        headers: getAuthHeaders(token)
+      });
       const data = await res.json();
       if (data.success) {
         await fetchServers();
@@ -170,7 +177,7 @@ export function MCPServerManager() {
 
       const res = await fetch('/api/skills/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -190,7 +197,10 @@ export function MCPServerManager() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this MCP server?')) return;
     try {
-      await fetch(`/api/mcp-servers/${id}`, { method: 'DELETE' });
+      await fetch(`/api/mcp-servers/${id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders(token)
+      });
       setServers((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       console.error('Delete failed:', err);
@@ -201,7 +211,7 @@ export function MCPServerManager() {
     try {
       await fetch(`/api/mcp-servers/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
         body: JSON.stringify({ enabled }),
       });
       setServers((prev) => prev.map((s) => (s.id === id ? { ...s, enabled } : s)));
@@ -239,10 +249,11 @@ export function MCPServerManager() {
     };
 
     try {
+      const headers = { 'Content-Type': 'application/json', ...getAuthHeaders(token) };
       if (editingId) {
         const res = await fetch(`/api/mcp-servers/${editingId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload),
         });
         const data = await res.json();
@@ -250,7 +261,7 @@ export function MCPServerManager() {
       } else {
         const res = await fetch('/api/mcp-servers', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload),
         });
         const data = await res.json();

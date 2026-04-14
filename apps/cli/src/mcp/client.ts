@@ -167,19 +167,28 @@ export class McpClientManager {
    */
   async disconnectAll() {
     const serverIds = Array.from(this.clients.keys());
-    process.stderr.write(`[MCP] Disconnecting ${serverIds.length} servers: ${serverIds.join(', ')}\n`);
 
     for (const [serverId, client] of this.clients) {
       try {
-        process.stderr.write(`[MCP] Closing server: ${serverId}...\n`);
         await client.close();
-        process.stderr.write(`[MCP] Closed server: ${serverId}\n`);
       } catch (err: any) {
-        process.stderr.write(`[MCP] Error closing ${serverId}: ${err.message}\n`);
+        // ignore
       }
     }
     this.clients.clear();
-    process.stderr.write('[MCP] All servers disconnected\n');
+
+    // Force unref any lingering ChildProcess handles from the MCP SDK.
+    // The SDK's close() doesn't always properly unref the underlying process,
+    // causing Node.js to keep the event loop alive.
+    setImmediate(() => {
+      const handles = (process as any)._getActiveHandles?.() || [];
+      for (const h of handles) {
+        if (h && typeof h.unref === 'function' && h.spawnfile) {
+          // This is a dead or lingering ChildProcess — unref it
+          h.unref();
+        }
+      }
+    });
   }
 }
 

@@ -7,6 +7,7 @@ import {
   Settings2, Info, Play, Ban, HelpCircle, Eye
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { getAuthHeaders } from '../lib/api';
 
 // ──────────────────────────────────────────────
 // Types
@@ -61,7 +62,7 @@ const ACTION_COLORS: Record<PermissionAction, { bg: string; text: string; icon: 
 // Main Component
 // ──────────────────────────────────────────────
 
-export function PermissionManager() {
+export function PermissionManager({ token }: { token?: string | null }) {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<PermissionSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -75,13 +76,13 @@ export function PermissionManager() {
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [token]);
 
   const fetchSettings = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/permissions/settings');
+      const res = await fetch('/api/permissions/settings', { headers: getAuthHeaders(token) });
       if (!res.ok) throw new Error(t('permissions.error_fetch'));
       const data = await res.json();
       setSettings({
@@ -105,7 +106,7 @@ export function PermissionManager() {
     try {
       const res = await fetch('/api/permissions/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
         body: JSON.stringify(settings),
       });
       if (!res.ok) throw new Error(t('permissions.error_fetch'));
@@ -120,7 +121,9 @@ export function PermissionManager() {
   const testEvaluate = async () => {
     if (!testTool.trim()) return;
     try {
-      const res = await fetch(`/api/permissions/evaluate?toolName=${encodeURIComponent(testTool)}`);
+      const res = await fetch(`/api/permissions/evaluate?toolName=${encodeURIComponent(testTool)}`, {
+        headers: getAuthHeaders(token)
+      });
       const data = await res.json();
       setTestResult(data.action);
     } catch {

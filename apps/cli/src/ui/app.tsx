@@ -28,12 +28,17 @@ export interface InkAppProps {
   systemPrompt: string;
 }
 
+import { resolveApiKey, removeCredentials, getAutoUserId, saveCredentials } from '../utils/auth.js';
+import { runAuthMenu } from './auth.js';
+import { CONFIG } from '../utils/config.js';
+
 /**
  * Main Ink App component
  */
 export function InkApp(props: InkAppProps) {
   const { exit } = useApp();
 
+  const [userId, setUserId] = useState(props.userId);
   const [messages, setMessages] = useState<ModelMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [isWaitingInput, setIsWaitingInput] = useState(true);
@@ -105,7 +110,7 @@ export function InkApp(props: InkAppProps) {
     }
   }, [isThinking, messages, selectedModel, props]);
 
-  const handleCommand = useCallback((cmd: string) => {
+  const handleCommand = useCallback(async (cmd: string) => {
     const parts = cmd.slice(1).split(' ');
     const command = parts[0].toLowerCase();
     const args = parts.slice(1).join(' ');
@@ -115,6 +120,9 @@ export function InkApp(props: InkAppProps) {
         setCommandOutput(
           '▤ Available Commands:\n' +
           '  /help              - Show this help\n' +
+          '  /login             - Authenticate with Gateway\n' +
+          '  /logout            - Remove local credentials\n' +
+          '  /whoami            - Show current identity\n' +
           '  /clear             - Clear conversation history\n' +
           '  /model [name]      - Switch model\n' +
           '  /skills            - List available skills\n' +
@@ -123,6 +131,44 @@ export function InkApp(props: InkAppProps) {
           '  /exit, /quit       - Exit REPL',
         );
         setCommandType('help');
+        break;
+
+      case 'login':
+        setIsWaitingInput(false);
+        try {
+          const { action } = await runAuthMenu();
+          if (action === 'browser' || action === 'headless') {
+            setCommandOutput(`\nRedirecting to ${action} login flow... (Follow CLI prompt if any)`);
+          } else if (action === 'apiKey') {
+            setCommandOutput('\nPlease provide your API Key in the prompt above.');
+          }
+          // Note: Full OAuth flow might need to trigger outside of the pure Ink loop 
+          // but we can at least show the menu.
+          setCommandOutput('Authentication started. (Feature is bridging from CLI)');
+        } catch (err: any) {
+          setError(`Login failed: ${err.message}`);
+        }
+        setIsWaitingInput(true);
+        break;
+
+      case 'logout':
+        const removed = await removeCredentials();
+        if (removed) {
+          setCommandOutput('✓ Successfully logged out. Credentials removed.');
+          setUserId('guest');
+        } else {
+          setCommandOutput('! Already logged out.');
+        }
+        break;
+
+      case 'whoami':
+        const key = await resolveApiKey();
+        if (!key) {
+          setCommandOutput('Status: Not Logged In');
+        } else {
+          const id = await getAutoUserId();
+          setCommandOutput(`Status: Logged In\nIdentity: ${id}`);
+        }
         break;
 
       case 'clear':
@@ -201,7 +247,7 @@ export function InkApp(props: InkAppProps) {
   return (
     <Box flexDirection="column" width="100%">
       <StatusBar
-        userId={props.userId}
+        userId={userId}
         workspace={props.workspace}
         model={selectedModel}
         skills={props.skills}
@@ -302,7 +348,6 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
 
   await waitUntilExit();
   await mcpManager.disconnectAll();
-  // Force exit to clean up any lingering event loop references (Ink/React timers, etc.)
   process.exit(0);
 }
 

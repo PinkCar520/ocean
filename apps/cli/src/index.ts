@@ -11,13 +11,13 @@
 import { Command } from 'commander';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
-import * as os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import * as dotenv from 'dotenv';
 import chalk from 'chalk';
+import ora, { type Ora } from 'ora';
+import * as os from 'node:os';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 
 // ESM __dirname replacement
 const __filename = fileURLToPath(import.meta.url);
@@ -30,18 +30,21 @@ const envRoot = path.resolve(__dirname, '../../..');
 const envResult1 = dotenv.config({ path: path.join(envRoot, '.env'), override: true });
 const envResult2 = dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true });
 
-// Sanity check - always print, not just when DEBUG
-console.log(`[dotenv debug] __dirname=${__dirname}`);
-console.log(`[dotenv debug] envRoot=${envRoot}`);
-console.log(`[dotenv debug] envResult1 parsed keys=${Object.keys(envResult1.parsed || {}).length}`);
-console.log(`[dotenv debug] VLLM_API_BASE=${process.env.VLLM_API_BASE || '(undefined)'}`);
-console.log(`[dotenv debug] DASHSCOPE_API_BASE=${process.env.DASHSCOPE_API_BASE || '(undefined)'}`);
+// Debug logging (only when DEBUG env is set)
+if (process.env.DEBUG) {
+  console.log(`[dotenv debug] __dirname=${__dirname}`);
+  console.log(`[dotenv debug] envRoot=${envRoot}`);
+  console.log(`[dotenv debug] envResult1 parsed keys=${Object.keys(envResult1.parsed || {}).length}`);
+  console.log(`[dotenv debug] VLLM_API_BASE=${process.env.VLLM_API_BASE || '(undefined)'}`);
+  console.log(`[dotenv debug] DASHSCOPE_API_BASE=${process.env.DASHSCOPE_API_BASE || '(undefined)'}`);
+}
 
 const execAsync = promisify(exec);
 
 // Import submodules (will be created)
 import { runRepl } from './repl.js';
 import { runDaemon } from './daemon.js';
+import { resolveApiKey, saveCredentials, removeCredentials, getAutoUserId } from './utils/auth.js';
 
 const program = new Command();
 
@@ -50,6 +53,59 @@ program
   .description('UClaw AI Workstream Terminal Node')
   .version('1.0.0');
 
+/**
+ * Ensure user is authenticated before entering CLI session.
+ * Returns true if already authenticated or login succeeds.
+ */
+async function ensureAuth(gatewayUrl: string): Promise<boolean> {
+  const existing = await resolveApiKey();
+  if (existing) return true;
+
+  // Not authenticated, prompt user to login (Codex-style UI)
+  console.log(chalk.bold('\nWelcome to UClaw') + chalk.gray(", UClaw's command-line AI assistant"));
+  console.log(chalk.gray('Sign in via browser or provide an API key to get started\n'));
+
+  const { action } = await renderAuthMenu();
+
+  if (action === 'browser') await browserOAuthFlow(gatewayUrl);
+  if (action === 'headless') await headlessOAuthFlow(gatewayUrl);
+  if (action === 'apiKey') {
+    console.log('');
+    const { key } = await promptInput('Enter API Key:', '*');
+    await saveCredentials({ apiKey: key });
+    console.log(chalk.green('✓ API Key saved.'));
+  }
+
+  return true;
+}
+
+import { runAuthMenu } from './ui/auth.js';
+
+/**
+ * Render an interactive menu using the new Ink-based component.
+ */
+async function renderAuthMenu(): Promise<{ action: string }> {
+  return await runAuthMenu();
+}
+
+/**
+ * Simple prompt input
+ */
+async function promptInput(message: string, mask?: string): Promise<{ key: string }> {
+  const readline = await import('readline');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  return new Promise((resolve) => {
+    const prompt = (prefix = '') => {
+      rl.question(chalk.gray(`  ${message} `), (answer) => {
+        rl.close();
+        resolve({ key: answer });
+      });
+    };
+    prompt();
+  });
+}
+
 // ─── Default: REPL Mode ──────────────────────────────────────
 program
   .argument('[query]', 'Direct query (exits after answering)')
@@ -57,8 +113,14 @@ program
   .option('-w, --workspace <path>', 'Workspace directory', process.cwd())
   .option('-u, --user <userId>', 'User ID')
   .action(async (query, options) => {
-    const userId = options.user || await getAutoUserId();
+    const gatewayUrl = process.env.UCLAW_GATEWAY_URL || 'http://localhost:3000';
     const workspace = path.resolve(options.workspace);
+
+    // Ensure authenticated
+    const ok = await ensureAuth(gatewayUrl);
+    if (!ok) process.exit(0);
+
+    const userId = options.user || await getAutoUserId();
 
     if (query) {
       // Single query mode - non-interactive
@@ -88,139 +150,215 @@ program
 // ─── Login Command ──────────────────────────────────────────────────
 program
   .command('login')
-  .description('Authenticate with Gateway via browser OAuth (like Claude Code / Codex CLI)')
-  .option('--api-key <key>', 'Directly set API Key (headless mode)')
-  .option('--force', 'Force re-login even if already authenticated')
+  .description('Authenticate with Gateway')
+  .option('--api-key <key>', 'Directly set API Key')
   .action(async (options) => {
     const gatewayUrl = process.env.UCLAW_GATEWAY_URL || 'http://localhost:3000';
 
     if (options.apiKey) {
       await saveCredentials({ apiKey: options.apiKey });
       console.log(chalk.green('✓ API Key saved.'));
-
-      // After login, automatically enter CLI session
-      const userId = process.env.UCLAW_WORK_ID || process.env.UCLAW_USER_ID || (await getAutoUserId());
-      console.log(chalk.bold('\nUClaw Terminal AI'));
-      console.log(chalk.gray(`User: ${userId} | Workspace: ${process.cwd()}\n`));
-      await runRepl({ userId, workspace: process.cwd() });
+      await enterCliSession();
       return;
     }
 
-    // ── Browser OAuth flow (same as Claude Code / Codex / Gemini CLI) ──
-    const { createServer } = await import('node:http');
-    const { randomBytes } = await import('node:crypto');
+    // Reuse ensureAuth for interactive login
+    const ok = await ensureAuth(gatewayUrl);
+    if (ok) await enterCliSession();
+    else process.exit(1);
+  });
 
-    // Find available port
-    const findPort = (): Promise<number> => {
-      return new Promise((resolve, reject) => {
-        const server = createServer();
-        server.listen(0, '127.0.0.1', () => {
-          const port = (server.address() as any).port;
-          server.close(() => resolve(port));
-        });
-        server.on('error', reject);
-      });
-    };
+// ─── Logout Command ──────────────────────────────────────────────────
+program
+  .command('logout')
+  .description('Remove local credentials and logout')
+  .action(async () => {
+    const success = await removeCredentials();
+    if (success) {
+      console.log(chalk.green('✓ Successfully logged out. Local credentials removed.'));
+    } else {
+      console.log(chalk.yellow('! No local credentials found. You are already logged out.'));
+    }
+    process.exit(0);
+  });
 
+// ─── Whoami Command ──────────────────────────────────────────────────
+program
+  .command('whoami')
+  .description('Display current login status and identity')
+  .action(async () => {
+    const key = await resolveApiKey();
+    if (!key) {
+      console.log(chalk.yellow('Not logged in. Use `uclaw login` to authenticate.'));
+    } else {
+      const userId = await getAutoUserId();
+      console.log(chalk.bold('Status: ') + chalk.green('Logged In'));
+      console.log(chalk.bold('Identity: ') + chalk.cyan(userId));
+    }
+    process.exit(0);
+  });
+
+// ─── OAuth Flow Helpers ─────────────────────────────────────────────
+
+/**
+ * Enter CLI session after successful authentication
+ */
+async function enterCliSession() {
+  const userId = process.env.UCLAW_WORK_ID || process.env.UCLAW_USER_ID || (await getAutoUserId());
+  console.log(chalk.bold('\nUClaw Terminal AI'));
+  console.log(chalk.gray(`User: ${userId} | Workspace: ${process.cwd()}\n`));
+  await runRepl({ userId, workspace: process.cwd() });
+}
+
+/**
+ * Browser OAuth flow - opens browser automatically
+ */
+async function browserOAuthFlow(gatewayUrl: string) {
+  const spinner = ora('Starting browser login...').start();
+  
+  const { createServer } = await import('node:http');
+  const { randomBytes } = await import('node:crypto');
+
+  try {
+    spinner.text = 'Finding an available port...';
     const port = await findPort();
     const state = randomBytes(16).toString('hex');
     const callbackPath = '/callback';
     const redirectUri = `http://127.0.0.1:${port}${callbackPath}`;
+    spinner.info(`Callback server will run on port ${port}`).start();
 
-    console.log(chalk.cyan('[UClaw]') + ' Starting browser OAuth login...');
-    console.log(chalk.gray(`         Gateway: ${gatewayUrl}`));
-    console.log(chalk.gray(`         Callback: ${redirectUri}`));
-
-    // Open browser
     const authUrl = `${gatewayUrl}/api/auth/oauth/authorize?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&port=${port}`;
-    console.log(chalk.yellow(`\n→ Opening browser for authorization...`));
 
-    try {
-      // Try to open browser
-      const open = await import('open');
-      await open.default(authUrl);
-    } catch {
-      console.log(chalk.gray('\nCould not open browser automatically.'));
-      console.log(chalk.yellow(`Please visit:\n  ${authUrl}\n`));
-    }
+    spinner.text = 'Opening browser for authorization...';
+    const open = await import('open');
+    await open.default(authUrl);
+    
+    spinner.text = 'Waiting for authorization in browser...';
+    await waitForOAuthCode({ port, callbackPath, gatewayUrl, spinner });
 
-    // Start local callback server
-    const codePromise = new Promise<string>((resolve, reject) => {
-      const server = createServer((req, res) => {
-        const url = new URL(req.url!, `http://127.0.0.1:${port}`);
+  } catch (err: any) {
+    spinner.fail(`Browser login failed: ${err.message}`);
+    process.exit(1);
+  }
+}
 
-        if (url.pathname === callbackPath) {
-          const code = url.searchParams.get('code');
-          const retState = url.searchParams.get('state');
+/**
+ * Headless OAuth flow - prints URL for manual browser visit
+ */
+async function headlessOAuthFlow(gatewayUrl: string) {
+  const spinner = ora('Starting headless login...').start();
 
-          if (code) {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(`
-              <!DOCTYPE html>
-              <html><head><title>UClaw Auth Complete</title>
-              <style>
-                body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f6f3f2;margin:0}
-                .card{background:#fff;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
-                h1{color:#1c1b1b;font-size:20px;margin:0 0 8px}
-                p{color:#716b67;font-size:14px;margin:0}
-              </style>
-              </head><body><div class="card"><h1>✓ Authorization Successful</h1>
-              <p>You can close this window and return to the terminal.</p></div></body></html>
-            `);
-            resolve(code);
-          } else {
-            res.writeHead(400);
-            res.end('Missing code parameter');
-            reject(new Error('Authorization failed: missing code'));
-          }
+  const { createServer } = await import('node:http');
+  const { randomBytes } = await import('node:crypto');
 
-          // Shutdown server after short delay
-          setTimeout(() => { server.close(); }, 1000);
+  try {
+    spinner.text = 'Finding an available port...';
+    const port = await findPort();
+    const state = randomBytes(16).toString('hex');
+    const callbackPath = '/callback';
+    const redirectUri = `http://127.0.0.1:${port}${callbackPath}`;
+    spinner.info(`Callback server will run on port ${port}`).start();
+
+    const authUrl = `${gatewayUrl}/api/auth/oauth/authorize?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&port=${port}`;
+
+    spinner.warn('Could not open browser automatically.');
+    console.log(chalk.yellow(`\nPlease visit this URL to authorize:\n  ${chalk.cyan(authUrl)}\n`));
+    
+    spinner.text = 'Waiting for authorization...';
+    await waitForOAuthCode({ port, callbackPath, gatewayUrl, spinner });
+
+  } catch (err: any) {
+    spinner.fail(`Headless login failed: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+const findPort = async (): Promise<number> => {
+  const { createServer } = await import('node:http');
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const port = (server.address() as any).port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', reject);
+  });
+};
+
+
+/**
+ * Wait for OAuth authorization code from local callback server
+ */
+async function waitForOAuthCode({
+  port,
+  callbackPath,
+  gatewayUrl,
+  spinner,
+}: {
+  port: number;
+  callbackPath: string;
+  gatewayUrl: string;
+  spinner: Ora;
+}) {
+  const { createServer } = await import('node:http');
+
+  const codePromise = new Promise<string>((resolve, reject) => {
+    const server = createServer((req, res) => {
+      const url = new URL(req.url!, `http://127.0.0.1:${port}`);
+
+      if (url.pathname === callbackPath) {
+        const code = url.searchParams.get('code');
+        if (code) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(`
+            <!DOCTYPE html>
+            <html><head><title>UClaw Auth Complete</title>
+            <style>
+              body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f6f3f2;margin:0}
+              .card{background:#fff;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
+              h1{color:#1c1b1b;font-size:20px;margin:0 0 8px}
+              p{color:#716b67;font-size:14px;margin:0}
+            </style>
+            </head><body><div class="card"><h1>✓ Authorization Successful</h1>
+            <p>You can close this window and return to the terminal.</p></div></body></html>
+          `);
+          resolve(code);
         } else {
-          res.writeHead(404);
-          res.end();
+          res.writeHead(400);
+          res.end('Missing code parameter');
+          reject(new Error('Authorization failed: missing code'));
         }
-      });
-
-      server.listen(port, '127.0.0.1');
-      server.on('error', reject);
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        server.close();
-        reject(new Error('Login timed out (5 minutes). Please try again.'));
-      }, 5 * 60 * 1000);
+        setTimeout(() => server.close(), 500);
+      } else {
+        res.writeHead(404).end();
+      }
     });
 
-    try {
-      const code = await codePromise;
-      console.log(chalk.cyan('[UClaw]') + ' Authorization code received. Exchanging for API Key...');
-
-      // Exchange code for API Key
-      const res = await fetch(`${gatewayUrl}/api/auth/oauth/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, name: 'CLI Login' }),
-      });
-      const data = await res.json();
-
-      if (!data.key) {
-        console.error(chalk.red(`✗ Failed to obtain API Key: ${data.message || 'Unknown error'}`));
-        process.exit(1);
-      }
-
-      await saveCredentials({ apiKey: data.key, userId: data.workId });
-      console.log(chalk.green(`Logged in as ${data.workId}`));
-
-      // After login, automatically enter CLI session
-      console.log(chalk.bold('\nUClaw Terminal AI'));
-      console.log(chalk.gray(`User: ${data.workId} | Workspace: ${process.cwd()}\n`));
-      await runRepl({ userId: data.workId, workspace: process.cwd() });
-    } catch (err: any) {
-      console.error(chalk.red(`✗ Login failed: ${err.message}`));
-      process.exit(1);
-    }
+    server.listen(port, '127.0.0.1');
+    server.on('error', reject);
+    setTimeout(() => {
+      server.close();
+      reject(new Error('Login timed out after 5 minutes.'));
+    }, 5 * 60 * 1000);
   });
+
+  const code = await codePromise;
+  spinner.text = 'Authorization code received. Exchanging for API Key...';
+
+  const res = await fetch(`${gatewayUrl}/api/auth/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, name: `CLI Login @ ${os.hostname()}` }),
+  });
+  const data = await res.json();
+
+  if (!res.ok || !data.key) {
+    throw new Error(`Failed to obtain API Key: ${data.message || 'Unknown error'}`);
+  }
+
+  await saveCredentials({ apiKey: data.key, userId: data.workId });
+  spinner.succeed(`Authentication successful. Logged in as ${data.workId}.`);
+}
 
 // ─── Legacy: Start Command ───────────────────────────────────
 program
@@ -244,38 +382,5 @@ program
       await runRepl({ userId, workspace });
     }
   });
-
-// ─── Helpers ─────────────────────────────────────────────────
-async function getAutoUserId(): Promise<string> {
-  // Priority: UCLAW_USER_ID env > JWT user info > git config
-  if (process.env.UCLAW_USER_ID) return process.env.UCLAW_USER_ID;
-  if (process.env.UCLAW_WORK_ID) return process.env.UCLAW_WORK_ID;
-  try {
-    const { stdout } = await execAsync('git config user.name');
-    return stdout.trim() || process.env.USER || 'unknown_dev';
-  } catch {
-    return process.env.USER || 'unknown_dev';
-  }
-}
-
-async function saveCredentials(creds: { apiKey: string; userId?: string }): Promise<void> {
-  const credDir = path.join(os.homedir(), '.uclaw');
-  const credPath = path.join(credDir, 'credentials.json');
-
-  // Ensure directory exists
-  await fs.mkdir(credDir, { recursive: true });
-
-  // Read existing or create new
-  let existing = {};
-  try {
-    existing = JSON.parse(await fs.readFile(credPath, 'utf-8'));
-  } catch { /* ignore */ }
-
-  const updated = { ...existing, ...creds, updatedAt: new Date().toISOString() };
-  await fs.writeFile(credPath, JSON.stringify(updated, null, 2), 'utf-8');
-
-  // Set restrictive permissions (owner read/write only)
-  await fs.chmod(credPath, 0o600);
-}
 
 program.parse(process.argv);

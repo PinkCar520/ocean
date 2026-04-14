@@ -50,7 +50,14 @@
       "Bash(gtimeout *)",
       "Bash(kill *)",
       "Bash(wait *)",
-      "Bash(xargs *)"
+      "Bash(xargs *)",
+      "Bash(psql *)",
+      "Bash(docker compose stop *)",
+      "Bash(docker compose rm *)",
+      "WebFetch(geminicli.com)",
+      "WebFetch(developers.openai.com)",
+      "WebFetch(smartscope.blog)",
+      "Bash(npm run *)"
     ]
   },
   "$version": 3

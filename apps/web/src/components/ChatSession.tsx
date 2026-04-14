@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { getAuthHeaders } from '../lib/api';
 import { type ThinkingStep } from './ThinkingPills';
 import { ThinkingList } from './ThinkingList';
 import { DiffViewer } from './DiffViewer';
@@ -281,7 +282,9 @@ export function ChatSession({
     if (!sessionId) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/chat/approvals/${sessionId}`);
+        const res = await fetch(`/api/chat/approvals/${sessionId}`, {
+          headers: getAuthHeaders(token)
+        });
         const data = await res.json();
         if (data.success && data.data?.length > 0) {
           setPendingApproval(data.data[0]); // Show first pending request
@@ -291,7 +294,7 @@ export function ChatSession({
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [sessionId]);
+  }, [sessionId, token]);
 
   const handleApprovalResponse = async (status: 'approved' | 'denied') => {
     if (!pendingApproval) return;
@@ -302,7 +305,10 @@ export function ChatSession({
       // SSE 流自动恢复，前端无需 reload
       await fetch(`/api/chat/approvals/${pendingApproval.id}/respond`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(token)
+        },
         body: JSON.stringify({ status }),
       });
       setPendingApproval(null);
@@ -317,11 +323,16 @@ export function ChatSession({
     }
   }, [sessionId]);
 
+  // Memoize auth headers to ensure they're recalculated when token changes
+  const chatHeaders = React.useMemo(() => {
+    return getAuthHeaders(token ?? localStorage.getItem('uclaw_auth_token'));
+  }, [token]);
+
   const { messages, sendMessage, status, reload, setMessages, stop, error } = (useChat as any)({
     id: sessionId ?? 'new',  // 回归正常 React 状态设计
     initialMessages: initialMessages, // 确保卸载重载时直接初始化为历史消息！
     api: '/api/chat',
-    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    headers: chatHeaders,
     body: {
       modelId: selectedModelId,
       search: isSearchMode,
@@ -461,9 +472,7 @@ export function ChatSession({
     const res = await fetch('/api/upload', {
       method: 'POST',
       body: formData,
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
+      headers: getAuthHeaders(token)
     });
     if (!res.ok) throw new Error(`Failed to upload file: ${res.statusText}`);
     const data = await res.json();
@@ -500,7 +509,7 @@ export function ChatSession({
         content: userMsg.content,
         role: 'user',
         experimental_attachments: userMsg.experimental_attachments
-      } as any);
+      } as any, { headers: chatHeaders });
     } catch (err) {
       console.error('Regenerate failed:', err);
     }
@@ -539,6 +548,7 @@ export function ChatSession({
       const attachments = filesToUpload.length > 0 ? await Promise.all(filesToUpload.map(uploadFile)) : undefined;
       const userMessage = { content: val, role: 'user', experimental_attachments: attachments };
       await sendMessage(userMessage as any, {
+        headers: chatHeaders,
         body: {
           modelId: selectedModelId,
           search: isSearchMode,
@@ -582,6 +592,7 @@ export function ChatSession({
         role: 'user',
         experimental_attachments: userMsg.experimental_attachments,
       } as any, {
+        headers: chatHeaders,
         body: {
           modelId: selectedModelId,
           search: isSearchMode,
@@ -633,6 +644,7 @@ export function ChatSession({
         role: 'user',
         experimental_attachments: newMessages[msgIdx]?.experimental_attachments,
       } as any, {
+        headers: chatHeaders,
         body: {
           modelId: selectedModelId,
           search: isSearchMode,
@@ -807,7 +819,7 @@ export function ChatSession({
             onAction={(action, data) => {
               // Mode B: 直调 API，不经过聊天流
               if (action === 'create_zentao_task') {
-                sendMessage({ content: `Create ZenTao task for ${data.bugId}: priority=${data.priority}, assignee=${data.assignee}`, role: 'user' });
+                sendMessage({ content: `Create ZenTao task for ${data.bugId}: priority=${data.priority}, assignee=${data.assignee}`, role: 'user' }, { headers: chatHeaders });
               }
             }}
           />
@@ -829,7 +841,7 @@ export function ChatSession({
               { lineNumber: 25, type: 'addition', content: "logger.debug('Request sent', { correlationId }); // Redact tokens" },
               { lineNumber: 26, type: 'context', content: "return await fetch(url, { headers: { authHeader } });" },
             ]}
-            onApply={() => sendMessage({ content: 'Apply fix to GitLab', role: 'user' })}
+            onApply={() => sendMessage({ content: 'Apply fix to GitLab', role: 'user' }, { headers: chatHeaders })}
           />
         );
       }
@@ -851,8 +863,8 @@ export function ChatSession({
         <TaskPlan
           key={part.toolCallId}
           {...result}
-          onConfirm={() => sendMessage({ content: 'Y', role: 'user' })}
-          onCancel={() => sendMessage({ content: 'N', role: 'user' })}
+          onConfirm={() => sendMessage({ content: 'Y', role: 'user' }, { headers: chatHeaders })}
+          onCancel={() => sendMessage({ content: 'N', role: 'user' }, { headers: chatHeaders })}
         />
       );
     }
@@ -1298,7 +1310,7 @@ export function ChatSession({
                             {error.message || t('chat.error.message', 'Something went wrong while generating the response. Please try again.')}
                           </p>
                           <button
-                            onClick={() => reload()}
+                            onClick={() => reload({ headers: chatHeaders })}
                             className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
@@ -1471,18 +1483,18 @@ export function ChatSession({
                 uiKit={activeCapsule.uiKit}
                 onAction={(actionId, payload) => {
                   if (actionId === 'approve_request') {
-                    sendMessage({ content: `APPROVE:${(payload as any).requestId}`, role: 'user' });
+                    sendMessage({ content: `APPROVE:${(payload as any).requestId}`, role: 'user' }, { headers: chatHeaders });
                   } else if (actionId === 'reject_request') {
-                    sendMessage({ content: `REJECT:${(payload as any).requestId}`, role: 'user' });
+                    sendMessage({ content: `REJECT:${(payload as any).requestId}`, role: 'user' }, { headers: chatHeaders });
                   } else if (actionId === 'create_zentao_task') {
                     const d = payload as any;
-                    sendMessage({ content: `Create ZenTao task for ${d.bugId}: assignee=${d.assignee}`, role: 'user' });
+                    sendMessage({ content: `Create ZenTao task for ${d.bugId}: assignee=${d.assignee}`, role: 'user' }, { headers: chatHeaders });
                   } else if (actionId === 'open_bug_detail') {
                     console.log('[Capsule] Open bug detail:', (payload as any).id);
                   } else if (actionId === 'view_logs') {
                     console.log('[Capsule] View pipeline logs:', (payload as any).pipelineId);
                   } else if (actionId === 'retry_pipeline') {
-                    sendMessage({ content: `Retry pipeline ${(payload as any).pipelineId}`, role: 'user' });
+                    sendMessage({ content: `Retry pipeline ${(payload as any).pipelineId}`, role: 'user' }, { headers: chatHeaders });
                   }
                 }}
               />

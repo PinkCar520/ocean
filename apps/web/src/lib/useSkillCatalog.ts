@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getAuthHeaders } from './api';
 
 export interface SkillCatalogEntry {
   id: string;
@@ -28,7 +29,8 @@ export function useSkillCatalog() {
 
     if (!isFetching) {
       isFetching = true;
-      fetchPromise = fetch('/api/skills/catalog')
+      const headers = getAuthHeaders(localStorage.getItem('uclaw_auth_token'));
+      fetchPromise = fetch('/api/skills/catalog', { headers })
         .then(res => {
           if (!res.ok) throw new Error('Failed to fetch catalog');
           return res.json();

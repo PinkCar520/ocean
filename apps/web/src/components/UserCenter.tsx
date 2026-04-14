@@ -8,30 +8,25 @@ import {
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
 import { PermissionManager } from './PermissionManager';
+import { getAuthHeaders } from '../lib/api';
 
-export function UserCenter({ onLogout }: { onLogout?: () => void }) {
+export function UserCenter({ token, onLogout }: { token: string | null; onLogout?: () => void }) {
   const { t, i18n } = useTranslation();
   const [activeSubTab, setActiveSubTab] = useState('general');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
 
-  // Load token from local storage
-  const token = localStorage.getItem('uclaw_auth_token');
-
   // Fetch profile on mount
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [token]);
 
   const fetchProfile = async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/user/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-user-id': localStorage.getItem('uclaw_user_id') || ''
-        }
+        headers: getAuthHeaders(token)
       });
       const data = await res.json();
       if (data.success) {
@@ -51,8 +46,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-user-id': localStorage.getItem('uclaw_user_id') || ''
+          ...getAuthHeaders(token)
         },
         body: JSON.stringify(updates)
       });
@@ -72,8 +66,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-user-id': localStorage.getItem('uclaw_user_id') || ''
+          ...getAuthHeaders(token)
         },
         body: JSON.stringify({ systemType, token: tokenVal, username })
       });
@@ -210,7 +203,7 @@ export function UserCenter({ onLogout }: { onLogout?: () => void }) {
 
             {activeSubTab === 'permissions' && (
               <section className="md:col-span-2">
-                <PermissionManager />
+                <PermissionManager token={token} />
               </section>
             )}
 

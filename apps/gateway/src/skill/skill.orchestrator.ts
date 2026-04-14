@@ -220,11 +220,11 @@ ${catalogXml}`;
     // Local CLI RPC tool (until mcp-local-fs is ready)
     const localCliTools = {
       runLocalCommand: tool({
-        description: '在开发者的本地工作站执行安全指令（ls、git 操作、npm 构建等）',
+        description: '在开发者的本地工作站执行安全指令（管理本地项目、查看本地代码、git 操作、npm 构建等）。这是操作本地文件的唯一入口。',
         inputSchema: z.object({
           userId: z.string().describe('目标用户工号'),
           command: z
-            .enum(['ls', 'git_status', 'git_add', 'git_commit', 'npm_build', 'read_file'])
+            .enum(['ls', 'git_status', 'git_add', 'git_commit', 'git_push', 'npm_build', 'read_file'])
             .describe('执行的指令名'),
           args: z.record(z.string(), z.any()).optional().describe('指令参数'),
         }),

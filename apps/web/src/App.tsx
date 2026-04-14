@@ -20,6 +20,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { AuthPage } from './components/AuthPage';
 import { useConversations } from './lib/useConversations';
 import { cn } from './lib/utils';
+import { getAuthHeaders } from './lib/api';
 
 function AppContent() {
   const { t } = useTranslation();
@@ -131,10 +132,7 @@ function AppContent() {
     const fetchModels = async () => {
       try {
         const res = await fetch('/api/chat/models', {
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : '',
-            'X-User-Id': localStorage.getItem('uclaw_user_id') || ''
-          }
+          headers: getAuthHeaders(token)
         });
         if (res.ok) {
           const json = await res.json();
@@ -239,11 +237,11 @@ function AppContent() {
               onDeleteConversations={handleDeleteConversations}
             />
           ) : activeTab === 'settings' ? (
-            <UserCenter onLogout={handleLogout} />
+            <UserCenter token={token} onLogout={handleLogout} />
           ) : activeTab === 'library' ? (
-            <SkillLibrary />
+            <SkillLibrary token={token} />
           ) : activeTab === 'mcp' ? (
-            <MCPServerManager />
+            <MCPServerManager token={token} />
           ) : activeTab === 'knowledge' ? (
             <KnowledgeBase />
           ) : activeTab === 'console' ? (

@@ -1,40 +1,17 @@
 import { io } from 'socket.io-client';
 import * as fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import type { RPCMessage, RPCResponse } from '@uclaw/core';
+import type { RPCMessage } from '@uclaw/core';
+import { resolveApiKey, getAutoUserId } from './utils/auth.js';
+import { CONFIG, LOG } from './utils/config.js';
 
 const execAsync = promisify(exec);
 
 interface DaemonOptions {
   userId: string;
-}
-
-/**
- * Resolve API Key from:
- * 1. UCLAW_API_KEY environment variable
- * 2. ~/.uclaw/credentials.json
- */
-async function resolveApiKey(): Promise<string | null> {
-  // Priority 1: Environment variable
-  if (process.env.UCLAW_API_KEY) {
-    return process.env.UCLAW_API_KEY;
-  }
-
-  // Priority 2: Credentials file
-  const credPath = path.join(os.homedir(), '.uclaw', 'credentials.json');
-  try {
-    const raw = fsSync.readFileSync(credPath, 'utf-8');
-    const creds = JSON.parse(raw);
-    return creds.apiKey || null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -45,16 +22,16 @@ export async function runDaemon(options: DaemonOptions) {
   const effectiveUserId = process.env.UCLAW_WORK_ID || process.env.UCLAW_USER_ID || options.userId;
   const apiKey = await resolveApiKey();
 
-  console.log(chalk.green('[UClaw Daemon]') + ` Identity: ${chalk.bold(effectiveUserId)}`);
-  console.log(chalk.green('[UClaw Daemon]') + ' Connecting to Gateway (http://localhost:3000)...');
+  console.log(chalk.green(LOG.DAEMON) + ` Identity: ${chalk.bold(effectiveUserId)}`);
+  console.log(chalk.green(LOG.DAEMON) + ` Connecting to Gateway (${CONFIG.GATEWAY_URL})...`);
 
   if (apiKey) {
-    console.log(chalk.green('[UClaw Daemon]') + ' Auth: Using API Key');
+    console.log(chalk.green(LOG.DAEMON) + ' Auth: Using API Key');
   } else {
-    console.log(chalk.yellow('[UClaw Daemon]') + ' Auth: No API Key found. Set UCLAW_API_KEY or run `uclaw login`');
+    console.log(chalk.yellow(LOG.DAEMON) + ' Auth: No API Key found. Set UCLAW_API_KEY or run `uclaw login`');
   }
 
-  const socket = io('http://localhost:3000', {
+  const socket = io(CONFIG.GATEWAY_URL, {
     query: { userId: effectiveUserId },
     auth: {
       token: apiKey || undefined,
@@ -70,7 +47,7 @@ export async function runDaemon(options: DaemonOptions) {
   });
 
   socket.on('rpc_request', async (data: RPCMessage) => {
-    console.log(chalk.cyan('[RPC Request]') + ` ID: ${data.id}, Method: ${data.method}`);
+    console.log(chalk.cyan(LOG.RPC) + ` ID: ${data.id}, Method: ${data.method}`);
 
     let result: any = null;
     let error: string | null = null;

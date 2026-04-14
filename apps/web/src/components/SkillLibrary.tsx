@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useTranslation } from 'react-i18next';
+import { getAuthHeaders } from '../lib/api';
 
 type Category = 'all' | 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science';
 
@@ -54,7 +55,7 @@ const SOURCE_LABEL_KEYS: Record<string, string> = {
   'internal': 'library.source_labels.internal',
 };
 
-export function SkillLibrary() {
+export function SkillLibrary({ token }: { token?: string | null }) {
   const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<Category>('all');
   const [skills, setSkills] = useState<SkillCard[]>([]);
@@ -74,10 +75,11 @@ export function SkillLibrary() {
 
     const fetchData = async () => {
       const start = Date.now();
+      const headers = getAuthHeaders(token);
       try {
         const [skillsRes, statsRes] = await Promise.all([
-          fetch(`/api/skills${activeFilter !== 'all' ? `?category=${activeFilter}` : ''}`),
-          fetch('/api/skills/stats'),
+          fetch(`/api/skills${activeFilter !== 'all' ? `?category=${activeFilter}` : ''}`, { headers }),
+          fetch('/api/skills/stats', { headers }),
         ]);
         const skillsData = await skillsRes.json();
         const statsData = await statsRes.json();
@@ -89,7 +91,7 @@ export function SkillLibrary() {
         const statusResults = await Promise.all(
           skillIds.map(async (id: string) => {
             try {
-              const res = await fetch(`/api/skills/${id}/install/status`);
+              const res = await fetch(`/api/skills/${id}/install/status`, { headers });
               const data = await res.json();
               return { id, installed: data.data?.installed };
             } catch {
@@ -110,7 +112,7 @@ export function SkillLibrary() {
       }
     };
     fetchData();
-  }, [activeFilter]);
+  }, [activeFilter, token]);
 
   const handleInstall = async (skillId: string) => {
     if (installingRef.current) return;
@@ -118,7 +120,10 @@ export function SkillLibrary() {
     setInstallingId(skillId);
 
     try {
-      const res = await fetch(`/api/skills/${skillId}/install`, { method: 'POST' });
+      const res = await fetch(`/api/skills/${skillId}/install`, { 
+        method: 'POST',
+        headers: getAuthHeaders(token)
+      });
       const data = await res.json();
       if (data.success) {
         setInstalledIds((prev) => new Set([...prev, skillId]));
@@ -137,7 +142,10 @@ export function SkillLibrary() {
     setInstallingId(skillId);
 
     try {
-      const res = await fetch(`/api/skills/${skillId}/install`, { method: 'DELETE' });
+      const res = await fetch(`/api/skills/${skillId}/install`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders(token)
+      });
       const data = await res.json();
       if (data.success) {
         setInstalledIds((prev) => {

@@ -7,6 +7,7 @@
  * - 不使用 IndexedDB，无本地状态
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { apiFetch, getAuthHeaders } from './api';
 
 export interface ConversationSummary {
   id: string;
@@ -46,12 +47,8 @@ export function useConversations({
   useEffect(() => { onAuthExpiredRef.current = onAuthExpired; }, [onAuthExpired]);
   useEffect(() => { onUserProfileRef.current = onUserProfile; }, [onUserProfile]);
 
-  const authHeaders = useCallback((): HeadersInit => {
-    const h: HeadersInit = {};
-    if (token) h['Authorization'] = `Bearer ${token}`;
-    const uid = localStorage.getItem('uclaw_user_id');
-    if (uid) h['X-User-Id'] = uid;
-    return h;
+  const authHeaders = useCallback((): Record<string, string> => {
+    return getAuthHeaders(token);
   }, [token]);
 
   // ── 初始化：拉取用户信息 + 会话列表 ─────────────────────────────
@@ -64,7 +61,7 @@ export function useConversations({
     const init = async () => {
       // 拉取用户资料
       try {
-        const res = await fetch('/api/user/profile', { headers: authHeaders() });
+        const res = await apiFetch('/api/user/profile', {}, token);
         const data = await res.json();
         if (data.success) {
           onUserProfileRef.current(data.profile);
@@ -91,7 +88,7 @@ export function useConversations({
   const refreshConversations = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/sessions', { headers: authHeaders() });
+      const res = await apiFetch('/api/sessions', {}, token);
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setConversations(data.data);
@@ -99,7 +96,7 @@ export function useConversations({
     } catch (err) {
       console.error('[useConversations] Failed to refresh conversations:', err);
     }
-  }, [token, authHeaders]);
+  }, [token]);
 
   // ── 路由变化：拉取当前会话消息（刷新恢复的关键）────────────────
   useEffect(() => {
@@ -117,9 +114,7 @@ export function useConversations({
     const loadMessages = async () => {
       setIsLoadingMessages(true);
       try {
-        const res = await fetch(`/api/sessions/${sessionId}/messages`, {
-          headers: authHeaders(),
-        });
+        const res = await apiFetch(`/api/sessions/${sessionId}/messages`, {}, token);
         if (!res.ok) {
           console.error(`[useConversations] Failed to load messages for session ${sessionId}`);
           setCurrentMessages([]);
@@ -159,11 +154,11 @@ export function useConversations({
   const createSession = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
     try {
-      const res = await fetch('/api/sessions', {
+      const res = await apiFetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channel: 'web', title: t('sidebar.new_chat') }),
-      });
+      }, token);
       const data = await res.json();
       if (data.success && data.data?.id) {
         const newId = data.data.id;
@@ -209,16 +204,16 @@ export function useConversations({
     // 乐观更新
     setConversations(prev => prev.map(c => c.id === id ? { ...c, title: newTitle } : c));
     try {
-      await fetch(`/api/sessions/${id}`, {
+      await apiFetch(`/api/sessions/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle }),
-      });
+      }, token);
     } catch (err) {
       console.error('[useConversations] Rename failed, refreshing:', err);
       await refreshConversations();
     }
-  }, [authHeaders, refreshConversations]);
+  }, [token, refreshConversations]);
 
   /**
    * 删除会话（DELETE，乐观更新）
@@ -227,14 +222,14 @@ export function useConversations({
     setConversations(prev => prev.filter(c => !ids.includes(c.id)));
     await Promise.allSettled(
       ids.map(id =>
-        fetch(`/api/sessions/${id}`, { method: 'DELETE', headers: authHeaders() })
+        apiFetch(`/api/sessions/${id}`, { method: 'DELETE' }, token)
       )
     );
     // 若当前打开的会话被删除，返回首页
     if (sessionId && ids.includes(sessionId)) {
       navigate('/');
     }
-  }, [authHeaders, sessionId, navigate]);
+  }, [token, sessionId, navigate]);
 
   /**
    * 流完成后刷新侧边栏（获取服务端写入的最新标题/消息数）

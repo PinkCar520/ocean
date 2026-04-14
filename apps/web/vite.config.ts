@@ -21,6 +21,8 @@ export default defineConfig({
         // 在代理层面强制注入 Mock Token，解决 SDK 无法传 Header 的问题
         headers: {
           'x-sso-token': 'mock-dev-token-xyz567',
+          'x-user-id': 'mock-dev-user',
+          'x-user-name': 'Mock Dev User',
         }
       },
       '/public': {

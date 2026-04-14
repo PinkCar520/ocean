@@ -474,12 +474,12 @@ server.tool(
     const res = await zentao.createProduct(data);
     if (!res.success) {
       return {
-        content: [{ type: 'text' as const, text: `❌ 创建产品失败：${JSON.stringify(res.error)}` }],
+        content: [{ type: 'text' as const, text: `✗ 创建产品失败：${JSON.stringify(res.error)}` }],
         isError: true,
       };
     }
     return {
-      content: [{ type: 'text' as const, text: `✅ 产品创建成功！\n\n${JSON.stringify(res.data, null, 2)}` }],
+      content: [{ type: 'text' as const, text: `✓ 产品创建成功！\n\n${JSON.stringify(res.data, null, 2)}` }],
     };
   },
 );
@@ -502,12 +502,12 @@ server.tool(
     const res = await zentao.createProject(data);
     if (!res.success) {
       return {
-        content: [{ type: 'text' as const, text: `❌ 创建项目失败：${JSON.stringify(res.error)}` }],
+        content: [{ type: 'text' as const, text: `✗ 创建项目失败：${JSON.stringify(res.error)}` }],
         isError: true,
       };
     }
     return {
-      content: [{ type: 'text' as const, text: `✅ 项目创建成功！\n\n${JSON.stringify(res.data, null, 2)}` }],
+      content: [{ type: 'text' as const, text: `✓ 项目创建成功！\n\n${JSON.stringify(res.data, null, 2)}` }],
     };
   },
 );

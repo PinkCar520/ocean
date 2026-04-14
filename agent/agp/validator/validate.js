@@ -158,18 +158,18 @@ function main() {
   const absolutePath = path.resolve(process.cwd(), filePath);
 
   if (!fs.existsSync(absolutePath)) {
-    console.error(c.red(`\n❌ 文件不存在: ${absolutePath}\n`));
+    console.error(c.red(`\n✗ 文件不存在: ${absolutePath}\n`));
     process.exit(1);
   }
 
   const content = fs.readFileSync(absolutePath, 'utf-8');
   const manifest = parseFrontmatter(content);
 
-  console.log(c.bold(`\n🔍 AGP Manifest Validator — 校验文件: ${filePath}\n`));
+  console.log(c.bold(`\n▤ AGP Manifest Validator — 校验文件: ${filePath}\n`));
   console.log('─'.repeat(60));
 
   if (!manifest) {
-    console.error(c.red('❌ 未找到 YAML Frontmatter（以 --- 包裹的头部配置块）'));
+    console.error(c.red('✗ 未找到 YAML Frontmatter（以 --- 包裹的头部配置块）'));
     console.error(c.red('   请确认文件以 --- 开头的 YAML 块'));
     process.exit(1);
   }
@@ -177,27 +177,27 @@ function main() {
   const { errors, warnings, passed } = validate(manifest, filePath);
 
   // 输出通过项
-  passed.forEach((p) => console.log(c.green(`  ✅ ${p}`)));
+  passed.forEach((p) => console.log(c.green(`  ✓ ${p}`)));
 
   // 输出警告
   if (warnings.length > 0) {
     console.log('');
-    warnings.forEach((w) => console.log(c.yellow(`  ⚠️  ${w}`)));
+    warnings.forEach((w) => console.log(c.yellow(`  ⚠  ${w}`)));
   }
 
   // 输出错误
   if (errors.length > 0) {
     console.log('');
-    errors.forEach((e) => console.log(c.red(`  ❌ ${e}`)));
+    errors.forEach((e) => console.log(c.red(`  ✗ ${e}`)));
   }
 
   console.log('─'.repeat(60));
 
   if (errors.length === 0) {
-    console.log(c.green(c.bold(`\n✅ AGP/1.0 校验通过！${warnings.length > 0 ? `（${warnings.length} 条建议）` : ''}\n`)));
+    console.log(c.green(c.bold(`\n✓ AGP/1.0 校验通过！${warnings.length > 0 ? `（${warnings.length} 条建议）` : ''}\n`)));
     process.exit(0);
   } else {
-    console.log(c.red(c.bold(`\n❌ AGP/1.0 校验失败：${errors.length} 个错误，${warnings.length} 个警告\n`)));
+    console.log(c.red(c.bold(`\n✗ AGP/1.0 校验失败：${errors.length} 个错误，${warnings.length} 个警告\n`)));
     process.exit(1);
   }
 }

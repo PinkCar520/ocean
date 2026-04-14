@@ -138,9 +138,9 @@ server.prompt(
  */
 server.tool(
   'listProjects',
-  '列出 GitLab 所有项目',
+  '列出 GitLab 远端服务器上的所有项目',
   {
-    search: z.string().optional().describe('搜索关键词（可选）'),
+    search: z.string().optional().describe('项目搜索关键词（可选）'),
   },
   async ({ search }) => {
     const projects = await gitlab.listProjects(search);
