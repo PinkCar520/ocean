@@ -57,7 +57,8 @@
       "WebFetch(geminicli.com)",
       "WebFetch(developers.openai.com)",
       "WebFetch(smartscope.blog)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "WebFetch(www.npmjs.com)"
     ]
   },
   "$version": 3
