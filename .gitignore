@@ -49,3 +49,5 @@ apps/gateway/dist/
 apps/web/dist/
 apps/cli/dist/
 packages/*/dist/
+
+claude-code-sourcemap
