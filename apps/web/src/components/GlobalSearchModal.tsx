@@ -83,6 +83,7 @@ export function GlobalSearchModal({
       <DialogTitle className="sr-only">Search Modal</DialogTitle>
 
       <DialogContent
+        aria-describedby={undefined}
         className="sm:max-w-[640px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-[#E8E4E2] shadow-2xl rounded-[8px] top-[15%] translate-y-0 [&>button]:hidden"
       >
         <div className="flex flex-col h-full max-h-[80vh]">

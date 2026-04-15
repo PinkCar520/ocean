@@ -979,7 +979,7 @@ export function ChatSession({
                       </div>
                     </div>
                 ) : (
-                    <>
+                    <div key="chat-messages" className="flex flex-col w-full">
                       {Array.from(new Map(messages.map((m: any) => [m.id || m.createdAt || Math.random(), m])).values())
                           .filter((m: any) => m.role === 'user' || m.role === 'assistant')
                           .map((m: any, idx: number, arr: any[]) => {
@@ -1107,7 +1107,7 @@ export function ChatSession({
                                                             />
                                                         );
                                                       }
-                                                      return <React.Fragment key={part.toolCallId}>{renderToolResult(part)}</React.Fragment>;
+                                                      return renderToolResult(part);
                                                     })}
                                                   </>
                                               );
@@ -1198,7 +1198,6 @@ export function ChatSession({
                                         </TooltipContent>
                                       </Tooltip>
                                       {isAssistant && (
-                                          <>
                                             <Tooltip delayDuration={0}>
                                               <TooltipTrigger asChild>
                                                 <button
@@ -1218,6 +1217,8 @@ export function ChatSession({
                                                 {t('common.good_response', 'Good response')}
                                               </TooltipContent>
                                             </Tooltip>
+                                      )}
+                                      {isAssistant && (
                                             <Tooltip delayDuration={0}>
                                               <TooltipTrigger asChild>
                                                 <button
@@ -1237,6 +1238,8 @@ export function ChatSession({
                                                 {t('common.bad_response', 'Bad response')}
                                               </TooltipContent>
                                             </Tooltip>
+                                      )}
+                                      {isAssistant && (
                                             <Tooltip delayDuration={0}>
                                               <TooltipTrigger asChild>
                                                 <button onClick={() => handleRegenerate(m.id)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67]" aria-label={t('common.regenerate', 'Regenerate response')}>
@@ -1247,7 +1250,6 @@ export function ChatSession({
                                                 {t('common.regenerate')}
                                               </TooltipContent>
                                             </Tooltip>
-                                          </>
                                       )}
                                     </div>
                                     {/* Timestamp */}
@@ -1314,11 +1316,10 @@ export function ChatSession({
                             </div>
                           </motion.div>
                       )}
-                    </>
+                    </div>
                 )}
 
-              </AnimatePresence>
-            </div>
+              </AnimatePresence>            </div>
           </div>
 
           <div className="pt-2 pb-4 md:pb-8 px-4 md:px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
