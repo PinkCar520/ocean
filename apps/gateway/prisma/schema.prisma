@@ -97,6 +97,7 @@ model Session {
   channel   String    @default("web")      // 'web', 'cli', 'im'
   status    String    @default("active")   // 'active' | 'archived'
   messages  Message[]
+  tasks     Task[]    // 编排任务列表
   approvalRequests ApprovalRequest[]       // 该会话的审批请求
 
   expiresAt DateTime?
@@ -104,6 +105,25 @@ model Session {
   updatedAt DateTime  @updatedAt
 
   @@map("sessions")
+}
+
+// 编排任务（Orchestration Task）
+model Task {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  subject     String   // 任务标题
+  status      String   @default("todo") // 'todo' | 'doing' | 'done' | 'failed'
+  order       Int      @default(0)      // 排序
+  parentId    String?  // 父任务 ID (用于级联)
+  metadata    Json?    // 任务元数据 (如 progress, error, toolCallId)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sessionId])
+  @@map("tasks")
 }
 
 // 对话消息（每条消息独立存储，Server as Source of Truth）

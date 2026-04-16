@@ -6,6 +6,8 @@ import { ZentaoService } from './zentao.service';
 import { RpcModule } from './rpc.module';
 import { SkillModule } from '../skill/skill.module';
 import { MCPModule } from '../mcp/mcp.module';
+import { PermissionModule } from '../skill/permission.module';
+import { ApprovalModule } from '../skill/approval.module';
 
 /**
  * ChatModule
@@ -16,7 +18,7 @@ import { MCPModule } from '../mcp/mcp.module';
  * - ChatService 继续保留，负责 models 列表等非 AI 核心逻辑
  */
 @Module({
-  imports: [ConfigModule, RpcModule, SkillModule, MCPModule],
+  imports: [ConfigModule, RpcModule, SkillModule, MCPModule, PermissionModule, ApprovalModule],
   controllers: [ChatController],
   providers: [ChatService, ZentaoService],
   exports: [ChatService],

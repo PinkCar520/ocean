@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RpcGateway } from './rpc.gateway';
 import { ApprovalModule } from '../skill/approval.module';
+import { OrchestratorService } from './orchestrator.service';
 
 /**
  * RpcModule
@@ -11,7 +12,7 @@ import { ApprovalModule } from '../skill/approval.module';
  */
 @Module({
   imports: [ApprovalModule],
-  providers: [RpcGateway],
-  exports: [RpcGateway],
+  providers: [RpcGateway, OrchestratorService],
+  exports: [RpcGateway, OrchestratorService],
 })
 export class RpcModule {}

@@ -58,27 +58,6 @@ export function ToolInvocationRenderer({
     }
   }
 
-  // Stitch Diff Viewer
-  if (toolName === 'runLocalCommand' || toolName === 'tool-runLocalCommand') {
-    if (result?.status === 'Success' && result.command === 'git_diff') {
-      return (
-        <DiffViewer
-          key={part.toolCallId}
-          fileName="gitlab-api-v4.ts"
-          draft
-          diff={[
-            { lineNumber: 24, type: 'context', content: "const authHeader = `Bearer ${token}`;" },
-            { lineNumber: 25, type: 'deletion', content: "console.log(`Request sent with ${authHeader}`);" },
-            { lineNumber: 25, type: 'addition', content: "logger.debug('Request sent', { correlationId }); // Redact tokens" },
-            { lineNumber: 26, type: 'context', content: "return await fetch(url, { headers: { authHeader } });" },
-          ]}
-          onApply={() => sendMessage({ content: 'Apply fix to GitLab', role: 'user' })}
-          onExtract={onExtract}
-        />
-      );
-    }
-  }
-
   if (toolName === 'searchBugs' || toolName === 'tool-searchBugs') {
     const bugs = Array.isArray(result) ? result : [];
     return (
@@ -102,22 +81,6 @@ export function ToolInvocationRenderer({
         onExtract={onExtract}
       />
     );
-  }
-
-  if (toolName === 'runLocalCommand' || toolName === 'tool-runLocalCommand') {
-    if (result?.status === 'Success') {
-      return (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 font-mono text-xs mt-2 overflow-hidden" key={part.toolCallId}>
-          <div className="flex items-center gap-2 mb-2 text-blue-600 font-semibold">
-            <Terminal className="w-3 h-3 text-blue-600" />
-            <span>{t('tools.runLocalCommand', 'Local Command')}: {result.command}</span>
-          </div>
-          <pre className="text-slate-600 whitespace-pre-wrap max-h-40 overflow-y-auto">
-            {JSON.stringify(result.result, null, 2)}
-          </pre>
-        </div>
-      );
-    }
   }
 
   return null;

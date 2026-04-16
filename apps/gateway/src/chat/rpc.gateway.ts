@@ -8,13 +8,21 @@ import {
 import { Server, Socket } from 'socket.io';
 import type { RPCResponse } from '@uclaw/core';
 import { ApprovalService } from '../skill/approval.service';
+import { OrchestratorService } from './orchestrator.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private readonly approvalService: ApprovalService) {}
+  constructor(
+    private readonly approvalService: ApprovalService,
+    private readonly orchestratorService: OrchestratorService,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
+
+  afterInit(server: Server) {
+    this.orchestratorService.setServer(server);
+  }
 
   // 记录在线的 CLI 客户端映射 (工号 -> SocketId)
   private clients = new Map<string, string>();
@@ -60,6 +68,22 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.pendingRequests.delete(payload.id);
       console.log(`[RpcGateway] Resolved RPC Response (ID: ${payload.id})`);
     }
+  }
+
+  @SubscribeMessage('plan_sync')
+  async handlePlanSync(client: Socket, payload: { sessionId: string; mode: string; tasks: any[] }) {
+    console.log(`[RpcGateway] Plan Sync received from ${client.id} for session ${payload.sessionId}. Tasks: ${payload.tasks.length}`);
+    
+    // Persist to DB and Broadcast to Web UI
+    await this.orchestratorService.syncPlan(payload.sessionId, payload.tasks);
+  }
+
+  @SubscribeMessage('task_progress')
+  async handleTaskProgress(client: Socket, payload: { sessionId: string; taskId: string; status: string; metadata?: any }) {
+    console.log(`[RpcGateway] Task Progress: Task #${payload.taskId} is now ${payload.status}`);
+    
+    // Update in DB and Broadcast to Web UI
+    await this.orchestratorService.updateTaskProgress(payload.sessionId, payload.taskId, payload.status, payload.metadata);
   }
 
   @SubscribeMessage('request_approval')

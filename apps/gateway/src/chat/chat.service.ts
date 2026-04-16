@@ -13,6 +13,8 @@ import { z } from 'zod';
 import { ZentaoService } from './zentao.service';
 import { RpcGateway } from './rpc.gateway';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
+import { PermissionService } from '../skill/permission.service';
+import { ApprovalService } from '../skill/approval.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -23,7 +25,34 @@ export class ChatService {
     private zentaoService: ZentaoService,
     private rpcGateway: RpcGateway,
     private mcpManager: MCPClientManager,
+    private permissionService: PermissionService,
+    private approvalService: ApprovalService,
   ) { }
+
+  private async checkPermissionAndAskApproval(
+    sessionId: string | undefined,
+    toolName: string,
+    args: any,
+  ): Promise<boolean> {
+    if (!sessionId) return true; // Fallback if no session
+
+    // 1. Evaluate permission rules
+    if (this.permissionService.isAutoAllowed(toolName)) return true;
+    if (this.permissionService.isDenied(toolName)) {
+      throw new Error(`Permission Denied: ${toolName} is explicitly blocked by policy.`);
+    }
+
+    // 2. If 'ask' mode, trigger approval flow
+    console.log(`[ChatService] Tool ${toolName} requires approval for session ${sessionId}`);
+    const requestId = await this.approvalService.createRequest({
+      sessionId,
+      toolName,
+      args,
+    });
+
+    // 3. Block and wait for user response
+    return await this.approvalService.waitForApproval(requestId, 5 * 60 * 1000); // 5 min
+  }
 
   private getModel(modelId?: string) {
     const modelsRaw = this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b';
@@ -155,6 +184,10 @@ export class ChatService {
         }),
         execute: async ({ userId, path, oldString, newString }) => {
           try {
+            // Permission check
+            const approved = await this.checkPermissionAndAskApproval(sessionId, 'local_file_edit', { path, oldString, newString });
+            if (!approved) throw new Error('Action denied by user.');
+
             const targetUserId = userId || currentUserId;
             const result = await this.rpcGateway.sendToCli(targetUserId, 'local_file_edit', { path, oldString, newString, sessionId });
             
@@ -215,6 +248,10 @@ export class ChatService {
         }),
         execute: async ({ userId, command }) => {
           try {
+            // Permission check
+            const approved = await this.checkPermissionAndAskApproval(sessionId, 'local_bash', { command });
+            if (!approved) throw new Error('Action denied by user.');
+
             const targetUserId = userId || currentUserId;
             const result = await this.rpcGateway.sendToCli(targetUserId, 'bash', { command, sessionId });
             return {
@@ -232,6 +269,29 @@ export class ChatService {
           } catch (err: any) {
             return { status: 'Error', message: err.message };
           }
+        },
+      }),
+
+      local_plan: tool({
+        description: '管理复杂任务的执行计划（编排工作流）。对涉及多个步骤或多个文件的任务，必须先启动计划。',
+        inputSchema: z.object({
+          action: z.enum(['start', 'update', 'list', 'exit']).describe('操作：start (启动), update (更新进度), list (查看), exit (结束)'),
+          subjects: z.array(z.string()).optional().describe('任务步骤列表 (仅 start 需要)'),
+          id: z.string().optional().describe('子任务 ID (仅 update 需要)'),
+          status: z.enum(['todo', 'doing', 'done', 'failed']).optional().describe('新状态 (仅 update 需要)'),
+          userId: z.string().optional().describe('目标用户 ID'),
+        }),
+        execute: async ({ action, subjects, id, status, userId }) => {
+          const targetUserId = userId || currentUserId;
+          const result = await this.rpcGateway.sendToCli(targetUserId, 'local_plan', { action, subjects, id, status, sessionId });
+          return {
+            status: 'Success',
+            ...result,
+            ui: {
+              uiType: 'task_plan',
+              props: result,
+            },
+          };
         },
       }),
     };

@@ -2,8 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, generateText, convertToModelMessages, stepCountIs, tool } from 'ai';
-import { jsonSchema } from 'ai';
+import { streamText, generateText, convertToModelMessages, stepCountIs, tool, UIMessage } from 'ai';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { SkillLoader } from './skill.loader';
 import { PermissionService } from './permission.service';
@@ -17,15 +16,6 @@ import type { SkillContext } from '@uclaw/core';
  * SkillOrchestrator
  *
  * Implements the AgentSkills client-side protocol for UClaw Gateway.
- *
- * AgentSkills 5-step flow:
- *   1. Discovery  — SkillLoader scans skills/ directory on startup
- *   2. Disclose   — System Prompt includes <available_skills> catalog (Tier 1, ~100 tokens)
- *   3. Activate   — LLM calls `activate_skill` tool when it matches a description
- *   4. Execute    — LLM reads full SKILL.md body and follows its instructions
- *   5. Manage     — Activated skill content is wrapped in <skill_content> tags (context-safe)
- *
- * Ref: https://agentskills.io/client-implementation/adding-skills-support
  */
 @Injectable()
 export class SkillOrchestrator {
@@ -44,14 +34,10 @@ export class SkillOrchestrator {
   // ──────────────────────────────────────────────
   // Model
   // ──────────────────────────────────────────────
-  // ──────────────────────────────────────────────
-  // Model
-  // ──────────────────────────────────────────────
   private getModel(modelId?: string) {
     const vllmModels = (this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b').split(',').map(m => m.trim());
     const omlxModel = this.configService.get<string>('AI_GATEWAY_MODEL')?.trim();
     
-    // 合并所有模型池
     const allModels = [...vllmModels];
     if (omlxModel && !allModels.includes(omlxModel)) {
       allModels.push(omlxModel);
@@ -59,7 +45,6 @@ export class SkillOrchestrator {
 
     const selectedModel = (modelId && allModels.includes(modelId)) ? modelId : allModels[0];
 
-    // 路由逻辑
     let baseURL: string;
     let apiKey: string;
     let providerLabel: string;
@@ -81,13 +66,9 @@ export class SkillOrchestrator {
       providerLabel = 'Ollama (Local)';
     }
 
-    this.logger.log(`[Orchestrator] Routing model "${selectedModel}" to ${providerLabel}`);
-
-    // For DeepSeek models via DashScope, inject enable_thinking into request body
     const provider = createOpenAI({
       baseURL,
       apiKey,
-      // Custom fetch to inject DashScope-specific parameters
       ...(isCloudModel && selectedModel.includes('deepseek') ? {
         fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
           if (init?.body && typeof init.body === 'string') {
@@ -105,6 +86,9 @@ export class SkillOrchestrator {
     return provider.chat(selectedModel);
   }
 
+  /**
+   * 获取当前网关配置的模型列表
+   */
   getAvailableModels() {
     const vllmModels = (this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b').split(',').map(m => m.trim());
     const omlxModel = this.configService.get<string>('AI_GATEWAY_MODEL')?.trim();
@@ -115,7 +99,7 @@ export class SkillOrchestrator {
     }
 
     return allModels.map((modelId) => {
-      const isCloud = modelId.includes('deepseek') || modelId.includes('omni');
+      const isCloud = modelId.includes('deepseek') || modelId.includes('omni') || modelId.includes('qwen');
       const isOmlx = omlxModel && modelId === omlxModel;
       
       let provider = 'Private Ollama';
@@ -143,327 +127,207 @@ export class SkillOrchestrator {
   }
 
   // ──────────────────────────────────────────────
-  // Step 2 + 3: System Prompt (AgentSkills Tier 1 + behavioral instructions)
+  // Step 2 + 3: System Prompt
   // ──────────────────────────────────────────────
   private async buildSystemPrompt(ctx: SkillContext): Promise<string> {
     const onlineClis = this.rpcGateway.getOnlineUsers();
 
-    // Base identity prompt
     let prompt = `你是银行内网 AI 助手 UClaw。
 当前登录用户工号: ${ctx.userId}
-来源渠道: ${ctx.source}
 当前在线的本地 CLI 节点: ${onlineClis.join(', ') || '无'}
 
-你可以调用 MCP 工具（禅道、Jenkins、GitLab 等）以及通过 runLocalCommand 在开发者本地工作站执行指令。
+你可以调用 MCP 工具以及直接操作开发者本地工作站的文件和 Git 仓库。
 拿到工具执行结果后，请用中文进行通俗易懂的总结。`;
 
-    // AgentSkills Tier 1: inject skill catalog (<available_skills>)
-    // + behavioral instructions (per spec: tell LLM how to activate)
     const catalogXml = await this.skillLoader.buildCatalogXml();
-    prompt += `
+    prompt += `\n\n以下 Skills 提供了特定任务的专项指令。当用户的请求与某个 Skill 的描述匹配时，请调用 activate_skill 工具加载该 Skill 的完整指令。\n\n${catalogXml}`;
 
-以下 Skills 提供了特定任务的专项指令。当用户的请求与某个 Skill 的描述匹配时，
-请调用 activate_skill 工具加载该 Skill 的完整指令，然后再开始执行任务。
-
-${catalogXml}`;
-
-    // Always inject .AIGUIDE.md (team conventions, global)
     const guide = await this.skillLoader.loadAiguide(ctx.workspacePath);
     if (guide) {
-      prompt += `\n\n## 团队开发规范（.AIGUIDE.md，必须严格遵守）\n${guide}`;
-      this.logger.log('.AIGUIDE.md injected into system prompt');
+      prompt += `\n\n## 团队开发规范（.AIGUIDE.md）\n${guide}`;
     }
 
     return prompt;
   }
 
   // ──────────────────────────────────────────────
-  // Tools: MCP + local CLI + activate_skill
+  // Tools: Atomic Local Tools + MCP + activate_skill
   // ──────────────────────────────────────────────
-  private async buildTools(ctx: SkillContext, sessionId?: string, data?: StreamData): Promise<Record<string, any>> {
-    // MCP tools (dynamic from mcp.config.json)
-    const mcpTools = await this.mcpManager.getAITools();
-    
-    // ... 保持原有逻辑 ...
+  private async buildTools(ctx: SkillContext, sessionId?: string): Promise<Record<string, any>> {
+    const currentUserId = ctx.userId;
 
-    // Local CLI RPC tool (until mcp-local-fs is ready)
-    const localCliTools = {
-      runLocalCommand: tool({
-        description: '在开发者的本地工作站执行安全指令（管理本地项目、查看本地代码、git 操作、npm 构建等）。这是操作本地文件的唯一入口。',
+    const atomicTools = {
+      local_file_read: tool({
+        description: '读取开发者本地工作站的文件内容',
         inputSchema: z.object({
-          userId: z.string().describe('目标用户工号'),
-          command: z
-            .enum(['ls', 'git_status', 'git_add', 'git_commit', 'git_push', 'npm_build', 'read_file'])
-            .describe('执行的指令名'),
-          args: z.record(z.string(), z.any()).optional().describe('指令参数'),
+          path: z.string().describe('文件相对路径'),
         }),
-        execute: async ({ userId, command, args }) => {
-          // 实时联动：推送正在执行的本地动作
-          if (data && command === 'read_file') {
-            data.append({
-              type: 'active-context',
-              file: {
-                name: args?.path?.split('/').pop() || 'file',
-                path: args?.path || './',
-                status: 'READING',
-                progress: 45,
-                type: 'Local File Access'
-              }
-            });
-          }
-
-          try {
-            const result = await this.rpcGateway.sendToCli(userId, command, args || {});
-            
-            // 执行成功：推送完成状态
-            if (data && command === 'read_file') {
-              data.append({
-                type: 'active-context',
-                file: {
-                  name: args?.path?.split('/').pop() || 'file',
-                  path: args?.path || './',
-                  status: 'IDLE',
-                  progress: 100,
-                  type: 'Context Loaded'
-                }
-              });
-            }
-
-            const output = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-            
-            // Generate a more descriptive message for the LLM
-            let message = `Command "${command}" executed successfully.`;
-            if (command === 'git_push') message = `Code successfully pushed to ${args?.remote || 'origin'}/${args?.branch || 'main'}.`;
-            if (command === 'git_commit') message = `Code successfully committed locally.`;
-
-            return {
-              status: 'Success',
-              command,
-              message,
-              data: result,
-              ui: {
-                uiType: 'code_block',
-                props: {
-                  command: `${command} ${Object.values(args || {}).join(' ')}`.trim(),
-                  output,
-                  status: 'success' as const,
-                  language: 'bash',
-                },
-              },
-            };
-          } catch (err: any) {
-            return {
-              status: 'Error',
-              command,
-              message: err.message,
-              data: null,
-              ui: {
-                uiType: 'code_block',
-                props: {
-                  command,
-                  output: err.message || '执行失败',
-                  status: 'error' as const,
-                  language: 'bash',
-                },
-              },
-              error: err.message,
-            };
-          }
-        },
-      } as any),
-    };
-
-    // AgentSkills Step 4: activate_skill tool
-    // LLM calls this to load full SKILL.md body (Tier 2) when description matches
-    const skillLoader = this.skillLoader;
-    const logger = this.logger;
-    const skillTools = {
-      activate_skill: tool({
-        description:
-          '当用户请求与某个 Skill 的描述匹配时，调用此工具加载该 Skill 的完整执行指令。加载后按照指令执行任务。',
-        inputSchema: z.object({
-          skill_name: z
-            .string()
-            .describe('要激活的 Skill 名称，必须与 <available_skills> 中的 <name> 完全一致'),
-        }),
-        execute: async ({ skill_name }) => {
-          const content = await skillLoader.activate(skill_name);
-          if (!content) {
-            logger.warn(`activate_skill: skill "${skill_name}" not found`);
-            return {
-              error: `Skill "${skill_name}" not found. Available skills are listed in <available_skills>.`,
-            };
-          }
-          logger.log(`activate_skill: "${skill_name}" delivered to LLM`);
-          return { 
-            message: `Skill "${skill_name}" has been successfully activated. Instructions are provided below. Please follow them strictly for all subsequent steps in this task. Do NOT call activate_skill again for "${skill_name}".`,
-            skill_content: content 
+        execute: async ({ path }) => {
+          const result = await this.rpcGateway.sendToCli(currentUserId, 'read_file', { path });
+          return {
+            status: 'Success',
+            path,
+            content: result,
+            ui: {
+              uiType: 'code_block',
+              props: { command: `read_file ${path}`, output: result, status: 'success', language: path.split('.').pop() || 'text' },
+            },
           };
         },
-      } as any),
+      }),
+
+      local_file_edit: tool({
+        description: '通过精准匹配旧代码块并替换为新代码块来修改本地文件。',
+        inputSchema: z.object({
+          path: z.string().describe('文件相对路径'),
+          oldString: z.string().describe('要被替换的原始代码块（必须完全匹配）'),
+          newString: z.string().describe('替换后的新代码块'),
+        }),
+        execute: async ({ path, oldString, newString }) => {
+          const result = await this.rpcGateway.sendToCli(currentUserId, 'local_file_edit', { path, oldString, newString, sessionId });
+          return {
+            status: 'Success',
+            path,
+            ui: {
+              uiType: 'diff_viewer',
+              props: { fileName: path, diff: [{ type: 'deletion', content: oldString }, { type: 'addition', content: newString }] },
+            },
+          };
+        },
+      }),
+
+      local_git: tool({
+        description: '操作本地 Git 仓库（status, add, commit, push, log, diff, branch）。',
+        inputSchema: z.object({
+          action: z.enum(['status', 'add', 'commit', 'push', 'log', 'diff', 'branch']).describe('Git 动作'),
+          args: z.string().optional().describe('动作参数，如 "." 或 "-m \"message\""'),
+        }),
+        execute: async ({ action, args }) => {
+          const result = await this.rpcGateway.sendToCli(currentUserId, 'local_git', { action, args, sessionId });
+          return {
+            status: 'Success',
+            ...result,
+            ui: { 
+              uiType: 'code_block', 
+              props: { 
+                command: `git ${action} ${args || ''}`.trim(),
+                output: result.raw || (typeof result === 'string' ? result : JSON.stringify(result, null, 2)),
+                status: 'success'
+              } 
+            },
+          };
+        },
+      }),
+
+      local_bash: tool({
+        description: '在开发者本地工作站执行 Shell 指令（编译、测试、安装依赖等）。',
+        inputSchema: z.object({
+          command: z.string().describe('要执行的完整 Shell 指令'),
+        }),
+        execute: async ({ command }) => {
+          const result = await this.rpcGateway.sendToCli(currentUserId, 'bash', { command, sessionId });
+          return {
+            status: 'Success',
+            output: result,
+            ui: { uiType: 'code_block', props: { command, output: result, status: 'success' } },
+          };
+        },
+      }),
+
+      local_plan: tool({
+        description: '管理复杂任务的执行计划（编排工作流）。',
+        inputSchema: z.object({
+          action: z.enum(['start', 'update', 'list', 'exit']).describe('操作'),
+          subjects: z.array(z.string()).optional().describe('步骤列表'),
+          id: z.string().optional().describe('任务 ID'),
+          status: z.enum(['todo', 'doing', 'done', 'failed']).optional().describe('状态'),
+        }),
+        execute: async (params) => {
+          const result = await this.rpcGateway.sendToCli(currentUserId, 'local_plan', { ...params, sessionId });
+          return { status: 'Success', ...result, ui: { uiType: 'task_plan', props: result } };
+        },
+      }),
+
+      activate_skill: tool({
+        description: '加载特定 Skill 的完整执行指令。',
+        inputSchema: z.object({
+          skill_name: z.string().describe('Skill 名称'),
+        }),
+        execute: async ({ skill_name }) => {
+          const content = await this.skillLoader.activate(skill_name);
+          if (!content) return { error: `Skill "${skill_name}" not found.` };
+          return { message: `Skill "${skill_name}" activated.`, skill_content: content };
+        },
+      }),
     };
 
-    return { ...wrappedMcpTools, ...localCliTools, ...skillTools };
+    // Wrap high-risk tools with approval
+    const finalTools: Record<string, any> = { ...atomicTools };
+    if (sessionId) {
+      finalTools.local_file_edit = this.wrapWithApproval('local_file_edit', atomicTools.local_file_edit, sessionId, currentUserId);
+      finalTools.local_bash = this.wrapWithApproval('local_bash', atomicTools.local_bash, sessionId, currentUserId);
+      
+      const mcpTools = await this.mcpManager.getAITools();
+      for (const [name, toolDef] of Object.entries(mcpTools)) {
+        finalTools[name] = this.wrapWithApproval(name, toolDef, sessionId, currentUserId);
+      }
+    } else {
+      const mcpTools = await this.mcpManager.getAITools();
+      Object.assign(finalTools, mcpTools);
+    }
+
+    return finalTools;
   }
 
-  /**
-   * Wraps a tool with approval logic.
-   * Uses the "blocking wait" pattern (Claude Code Tier 3 approach):
-   * 1. Create approval request in DB
-   * 2. Poll DB every 1s waiting for user response
-   * 3. If approved → execute original tool
-   * 4. If denied/timeout → return denial to LLM
-   *
-   * This keeps the entire flow within a single streamText call.
-   * The HTTP connection stays open while waiting (typically < 60s).
-   */
   private wrapWithApproval(toolName: string, toolDef: any, sessionId: string, userId: string): any {
     const originalExecute = toolDef.execute;
     const approvalService = this.approvalService;
-    const logger = this.logger;
-
     return tool({
       ...toolDef,
       execute: async (args: any) => {
-        logger.log(`[AGP] Tool "${toolName}" requires approval. Waiting for user decision...`);
+        if (this.permissionService.isAutoAllowed(toolName)) return originalExecute(args);
+        if (this.permissionService.isDenied(toolName)) throw new Error(`Permission Denied: ${toolName}`);
 
-        // Step 1: Create approval request in DB
-        const requestId = await approvalService.createRequest({
-          sessionId,
-          toolName,
-          args,
-          timeoutMs: 5 * 60 * 1000, // 5 分钟超时
-        });
-
-        logger.log(`[AGP] Approval request created: ${requestId}. Polling for response...`);
-
-        // Step 2: Block and wait for user to approve/deny (polls DB every 1s)
+        const requestId = await approvalService.createRequest({ sessionId, toolName, args });
         const approved = await approvalService.waitForApproval(requestId, 5 * 60 * 1000);
-
-        if (!approved) {
-          logger.log(`[AGP] Tool "${toolName}" was denied or timed out.`);
-          return {
-            status: 'denied',
-            requestId,
-            message: `Action "${toolName}" was denied by the user. Please choose a different approach.`,
-          };
-        }
-
-        logger.log(`[AGP] Tool "${toolName}" approved. Executing...`);
-
-        // Step 3: Approved — execute the original tool
+        if (!approved) return { status: 'denied', message: `Action "${toolName}" was denied by user.` };
         return originalExecute(args);
       },
     } as any);
   }
 
-  // ──────────────────────────────────────────────
-  // Public API: streaming (Web)
-  // ──────────────────────────────────────────────
-  async streamResponse(
-    messages: any[],
-    res: Response,
-    ctx: SkillContext,
-    modelId?: string,
-    sessionId?: string,
-  ): Promise<void> {
+  async streamResponse(messages: any[], res: Response, ctx: SkillContext, modelId?: string, sessionId?: string): Promise<void> {
     try {
-      this.logger.debug(`streamResponse called with ${messages?.length} messages`);
-      if (!Array.isArray(messages)) {
-        throw new Error('messages must be an array');
-      }
-
-      // ── Step 1: 持久化用户消息（Server-First）────────────────
-      // 只持久化最后一条用户消息（新发送的那条）
-      if (sessionId) {
+      this.logger.log(`[Orchestrator] streamResponse session=${sessionId} messages=${messages?.length}`);
+      
+      if (sessionId && Array.isArray(messages)) {
         const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
         if (lastUserMsg) {
-          const userContent = typeof lastUserMsg.content === 'string'
-            ? lastUserMsg.content
-            : (Array.isArray(lastUserMsg.parts)
-                ? lastUserMsg.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')
-                : '');
+          const userContent = typeof lastUserMsg.content === 'string' ? lastUserMsg.content : '';
           await this.sessionService.addMessage(sessionId, {
             role: 'user',
             content: userContent,
-            parts: Array.isArray(lastUserMsg.parts) ? lastUserMsg.parts : undefined,
-            attachments: lastUserMsg.experimental_attachments ?? undefined,
+            parts: lastUserMsg.parts,
+            attachments: lastUserMsg.experimental_attachments,
           });
-          this.logger.log(`[Orchestrator] Persisted user message to session ${sessionId}`);
         }
       }
 
-      // 兼容某些版本的 AI SDK (如 6.0.x)，确保 User/Assistant 消息具有 parts 属性
-      // 同时把 experimental_attachments 注入为 LLM 可读的 content parts
-      const sanitizedMessages = messages.map(m => {
-        // Log attachments if present
-        if (m.experimental_attachments?.length > 0) {
-          this.logger.log(`[Orchestrator] Message from ${m.role} contains ${m.experimental_attachments.length} attachments.`);
-        }
-
-        let parts: any[] = [];
-
-        // Build base text part
-        if (Array.isArray(m.parts)) {
-          parts = [...m.parts];
-        } else if (typeof m.content === 'string') {
+      // Robustly ensure messages have parts for the SDK
+      const sanitizedMessages = (messages || []).map(m => {
+        if (!m) return { role: 'user', content: '', parts: [] };
+        let parts = m.parts;
+        if (!parts && typeof m.content === 'string') {
           parts = [{ type: 'text', text: m.content }];
         }
-
-        // Inject attachment content into parts so LLM can read files
-        if (m.role === 'user' && Array.isArray(m.experimental_attachments) && m.experimental_attachments.length > 0) {
-          for (const attachment of m.experimental_attachments) {
-            const contentType: string = attachment.contentType || attachment.type || '';
-            const url: string = attachment.url || '';
-            const name: string = attachment.name || 'attachment';
-
-            if (contentType.startsWith('image/')) {
-              // Image: inject as image part
-              parts.push({ type: 'image', image: url, mimeType: contentType });
-            } else if (url.startsWith('data:')) {
-              // Text / document: decode base64 and inject as text
-              try {
-                const base64Data = url.split(',')[1];
-                if (base64Data) {
-                  const decoded = Buffer.from(base64Data, 'base64').toString('utf-8');
-                  parts.push({
-                    type: 'text',
-                    text: `\n\n---\n[ATTACH] **文件附件: ${name}**\n\`\`\`\n${decoded}\n\`\`\`\n---`,
-                  });
-                  this.logger.log(`[Orchestrator] Injected file content: "${name}" (${decoded.length} chars)`);
-                }
-              } catch (err) {
-                this.logger.warn(`[Orchestrator] Failed to decode attachment "${name}": ${err}`);
-              }
-            }
-          }
-        }
-
-        return { ...m, parts };
+        return { ...m, parts: parts || [] };
       });
 
       const modelMessages = await convertToModelMessages(sanitizedMessages);
-      this.logger.debug(`modelMessages converted: ${modelMessages?.length}`);
+      const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx), this.buildTools(ctx, sessionId)]);
 
-      const [systemPrompt, tools] = await Promise.all([
-        this.buildSystemPrompt(ctx),
-        this.buildTools(ctx, sessionId, data),
-      ]);
-      
-      this.logger.debug(`SystemPrompt built (${systemPrompt?.length} chars)`);
-      this.logger.debug(`Tools built: [${Object.keys(tools || {}).join(', ')}]`);
-
-      this.logger.log(`[Orchestrator] AgentSkills mode for user ${ctx.userId}`);
-
-      // Accumulate tool invocations, text, AND reasoning across ALL steps
-      // (onFinish only gives the last step's data in newer AI SDK versions)
-      const allToolInvocations: any[] = [];
-      let fullText = '';
-      let fullReasoning = '';
-      // Build a complete parts array interleaving reasoning, text and tool invocations
       const allParts: any[] = [];
-      // Track the last reasoning block so we can append deltas to it
-      let lastReasoningPart: any = null;
+      let fullText = '';
 
       const result = streamText({
         model: this.getModel(modelId),
@@ -472,284 +336,59 @@ ${catalogXml}`;
         stopWhen: stepCountIs(10),
         system: systemPrompt,
         tools,
-        // ── Real-time chunk handling: capture reasoning deltas ──
-        onChunk: ({ chunk }) => {
-          if (chunk.type === 'reasoning-delta') {
-            fullReasoning += chunk.text;
-            if (lastReasoningPart) {
-              lastReasoningPart.text += chunk.text;
-            } else {
-              lastReasoningPart = { type: 'reasoning', text: chunk.text };
-              allParts.push(lastReasoningPart);
-            }
-          }
-          // Reasoning naturally ends when a different chunk type appears
-          // Reset tracker on text-delta, tool-call, etc.
-          if (chunk.type === 'text-delta' || chunk.type === 'tool-call') {
-            lastReasoningPart = null;
-          }
-        },
-        onStepFinish: ({ stepNumber, toolCalls, toolResults, text }) => {
-          this.logger.debug(`Step ${stepNumber} finished. Tool calls: ${toolCalls?.length || 0}, text: ${text?.length ?? 0} chars`);
-
-          // 1. 记录文本
-          if (text) {
-            fullText += text;
-            allParts.push({ type: 'text', text });
-          }
-
-          // 2. 核心修复逻辑：确保每一个 toolCall 都有其对应的 part 进入 allParts
-          // Vercel AI SDK 要求 tool result 必须与 tool call 严格对应
-          const handledCallIds = new Set<string>();
-
-          if (toolResults && toolResults.length > 0) {
-            for (const tr of toolResults as any[]) {
-              const part = {
-                type: 'tool-invocation',
-                toolCallId: tr.toolCallId,
-                toolName: tr.toolName,
-                args: tr.input,
-                output: tr.output,
-                result: tr.output,
-              };
-              allToolInvocations.push(part);
-              allParts.push(part);
-              handledCallIds.add(tr.toolCallId);
-            }
-          }
-
-          // 如果有 toolCalls 但在 toolResults 中没找到对应的（可能执行中或出错），注入占位结果防止报错
-          if (toolCalls && toolCalls.length > 0) {
-            for (const tc of toolCalls as any[]) {
-              if (!handledCallIds.has(tc.toolCallId)) {
-                this.logger.warn(`[Orchestrator] Missing result for tool call ${tc.toolCallId} (${tc.toolName}). Injecting placeholder.`);
-                const placeholderPart = {
-                  type: 'tool-invocation',
-                  toolCallId: tc.toolCallId,
-                  toolName: tc.toolName,
-                  args: tc.input,
-                  result: { error: 'Execution interrupted or result missing' }
-                };
-                allToolInvocations.push(placeholderPart);
-                allParts.push(placeholderPart);
-              }
+        onStepFinish: ({ text, toolResults }) => {
+          if (text) { fullText += text; allParts.push({ type: 'text', text }); }
+          if (toolResults && Array.isArray(toolResults)) {
+            for (const tr of toolResults) {
+              allParts.push({ type: 'tool-invocation', toolCallId: tr.toolCallId, toolName: tr.toolName, args: tr.input, result: tr.output });
             }
           }
         },
         onFinish: async ({ totalUsage }) => {
-          // ── Step 2: 持久化 AI 回复（流完成后写库）────────────────
           if (sessionId && fullText) {
-            try {
-              const usage = totalUsage
-                ? { inputTokens: totalUsage.inputTokens ?? 0, outputTokens: totalUsage.outputTokens ?? 0, totalTokens: totalUsage.totalTokens ?? 0 }
-                : undefined;
-              const messageId = await this.sessionService.addMessage(sessionId, {
-                role: 'assistant',
-                content: fullText,
-                parts: allParts.length > 0 ? allParts : undefined,
-                usage,
-              });
-              this.logger.log(`[Orchestrator] Persisted assistant reply: ${fullText.length} chars, ${allParts.length} parts (${allToolInvocations.length} tool invocations, ${fullReasoning.length} chars reasoning, accumulated from all steps)`);
-
-              // ── Step 2b: 提取 UI 快照并持久化（Capsule 快照存储）────
-              if (allToolInvocations.length > 0) {
-                await this.saveCapsuleSnapshots(messageId, sessionId, allToolInvocations);
-              }
-
-              // ── Step 3: 自动生成标题（第一轮对话时）─────────────
-              await this.maybeSummarizeTitle(sessionId, messages, fullText, modelId);
-            } catch (err: any) {
-              this.logger.error(`Failed to persist assistant reply: ${err.message}`);
-              this.logger.error(err.stack);
-            }
+            const usage = totalUsage ? { 
+              inputTokens: totalUsage.inputTokens ?? 0, 
+              outputTokens: totalUsage.outputTokens ?? 0, 
+              totalTokens: totalUsage.totalTokens ?? 0 
+            } : undefined;
+            await this.sessionService.addMessage(sessionId, { role: 'assistant', content: fullText, parts: allParts, usage });
           }
         },
       });
 
-      result.pipeUIMessageStreamToResponse(res, {
-        messageMetadata: ({ part }) => {
-          if (part.type === 'finish') {
-            return {
-              usage: {
-                inputTokens: part.totalUsage?.inputTokens ?? 0,
-                outputTokens: part.totalUsage?.outputTokens ?? 0,
-                totalTokens: part.totalUsage?.totalTokens ?? 0,
-              },
-            };
-          }
-          return {};
-        },
-      });
+      result.pipeUIMessageStreamToResponse(res);
     } catch (err: any) {
       this.logger.error(`Stream error: ${err.message}`);
       if (err.stack) this.logger.error(err.stack);
-      res.status(500).send(err.message);
+      if (!res.headersSent) res.status(500).send(err.message);
     }
   }
 
-  /**
-   * 仅在会话第一轮（1条用户消息 + 1条 AI 回复）时自动生成标题
-   */
-  private async maybeSummarizeTitle(
-    sessionId: string,
-    messages: any[],
-    assistantReply: string,
-    modelId?: string,
-  ): Promise<void> {
-    // 只在第一条用户消息 + 第一条 AI 回复时触发
-    const userMsgCount = messages.filter(m => m.role === 'user').length;
-    if (userMsgCount !== 1) return;
-
-    const firstUserMsg = messages.find(m => m.role === 'user');
-    const userContent = typeof firstUserMsg?.content === 'string'
-      ? firstUserMsg.content
-      : '';
-    if (!userContent) return;
-
-    try {
-      const title = await this.generateTitle(userContent, modelId);
-      // 通过 sessionId 直接更新数据库标题（不需要 userId 鉴权，内部调用）
-      await this.sessionService['prisma'].session.update({
-        where: { id: sessionId },
-        data: { title },
-      });
-      this.logger.log(`[Orchestrator] Auto-titled session ${sessionId}: "${title}"`);
-    } catch (err: any) {
-      this.logger.warn(`Auto-title generation failed: ${err.message}`);
-    }
-  }
-
-  /**
-   * Extract UI snapshots from tool call parts and persist them as CapsuleSnapshot records.
-   *
-   * Design principle: Capsule content is a self-contained snapshot, not a reference.
-   * Even if the external data (e.g., ZenTao bug) is deleted, the historical capsule
-   * will still render correctly.
-   */
-  private async saveCapsuleSnapshots(messageId: string, sessionId: string, parts: any[]): Promise<void> {
-    const prisma = this.sessionService['prisma'];
-    let snapshotCount = 0;
-
-    for (const part of parts) {
-      const result = part.output || part.result;
-      if (result?.ui) {
-        const ui = result.ui;
-        const title = this.generateCapsuleTitle(ui);
-
-        try {
-          await prisma.capsuleSnapshot.create({
-            data: {
-              messageId,
-              toolCallId: part.toolCallId,
-              uiType: ui.uiType,
-              title,
-              content: ui.props, // Full snapshot of UI props
-              version: 1,
-            },
-          });
-          snapshotCount++;
-        } catch (err: any) {
-          // Non-fatal: snapshot failure should not break the main message persistence
-          this.logger.warn(`Failed to save capsule snapshot for ${part.toolCallId}: ${err.message}`);
-        }
-      }
-    }
-
-    if (snapshotCount > 0) {
-      this.logger.log(`[Orchestrator] Saved ${snapshotCount} capsule snapshot(s) for message ${messageId}`);
-    }
-  }
-
-  /**
-   * Generate a human-readable title for a capsule snapshot.
-   */
-  private generateCapsuleTitle(ui: any): string {
-    const props = ui.props || {};
-
-    // Try common title fields
-    if (props.title) return props.title;
-    if (props.name) return props.name;
-    if (props.id) return `#${props.id}`;
-
-    // Fallback to uiType
-    const typeLabels: Record<string, string> = {
-      bug_card: '缺陷详情',
-      bug_list: '缺陷列表',
-      pipeline_card: '流水线状态',
-      task_plan: '任务计划',
-      approval_card: '审批请求',
-      zentao_task_card: '禅道任务',
-      leave_request_form: '请假申请',
-      diff_viewer: '代码差异',
-      print_console: '打印控制台',
-      stats_card: '统计数据',
-      code_block: '代码片段',
-    };
-
-    return typeLabels[ui.uiType] || ui.uiType || '交互结果';
-  }
-
-  // ──────────────────────────────────────────────
-  // Public API: text response (IM Bot)
-  // ──────────────────────────────────────────────
   async textResponse(userId: string, content: string, source: 'im' | 'cli' = 'im'): Promise<string> {
     try {
-      const ctx: SkillContext = {
-        userId,
-        source,
-        userMessage: content,
-      };
-
-      const [systemPrompt, tools] = await Promise.all([
-        this.buildSystemPrompt(ctx),
-        this.buildTools(ctx, undefined),
-      ]);
-
-      const { text } = await generateText({
-        model: this.getModel(),
-        messages: [{ role: 'user', content }],
-        toolChoice: 'auto',
-        stopWhen: stepCountIs(10),
-        system: systemPrompt,
-        tools,
-      });
-
+      const ctx: SkillContext = { userId, source, userMessage: content };
+      const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx), this.buildTools(ctx)]);
+      const { text } = await generateText({ model: this.getModel(), messages: [{ role: 'user', content }], system: systemPrompt, tools, stopWhen: stepCountIs(10) });
       return text;
     } catch (err: any) {
-      this.logger.error(`Text response error: ${err.message}`);
-      return `抱歉，处理您的请求时发生了错误: ${err.message}`;
+      return `Error: ${err.message}`;
     }
   }
 
   /**
-   * 为会话生成简短摘要标题 (LLM 自动总结)
+   * 为会话生成简短摘要标题
    */
   async generateTitle(userContent: string, modelId?: string): Promise<string> {
     try {
       const { text } = await generateText({
         model: this.getModel(modelId),
-        system: '你是一个标题生成助手。请根据用户提供的第一条对话内容，总结一个 5 字以内的中文标题，不要包含标点符号。直接返回标题文字。请尽量精准且干脆。',
+        system: '你是一个标题生成助手。总结一个 5 字以内的中文标题，不要标点符号。直接返回文字。',
         messages: [{ role: 'user', content: userContent }],
       });
       return text.trim().replace(/[。？！，、]/g, '');
     } catch (err: any) {
       this.logger.error(`Generate title error: ${err?.message || String(err)}`);
       return userContent.slice(0, 15);
-    }
-  }
-}
-is.getModel(modelId),
-        system: '你是一个标题生成助手。请根据用户提供的第一条对话内容，总结一个 5 字以内的中文标题，不要包含标点符号。直接返回标题文字。请尽量精准且干脆。',
-        messages: [{ role: 'user', content: userContent }],
-      });
-      return text.trim().replace(/[。？！，、]/g, '');
-    } catch (err: any) {
-      this.logger.error(`Generate title error: ${err?.message || String(err)}`);
-      return userContent.slice(0, 15);
-    }
-  }
-}
-ontent.slice(0, 15);
     }
   }
 }
