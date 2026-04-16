@@ -58,7 +58,9 @@ export class GitTool extends LocalTool<GitParams, any> {
 
       // Default to exec for complex commands
       let command = `git ${action} ${argsString}`;
-      const { stdout, stderr } = await execAsync(command);
+      const { stdout, stderr } = await execAsync(command, {
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+      });
       
       if (stderr && !stdout) {
         return { success: false, error: stderr };
