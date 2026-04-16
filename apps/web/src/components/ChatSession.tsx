@@ -652,10 +652,26 @@ export function ChatSession({
                   context={{
                     ...(activeContext?.payload || {}),
                     modelInfo: { name: activeDisplayName, latency: '~240ms' },
-                    suggestions: activeContext?.payload?.suggestions || ['Verify OAuth Scopes', 'Scan Secret Variables', 'Run Unit Tests']
+                    suggestions: activeContext?.payload?.suggestions || ['Run Unit Tests', 'Check Lint', 'Git Status']
                   }}
-                  onAction={(action) => {
-                    sendMessage({ content: action, role: 'user' });
+                  onAction={async (action) => {
+                    if (action === 'open_ide') {
+                      try {
+                        const activeToken = token || localStorage.getItem('uclaw_auth_token');
+                        await fetch('/api/chat/open-ide', {
+                          method: 'POST',
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${activeToken}`
+                          },
+                          body: JSON.stringify({ userId: user?.workId }),
+                        });
+                      } catch (err) {
+                        console.error('Failed to open IDE:', err);
+                      }
+                    } else {
+                      sendMessage({ content: action, role: 'user' });
+                    }
                   }}
                 />
                 <div className="border-t border-[#E8E4E2]/60 bg-[#F6F3F2]/30">

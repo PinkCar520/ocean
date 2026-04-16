@@ -3,6 +3,8 @@
  * https://docs.anthropic.com/en/docs/claude-code/settings
  */
 
+export const IS_PUBLIC_KEY = 'isPublic';
+
 export type PermissionMode =
   | 'default'       // prompt on first use
   | 'acceptEdits'   // auto-approve file edits, prompt bash
@@ -122,11 +124,81 @@ export function normalizeRules(settings: PermissionSettings): NormalizedRule[] {
  * Returns the action for the first matching rule (top-down, first match wins).
  * If no rule matches, returns 'ask' (default behavior).
  */
-export function evaluateTool(toolName: string, rules: NormalizedRule[]): PermissionAction {
+export function evaluateTool(
+  toolName: string,
+  rules: NormalizedRule[],
+  args?: any,
+): PermissionAction {
+  // 1. Check explicit rules (user settings take precedence)
   for (const rule of rules) {
     if (rule.regex.test(toolName)) {
       return rule.action;
     }
   }
+
+  // 2. Smart Defaults (Claude Code logic): Auto-allow read-only operations
+  if (isReadOnlyTool(toolName, args)) {
+    return 'allow';
+  }
+
   return 'ask'; // default: ask on first use
+}
+
+/**
+ * Identify if a tool call is a safe, read-only operation.
+ */
+export function isReadOnlyTool(toolName: string, args?: any): boolean {
+  // Basic read-only tools
+  const READ_ONLY_TOOLS = [
+    'local_file_read',
+    'grep',
+    'glob',
+    'ls',
+    'cat',
+    'mcp__zentao:getBugInfo',
+    'mcp__zentao:searchBugs',
+    'mcp__zentao:getStoryInfo',
+  ];
+
+  if (READ_ONLY_TOOLS.includes(toolName)) return true;
+
+  // Git read-only actions
+  if (toolName === 'local_git' && args?.action) {
+    const safeGitActions = ['status', 'diff', 'log', 'branch', 'show'];
+    if (safeGitActions.includes(args.action)) return true;
+  }
+
+  // Bash read-only commands
+  if (toolName === 'local_bash' && args?.command) {
+    const cmd = args.command.trim().split(/\s+/)[0];
+    const safeBashCommands = [
+      'ls',
+      'pwd',
+      'whoami',
+      'git status',
+      'git diff',
+      'git log',
+      'cat',
+      'grep',
+      'find',
+      'du',
+      'df',
+      'type',
+      'which',
+    ];
+
+    // Check if the command starts with a safe prefix
+    if (safeBashCommands.some((safe) => args.command.trim().startsWith(safe))) {
+      // Defense in depth: Ensure no dangerous redirections or pipes
+      const dangerousChars = [';', '|', '&', '>', '`', '$'];
+      const hasDangerousChars = dangerousChars.some((char) =>
+        args.command.includes(char),
+      );
+
+      // If it's a very simple safe command with no shell metacharacters, allow it
+      if (!hasDangerousChars) return true;
+    }
+  }
+
+  return false;
 }

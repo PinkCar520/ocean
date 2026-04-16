@@ -172,6 +172,14 @@ export class SkillOrchestrator {
               uiType: 'code_block',
               props: { command: `read_file ${path}`, output: result, status: 'success', language: path.split('.').pop() || 'text' },
             },
+            // Metadata for Active Context
+            activeContext: {
+              type: 'file',
+              name: path.split('/').pop() || path,
+              path: path,
+              status: 'DONE',
+              progress: 100
+            }
           };
         },
       }),
@@ -192,6 +200,13 @@ export class SkillOrchestrator {
               uiType: 'diff_viewer',
               props: { fileName: path, diff: [{ type: 'deletion', content: oldString }, { type: 'addition', content: newString }] },
             },
+            activeContext: {
+              type: 'file',
+              name: path.split('/').pop() || path,
+              path: path,
+              status: 'SAVED',
+              progress: 100
+            }
           };
         },
       }),
@@ -204,7 +219,8 @@ export class SkillOrchestrator {
         }),
         execute: async ({ action, args }) => {
           const result = await this.rpcGateway.sendToCli(currentUserId, 'local_git', { action, args, sessionId });
-          return {
+          
+          const response: any = {
             status: 'Success',
             ...result,
             ui: { 
@@ -216,6 +232,20 @@ export class SkillOrchestrator {
               } 
             },
           };
+
+          // Workspace Update for Active Context
+          if (action === 'status' && result.branch) {
+            response.activeContext = {
+              workspace: {
+                name: result.gitDir?.split('/').pop() || 'uClaw',
+                branch: result.branch,
+                isClean: result.isClean,
+                path: result.cwd || ''
+              }
+            };
+          }
+
+          return response;
         },
       }),
 

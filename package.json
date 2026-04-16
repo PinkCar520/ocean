@@ -9,6 +9,10 @@
   },
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
+    "gateway": "pnpm --filter gateway start:dev",
+    "web": "pnpm --filter web dev",
+    "daemon": "pnpm --filter @uclaw/cli start daemon",
+    "all": "pnpm run dev",
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",

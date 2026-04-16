@@ -49,6 +49,7 @@ export class GitTool extends LocalTool<GitParams, any> {
             branch: state.branch,
             sha: state.sha,
             gitDir: state.gitDir,
+            cwd: cwd,
             isShallow: state.isShallow,
             raw: rawStatus
           },

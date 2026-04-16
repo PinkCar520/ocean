@@ -102,34 +102,38 @@ export class PermissionService {
    * Evaluate a tool against loaded rules.
    * Returns the permission action for the tool.
    */
-  evaluateTool(toolName: string, workspacePath?: string): PermissionAction {
+  evaluateTool(
+    toolName: string,
+    workspacePath?: string,
+    args?: any,
+  ): PermissionAction {
     if (!this.cachedRules) {
       this.loadSettings(workspacePath);
     }
-    return evaluateTool(toolName, this.cachedRules!);
+    return evaluateTool(toolName, this.cachedRules!, args);
   }
 
   /**
    * Check if a tool should be auto-allowed (no approval needed).
    */
-  isAutoAllowed(toolName: string, workspacePath?: string): boolean {
-    const action = this.evaluateTool(toolName, workspacePath);
+  isAutoAllowed(toolName: string, workspacePath?: string, args?: any): boolean {
+    const action = this.evaluateTool(toolName, workspacePath, args);
     return action === 'allow' || this.getMode() === 'bypassPermissions';
   }
 
   /**
    * Check if a tool is explicitly denied.
    */
-  isDenied(toolName: string, workspacePath?: string): boolean {
-    const action = this.evaluateTool(toolName, workspacePath);
+  isDenied(toolName: string, workspacePath?: string, args?: any): boolean {
+    const action = this.evaluateTool(toolName, workspacePath, args);
     return action === 'deny';
   }
 
   /**
    * Check if a tool requires user approval.
    */
-  requiresApproval(toolName: string, workspacePath?: string): boolean {
-    const action = this.evaluateTool(toolName, workspacePath);
+  requiresApproval(toolName: string, workspacePath?: string, args?: any): boolean {
+    const action = this.evaluateTool(toolName, workspacePath, args);
     return action === 'ask';
   }
 

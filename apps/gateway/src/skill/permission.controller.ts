@@ -38,7 +38,7 @@ export class PermissionController {
       return { error: 'toolName query parameter is required' };
     }
 
-    const action = this.permissionService.evaluateTool(toolName, workspacePath);
+    const action = this.permissionService.evaluateTool(toolName, workspacePath, null);
     return {
       toolName,
       action,
