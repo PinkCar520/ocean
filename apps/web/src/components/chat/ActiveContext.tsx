@@ -51,13 +51,14 @@ export function ActiveContextPanel({ context, onAction }: ActiveContextProps) {
           <div className="min-w-0 flex-1">
             <h3 className="text-[16px] font-bold truncate leading-tight">
               {workspace.name} 
-              <span className="text-white/40 font-normal ml-1.5 text-[12px]">({workspace.path?.split('/').pop()})</span>
+              <span className="text-white/40 font-normal ml-1.5 text-[12px]">({workspace.path?.split('/').pop() || 'root'})</span>
             </h3>
-            <p className="text-[10px] text-white/30 truncate mt-0.5 font-mono">{workspace.path || '~/workspace/uwork/uclaw'}</p>
+            <p className="text-[10px] text-[#EC5B14] truncate mt-1 font-mono font-bold">{workspace.path || '~/workspace/uwork/uclaw'}</p>
             <div className="flex items-center gap-1.5 mt-2">
               <span className="text-[11px] text-white/50 font-bold px-2 py-0.5 rounded bg-white/5 border border-white/10 tracking-tight">
                 {workspace.branch}
               </span>
+
               {!workspace.isClean && (
                 <span className="flex items-center gap-1 ml-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />

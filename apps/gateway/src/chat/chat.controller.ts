@@ -17,6 +17,7 @@ export class ChatController {
     private readonly chatService: ChatService,
     private readonly skillOrchestrator: SkillOrchestrator,
     private readonly skillLoader: SkillLoader,
+    private readonly rpcGateway: RpcGateway,
   ) {}
 
   /**
@@ -147,9 +148,10 @@ export class ChatController {
   }
 
   /**
-   * POST /api/chat/generate-title
-   * 为对话生成摘要标题
+   * POST /api/chat/open-ide
+   * 直接唤起本地 IDE
    */
+  @Public()
   @Post('open-ide')
   async openIde(@Body() body: { userId: string }) {
     const { userId } = body;
