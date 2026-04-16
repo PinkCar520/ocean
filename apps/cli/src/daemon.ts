@@ -135,7 +135,11 @@ export async function runDaemon(options: DaemonOptions) {
           }
           
           const { stdout, stderr } = await execAsync(data.params.command, {
-            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+            env: { 
+              ...process.env, 
+              GIT_TERMINAL_PROMPT: '0',
+              GIT_SSH_COMMAND: 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+            }
           });
           result = stdout || stderr;
           break;

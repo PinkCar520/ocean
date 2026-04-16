@@ -59,7 +59,12 @@ export class GitTool extends LocalTool<GitParams, any> {
       // Default to exec for complex commands
       let command = `git ${action} ${argsString}`;
       const { stdout, stderr } = await execAsync(command, {
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+        env: { 
+          ...process.env, 
+          GIT_TERMINAL_PROMPT: '0',
+          // Bypass SSH host key confirmation for automated pushes
+          GIT_SSH_COMMAND: 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+        }
       });
       
       if (stderr && !stdout) {
