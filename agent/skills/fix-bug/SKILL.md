@@ -2,15 +2,15 @@
 name: fix-bug
 description: "修复禅道缺陷的完整全链路工作流：拉取缺陷详情、分析相关代码、应用修复、Git 提交并在禅道关闭缺陷。触发条件：用户提到修复、fix bug、解决缺陷、处理 BUG-xxx、帮我修、关闭 bug 时激活。"
 allowed-tools:
-  - getBugInfo
-  - git_status
-  - read_file
+  - zentao__getBugInfo
+  - local_git_status
+  - local_file_read
   - runLocalCommand
-  - resolveBug
+  - zentao__resolveBug
 requires-approval:
   - git_add
   - git_commit
-  - resolveBug
+  - zentao__resolveBug
 compatibility: "需要 mcp-zentao MCP Server 和本地 CLI 节点在线（RPC 通道）"
 locales:
   zh:

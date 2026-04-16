@@ -128,7 +128,20 @@ export class ChatService {
         execute: async ({ userId, path }) => {
           const targetUserId = userId || currentUserId;
           const result = await this.rpcGateway.sendToCli(targetUserId, 'read_file', { path });
-          return { status: 'Success', path, content: result };
+          return {
+            status: 'Success',
+            path,
+            content: result,
+            ui: {
+              uiType: 'code_block',
+              props: {
+                command: `read_file ${path}`,
+                output: result,
+                status: 'success',
+                language: path.split('.').pop() || 'text',
+              },
+            },
+          };
         },
       }),
 
@@ -144,7 +157,26 @@ export class ChatService {
           try {
             const targetUserId = userId || currentUserId;
             const result = await this.rpcGateway.sendToCli(targetUserId, 'local_file_edit', { path, oldString, newString, sessionId });
-            return { status: 'Success', path, result };
+            
+            // 构造 diff 视图数据
+            const diffLines = [
+              { lineNumber: 1, type: 'deletion' as const, content: oldString },
+              { lineNumber: 1, type: 'addition' as const, content: newString },
+            ];
+
+            return {
+              status: 'Success',
+              path,
+              result,
+              ui: {
+                uiType: 'diff_viewer',
+                props: {
+                  fileName: path,
+                  language: path.split('.').pop() || 'typescript',
+                  diff: diffLines,
+                },
+              },
+            };
           } catch (err: any) {
             return { status: 'Error', message: err.message };
           }
@@ -152,7 +184,19 @@ export class ChatService {
       }),
 
       local_git_status: tool({
-        description: '获取开发者本地工作区的 Git 状态（查看改动文件、当前分支等）',
+        description: '获取开发者本地工作区的 Git 状态（查看改动文件、当前分支等）。也可以通过别名 git_status 调用。',
+        inputSchema: z.object({
+          userId: z.string().optional().describe('目标用户的 ID'),
+        }),
+        execute: async ({ userId }) => {
+          const targetUserId = userId || currentUserId;
+          const result = await this.rpcGateway.sendToCli(targetUserId, 'local_git', { action: 'status' });
+          return { status: 'Success', ...result };
+        },
+      }),
+
+      git_status: tool({
+        description: 'local_git_status 的别名。获取本地 Git 状态。',
         inputSchema: z.object({
           userId: z.string().optional().describe('目标用户的 ID'),
         }),
@@ -164,7 +208,7 @@ export class ChatService {
       }),
 
       local_bash: tool({
-        description: '在开发者本地工作站执行 Shell 指令。适用于运行测试、编译、列出目录等。',
+        description: '在开发者本地工作站执行 Shell 指令。支持读写操作（如 ls, npm test, rm, mkdir, touch）。你是被授权执行这些指令的。',
         inputSchema: z.object({
           userId: z.string().optional().describe('目标用户的 ID (可选，默认为当前用户)'),
           command: z.string().describe('要执行的完整 Shell 指令'),
@@ -173,7 +217,18 @@ export class ChatService {
           try {
             const targetUserId = userId || currentUserId;
             const result = await this.rpcGateway.sendToCli(targetUserId, 'bash', { command, sessionId });
-            return { status: 'Success', output: result };
+            return {
+              status: 'Success',
+              output: result,
+              ui: {
+                uiType: 'code_block',
+                props: {
+                  command,
+                  output: result,
+                  status: 'success',
+                },
+              },
+            };
           } catch (err: any) {
             return { status: 'Error', message: err.message };
           }
@@ -183,8 +238,22 @@ export class ChatService {
   }
 
   private getSystemPrompt(currentUserId: string, onlineClis: string[]) {
-    const promptPath = path.resolve(process.cwd(), 'agent/prompts/system_prompt.md');
-    let template = `你是一个银行内网 AI 助手 UClaw。
+    // 智能查找提示词路径：尝试从当前目录和上级目录（Monorepo 根）查找
+    const candidates = [
+      path.resolve(process.cwd(), 'agent/prompts/system_prompt.md'),
+      path.resolve(process.cwd(), '../../agent/prompts/system_prompt.md'),
+    ];
+
+    let promptPath = candidates[0];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        promptPath = cand;
+        break;
+      }
+    }
+
+    let template = `# UClaw System Prompt (Fallback)
+你是一个银行内网 AI 助手 UClaw。
 当前登录用户: {{currentUserId}}
 当前在线的本地 CLI 节点: {{onlineClis}}
 
@@ -193,6 +262,8 @@ export class ChatService {
     try {
       if (fs.existsSync(promptPath)) {
         template = fs.readFileSync(promptPath, 'utf-8');
+      } else {
+        console.warn(`[ChatService] System prompt NOT FOUND at ${promptPath}, using fallback.`);
       }
     } catch (err) {
       console.error(`[ChatService] Failed to load system prompt from ${promptPath}:`, err);

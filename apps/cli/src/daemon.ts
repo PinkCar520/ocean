@@ -9,9 +9,10 @@ import { resolveApiKey, getAutoUserId } from './utils/auth.js';
 import { CONFIG, LOG } from './utils/config.js';
 import { security } from './utils/security.js';
 
-// Import new atomic tools
 import { FileEditTool } from './tools/local/file-edit.js';
 import { GitTool } from './tools/local/git.js';
+import { PlanTool } from './tools/local/plan.js';
+import { TaskManager } from './utils/task-manager.js';
 
 const execAsync = promisify(exec);
 
@@ -19,6 +20,7 @@ const execAsync = promisify(exec);
 const tools = {
   fileEdit: new FileEditTool(),
   git: new GitTool(),
+  plan: new PlanTool(),
 };
 
 interface DaemonOptions {
@@ -35,10 +37,24 @@ export async function runDaemon(options: DaemonOptions) {
   const socket = io(CONFIG.GATEWAY_URL, {
     query: { userId: effectiveUserId },
     auth: { token: apiKey || undefined },
+    transports: ['websocket'], // 强制使用 WebSocket，跳过轮询升级
     extraHeaders: apiKey ? {
       'x-api-key': apiKey,
       'Authorization': `Bearer ${apiKey}`,
     } : {},
+  });
+
+  // Track the current session ID for background sync
+  let currentSessionId: string | null = null;
+
+  // TaskManager Observer: Sync events to Gateway
+  TaskManager.subscribe((event) => {
+    if (currentSessionId) {
+      socket.emit(event.type, {
+        ...event.data,
+        sessionId: currentSessionId
+      });
+    }
   });
 
   socket.on('connect', () => {
@@ -54,6 +70,7 @@ export async function runDaemon(options: DaemonOptions) {
 
     try {
       const { sessionId } = data.params || {};
+      if (sessionId) currentSessionId = sessionId;
 
       // 1. Path Security Check
       const targetPath = data.params?.path || data.params?.dir;
@@ -72,10 +89,26 @@ export async function runDaemon(options: DaemonOptions) {
           break;
 
         case 'local_git':
-          const gitRes = await tools.git.execute(data.params);
+        case 'git_status':
+        case 'git_add':
+        case 'git_commit':
+        case 'git_push':
+          // 统一路由到 GitTool
+          const gitAction = data.method === 'local_git' ? data.params?.action : data.method.replace('git_', '');
+          const gitRes = await tools.git.execute({ ...data.params, action: gitAction });
           if (!gitRes.success) throw new Error(gitRes.error);
           result = gitRes.data;
           uiHint = gitRes.uiHint || 'git';
+          break;
+
+        case 'local_plan':
+        case 'plan_start':
+        case 'task_update':
+          const planAction = data.method === 'local_plan' ? data.params?.action : data.method.replace('plan_', '').replace('task_', '');
+          const planRes = await tools.plan.execute({ ...data.params, action: planAction });
+          if (!planRes.success) throw new Error(planRes.error);
+          result = planRes.data;
+          uiHint = planRes.uiHint || 'tree';
           break;
 
         // Legacy / Standard methods

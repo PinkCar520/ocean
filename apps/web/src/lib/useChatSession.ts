@@ -36,12 +36,18 @@ export function useChatSession({
     initializedRef.current = false;
   }, [sessionId]);
 
-  const { messages, sendMessage, status, setMessages, stop, error } = (useChat as any)({
+  const { messages, sendMessage, status, setMessages, stop, error, data } = (useChat as any)({
     id: sessionId ?? 'new',
     initialMessages: initialMessages,
     api: '/api/chat',
-    headers: {
-      'Authorization': `Bearer ${token || localStorage.getItem('uclaw_auth_token')}`
+    // 强制每次请求（包括重试）都动态构造 Headers
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+      const activeToken = localStorage.getItem('uclaw_auth_token');
+      const headers = new Headers(init?.headers);
+      if (activeToken) {
+        headers.set('Authorization', `Bearer ${activeToken}`);
+      }
+      return fetch(input, { ...init, headers });
     },
     body: {
       modelId: selectedModelId,
@@ -129,6 +135,7 @@ export function useChatSession({
     totalUsage,
     handleStop,
     sessionIdRef,
-    titleGeneratedRef
+    titleGeneratedRef,
+    data
   };
 }

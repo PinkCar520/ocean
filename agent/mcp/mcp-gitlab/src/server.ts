@@ -1,23 +1,8 @@
 #!/usr/bin/env node
 /**
- * UClaw GitLab MCP Server
- *
- * 将 GitLab 仓库管理以 MCP 协议暴露给 Gateway。
- *
- * 工具列表：
- * - listMRs: 列出合并请求
- * - createMR: 创建合并请求
- * - getMRChanges: 获取 MR 变更文件
- * - addReviewComment: 添加 Review 评论
- * - mergeMR: 合并 MR
- * - listProjects: 列出项目
- *
- * 资源列表：
- * - gitlab://projects/{projectId} - 项目详情
- * - gitlab://projects/{projectId}/merge_requests/{mrId} - MR 详情
- * - gitlab://projects/{projectId}/merge_requests/{mrId}/changes - MR 变更
- *
- * 通信方式：Stdio（由 Gateway 以子进程方式启动）
+ * UClaw GitLab MCP Server v2.0 (Production Grade)
+ * 
+ * 对齐 GitLab Duo MCP 标准，并集成 UClaw Generative UI。
  */
 
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -30,263 +15,200 @@ import { GitLabTool } from '@uclaw/tools-gitlab';
 // ──────────────────────────────────────────────
 
 const gitlab = new GitLabTool({
-  baseUrl: process.env['GITLAB_BASE_URL'] || 'https://gitlab.example.com',
+  baseUrl: process.env['GITLAB_BASE_URL'] || 'https://gitlab.com',
   token: process.env['GITLAB_TOKEN'] || '',
 });
 
-// ──────────────────────────────────────────────
-// 创建 MCP Server 实例
-// ──────────────────────────────────────────────
 const server = new McpServer({
   name: 'uclaw-gitlab',
-  version: '1.0.0',
+  version: '2.0.0',
 });
 
 // ──────────────────────────────────────────────
-// Resources 定义
+// 1. 项目管理 (Project Lifecycle)
 // ──────────────────────────────────────────────
 
-/**
- * 资源：项目详情
- */
-server.registerResource(
-  'project-details',
-  new ResourceTemplate('gitlab://projects/{projectId}', { list: undefined }),
-  { description: '获取 GitLab 项目详情', mimeType: 'application/json' },
-  async (uri, variables) => {
-    const projects = await gitlab.listProjects();
-    const project = projects.find((p) => p.id === parseInt(variables['projectId'] as string));
-    if (!project) {
-      return { contents: [{ uri: uri.toString(), text: `未找到项目: ${variables['projectId']}` }] };
-    }
-    return { contents: [{ uri: uri.toString(), text: JSON.stringify(project, null, 2), mimeType: 'application/json' }] };
-  },
-);
-
-/**
- * 资源：MR 详情
- */
-server.registerResource(
-  'mr-details',
-  new ResourceTemplate('gitlab://projects/{projectId}/merge_requests/{mrIid}', { list: undefined }),
-  { description: '获取 GitLab MR 详情', mimeType: 'application/json' },
-  async (uri, variables) => {
-    const mrs = await gitlab.listMRs(parseInt(variables['projectId'] as string));
-    const mr = mrs.find((m) => m.iid === parseInt(variables['mrIid'] as string));
-    if (!mr) {
-      return { contents: [{ uri: uri.toString(), text: `未找到 MR: ${variables['mrIid']}` }] };
-    }
-    return { contents: [{ uri: uri.toString(), text: JSON.stringify(mr, null, 2), mimeType: 'application/json' }] };
-  },
-);
-
-/**
- * 资源：MR 变更文件
- */
-server.registerResource(
-  'mr-changes',
-  new ResourceTemplate('gitlab://projects/{projectId}/merge_requests/{mrIid}/changes', { list: undefined }),
-  { description: '获取 GitLab MR 变更文件', mimeType: 'application/json' },
-  async (uri, variables) => {
-    const changes = await gitlab.getMRChanges(parseInt(variables['projectId'] as string), parseInt(variables['mrIid'] as string));
-    return { contents: [{ uri: uri.toString(), text: JSON.stringify(changes, null, 2), mimeType: 'application/json' }] };
-  },
-);
-
-// ──────────────────────────────────────────────
-// Prompts 定义
-// ──────────────────────────────────────────────
-
-/**
- * 提示词：MR Code Review
- */
-server.prompt(
-  'mr-code-review',
-  '对指定 GitLab MR 进行 Code Review',
-  {
-    projectId: z.string().describe('项目 ID'),
-    mrIid: z.string().describe('MR IID'),
-  },
-  ({ projectId, mrIid }) => ({
-    messages: [
-      {
-        role: 'user' as const,
-        content: {
-          type: 'text' as const,
-          text: `请对 MR !${mrIid} 进行 Code Review。
-
-审查要点：
-1. **代码质量**：命名规范、代码结构、可读性
-2. **潜在 Bug**：逻辑错误、边界条件、异常处理
-3. **性能问题**：不必要的计算、内存泄漏、数据库查询
-4. **安全风险**：SQL 注入、XSS、敏感信息泄露
-5. **测试覆盖**：是否有对应的单元测试
-
-请使用 getMRChanges 获取变更文件，然后逐文件审查并提供评论。`,
-        },
-      },
-    ],
-  }),
-);
-
-// ──────────────────────────────────────────────
-// 工具注册
-// ──────────────────────────────────────────────
-
-/**
- * 工具：列出项目
- */
 server.tool(
   'listProjects',
-  '列出 GitLab 远端服务器上的所有项目',
-  {
-    search: z.string().optional().describe('项目搜索关键词（可选）'),
-  },
+  '搜索并列出你有权访问的 GitLab 项目。',
+  { search: z.string().optional().describe('项目搜索关键词') },
   async ({ search }) => {
     const projects = await gitlab.listProjects(search);
-    const textContent = projects.map((p) => `- ${p.pathWithNamespace}: ${p.description || '无描述'}`).join('\n');
-    return {
-      content: [{ type: 'text' as const, text: textContent || '暂无项目' }],
-    };
-  },
+    const text = projects.map(p => `[ID: ${p.id}] ${p.pathWithNamespace} - ${p.description || 'No description'}`).join('\n');
+    return { content: [{ type: 'text', text: text || '未找到匹配项目' }] };
+  }
 );
 
-/**
- * 工具：列出 MR
- */
 server.tool(
-  'listMRs',
-  '列出指定项目的合并请求',
+  'createProject',
+  '在 GitLab 中创建一个新项目。',
+  {
+    name: z.string().describe('项目名称'),
+    description: z.string().optional().describe('项目描述'),
+    visibility: z.enum(['private', 'internal', 'public']).default('private').describe('可见性等级'),
+  },
+  async (params) => {
+    const p = await gitlab.createProject(params);
+    return {
+      content: [{ 
+        type: 'text', 
+        text: `✓ 项目创建成功！\n名称: ${p.name}\nURL: ${p.webUrl}\nID: ${p.id}\n可见性: ${p.visibility}` 
+      }]
+    };
+  }
+);
+
+// ──────────────────────────────────────────────
+// 2. 需求与缺陷管理 (Issues)
+// ──────────────────────────────────────────────
+
+server.tool(
+  'listIssues',
+  '列出指定项目的 Issue 列表。',
   {
     projectId: z.number().describe('项目 ID'),
-    state: z.enum(['opened', 'merged', 'closed']).optional().describe('状态过滤（可选）'),
+    state: z.enum(['opened', 'closed']).default('opened'),
+  },
+  async ({ projectId, state }) => {
+    const issues = await gitlab.listIssues(projectId, state);
+    const text = issues.map(i => `[#${i.iid}] ${i.title} (状态: ${i.state}, 指派给: ${i.assignee || '未指派'})`).join('\n');
+    return {
+      content: [{ type: 'text', text: text || '该项目暂无 Issue' }]
+    };
+  }
+);
+
+server.tool(
+  'createIssue',
+  '为指定项目创建一个新的 Issue 或缺陷单。',
+  {
+    projectId: z.number().describe('项目 ID'),
+    title: z.string().describe('Issue 标题'),
+    description: z.string().optional().describe('详细描述'),
+    labels: z.array(z.string()).optional().describe('标签列表，如 ["bug", "critical"]'),
+  },
+  async ({ projectId, ...data }) => {
+    const i = await gitlab.createIssue(projectId, data);
+    return {
+      content: [{ type: 'text', text: `✓ Issue #${i.iid} 创建成功！\n地址: ${i.webUrl}` }]
+    };
+  }
+);
+
+// ──────────────────────────────────────────────
+// 3. 仓库与分支操作 (Repo & Branches)
+// ──────────────────────────────────────────────
+
+server.tool(
+  'createBranch',
+  '基于特定基准创建新分支。',
+  {
+    projectId: z.number().describe('项目 ID'),
+    branch: z.string().describe('新分支名称'),
+    ref: z.string().describe('起始基准，如 "main" 或 Commit SHA'),
+  },
+  async ({ projectId, branch, ref }) => {
+    const b = await gitlab.createBranch(projectId, branch, ref);
+    return {
+      content: [{ type: 'text', text: `✓ 分支 "${b.name}" 创建完成。` }]
+    };
+  }
+);
+
+server.tool(
+  'getFileContent',
+  '远程读取仓库中文件的原始内容。',
+  {
+    projectId: z.number().describe('项目 ID'),
+    path: z.string().describe('文件路径'),
+    ref: z.string().default('main').describe('分支或标签'),
+  },
+  async ({ projectId, path, ref }) => {
+    const content = await gitlab.getFileRaw(projectId, path, ref);
+    return {
+      content: [{ type: 'text', text: `__UI__:{"uiType":"code_block","props":{"command":"cat ${path}","output":${JSON.stringify(content)},"status":"success","language":"${path.split('.').pop()}"}}` }]
+    };
+  }
+);
+
+// ──────────────────────────────────────────────
+// 4. 合并请求与代码审查 (MR & CR)
+// ──────────────────────────────────────────────
+
+server.tool(
+  'listMRs',
+  '查看项目的合并请求列表。',
+  {
+    projectId: z.number().describe('项目 ID'),
+    state: z.enum(['opened', 'merged', 'closed', 'all']).default('opened'),
   },
   async ({ projectId, state }) => {
     const mrs = await gitlab.listMRs(projectId, state);
-    const textContent = mrs.map((mr) => {
-      const stateIcon = mr.state === 'opened' ? '●' : mr.state === 'merged' ? '✓' : '✗';
-      return `${stateIcon} !${mr.iid}: ${mr.sourceBranch} → ${mr.targetBranch} (${mr.author})`;
-    }).join('\n');
-    return {
-      content: [{ type: 'text' as const, text: textContent || '暂无 MR' }],
-    };
-  },
+    const text = mrs.map(m => `!${m.iid}: ${m.sourceBranch} -> ${m.targetBranch} (${m.title})`).join('\n');
+    return { content: [{ type: 'text', text: text || '暂无 MR' }] };
+  }
 );
 
-/**
- * 工具：创建 MR
- */
-server.tool(
-  'createMR',
-  '创建一个新的合并请求',
-  {
-    projectId: z.number().describe('项目 ID'),
-    title: z.string().describe('MR 标题'),
-    sourceBranch: z.string().describe('源分支'),
-    targetBranch: z.string().describe('目标分支'),
-    description: z.string().optional().describe('MR 描述（可选）'),
-  },
-  async ({ projectId, title, sourceBranch, targetBranch, description }) => {
-    const mr = await gitlab.createMR(projectId, { title, sourceBranch, targetBranch, description });
-    return {
-      content: [{ type: 'text' as const, text: `✓ MR 创建成功: !${mr.iid} - ${mr.title}\n${mr.webUrl}` }],
-    };
-  },
-);
-
-/**
- * 工具：获取 MR 变更
- */
-server.tool(
-  'getMRChanges',
-  '获取指定 MR 的变更文件列表和 diff',
-  {
-    projectId: z.number().describe('项目 ID'),
-    mrIid: z.number().describe('MR IID'),
-  },
-  async ({ projectId, mrIid }) => {
-    const changes = await gitlab.getMRChanges(projectId, mrIid);
-    const textContent = changes.map((c) => {
-      const type = c.newFile ? '+' : c.deletedFile ? '-' : 'M';
-      return `${type} ${c.newPath}\n\`\`\`diff\n${c.diff}\n\`\`\``;
-    }).join('\n\n');
-    return {
-      content: [{ type: 'text' as const, text: textContent || '暂无变更' }],
-    };
-  },
-);
-
-/**
- * 工具：添加 Review 评论
- */
-server.tool(
-  'addReviewComment',
-  '向指定 MR 添加评论',
-  {
-    projectId: z.number().describe('项目 ID'),
-    mrIid: z.number().describe('MR IID'),
-    body: z.string().describe('评论内容'),
-    path: z.string().optional().describe('文件路径（可选）'),
-    line: z.number().optional().describe('行号（可选）'),
-  },
-  async ({ projectId, mrIid, body, path, line }) => {
-    const success = await gitlab.addReviewComment(projectId, mrIid, { body, path, line });
-    if (!success) {
-      return {
-        content: [{ type: 'text' as const, text: '✗ 添加评论失败' }],
-        isError: true,
-      };
-    }
-    return {
-      content: [{ type: 'text' as const, text: `✓ 评论已添加到 MR !${mrIid}` }],
-    };
-  },
-);
-
-/**
- * 工具：合并 MR
- */
 server.tool(
   'mergeMR',
-  '合并指定的 MR',
+  '通过审核后合并指定的 MR。',
   {
     projectId: z.number().describe('项目 ID'),
     mrIid: z.number().describe('MR IID'),
-    message: z.string().optional().describe('合并提交信息（可选）'),
+    message: z.string().optional().describe('合并提交信息'),
   },
   async ({ projectId, mrIid, message }) => {
-    const success = await gitlab.mergeMR(projectId, mrIid, message);
-    if (!success) {
-      return {
-        content: [{ type: 'text' as const, text: '✗ 合并失败' }],
-        isError: true,
-      };
-    }
-    return {
-      content: [{ type: 'text' as const, text: `✓ MR !${mrIid} 已成功合并` }],
-    };
+    await gitlab.mergeMR(projectId, mrIid, message);
+    return { content: [{ type: 'text', text: `✓ MR !${mrIid} 已成功合并并关闭。` }] };
+  }
+);
+
+// ──────────────────────────────────────────────
+// 5. CI/CD 运维 (Pipelines)
+// ──────────────────────────────────────────────
+
+server.tool(
+  'listPipelines',
+  '获取项目的流水线运行历史。',
+  { projectId: z.number().describe('项目 ID') },
+  async ({ projectId }) => {
+    const pipelines = await gitlab.listPipelines(projectId);
+    const text = pipelines.map(p => `ID: ${p.id} | 分支: ${p.ref} | 状态: ${p.status}`).join('\n');
+    return { content: [{ type: 'text', text: text || '未找到流水线记录' }] };
+  }
+);
+
+server.tool(
+  'getJobLog',
+  '获取失败流水线的 Job 日志，用于诊断根因。',
+  {
+    projectId: z.number().describe('项目 ID'),
+    jobId: z.number().describe('Job ID'),
   },
+  async ({ projectId, jobId }) => {
+    const log = await gitlab.getJobLog(projectId, jobId);
+    // 截取最后 50 行关键日志避免 Token 溢出，并触发 code_block
+    const lines = log.split('\n');
+    const tailLog = lines.slice(-50).join('\n');
+    return {
+      content: [{ 
+        type: 'text', 
+        text: `__UI__:{"uiType":"code_block","props":{"command":"tail -n 50 job_log","output":${JSON.stringify(tailLog)},"status":"error","language":"log"}}` 
+      }]
+    };
+  }
 );
 
 // ──────────────────────────────────────────────
 // 启动服务
 // ──────────────────────────────────────────────
-async function main(): Promise<void> {
+async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write('[mcp-gitlab] GitLab MCP Server started via stdio\n');
-
-  const shutdown = () => {
-    process.stderr.write('[mcp-gitlab] Shutting down...\n');
-    process.exit(0);
-  };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
-  process.stdin.on('end', shutdown);
-  process.stdin.resume();
+  process.stderr.write('[mcp-gitlab] GitLab Pro MCP Server started\n');
 }
 
-main().catch((err: Error) => {
-  process.stderr.write(`[mcp-gitlab] Fatal error: ${err.message}\n`);
+main().catch((err) => {
+  process.stderr.write(`[mcp-gitlab] Fatal: ${err.message}\n`);
   process.exit(1);
 });

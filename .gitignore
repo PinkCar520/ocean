@@ -50,4 +50,4 @@ apps/web/dist/
 apps/cli/dist/
 packages/*/dist/
 
-claude-code-sourcemap
+# claude-code-sourcemap

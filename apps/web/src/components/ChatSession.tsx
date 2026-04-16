@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ThinkingList } from './ThinkingList';
 import { DiffViewer } from './DiffViewer';
 import { TypingCursor, BrailleSpinner } from './chat/ChatHelpers';
@@ -9,6 +9,7 @@ import { ChatInput } from './chat/ChatInput';
 import { ToolInvocationRenderer, ToolInvocationBadge } from './chat/ToolInvocationRenderer';
 import { ChatMessage } from './chat/ChatMessage';
 import { IntegrationsPanel } from './chat/IntegrationsPanel';
+import { ActiveContextPanel } from './chat/ActiveContext';
 import { EmptyState } from './chat/EmptyState';
 import { CopyCodeButton, MarkdownComponents, CodeBlock } from './chat/MarkdownConfig';
 
@@ -98,11 +99,20 @@ export function ChatSession({
   const {
     messages, sendMessage, status, setMessages, stop, error,
     isLoading, isStopped, setIsStopped, totalUsage, handleStop,
-    sessionIdRef, titleGeneratedRef
+    sessionIdRef, titleGeneratedRef, data
   } = useChatSession({
     sessionId, initialMessages, token, selectedModelId,
     isSearchMode, isKnowledgeMode, onStreamFinished
   });
+
+  // ── 实时解析 Active Context 元数据 ──
+  const activeContext = useMemo(() => {
+    if (!data || !Array.isArray(data)) return null;
+    // 找到最后一条类型为 active-context 的元数据
+    const contexts = (data as any[]).filter(d => d.type === 'active-context');
+    if (contexts.length === 0) return null;
+    return contexts[contexts.length - 1];
+  }, [data]);
 
   const {
     localInput, setLocalInput, selectedFiles, setSelectedFiles,
@@ -230,11 +240,15 @@ export function ChatSession({
     const userMsg = messages[lastUserIdx];
     setMessages(messages.slice(0, lastUserIdx));
     try {
+      const activeToken = token || localStorage.getItem('uclaw_auth_token');
       await sendMessage({
         content: (userMsg as any).content,
         role: 'user',
         experimental_attachments: (userMsg as any).experimental_attachments,
       } as any, {
+        headers: {
+          'Authorization': `Bearer ${activeToken}`
+        },
         body: {
           modelId: selectedModelId,
           search: isSearchMode,
@@ -627,11 +641,24 @@ export function ChatSession({
                 </div>
               </motion.div>
           ) : (
-              <IntegrationsPanel
-                t={t}
-                activeDisplayName={activeDisplayName}
-                totalUsage={totalUsage}
-              />
+              <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
+                <ActiveContextPanel 
+                  context={{
+                    modelInfo: { name: activeDisplayName, latency: '~240ms' },
+                    suggestions: ['Verify OAuth Scopes', 'Scan Secret Variables', 'Run Unit Tests']
+                  }}
+                  onAction={(action) => {
+                    sendMessage({ content: action, role: 'user' });
+                  }}
+                />
+                <div className="border-t border-[#E8E4E2]/60 bg-[#F6F3F2]/30">
+                  <IntegrationsPanel
+                    t={t}
+                    activeDisplayName={activeDisplayName}
+                    totalUsage={totalUsage}
+                  />
+                </div>
+              </div>
           )}
         </aside>
       </div>

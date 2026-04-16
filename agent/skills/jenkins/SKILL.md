@@ -2,10 +2,16 @@
 name: jenkins
 description: "与 Jenkins CI/CD 服务器交互。触发条件：用户需要触发构建、检查构建状态、查看控制台输出、管理 Job、监控 Jenkins 队列和节点时使用。支持部署到不同 Jenkins 实例。"
 allowed-tools:
+  - jenkins__listJobs
+  - jenkins__getJobInfo
+  - jenkins__getBuildStatus
+  - jenkins__triggerBuild
+  - jenkins__getBuildLog
+  - jenkins__approveDeployment
   - runLocalCommand
 requires-approval:
-  - trigger_build
-  - stop_build
+  - jenkins__triggerBuild
+  - jenkins__approveDeployment
 compatibility: "需要设置 JENKINS_URL, JENKINS_USER, JENKINS_API_TOKEN 环境变量"
 locales:
   zh:

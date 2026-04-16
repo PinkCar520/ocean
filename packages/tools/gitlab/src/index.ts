@@ -1,10 +1,17 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 
+/**
+ * GitLab 生产化配置
+ */
 export interface GitLabConfig {
   baseUrl: string;
   token: string;
-  isMock?: boolean;
+  timeout?: number;
 }
+
+// ──────────────────────────────────────────────
+// 强类型定义
+// ──────────────────────────────────────────────
 
 export interface GitLabProject {
   id: number;
@@ -13,6 +20,42 @@ export interface GitLabProject {
   description?: string;
   webUrl: string;
   defaultBranch: string;
+  visibility: 'private' | 'internal' | 'public';
+}
+
+export interface GitLabBranch {
+  name: string;
+  merged: boolean;
+  protected: boolean;
+  webUrl: string;
+}
+
+export interface GitLabIssue {
+  id: number;
+  iid: number;
+  projectId: number;
+  title: string;
+  description: string;
+  state: 'opened' | 'closed';
+  assignee?: string;
+  labels: string[];
+  webUrl: string;
+}
+
+export interface GitLabPipeline {
+  id: number;
+  iid: number;
+  projectId: number;
+  status: 'running' | 'pending' | 'success' | 'failed' | 'canceled' | 'skipped' | 'manual';
+  ref: string;
+  webUrl: string;
+}
+
+export interface GitLabJob {
+  id: number;
+  name: string;
+  stage: string;
+  status: string;
 }
 
 export interface GitLabMR {
@@ -20,231 +63,283 @@ export interface GitLabMR {
   iid: number;
   projectId: number;
   title: string;
-  description?: string;
   sourceBranch: string;
   targetBranch: string;
   state: 'opened' | 'merged' | 'closed';
-  author: string;
-  assignee?: string;
-  createdAt: string;
-  updatedAt: string;
   webUrl: string;
 }
 
-export interface GitLabChange {
-  oldPath: string;
-  newPath: string;
-  aMode: string;
-  bMode: string;
-  diff: string;
-  newFile: boolean;
-  renamedFile: boolean;
-  deletedFile: boolean;
-}
-
+/**
+ * GitLab 生产化工具库
+ * 支持：分页自适应、结构化错误抛出、全量常用 API
+ */
 export class GitLabTool {
   private client: AxiosInstance;
-  private token: string;
 
   constructor(config: GitLabConfig) {
-    this.token = config.token;
     this.client = axios.create({
       baseURL: config.baseUrl.replace(/\/+$/, ''),
       headers: {
         'PRIVATE-TOKEN': config.token,
         'Content-Type': 'application/json',
       },
-      timeout: 10000,
+      timeout: config.timeout || 15000,
     });
   }
 
   /**
-   * 列出所有项目
+   * 通用分页获取逻辑
    */
+  private async fetchAll<T>(url: string, params: any = {}): Promise<T[]> {
+    let allData: T[] = [];
+    let page = 1;
+    const perPage = 100;
+
+    try {
+      while (true) {
+        const response: AxiosResponse<T[]> = await this.client.get(url, {
+          params: { ...params, page, per_page: perPage },
+        });
+        allData = allData.concat(response.data);
+        const nextPage = response.headers['x-next-page'];
+        if (!nextPage || nextPage === '') break;
+        page = parseInt(nextPage);
+      }
+      return allData;
+    } catch (err: any) {
+      this.handleError('FetchAll', err);
+      return [];
+    }
+  }
+
+  private handleError(operation: string, err: any) {
+    const status = err.response?.status;
+    const message = err.response?.data?.message || err.message;
+    console.error(`[@uclaw/tools-gitlab] ${operation} Failed [${status}]: ${JSON.stringify(message)}`);
+    throw new Error(`GitLab ${operation} Error: ${status} - ${JSON.stringify(message)}`);
+  }
+
+  // ──────────────────────────────────────────────
+  // 1. 项目管理 (Project Management)
+  // ──────────────────────────────────────────────
+
   async listProjects(search?: string): Promise<GitLabProject[]> {
-    console.log(`[@uclaw/tools-gitlab] Listing projects${search ? ` (search: ${search})` : ''}`);
+    const data = await this.fetchAll<any>('/api/v4/projects', {
+      search,
+      membership: true,
+      order_by: 'last_activity_at',
+    });
+    return data.map(p => ({
+      id: p.id,
+      name: p.name,
+      pathWithNamespace: p.path_with_namespace,
+      description: p.description,
+      webUrl: p.web_url,
+      defaultBranch: p.default_branch || 'main',
+      visibility: p.visibility,
+    }));
+  }
 
+  async createProject(params: { name: string; description?: string; visibility?: 'private' | 'internal' | 'public' }): Promise<GitLabProject> {
     try {
-      const response = await this.client.get('/api/v4/projects', {
-        params: search ? { search } : {},
-      });
-
-      return response.data.map((project: any) => ({
-        id: project.id,
-        name: project.name,
-        pathWithNamespace: project.path_with_namespace,
-        description: project.description || undefined,
-        webUrl: project.web_url,
-        defaultBranch: project.default_branch || 'main',
-      }));
-    } catch (err: any) {
-      console.error(`[@uclaw/tools-gitlab] List Projects Error:`, err.message);
-      if (err.response) {
-        console.error(`[@uclaw/tools-gitlab] Status:`, err.response.status, JSON.stringify(err.response.data));
-      }
-      return [];
+      const res = await this.client.post('/api/v4/projects', params);
+      return {
+        id: res.data.id,
+        name: res.data.name,
+        pathWithNamespace: res.data.path_with_namespace,
+        webUrl: res.data.web_url,
+        defaultBranch: res.data.default_branch || 'main',
+        visibility: res.data.visibility,
+      };
+    } catch (err) {
+      this.handleError('CreateProject', err);
+      throw err;
     }
   }
 
-  /**
-   * 列出合并请求
-   */
-  async listMRs(projectId: number, state?: string): Promise<GitLabMR[]> {
-    console.log(`[@uclaw/tools-gitlab] Listing MRs for project ${projectId}${state ? ` (state: ${state})` : ''}`);
-
+  async deleteProject(projectId: number): Promise<void> {
     try {
-      const response = await this.client.get(`/api/v4/projects/${projectId}/merge_requests`, {
-        params: state ? { state } : {},
-      });
-
-      return response.data.map((mr: any) => ({
-        id: mr.id,
-        iid: mr.iid,
-        projectId: mr.project_id,
-        title: mr.title,
-        description: mr.description || undefined,
-        sourceBranch: mr.source_branch,
-        targetBranch: mr.target_branch,
-        state: mr.state,
-        author: mr.author?.name || 'Unknown',
-        assignee: mr.assignee?.name,
-        createdAt: mr.created_at,
-        updatedAt: mr.updated_at,
-        webUrl: mr.web_url,
-      }));
-    } catch (err: any) {
-      console.error(`[@uclaw/tools-gitlab] List MRs Error:`, err.message);
-      if (err.response) {
-        console.error(`[@uclaw/tools-gitlab] Status:`, err.response.status, JSON.stringify(err.response.data));
-      }
-      return [];
+      await this.client.delete(`/api/v4/projects/${projectId}`);
+    } catch (err) {
+      this.handleError('DeleteProject', err);
     }
   }
 
-  /**
-   * 创建合并请求
-   */
-  async createMR(
-    projectId: number,
-    data: {
-      title: string;
-      sourceBranch: string;
-      targetBranch: string;
-      description?: string;
-    },
-  ): Promise<GitLabMR> {
-    console.log(`[@uclaw/tools-gitlab] Creating MR in project ${projectId}: ${data.title}`);
+  // ──────────────────────────────────────────────
+  // 2. 仓库管理 (Repository Management)
+  // ──────────────────────────────────────────────
 
+  async listBranches(projectId: number): Promise<GitLabBranch[]> {
+    const data = await this.fetchAll<any>(`/api/v4/projects/${projectId}/repository/branches`);
+    return data.map(b => ({
+      name: b.name,
+      merged: b.merged,
+      protected: b.protected,
+      webUrl: b.web_url,
+    }));
+  }
+
+  async createBranch(projectId: number, branch: string, ref: string): Promise<GitLabBranch> {
     try {
-      const response = await this.client.post(`/api/v4/projects/${projectId}/merge_requests`, {
+      const res = await this.client.post(`/api/v4/projects/${projectId}/repository/branches`, { branch, ref });
+      return {
+        name: res.data.name,
+        merged: res.data.merged,
+        protected: res.data.protected,
+        webUrl: res.data.web_url,
+      };
+    } catch (err) {
+      this.handleError('CreateBranch', err);
+      throw err;
+    }
+  }
+
+  async getFileRaw(projectId: number, filePath: string, ref: string): Promise<string> {
+    try {
+      const res = await this.client.get(`/api/v4/projects/${projectId}/repository/files/${encodeURIComponent(filePath)}/raw`, {
+        params: { ref },
+      });
+      return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+    } catch (err) {
+      this.handleError('GetFileRaw', err);
+      throw err;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 3. 合并请求 (Merge Requests)
+  // ──────────────────────────────────────────────
+
+  async listMRs(projectId: number, state: 'opened' | 'merged' | 'closed' | 'all' = 'opened'): Promise<GitLabMR[]> {
+    const data = await this.fetchAll<any>(`/api/v4/projects/${projectId}/merge_requests`, { state });
+    return data.map(m => ({
+      id: m.id,
+      iid: m.iid,
+      projectId: m.project_id,
+      title: m.title,
+      sourceBranch: m.source_branch,
+      targetBranch: m.target_branch,
+      state: m.state,
+      webUrl: m.web_url,
+    }));
+  }
+
+  async createMR(projectId: number, data: { title: string; sourceBranch: string; targetBranch: string; description?: string }): Promise<GitLabMR> {
+    try {
+      const res = await this.client.post(`/api/v4/projects/${projectId}/merge_requests`, {
         title: data.title,
         source_branch: data.sourceBranch,
         target_branch: data.targetBranch,
         description: data.description,
       });
-
-      const mr = response.data;
       return {
-        id: mr.id,
-        iid: mr.iid,
-        projectId: mr.project_id,
-        title: mr.title,
-        description: mr.description || undefined,
-        sourceBranch: mr.source_branch,
-        targetBranch: mr.target_branch,
-        state: mr.state,
-        author: mr.author?.name || 'Unknown',
-        createdAt: mr.created_at,
-        updatedAt: mr.updated_at,
-        webUrl: mr.web_url,
+        id: res.data.id,
+        iid: res.data.iid,
+        projectId: res.data.project_id,
+        title: res.data.title,
+        sourceBranch: res.data.source_branch,
+        targetBranch: res.data.target_branch,
+        state: res.data.state,
+        webUrl: res.data.web_url,
       };
-    } catch (err: any) {
-      console.error(`[@uclaw/tools-gitlab] Create MR Error:`, err.message);
-      if (err.response) {
-        console.error(`[@uclaw/tools-gitlab] Full Error Response:`, JSON.stringify(err.response.data, null, 2));
-      }
+    } catch (err) {
+      this.handleError('CreateMR', err);
       throw err;
     }
   }
 
-  /**
-   * 获取 MR 变更文件
-   */
-  async getMRChanges(projectId: number, mrIid: number): Promise<GitLabChange[]> {
-    console.log(`[@uclaw/tools-gitlab] Getting changes for MR !${mrIid} in project ${projectId}`);
-
+  async mergeMR(projectId: number, mrIid: number, message?: string): Promise<void> {
     try {
-      const response = await this.client.get(`/api/v4/projects/${projectId}/merge_requests/${mrIid}/changes`);
+      await this.client.put(`/api/v4/projects/${projectId}/merge_requests/${mrIid}/merge`, { merge_commit_message: message });
+    } catch (err) {
+      this.handleError('MergeMR', err);
+    }
+  }
 
-      return response.data.changes.map((change: any) => ({
-        oldPath: change.old_path,
-        newPath: change.new_path,
-        aMode: change.a_mode || '0',
-        bMode: change.b_mode || '0',
-        diff: change.diff || '',
-        newFile: change.new_file || false,
-        renamedFile: change.renamed_file || false,
-        deletedFile: change.deleted_file || false,
+  // ──────────────────────────────────────────────
+  // 4. 需求/缺陷管理 (Issues)
+  // ──────────────────────────────────────────────
+
+  async listIssues(projectId: number, state: 'opened' | 'closed' = 'opened'): Promise<GitLabIssue[]> {
+    const data = await this.fetchAll<any>(`/api/v4/projects/${projectId}/issues`, { state });
+    return data.map(i => ({
+      id: i.id,
+      iid: i.iid,
+      projectId: i.project_id,
+      title: i.title,
+      description: i.description,
+      state: i.state,
+      assignee: i.assignee?.name,
+      labels: i.labels,
+      webUrl: i.web_url,
+    }));
+  }
+
+  async createIssue(projectId: number, data: { title: string; description?: string; labels?: string[] }): Promise<GitLabIssue> {
+    try {
+      const res = await this.client.post(`/api/v4/projects/${projectId}/issues`, data);
+      return {
+        id: res.data.id,
+        iid: res.data.iid,
+        projectId: res.data.project_id,
+        title: res.data.title,
+        description: res.data.description,
+        state: res.data.state,
+        labels: res.data.labels,
+        webUrl: res.data.web_url,
+      };
+    } catch (err) {
+      this.handleError('CreateIssue', err);
+      throw err;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 5. CI/CD (Pipelines & Jobs)
+  // ──────────────────────────────────────────────
+
+  async listPipelines(projectId: number): Promise<GitLabPipeline[]> {
+    const data = await this.fetchAll<any>(`/api/v4/projects/${projectId}/pipelines`);
+    return data.map(p => ({
+      id: p.id,
+      iid: p.iid,
+      projectId: p.project_id,
+      status: p.status,
+      ref: p.ref,
+      webUrl: p.web_url,
+    }));
+  }
+
+  async getPipelineJobs(projectId: number, pipelineId: number): Promise<GitLabJob[]> {
+    try {
+      const res = await this.client.get(`/api/v4/projects/${projectId}/pipelines/${pipelineId}/jobs`);
+      return res.data.map((j: any) => ({
+        id: j.id,
+        name: j.name,
+        stage: j.stage,
+        status: j.status,
       }));
-    } catch (err: any) {
-      console.error(`[@uclaw/tools-gitlab] Get MR Changes Error:`, err.message);
-      if (err.response) {
-        console.error(`[@uclaw/tools-gitlab] Status:`, err.response.status, JSON.stringify(err.response.data));
-      }
+    } catch (err) {
+      this.handleError('GetPipelineJobs', err);
       return [];
     }
   }
 
-  /**
-   * 添加 Review 评论
-   */
-  async addReviewComment(
-    projectId: number,
-    mrIid: number,
-    data: {
-      body: string;
-      path?: string;
-      line?: number;
-    },
-  ): Promise<boolean> {
-    console.log(`[@uclaw/tools-gitlab] Adding comment to MR !${mrIid} in project ${projectId}`);
-
+  async getJobLog(projectId: number, jobId: number): Promise<string> {
     try {
-      await this.client.post(`/api/v4/projects/${projectId}/merge_requests/${mrIid}/notes`, {
-        body: data.body,
-        ...(data.path && { position: { base_sha: 'HEAD', start_sha: 'HEAD', head_sha: 'HEAD', position_type: 'text', new_path: data.path, new_line: data.line } }),
-      });
-      return true;
-    } catch (err: any) {
-      console.error(`[@uclaw/tools-gitlab] Add Review Comment Error:`, err.message);
-      if (err.response) {
-        console.error(`[@uclaw/tools-gitlab] Status:`, err.response.status, JSON.stringify(err.response.data));
-      }
-      return false;
+      const res = await this.client.get(`/api/v4/projects/${projectId}/jobs/${jobId}/trace`);
+      return res.data;
+    } catch (err) {
+      this.handleError('GetJobLog', err);
+      throw err;
     }
   }
 
-  /**
-   * 合并 MR
-   */
-  async mergeMR(
-    projectId: number,
-    mrIid: number,
-    message?: string,
-  ): Promise<boolean> {
-    console.log(`[@uclaw/tools-gitlab] Merging MR !${mrIid} in project ${projectId}`);
-
+  async retryPipeline(projectId: number, pipelineId: number): Promise<void> {
     try {
-      await this.client.put(`/api/v4/projects/${projectId}/merge_requests/${mrIid}/merge`, {
-        merge_commit_message: message,
-      });
-      return true;
-    } catch (err: any) {
-      console.error(`[@uclaw/tools-gitlab] Merge MR Error:`, err.message);
-      if (err.response) {
-        console.error(`[@uclaw/tools-gitlab] Status:`, err.response.status, JSON.stringify(err.response.data));
-      }
-      return false;
+      await this.client.post(`/api/v4/projects/${projectId}/pipelines/${pipelineId}/retry`);
+    } catch (err) {
+      this.handleError('RetryPipeline', err);
     }
   }
 }

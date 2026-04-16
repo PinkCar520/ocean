@@ -26,8 +26,27 @@ export class SecurityEngine {
    * Prevents path traversal attacks.
    */
   public validatePath(targetPath: string): { isValid: boolean; resolvedPath: string } {
-    const absolutePath = path.resolve(this.workspaceRoot, targetPath);
+    let normalizedPath = targetPath;
+
+    // 智能修正：如果 AI 传入了网关环境的路径（如 /app/... 或 /Users/gateway/...）
+    // 我们尝试提取文件名或子路径，使其相对于本地 workspaceRoot
+    if (path.isAbsolute(targetPath)) {
+      const parts = targetPath.split(path.sep);
+      const appIdx = parts.indexOf('app');
+      if (appIdx !== -1 && appIdx < parts.length - 1) {
+        // 提取 /app/ 之后的部分
+        normalizedPath = path.join(...parts.slice(appIdx + 1));
+      } else {
+        // 如果是其他绝对路径且不在 workspace 内，尝试取其 basename（仅作为兜底）
+        if (!targetPath.startsWith(this.workspaceRoot)) {
+          normalizedPath = path.basename(targetPath);
+        }
+      }
+    }
+
+    const absolutePath = path.resolve(this.workspaceRoot, normalizedPath);
     const isValid = absolutePath.startsWith(this.workspaceRoot);
+    
     return {
       isValid,
       resolvedPath: absolutePath
