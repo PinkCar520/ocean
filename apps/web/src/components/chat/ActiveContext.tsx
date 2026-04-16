@@ -13,12 +13,18 @@ import { cn } from '../../lib/utils';
 
 interface ActiveContextProps {
   context?: {
+    type?: 'file' | 'workspace';
     file?: {
       name: string;
       path: string;
       status: string;
       progress: number;
       type: string;
+    };
+    workspace?: {
+      name: string;
+      branch: string;
+      isClean: boolean;
     };
     modelInfo?: {
       name: string;
@@ -30,21 +36,10 @@ interface ActiveContextProps {
 }
 
 export function ActiveContextPanel({ context, onAction }: ActiveContextProps) {
-  // Mock data for initial implementation if no context provided
-  const data = context || {
-    file: {
-      name: 'gitlab-api-v4.ts',
-      path: '/src/lib/auth/',
-      status: 'ANALYZING',
-      progress: 78,
-      type: 'Security Audit'
-    },
-    modelInfo: {
-      name: 'uClaw v4-Turbo',
-      latency: '~240ms'
-    },
-    suggestions: ['Verify OAuth Scopes', 'Scan Secret Variables']
-  };
+  // Use provided context or fall back to empty/default state
+  const data = context || {};
+  const file = data.file;
+  const workspace = data.workspace;
 
   return (
     <div className="flex flex-col h-full p-6 space-y-8">
@@ -54,8 +49,30 @@ export function ActiveContextPanel({ context, onAction }: ActiveContextProps) {
         <h2 className="text-xs font-bold tracking-widest uppercase">Active Context</h2>
       </div>
 
+      {/* Workspace Card (New) */}
+      {workspace && (
+        <div className="bg-[#1C1B1B] rounded-[24px] p-5 text-white shadow-lg space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-[#EC5B14]">
+              <Zap className="w-5 h-5 fill-current" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[14px] font-bold truncate">{workspace.name}</h3>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-[10px] text-white/50 font-medium px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+                  {workspace.branch}
+                </span>
+                {!workspace.isClean && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active File Card */}
-      {data.file && (
+      {file && (
         <div className="bg-white rounded-[24px] border border-[#E8E4E2] p-5 shadow-sm space-y-4">
           <div className="flex items-start justify-between">
             <div className="flex gap-3">
@@ -64,12 +81,12 @@ export function ActiveContextPanel({ context, onAction }: ActiveContextProps) {
               </div>
               <div>
                 <h3 className="text-[14px] font-bold text-[#1C1B1B] leading-tight">
-                  {data.file.name}
+                  {file.name}
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-[#FEF3EB] text-[#EC5B14] font-bold">
-                    ● {data.file.status}
+                    ● {file.status}
                   </span>
                 </h3>
-                <p className="text-[11px] text-[#716B67] mt-1">{data.file.path}</p>
+                <p className="text-[11px] text-[#716B67] mt-1 truncate max-w-[140px]">{file.path}</p>
               </div>
             </div>
           </div>
@@ -78,18 +95,18 @@ export function ActiveContextPanel({ context, onAction }: ActiveContextProps) {
             <div className="h-1.5 w-full bg-[#F6F3F2] rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: `${data.file.progress}%` }}
+                animate={{ width: `${file.progress}%` }}
                 className="h-full bg-[#EC5B14]"
               />
             </div>
             <div className="flex justify-between text-[10px] font-bold">
-              <span className="text-[#716B67]">{data.file.type}</span>
-              <span className="text-[#1C1B1B]">{data.file.progress}% complete</span>
+              <span className="text-[#716B67]">{file.type}</span>
+              <span className="text-[#1C1B1B]">{file.progress}% complete</span>
             </div>
           </div>
 
           <button 
-            onClick={() => onAction?.('open_source')}
+            onClick={() => onAction?.(`open ${file.path}`)}
             className="w-full py-2.5 rounded-xl border border-[#E8E4E2] text-[12px] font-bold text-[#1C1B1B] hover:bg-[#F6F3F2] transition-colors flex items-center justify-center gap-2"
           >
             <Search className="w-3.5 h-3.5" />

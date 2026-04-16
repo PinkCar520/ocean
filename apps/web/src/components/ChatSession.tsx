@@ -105,13 +105,19 @@ export function ChatSession({
     isSearchMode, isKnowledgeMode, onStreamFinished
   });
 
-  // ── 实时解析 Active Context 元数据 ──
+  // ── 实时解析并合并 Active Context 元数据 ──
   const activeContext = useMemo(() => {
     if (!data || !Array.isArray(data)) return null;
-    // 找到最后一条类型为 active-context 的元数据
     const contexts = (data as any[]).filter(d => d.type === 'active-context');
     if (contexts.length === 0) return null;
-    return contexts[contexts.length - 1];
+    
+    // 合并所有历史 Context 事件（最新的覆盖旧的）
+    return contexts.reduce((acc, curr) => {
+      return { 
+        ...acc, 
+        payload: { ...(acc.payload || {}), ...(curr.payload || {}) } 
+      };
+    }, { payload: {} });
   }, [data]);
 
   const {
@@ -644,8 +650,9 @@ export function ChatSession({
               <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
                 <ActiveContextPanel 
                   context={{
+                    ...(activeContext?.payload || {}),
                     modelInfo: { name: activeDisplayName, latency: '~240ms' },
-                    suggestions: ['Verify OAuth Scopes', 'Scan Secret Variables', 'Run Unit Tests']
+                    suggestions: activeContext?.payload?.suggestions || ['Verify OAuth Scopes', 'Scan Secret Variables', 'Run Unit Tests']
                   }}
                   onAction={(action) => {
                     sendMessage({ content: action, role: 'user' });
