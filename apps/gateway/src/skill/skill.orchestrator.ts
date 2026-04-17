@@ -366,22 +366,69 @@ export class SkillOrchestrator {
         stopWhen: stepCountIs(10),
         system: systemPrompt,
         tools,
-        onStepFinish: ({ text, toolResults }) => {
-          if (text) { fullText += text; allParts.push({ type: 'text', text }); }
+        onStepFinish: (event) => {
+          const { text, toolCalls, toolResults } = event;
+          
+          // 1. 记录文本
+          if (text) { 
+            fullText += text; 
+            allParts.push({ type: 'text', text }); 
+          }
+
+          // 2. 闭环审计逻辑：确保每一个 toolCall 都有对应的结果进入 allParts
+          const handledCallIds = new Set<string>();
+
+          // 先处理已经有真实结果的调用
           if (toolResults && Array.isArray(toolResults)) {
             for (const tr of toolResults) {
-              allParts.push({ type: 'tool-invocation', toolCallId: tr.toolCallId, toolName: tr.toolName, args: tr.input, result: tr.output });
+              const part = { 
+                type: 'tool-invocation', 
+                toolCallId: tr.toolCallId, 
+                toolName: tr.toolName, 
+                args: tr.input, 
+                result: tr.output 
+              };
+              allParts.push(part);
+              handledCallIds.add(tr.toolCallId);
+            }
+          }
+
+          // 补全审计：如果某些 toolCalls 丢失了结果（如异常中断），补全占位符防止 SDK 报错
+          if (toolCalls && Array.isArray(toolCalls)) {
+            for (const tc of toolCalls) {
+              if (!handledCallIds.has(tc.toolCallId)) {
+                this.logger.warn(`[Orchestrator] Missing result for tool call ${tc.toolCallId} (${tc.toolName}). Injecting placeholder.`);
+                allParts.push({
+                  type: 'tool-invocation',
+                  toolCallId: tc.toolCallId,
+                  toolName: tc.toolName,
+                  args: tc.args,
+                  result: { error: 'Execution was interrupted or failed to return a valid result.' }
+                });
+              }
             }
           }
         },
         onFinish: async ({ totalUsage }) => {
-          if (sessionId && fullText) {
-            const usage = totalUsage ? { 
-              inputTokens: totalUsage.inputTokens ?? 0, 
-              outputTokens: totalUsage.outputTokens ?? 0, 
-              totalTokens: totalUsage.totalTokens ?? 0 
-            } : undefined;
-            await this.sessionService.addMessage(sessionId, { role: 'assistant', content: fullText, parts: allParts, usage });
+          // 修改持久化逻辑：只要有文本或者有工具调用记录 (allParts)，就必须保存
+          if (sessionId && (fullText || allParts.length > 0)) {
+            try {
+              const usage = totalUsage ? { 
+                inputTokens: totalUsage.inputTokens ?? 0, 
+                outputTokens: totalUsage.outputTokens ?? 0, 
+                totalTokens: totalUsage.totalTokens ?? 0 
+              } : undefined;
+              
+              await this.sessionService.addMessage(sessionId, { 
+                role: 'assistant', 
+                content: fullText || '', // 允许内容为空，只要 parts 有数据
+                parts: allParts, 
+                usage 
+              });
+              this.logger.log(`[Orchestrator] Persisted assistant reply. Parts count: ${allParts.length}`);
+            } catch (dbErr: any) {
+              this.logger.error(`[Orchestrator] Failed to persist message: ${dbErr.message}`);
+            }
           }
         },
       });
