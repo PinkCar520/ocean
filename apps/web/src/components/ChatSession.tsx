@@ -96,9 +96,9 @@ export function ChatSession({
 
   // ── Hooks ──
   const {
-    messages, sendMessage, status, setMessages, stop, error,
+    messages, fullTree, sendMessage, status, setMessages, stop, error,
     isLoading, isStopped, setIsStopped, totalUsage, handleStop,
-    sessionIdRef, titleGeneratedRef, data
+    sessionIdRef, titleGeneratedRef, data, switchBranch, setCurrentLeafId
   } = useChatSession({
     sessionId, initialMessages, token, selectedModelId,
     isSearchMode, isKnowledgeMode, onStreamFinished
@@ -148,7 +148,38 @@ export function ChatSession({
   const [messageFeedback, setMessageFeedback] = useState<Record<string, 'up' | 'down'>>({});
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
-  const [branchIndex, setBranchIndex] = useState<Record<string, number>>({});
+
+  // ── Branching Metadata Calculation ──
+  const branchMetadata = useMemo(() => {
+    const totalBranches: Record<string, number> = {};
+    const branchIndex: Record<string, number> = {};
+
+    messages.forEach((m: any) => {
+      // 找到该消息的所有兄弟节点（具有相同 parentId 的节点）
+      const siblings = fullTree
+        .filter((node: any) => node.parentId === m.parentId)
+        .sort((a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      
+      totalBranches[m.id] = siblings.length;
+      branchIndex[m.id] = siblings.findIndex((s: any) => s.id === m.id);
+    });
+
+    return { totalBranches, branchIndex };
+  }, [messages, fullTree]);
+
+  const onBranchChange = useCallback((msgId: string, index: number) => {
+    const currentMsg = fullTree.find(m => m.id === msgId);
+    if (!currentMsg) return;
+
+    const siblings = fullTree
+      .filter(node => node.parentId === currentMsg.parentId)
+      .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+    
+    const targetSibling = siblings[index];
+    if (targetSibling) {
+      switchBranch(targetSibling.id);
+    }
+  }, [fullTree, switchBranch]);
 
   // ── Effects ──
   useEffect(() => {
@@ -209,57 +240,42 @@ export function ChatSession({
 
   const handleRegenerate = async (msgId: string) => {
     if (isLoading) return;
-    const idx = messages.findIndex((m: any) => m.id === msgId);
-    if (idx === -1) return;
-    let userMsgIdx = -1;
-    for (let i = idx; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        userMsgIdx = i;
-        break;
-      }
-    }
-    if (userMsgIdx === -1) return;
-    const userMsg = messages[userMsgIdx];
-    const newMessages = messages.slice(0, userMsgIdx);
-    setMessages(newMessages);
+    const currentMsg = fullTree.find(m => m.id === msgId);
+    if (!currentMsg) return;
+
+    // 重新生成的逻辑：如果是 Assistant 消息，找到它的父节点（User 消息）
+    const userMsgId = currentMsg.parentId;
+    if (!userMsgId) return;
+
+    const userMsg = fullTree.find(m => m.id === userMsgId);
+    if (!userMsg) return;
+
     try {
+      // 核心：在【该用户消息的父节点】下重新发送同样的内容，产生平行分支
       await sendMessage({
-        content: (userMsg as any).content,
+        content: userMsg.content,
         role: 'user',
-        experimental_attachments: (userMsg as any).experimental_attachments
-      } as any);
+        experimental_attachments: userMsg.experimental_attachments
+      } as any, {
+        body: { parentId: userMsg.parentId } 
+      });
     } catch (err) {
       console.error('Regenerate failed:', err);
     }
   };
 
   const handleRetry = async () => {
-    let lastUserIdx = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        lastUserIdx = i;
-        break;
-      }
-    }
-    if (lastUserIdx === -1) return;
-    const userMsg = messages[lastUserIdx];
-    setMessages(messages.slice(0, lastUserIdx));
+    if (messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.role !== 'user') return;
+
     try {
-      const activeToken = token || localStorage.getItem('uclaw_auth_token');
       await sendMessage({
-        content: (userMsg as any).content,
+        content: lastMsg.content,
         role: 'user',
-        experimental_attachments: (userMsg as any).experimental_attachments,
+        experimental_attachments: lastMsg.experimental_attachments,
       } as any, {
-        headers: {
-          'Authorization': `Bearer ${activeToken}`
-        },
-        body: {
-          modelId: selectedModelId,
-          search: isSearchMode,
-          knowledge: isKnowledgeMode,
-          sessionId: sessionIdRef.current,
-        },
+        body: { parentId: lastMsg.parentId }
       });
     } catch (err) {
       console.error('Retry failed:', err);
@@ -282,26 +298,17 @@ export function ChatSession({
       cancelEdit();
       return;
     }
-    const msgIdx = messages.findIndex((m: any) => m.id === msgId);
-    if (msgIdx === -1) return;
-    setBranchIndex(prev => ({ ...prev, [msgId]: (prev[msgId] || 0) + 1 }));
-    const newMessages = messages.slice(0, msgIdx + 1).map((m: any, i: number) => {
-      if (i === msgIdx) return { ...m, content: trimmed };
-      return m;
-    });
-    setMessages(newMessages);
+    const currentMsg = fullTree.find(m => m.id === msgId);
+    if (!currentMsg) return;
+
     try {
+      // 核心：编辑消息等于在【该消息的父节点】下创建一个新的 User 消息分支
       await sendMessage({
         content: trimmed,
         role: 'user',
-        experimental_attachments: newMessages[msgIdx]?.experimental_attachments,
+        experimental_attachments: currentMsg.experimental_attachments,
       } as any, {
-        body: {
-          modelId: selectedModelId,
-          search: isSearchMode,
-          knowledge: isKnowledgeMode,
-          sessionId: sessionIdRef.current,
-        },
+        body: { parentId: currentMsg.parentId },
       });
     } catch (err) {
       console.error('Edit submit failed:', err);
@@ -442,7 +449,9 @@ export function ChatSession({
                               activeCapsule={activeCapsule}
                               setActiveCapsule={setActiveCapsule}
                               sendMessage={sendMessage}
-                              branchIndex={branchIndex}
+                              branchIndex={branchMetadata.branchIndex}
+                              totalBranches={branchMetadata.totalBranches}
+                              onBranchChange={onBranchChange}
                               isStopped={isStopped}
                               onExtract={(artifact) => setActiveCapsule({ artifact: { ...artifact, type: 'code' } })}
                             />
@@ -664,6 +673,3 @@ export function ChatSession({
       </div>
   );
 }
-// cache buster 1775898677
-// cache buster 1775898894
-// cache buster 1775899337

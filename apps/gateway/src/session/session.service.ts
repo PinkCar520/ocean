@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 export interface CreateMessageDto {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  parentId?: string;
   parts?: any;
   attachments?: any;
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
@@ -77,23 +78,26 @@ export class SessionService {
    * @returns 创建的消息 ID（用于关联 CapsuleSnapshot）
    */
   async addMessage(sessionId: string, dto: CreateMessageDto): Promise<string> {
-    // 计算下一条消息的序号
-    const lastMsg = await this.prisma.message.findFirst({
-      where: { sessionId },
-      orderBy: { seq: 'desc' },
-      select: { seq: true },
-    });
-    const seq = (lastMsg?.seq ?? -1) + 1;
+    // 如果没有显式提供 parentId，尝试找到该会话的最后一条消息作为父节点
+    let parentId = dto.parentId;
+    if (!parentId) {
+      const lastMsg = await this.prisma.message.findFirst({
+        where: { sessionId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      parentId = lastMsg?.id;
+    }
 
     const created = await this.prisma.message.create({
       data: {
         sessionId,
+        parentId,
         role: dto.role,
         content: dto.content,
         parts: dto.parts ?? undefined,
         attachments: dto.attachments ?? undefined,
         usage: dto.usage ?? undefined,
-        seq,
       },
     });
 
@@ -107,7 +111,7 @@ export class SessionService {
   }
 
   /**
-   * 获取会话的所有消息（按 seq 升序）— 刷新恢复的关键接口
+   * 获取会话的所有消息 — 刷新恢复的关键接口
    */
   async getMessages(sessionId: string, userId: string) {
     // 先鉴权：确认该会话属于当前用户
@@ -115,12 +119,13 @@ export class SessionService {
 
     const rows = await this.prisma.message.findMany({
       where: { sessionId },
-      orderBy: { seq: 'asc' },
+      orderBy: { createdAt: 'asc' }, // 改为按时间升序，前端负责根据 parentId 构建树
     });
 
     // 转换为 Vercel AI SDK UIMessage 格式，前端 useChat 可直接消费
     return rows.map((row) => ({
       id: row.id,
+      parentId: row.parentId ?? undefined,
       role: row.role as 'user' | 'assistant' | 'system',
       content: row.content,
       parts: row.parts ?? undefined,
@@ -136,16 +141,6 @@ export class SessionService {
   async clearMessages(sessionId: string, userId: string): Promise<void> {
     await this.assertOwnership(sessionId, userId);
     await this.prisma.message.deleteMany({ where: { sessionId } });
-  }
-
-  /**
-   * 删除某条消息之后的所有消息（regenerate 时使用）
-   */
-  async truncateMessagesAfter(sessionId: string, userId: string, afterSeq: number): Promise<void> {
-    await this.assertOwnership(sessionId, userId);
-    await this.prisma.message.deleteMany({
-      where: { sessionId, seq: { gt: afterSeq } },
-    });
   }
 
   // ── Internal ──────────────────────────────────────────────────

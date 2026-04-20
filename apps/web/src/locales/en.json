@@ -48,6 +48,15 @@
     "thinking_done": "Completed",
     "reasoning": "Reasoning Process",
     "reasoning.chars": "chars",
+    "edit": {
+      "save": "Save & Send",
+      "hint": "⌘Enter to save, Esc to cancel",
+      "branch_hint": "Editing this message will create a new conversation branch. You can switch between branches using the arrows."
+    },
+    "branch": {
+      "current": "Current Branch",
+      "total": "Total Branches"
+    },
     "tools": {
       "count": "steps"
     }

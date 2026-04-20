@@ -1,6 +1,7 @@
 import React from 'react';
 import { 
-  Sparkles, RotateCcw, Check, Copy, Pencil, ThumbsUp, ThumbsDown, FileText, Square
+  Sparkles, RotateCcw, Check, Copy, Pencil, ThumbsUp, ThumbsDown, FileText, Square,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -47,6 +48,8 @@ interface ChatMessageProps {
   setActiveCapsule: (capsule: any) => void;
   sendMessage: (msg: any) => Promise<void>;
   branchIndex: Record<string, number>;
+  totalBranches?: Record<string, number>;
+  onBranchChange?: (id: string, index: number) => void;
   isStopped: boolean;
   onExtract?: (data: { title: string; content: string; language: string }) => void;
 }
@@ -76,9 +79,22 @@ export const ChatMessage = React.memo(({
   setActiveCapsule,
   sendMessage,
   branchIndex,
+  totalBranches = {},
+  onBranchChange,
   isStopped,
   onExtract,
 }: ChatMessageProps) => {
+  const formatDateTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    // Claude style date: 4月14日
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
+  };
+
   const isAssistant = m.role === 'assistant';
   const isUser = m.role === 'user';
   const isStreaming = isLast && isLoading && isAssistant;
@@ -255,49 +271,98 @@ export const ChatMessage = React.memo(({
         isUser ? "px-5 flex-row-reverse" : "px-12 flex-row",
         (isAssistant && isLoading && isLast) ? "opacity-0 pointer-events-none" : "opacity-100"
       )}>
+        {/* Date/Time */}
+        {m.createdAt && (
+          <span className={cn(
+            "text-[10px] text-[#716B67]/40 font-mono tracking-tighter shrink-0",
+            isUser ? "ml-1" : "mr-1"
+          )}>
+            {formatDateTime(m.createdAt)}
+          </span>
+        )}
+
         <div className="flex items-center gap-1 transition-opacity">
-          {isUser && (
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button onClick={() => startEditing(m.id, m.content || '')} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67]" aria-label={t('common.edit', 'Edit message')}><Pencil className="w-4 h-4" /></button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.edit', 'Edit message')}</TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67]" aria-label={copiedId === m.id ? t('common.copied') : t('common.copy', 'Copy message')}>{copiedId === m.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}</button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
-          </Tooltip>
+          {/* Regenerate (Assistant) */}
           {isAssistant && (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'up' ? undefined : 'up' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'up' ? "bg-[#EC5B14]/10 text-[#EC5B14]" : "hover:bg-[#F6F3F2] text-[#716B67]")} aria-label={t('common.good_response', 'Good response')}><ThumbsUp className="w-4 h-4" /></button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.good_response', 'Good response')}</TooltipContent>
-            </Tooltip>
-          )}
-          {isAssistant && (
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'down' ? undefined : 'down' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'down' ? "bg-red-500/10 text-red-500" : "hover:bg-[#F6F3F2] text-[#716B67]")} aria-label={t('common.bad_response', 'Bad response')}><ThumbsDown className="w-4 h-4" /></button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.bad_response', 'Bad response')}</TooltipContent>
-            </Tooltip>
-          )}
-          {isAssistant && (
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button onClick={() => handleRegenerate(m.id)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67]" aria-label={t('common.regenerate', 'Regenerate response')}><RotateCcw className="w-4 h-4" /></button>
+                <button onClick={() => handleRegenerate(m.id)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67] transition-colors" aria-label={t('common.regenerate')}><RotateCcw className="w-3.5 h-3.5" /></button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.regenerate')}</TooltipContent>
             </Tooltip>
           )}
+
+          {/* Edit (User) */}
+          {isUser && (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button onClick={() => startEditing(m.id, m.content || '')} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67] transition-colors" aria-label={t('common.edit')}><Pencil className="w-3.5 h-3.5" /></button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[200px] text-[10px] leading-relaxed px-2 py-1.5 bg-[#4A443F] border-none text-white shadow-lg">
+                {t('chat.edit.branch_hint', 'Editing this message will create a new conversation branch. You can switch between branches using the arrows.')}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Copy */}
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67] transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
+          </Tooltip>
+
+          {/* Feedback (Assistant) */}
+          {isAssistant && (
+            <div className="flex items-center gap-0.5">
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'up' ? undefined : 'up' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'up' ? "bg-[#EC5B14]/10 text-[#EC5B14]" : "hover:bg-[#F6F3F2] text-[#716B67]")} aria-label={t('common.good_response', 'Good response')}><ThumbsUp className="w-3.5 h-3.5" /></button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.good_response', 'Good response')}</TooltipContent>
+              </Tooltip>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'down' ? undefined : 'down' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'down' ? "bg-red-500/10 text-red-500" : "hover:bg-[#F6F3F2] text-[#716B67]")} aria-label={t('common.bad_response', 'Bad response')}><ThumbsDown className="w-3.5 h-3.5" /></button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.bad_response', 'Bad response')}</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+
+          {/* Branch Navigation Switcher */}
+          {(totalBranches[m.id] || 0) > 1 && (
+            <div className={cn(
+              "flex items-center gap-1 border-l border-[#E8E4E2] ml-1 pl-1 transition-all",
+              isUser ? "flex-row-reverse" : "flex-row"
+            )}>
+              <button 
+                onClick={() => onBranchChange?.(m.id, Math.max(0, (branchIndex[m.id] || 0) - 1))}
+                disabled={(branchIndex[m.id] || 0) === 0}
+                className="p-1 rounded-md text-[#716B67] hover:bg-[#F6F3F2] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[10px] text-[#716B67]/80 font-mono tracking-tight min-w-[30px] text-center">
+                {(branchIndex[m.id] || 0) + 1} / {totalBranches[m.id] || 1}
+              </span>
+              <button 
+                onClick={() => onBranchChange?.(m.id, Math.min((totalBranches[m.id] || 1) - 1, (branchIndex[m.id] || 0) + 1))}
+                disabled={(branchIndex[m.id] || 0) === (totalBranches[m.id] || 1) - 1}
+                className="p-1 rounded-md text-[#716B67] hover:bg-[#F6F3F2] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
-        {m.createdAt && <span className="text-[10px] text-[#716B67]/60 font-mono">{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-        {isUser && (branchIndex[m.id] || 0) > 0 && <span className="text-[10px] text-[#716B67]/60 font-mono">{branchIndex[m.id] + 1}</span>}
-        {isAssistant && isStopped && isLast && <span className="text-[10px] text-[#716B67] font-medium flex items-center gap-1"><Square className="w-3 h-3 fill-current" />{t('chat.stopped', '已停止')}</span>}
+
+        {isAssistant && isStopped && isLast && (
+          <span className="text-[10px] text-[#716B67] font-medium flex items-center gap-1 ml-auto">
+            <Square className="w-2.5 h-2.5 fill-current" />
+            {t('chat.stopped', '已停止')}
+          </span>
+        )}
       </div>
     </motion.div>
   );

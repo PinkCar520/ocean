@@ -330,13 +330,16 @@ export class SkillOrchestrator {
     try {
       this.logger.log(`[Orchestrator] streamResponse session=${sessionId} messages=${messages?.length}`);
       
+      let newUserMsgId: string | undefined;
+
       if (sessionId && Array.isArray(messages)) {
         const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
         if (lastUserMsg) {
           const userContent = typeof lastUserMsg.content === 'string' ? lastUserMsg.content : '';
-          await this.sessionService.addMessage(sessionId, {
+          newUserMsgId = await this.sessionService.addMessage(sessionId, {
             role: 'user',
             content: userContent,
+            parentId: (lastUserMsg as any).parentId,
             parts: lastUserMsg.parts,
             attachments: lastUserMsg.experimental_attachments,
           });
@@ -402,7 +405,7 @@ export class SkillOrchestrator {
                   type: 'tool-invocation',
                   toolCallId: tc.toolCallId,
                   toolName: tc.toolName,
-                  args: tc.args,
+                  args: (tc as any).args,
                   result: { error: 'Execution was interrupted or failed to return a valid result.' }
                 });
               }
@@ -422,6 +425,7 @@ export class SkillOrchestrator {
               await this.sessionService.addMessage(sessionId, { 
                 role: 'assistant', 
                 content: fullText || '', // 允许内容为空，只要 parts 有数据
+                parentId: newUserMsgId, // 指向刚创建的 User 消息
                 parts: allParts, 
                 usage 
               });

@@ -71,6 +71,15 @@
         "proposePlan": "生成任务规划",
         "runLocalCommand": "执行环境检查"
       }
+    },
+    "edit": {
+      "save": "保存并发送",
+      "hint": "⌘Enter 保存，Esc 取消",
+      "branch_hint": "编辑此消息将创建一个新的对话分支。您可以使用箭头导航按钮在不同分支之间切换。"
+    },
+    "branch": {
+      "current": "当前分支",
+      "total": "总分支"
     }
   },
   "dashboard": {
