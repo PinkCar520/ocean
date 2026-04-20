@@ -1,4 +1,4 @@
-import { Controller, Get, Delete, Param, Req } from '@nestjs/common';
+import { Controller, Get, Delete, Param, Req, Query } from '@nestjs/common';
 import { RAGService } from './rag.service';
 
 @Controller('api/rag')
@@ -6,9 +6,9 @@ export class RAGController {
   constructor(private readonly ragService: RAGService) {}
 
   @Get('documents')
-  async getDocuments(@Req() req: any) {
+  async getDocuments(@Req() req: any, @Query('projectId') projectId?: string) {
     const userId = req.user?.workId;
-    const docs = await this.ragService.getDocuments(userId);
+    const docs = await this.ragService.getDocuments(projectId, userId);
     return { success: true, data: docs };
   }
 

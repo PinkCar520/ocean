@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Plus,
   FolderOpen,
+  FolderRoot,
   GitMerge,
   BookOpen,
-  TerminalSquare,
   Sparkles,
   MoreHorizontal,
   Star,
@@ -301,8 +301,7 @@ export function Sidebar({
     { id: 'library', icon: FolderOpen, label: t('sidebar.library') },
     { id: 'mcp', icon: Puzzle, label: 'MCP Servers' },
     { id: 'workflows', icon: GitMerge, label: t('sidebar.workflows') },
-    { id: 'knowledge', icon: BookOpen, label: t('sidebar.knowledge') },
-    { id: 'console', icon: TerminalSquare, label: t('sidebar.console') },
+    { id: 'projects', icon: FolderRoot, label: t('sidebar.projects') || 'Projects' },
   ];
 
   return (

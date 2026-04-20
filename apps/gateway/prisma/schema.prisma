@@ -161,6 +161,10 @@ model Document {
   status      String   @default("processing") // 'processing', 'indexed', 'failed'
   userId      String?
   
+  // 关联项目
+  projectId   String?
+  project     KnowledgeProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   chunks      DocumentChunk[]
   
   metadata    Json?    // 原始元数据
@@ -170,7 +174,27 @@ model Document {
   @@map("documents")
 }
 
-// RAG 文档切片（支持向量检索）
+// 知识库项目（用于分组管理文档）
+model KnowledgeProject {
+  id          String     @id @default(uuid())
+  name        String     // 项目名称，如 "Q3 研发规范"
+  category    String     // 分类标签，如 "Legal", "Engineering"
+  description String?    @db.Text
+  iconUrl     String?    // 封面图 URL
+  color       String?    // UI 主题色（十六进制）
+  
+  documents   Document[] // 关联的文档
+  
+  userId      String?    // 创建者 ID
+  isPublic    Boolean    @default(true)
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("knowledge_projects")
+}
+
+// RAG 文档切片（支持向量检索 + 全文检索）
 model DocumentChunk {
   id          String   @id @default(uuid())
   documentId  String
@@ -179,10 +203,14 @@ model DocumentChunk {
   content     String   @db.Text
   index       Int      // 切片在原文档中的顺序
   
-  // 向量存储：Prisma 目前用 Json 存储，查询时用原生 SQL 转换
-  // [1.2, 0.5, ...]
+  // 向量存储
   embedding   Json?    
   
+  // 全文搜索索引字段 (tsvector)
+  // 注意：Prisma 目前不支持 tsvector 类型，我们通过 Raw SQL 维护
+  // 此处在 Schema 中注释说明，实际由 Migration 保证
+  // tsv        Unsupported("tsvector")?
+
   metadata    Json?    // 切片元数据
 
   @@index([documentId])

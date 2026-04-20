@@ -4,7 +4,7 @@
     "chat": "Chats",
     "mcp_market": "MCP Market",
     "skill_library": "Skills",
-    "database": "Docs",
+    "database": "Projects",
     "settings": "Settings"
   },
   "chat": {
@@ -153,7 +153,7 @@
     "add_knowledge": "Add Knowledge",
     "library": "Library",
     "workflows": "Workflows",
-    "knowledge": "Knowledge",
+    "projects": "Projects",
     "console": "Console",
     "new_chat": "New Chat",
     "enterprise_ai": "Enterprise AI",
@@ -166,6 +166,71 @@
     "delete_chat_title": "Delete Chat?",
     "delete_chat_desc": "This will permanently delete the conversation \"{{title}}\" and its message history. This action cannot be undone.",
     "admin": "Admin"
+  },
+  "projects": {
+    "title": "Projects Dashboard",
+    "subtitle": "Manage and orchestrate your enterprise knowledge assets and workflows.",
+    "new_button": "New Project",
+    "search_placeholder": "Search projects or categories...",
+    "empty": "No Projects",
+    "empty_desc": "Create a new project to start your AI collaboration journey.",
+    "create_first": "Create your first project",
+    "create_modal": {
+      "title": "Create New Project",
+      "name_label": "Project Name",
+      "name_placeholder": "e.g. Q4 Audit Compliance",
+      "category_label": "Category",
+      "description_label": "Description",
+      "description_placeholder": "Briefly describe the goal of this project...",
+      "submit": "Create Project"
+    },
+    "sort": {
+      "newest": "Sort by Newest",
+      "assets": "Sort by Assets"
+    },
+    "stats": {
+      "assets": "Assets"
+    }
+  },
+  "knowledge_base": {
+    "title": "Project Workspace",
+    "subtitle": "Manage knowledge assets for this project to provide precise context for AI.",
+    "back_link": "Back to Projects",
+    "status": {
+      "healthy": "System Ready"
+    },
+    "stats": {
+      "active_sources": "Project Assets",
+      "data_indexed": "Data Indexed",
+      "unit_mb": "MB"
+    },
+    "ingest": {
+      "title": "Add Project Asset",
+      "desc": "Upload documents or code snippets to the project knowledge base.",
+      "button": "Select File",
+      "indexing": "AI Indexing..."
+    },
+    "assets": {
+      "title": "Indexed Assets",
+      "table": {
+        "name": "Asset Name",
+        "type": "Type",
+        "last_synced": "Uploaded At",
+        "status": "Status"
+      },
+      "status": {
+        "indexed": "Ready",
+        "syncing": "Syncing",
+        "empty": "No assets in this project yet"
+      }
+    },
+    "sidebar": {
+      "insight_title": "Project Insight",
+      "insight_orphaned": "You have {{count}} orphaned documents in the Library that aren't linked to any project.",
+      "insight_organized": "All knowledge assets are properly organized. Great job!",
+      "clean_button": "Organize Assets",
+      "suggested": "Suggested Categories"
+    }
   },
   "node": {
     "title": "Node Monitor",
@@ -371,63 +436,6 @@
       "gpt4o_mini": "GPT-4o Mini"
     },
     "logout": "Sign Out"
-  },
-  "knowledge_base": {
-    "title": "Knowledge Base",
-    "subtitle": "Manage your organization's legal, operational, and policy data sources to power precise AI interactions.",
-    "status": {
-      "healthy": "Index Healthy"
-    },
-    "stats": {
-      "active_sources": "Active Sources",
-      "data_indexed": "Data Indexed",
-      "unit_tb": "TB"
-    },
-    "ingest": {
-      "title": "Ingest New Data",
-      "desc": "Drag and drop documents, SQL dumps, or API endpoints to synchronize with your uClaw context.",
-      "button": "Select Files"
-    },
-    "projects": {
-      "title": "Recent Projects",
-      "view_all": "View all projects",
-      "tags": {
-        "legal": "Legal",
-        "operations": "Operations",
-        "hr": "HR"
-      },
-      "updated": "Updated {{time}} ago",
-      "updated_1d": "Updated 1d ago"
-    },
-    "assets": {
-      "title": "Recent Knowledge Assets",
-      "table": {
-        "name": "Asset Name",
-        "type": "Type",
-        "last_synced": "Last Synced",
-        "status": "Status"
-      },
-      "types": {
-        "pdf": "PDF Document",
-        "sql": "SQL Database",
-        "api": "API Endpoint"
-      },
-      "status": {
-        "indexed": "Indexed",
-        "syncing": "Syncing"
-      }
-    },
-    "sidebar": {
-      "insight_title": "uClaw Insight",
-      "insight_desc": "You have 12 orphaned documents in the \"Library\" that aren't linked to any active project.",
-      "clean_button": "Clean Assets",
-      "suggested": "Suggested Chips",
-      "chips": {
-        "tax": "Tax Review",
-        "hr": "HR Policies",
-        "gdpr": "GDPR Audit"
-      }
-    }
   },
   "all_chats": {
     "title": "Chat History Manager",

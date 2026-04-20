@@ -4,7 +4,7 @@
     "chat": "Chats",
     "mcp_market": "MCP 市场",
     "skill_library": "Skills",
-    "database": "知识库",
+    "database": "项目",
     "settings": "设置"
   },
   "chat": {
@@ -18,7 +18,7 @@
     "role_user": "开发者",
     "empty_state": {
       "title": "部署效率已优化",
-      "desc": "基于当前的 GitLab PR 模式和 Jenkins 流水线历史数据，我已为您识别出预发环境中的性能瓶颈。",
+      "desc": "基于当前的 GitLab PR 模式 and Jenkins 流水线历史数据，我已为您识别出预发环境中的性能瓶颈。",
       "improvement_label": "预计提升",
       "improvement_value": "周期缩短 15%",
       "success_label": "成功概率",
@@ -175,7 +175,7 @@
     "add_knowledge": "添加知识",
     "library": "库",
     "workflows": "工作流",
-    "knowledge": "知识",
+    "projects": "项目",
     "console": "控制台",
     "new_chat": "新对话",
     "enterprise_ai": "企业级 AI",
@@ -188,6 +188,71 @@
     "delete_chat_title": "删除对话？",
     "delete_chat_desc": "这将永久删除对话 \"{{title}}\" 及其消息历史。此操作无法撤销。",
     "admin": "管理员"
+  },
+  "projects": {
+    "title": "项目大厅",
+    "subtitle": "管理并编排您的企业级知识资产与工作流。",
+    "new_button": "新建项目",
+    "search_placeholder": "搜索项目名称或分类...",
+    "empty": "暂无项目",
+    "empty_desc": "创建一个新项目，开启您的 AI 协作之旅。",
+    "create_first": "创建您的第一个项目",
+    "create_modal": {
+      "title": "创建新项目",
+      "name_label": "项目名称",
+      "name_placeholder": "例如：Q4 合规审计",
+      "category_label": "所属分类",
+      "description_label": "项目描述",
+      "description_placeholder": "简要描述该项目的目标...",
+      "submit": "立即创建"
+    },
+    "sort": {
+      "newest": "最新创建",
+      "assets": "资产数量"
+    },
+    "stats": {
+      "assets": "项资产"
+    }
+  },
+  "knowledge_base": {
+    "title": "项目工作空间",
+    "subtitle": "管理当前项目的知识资产，为 AI 提供精准上下文。",
+    "back_link": "返回项目列表",
+    "status": {
+      "healthy": "系统就绪"
+    },
+    "stats": {
+      "active_sources": "项目资产数",
+      "data_indexed": "已索引数据量",
+      "unit_mb": "MB"
+    },
+    "ingest": {
+      "title": "添加项目资产",
+      "desc": "上传文档或代码片段到该项目的知识库中。",
+      "button": "选择文件",
+      "indexing": "AI 正在建立索引..."
+    },
+    "assets": {
+      "title": "已索引资产",
+      "table": {
+        "name": "资产名称",
+        "type": "文件类型",
+        "last_synced": "上传时间",
+        "status": "状态"
+      },
+      "status": {
+        "indexed": "已就绪",
+        "syncing": "同步中",
+        "empty": "本项目暂无资产"
+      }
+    },
+    "sidebar": {
+      "insight_title": "项目洞察",
+      "insight_orphaned": "您的库中有 {{count}} 个孤立文档未链接到任何项目。",
+      "insight_organized": "所有知识资产均已归类。干得漂亮！",
+      "clean_button": "整理资产",
+      "suggested": "建议分类"
+    }
   },
   "node": {
     "title": "节点监控",
@@ -393,63 +458,6 @@
       "gpt4o_mini": "GPT-4o Mini"
     },
     "logout": "退出登录"
-  },
-  "knowledge_base": {
-    "title": "知识库",
-    "subtitle": "管理您组织的法律、运营和政策数据源，为精确的 AI 交互提供动力。",
-    "status": {
-      "healthy": "索引健康"
-    },
-    "stats": {
-      "active_sources": "活跃数据源",
-      "data_indexed": "已索引数据",
-      "unit_tb": "TB"
-    },
-    "ingest": {
-      "title": "导入新数据",
-      "desc": "拖拽文档、SQL 导出文件或 API 端点以同步到您的 uClaw 上下文中。",
-      "button": "选择文件"
-    },
-    "projects": {
-      "title": "最近项目",
-      "view_all": "查看所有项目",
-      "tags": {
-        "legal": "法务",
-        "operations": "运营",
-        "hr": "人事"
-      },
-      "updated": "更新于 {{time}} 前",
-      "updated_1d": "更新于 1天前"
-    },
-    "assets": {
-      "title": "最近知识资产",
-      "table": {
-        "name": "资产名称",
-        "type": "类型",
-        "last_synced": "上次同步",
-        "status": "状态"
-      },
-      "types": {
-        "pdf": "PDF 文档",
-        "sql": "SQL 数据库",
-        "api": "API 端点"
-      },
-      "status": {
-        "indexed": "已索引",
-        "syncing": "同步中"
-      }
-    },
-    "sidebar": {
-      "insight_title": "uClaw 洞察",
-      "insight_desc": "您的“库”中有 12 个孤立文档未链接到任何活动项目。",
-      "clean_button": "清理资产",
-      "suggested": "建议标签",
-      "chips": {
-        "tax": "税务审查",
-        "hr": "人事政策",
-        "gdpr": "GDPR 审计"
-      }
-    }
   },
   "all_chats": {
     "title": "全部对话记录",

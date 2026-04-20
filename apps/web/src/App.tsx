@@ -14,6 +14,7 @@ import { UIGallery } from './components/UIGallery';
 import { SkillLibrary } from './components/SkillLibrary';
 import { MCPServerManager } from './components/MCPServerManager';
 import { KnowledgeBase } from './components/KnowledgeBase';
+import { Projects } from './components/Projects';
 import { AllChatsManager } from './components/AllChatsManager';
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
@@ -32,6 +33,8 @@ function AppContent() {
     const saved = localStorage.getItem('uclaw_active_tab');
     return saved || 'chat';
   });
+
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem('uclaw_active_tab', activeTab);
@@ -95,8 +98,7 @@ function AppContent() {
     const tabNames: Record<string, string> = {
       library: t('sidebar.library'),
       workflows: t('sidebar.workflows'),
-      knowledge: t('sidebar.knowledge'),
-      console: t('sidebar.console'),
+      projects: t('sidebar.projects') || 'Projects',
       settings: t('settings.title'),
       all_chats: t('sidebar.all_chats'),
     };
@@ -237,10 +239,15 @@ function AppContent() {
             <SkillLibrary token={token} />
           ) : activeTab === 'mcp' ? (
             <MCPServerManager token={token} />
-          ) : activeTab === 'knowledge' ? (
-            <KnowledgeBase />
-          ) : activeTab === 'console' ? (
-            <Dashboard />
+          ) : activeTab === 'projects' ? (
+            selectedProjectId ? (
+              <KnowledgeBase 
+                projectId={selectedProjectId} 
+                onBack={() => setSelectedProjectId(null)} 
+              />
+            ) : (
+              <Projects onSelectProject={(id) => setSelectedProjectId(id)} />
+            )
           ) : (
             <UIGallery />
           )}

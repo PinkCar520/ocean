@@ -51,6 +51,14 @@ export async function request<T>(
         error.data = { message: 'Unknown server error' };
       }
 
+      // Surface backend message to UI callers (e.g. upload validation errors).
+      const serverMessage = Array.isArray(error.data?.message)
+        ? error.data.message.join('; ')
+        : error.data?.message;
+      if (serverMessage && typeof serverMessage === 'string') {
+        error.message = serverMessage;
+      }
+
       // 4.1 自动处理登录失效
       if (response.status === 401) {
         console.error('[API] Unauthorized, redirecting to login...');

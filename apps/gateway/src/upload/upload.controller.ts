@@ -1,4 +1,4 @@
-import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException, Req } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException, Req, Body } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -49,15 +49,27 @@ export class UploadController {
 
   @Post('rag')
   @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for RAG
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for RAG text documents
   }))
-  async uploadForRag(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
+  async uploadForRag(
+    @UploadedFile() file: Express.Multer.File, 
+    @Body('projectId') projectId: string,
+    @Req() req: any
+  ) {
     if (!file) throw new BadRequestException('No file provided');
-    
-    const allowedExtensions = ['.txt', '.md', '.json', '.js', '.ts', '.py'];
+
+    // RAG pipeline currently indexes plain-text/code-like documents only.
+    const allowedExtensions = [
+      '.txt', '.md', '.json', '.csv',
+      '.js', '.ts', '.jsx', '.tsx', '.py',
+      '.yml', '.yaml', '.xml', '.html', '.htm',
+      '.log', '.sql', '.sh',
+    ];
     const ext = extname(file.originalname).toLowerCase();
     if (!allowedExtensions.includes(ext)) {
-      throw new BadRequestException(`Unsupported file type. Allowed: ${allowedExtensions.join(', ')}`);
+      throw new BadRequestException(
+        `Unsupported file type "${ext || 'unknown'}". Allowed: ${allowedExtensions.join(', ')}`
+      );
     }
 
     const userId = req.user?.workId || 'system';
@@ -65,11 +77,13 @@ export class UploadController {
 
     return await this.tracingService.traceCall('RAG Indexing', { 
       filename: file.originalname, 
-      userId 
+      userId,
+      projectId
     }, async (span) => {
       const documentId = await this.ragService.indexDocument(
         file.originalname,
         content,
+        projectId,
         userId
       );
       
