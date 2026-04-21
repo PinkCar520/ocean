@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { 
   Plus, FileText, X as CloseIcon, 
   ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check
@@ -34,6 +34,7 @@ interface ChatInputProps {
   setSelectedModelId: (id: string) => void;
   textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
   t: any;
+  lastUserMessage?: string;
 }
 
 export function ChatInput({
@@ -55,14 +56,35 @@ export function ChatInput({
   setSelectedModelId,
   textAreaRef,
   t,
+  lastUserMessage,
 }: ChatInputProps) {
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: Globe, color: 'text-slate-400' };
   const activeDisplayName = beautifyModelName(activeModel.name);
 
+  const [isFocused, setIsFocused] = useState(false);
+
+  useLayoutEffect(() => {
+    if (textAreaRef.current) {
+      textAreaRef.current.style.height = 'auto';
+      textAreaRef.current.style.height = `${Math.min(textAreaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [localInput, textAreaRef]);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      e.preventDefault();
+      const filesArray = Array.from(e.clipboardData.files);
+      setSelectedFiles(prev => [...prev, ...filesArray]);
+    }
+  };
+
   return (
     <div className="pt-2 pb-4 md:pb-8 px-4 md:px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto">
       <div className="max-w-[800px] mx-auto relative">
-        <div className="bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] ring-1 ring-[#1C1B1B]/5 transition-all">
+        <div className={cn(
+          "bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] ring-1 transition-all duration-300",
+          isFocused ? "ring-[#EC5B14]/30 shadow-[0_0_15px_rgba(236,91,20,0.15)]" : "ring-[#1C1B1B]/5"
+        )}>
           <AnimatePresence>
             {selectedFiles.length > 0 && (
               <motion.div 
@@ -93,10 +115,22 @@ export function ChatInput({
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   onFormSubmit();
+                } else if (e.key === 'ArrowUp' && !localInput.trim() && lastUserMessage) {
+                  e.preventDefault();
+                  setLocalInput(lastUserMessage);
+                  setTimeout(() => {
+                    if (textAreaRef.current) {
+                      textAreaRef.current.selectionStart = textAreaRef.current.value.length;
+                      textAreaRef.current.selectionEnd = textAreaRef.current.value.length;
+                    }
+                  }, 0);
                 }
               }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              onPaste={handlePaste}
               placeholder={t('chat.placeholder', 'Ask anything...')}
-              className="w-full bg-transparent border-none focus:ring-0 focus:outline-none text-[15px] text-[#1C1B1B] placeholder:text-[#A8A4A1] py-3 px-4 resize-none min-h-[44px] max-h-[200px] leading-relaxed"
+              className="w-full bg-transparent border-none focus:ring-0 focus:outline-none text-[15px] text-[#1C1B1B] placeholder:text-[#A8A4A1] py-3 px-4 resize-none min-h-[44px] max-h-[200px] leading-relaxed transition-all duration-200"
               rows={1}
             />
           </div>
@@ -181,13 +215,37 @@ export function ChatInput({
             <button 
               onClick={() => isLoading ? handleStop() : onFormSubmit()} 
               className={cn(
-                "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all", 
+                "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden", 
                 isLoading 
-                  ? "bg-[#1C1B1B] text-white" 
-                  : ((!localInput.trim() && selectedFiles.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-[#EC5B14] text-white shadow-lg hover:scale-105 active:scale-95")
+                  ? "bg-[#1C1B1B] text-white shadow-sm" 
+                  : ((!localInput.trim() && selectedFiles.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95")
               )}
             >
-              {isLoading ? <Square className="w-4 h-4 fill-current" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
+              <AnimatePresence mode="wait" initial={false}>
+                {isLoading ? (
+                  <motion.div
+                    key="stop"
+                    initial={{ opacity: 0, scale: 0.6 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.6 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <Square className="w-4 h-4 fill-current" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="send"
+                    initial={{ opacity: 0, scale: 0.6 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.6 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </button>
           </div>
         </div>

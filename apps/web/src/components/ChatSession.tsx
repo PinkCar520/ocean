@@ -522,6 +522,7 @@ export function ChatSession({
             setSelectedModelId={setSelectedModelId}
             textAreaRef={textAreaRef}
             t={t}
+            lastUserMessage={messages.filter(m => m.role === 'user').pop()?.content}
           />
 
         </div>
