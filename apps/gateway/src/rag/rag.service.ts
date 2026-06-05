@@ -27,7 +27,7 @@ export class RAGService {
   }
 
   private getChatModel() {
-    const baseURL = this.configService.get<string>('DASHSCOPE_API_BASE');
+    const baseURL = this.configService.get<string>('DASHSCOPE_BASE_URL');
     const apiKey = this.configService.get<string>('DASHSCOPE_API_KEY');
     return createOpenAI({
       baseURL,
@@ -117,19 +117,18 @@ export class RAGService {
       allEmbeddings.push(...embeddings);
     }
 
-    // 正确使用 Prisma ORM 的 createMany 逻辑
-    // 显式生成 ID 以确保在没有数据库默认值的情况下也能成功批量插入
-    const chunksData = contextualChunks.map((content, i) => ({
-      id: randomUUID(),
-      documentId,
-      content,
-      index: i,
-      embedding: allEmbeddings[i],
-    }));
-
-    await this.prisma.documentChunk.createMany({
-      data: chunksData
-    });
+    // Because 'embedding' is Unsupported("vector(1536)") in Prisma, it cannot be written using createMany.
+    // We must use raw SQL to insert the native pgvector data.
+    for (let i = 0; i < contextualChunks.length; i++) {
+      const content = contextualChunks[i];
+      const embeddingArray = allEmbeddings[i];
+      const vectorStr = `[${embeddingArray.join(',')}]`;
+      
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO document_chunks (id, "documentId", content, index, embedding) VALUES ($1, $2, $3, $4, $5::vector)`,
+        randomUUID(), documentId, content, i, vectorStr
+      );
+    }
 
     await this.prisma.document.update({
       where: { id: documentId },
@@ -153,17 +152,12 @@ export class RAGService {
     const vectorStr = `[${embedding.join(',')}]`;
 
     const results: any[] = await this.prisma.$queryRawUnsafe(`
-      WITH filtered_chunks AS (
-        SELECT id, embedding::text::vector AS emb
+      WITH vector_search AS (
+        SELECT id, (embedding <=> $1::vector) as distance,
+        ROW_NUMBER() OVER (ORDER BY embedding <=> $1::vector) as rank
         FROM document_chunks
-        WHERE embedding IS NOT NULL 
-          AND vector_dims(embedding::text::vector) = vector_dims($1::vector)
-      ),
-      vector_search AS (
-        SELECT id, (emb <=> $1::vector) as distance,
-        ROW_NUMBER() OVER (ORDER BY emb <=> $1::vector) as rank
-        FROM filtered_chunks
-        ORDER BY distance ASC LIMIT 50
+        WHERE embedding IS NOT NULL
+        ORDER BY (embedding <=> $1::vector) ASC LIMIT 50
       ),
       text_search AS (
         SELECT id, ts_rank_cd(tsv, websearch_to_tsquery('simple', $2)) as score,

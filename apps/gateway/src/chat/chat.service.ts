@@ -12,18 +12,23 @@ export class ChatService {
    * ⚠️ 注意：前端应优先迁移到使用 SkillOrchestrator.getAvailableModels()
    */
   getAvailableModels() {
-    const modelsRaw = this.configService.get<string>('VLLM_MODEL_NAME') || 'qwen2.5-coder:7b';
-    return modelsRaw.split(',').map((id) => {
-      const modelId = id.trim();
-      const isCloud = modelId.includes('deepseek') || modelId.includes('omni') || modelId.includes('qwen');
-      
-      return {
-        id: modelId,
-        name: modelId,
-        provider: isCloud ? 'Alibaba Bailian' : 'Private Ollama',
-        icon: isCloud ? 'Cloud' : 'Cpu',
-        color: isCloud ? 'text-orange-500' : 'text-blue-500',
-      };
-    });
+    const models = [
+      { id: this.configService.get('DEEPSEEK_MODEL'), provider: 'deepseek', icon: 'Sparkles', color: 'text-blue-500' },
+      { id: this.configService.get('ANTHROPIC_MODEL'), provider: 'anthropic', icon: 'Brain', color: 'text-purple-500' },
+      { id: this.configService.get('GEMINI_MODEL'), provider: 'gemini', icon: 'Globe', color: 'text-orange-500' },
+      { id: this.configService.get('DASHSCOPE_MODEL'), provider: 'dashscope', icon: 'Cloud', color: 'text-indigo-500' },
+      { id: this.configService.get('OPENAI_MODEL'), provider: 'openai', icon: 'Zap', color: 'text-green-500' },
+      { id: this.configService.get('LOCAL_MODEL'), provider: 'local', icon: 'Terminal', color: 'text-gray-500' }
+    ];
+
+    return models
+      .filter(m => m.id)
+      .map(m => ({
+        id: m.id,
+        name: m.id,
+        provider: m.provider,
+        icon: m.icon,
+        color: m.color,
+      }));
   }
 }

@@ -42,43 +42,90 @@ export class SkillOrchestrator {
   // Model
   // ──────────────────────────────────────────────
   private getModel(modelId?: string) {
-    const vllmModels = (this.configService.get<string>('VLLM_MODEL_NAME') || '').split(',').map(m => m.trim()).filter(Boolean);
-    const omlxModel = this.configService.get<string>('AI_GATEWAY_MODEL')?.trim();
-    const cloudModels = (this.configService.get<string>('DASHSCOPE_MODEL_NAME') || '').split(',').map(m => m.trim()).filter(Boolean);
+    const defaultProvider = this.configService.get<string>('DEFAULT_AI_PROVIDER') || 'deepseek';
+    
+    // 聚合所有的配置项
+    const configs: Record<string, any> = {
+      deepseek: {
+        apiKey: this.configService.get('DEEPSEEK_API_KEY'),
+        baseURL: this.configService.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
+        model: this.configService.get('DEEPSEEK_MODEL'),
+      },
+      anthropic: {
+        apiKey: this.configService.get('ANTHROPIC_API_KEY'),
+        model: this.configService.get('ANTHROPIC_MODEL'),
+      },
+      gemini: {
+        apiKey: this.configService.get('GEMINI_API_KEY'),
+        model: this.configService.get('GEMINI_MODEL'),
+      },
+      dashscope: {
+        apiKey: this.configService.get('DASHSCOPE_API_KEY'),
+        baseURL: this.configService.get('DASHSCOPE_BASE_URL') || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        model: this.configService.get('DASHSCOPE_MODEL'),
+      },
+      openai: {
+        apiKey: this.configService.get('OPENAI_API_KEY'),
+        baseURL: this.configService.get('OPENAI_BASE_URL') || 'https://api.openai.com/v1',
+        model: this.configService.get('OPENAI_MODEL'),
+      },
+      local: {
+        apiKey: this.configService.get('LOCAL_API_KEY'),
+        baseURL: this.configService.get('LOCAL_BASE_URL') || 'http://localhost:11434/v1',
+        model: this.configService.get('LOCAL_MODEL'),
+      }
+    };
 
-    const allModelIds = Array.from(new Set([...vllmModels, ...cloudModels, omlxModel].filter(Boolean)));
-    const selectedModel = (modelId && allModelIds.includes(modelId)) ? modelId : allModelIds[0];
-
-    if (!selectedModel) {
-      throw new Error('No models configured in environment.');
+    // 如果传入了明确的 modelId，可以扩展逻辑去匹配。为了简单起见，如果 modelId 是 provider 的名字，直接切换
+    let activeProviderKey = defaultProvider;
+    let selectedModelId = configs[defaultProvider]?.model;
+    
+    if (modelId) {
+      if (configs[modelId]) {
+        activeProviderKey = modelId;
+        selectedModelId = configs[modelId].model;
+      } else {
+        // Find which provider owns this model
+        for (const [key, conf] of Object.entries(configs)) {
+          if (conf.model === modelId || conf.model?.split(',').map((m:string)=>m.trim()).includes(modelId)) {
+            activeProviderKey = key;
+            selectedModelId = modelId;
+            break;
+          }
+        }
+      }
     }
 
-    let baseURL: string;
-    let apiKey: string;
-
-    const isCloudModel = cloudModels.includes(selectedModel);
-    const isOmlxModel = omlxModel === selectedModel;
-
-    if (isCloudModel) {
-      baseURL = this.configService.get<string>('DASHSCOPE_API_BASE') || '';
-      apiKey = this.configService.get<string>('DASHSCOPE_API_KEY') || '';
-    } else if (isOmlxModel) {
-      baseURL = this.configService.get<string>('AI_GATEWAY_BASE_URL') || '';
-      apiKey = this.configService.get<string>('AI_GATEWAY_API_KEY') || 'unused';
-    } else {
-      baseURL = this.configService.get<string>('VLLM_API_BASE') || '';
-      apiKey = this.configService.get<string>('VLLM_API_KEY') || 'ollama';
+    const conf = configs[activeProviderKey];
+    if (!conf || (!conf.apiKey && activeProviderKey !== 'local')) {
+      this.logger.warn(`Provider ${activeProviderKey} is not fully configured.`);
     }
 
+    if (activeProviderKey === 'anthropic') {
+      const { createAnthropic } = require('@ai-sdk/anthropic');
+      return createAnthropic({ apiKey: conf.apiKey })(selectedModelId);
+    }
+    
+    if (activeProviderKey === 'gemini') {
+      const { createGoogleGenerativeAI } = require('@ai-sdk/google');
+      return createGoogleGenerativeAI({ apiKey: conf.apiKey })(selectedModelId);
+    }
+
+    // Default to OpenAI-compatible for DeepSeek, DashScope, OpenAI, Local
     const provider = createOpenAI({
-      baseURL,
-      apiKey,
-      ...(isCloudModel && selectedModel.includes('deepseek') ? {
+      baseURL: conf.baseURL,
+      apiKey: conf.apiKey || 'empty',
+      ...((activeProviderKey === 'dashscope' || activeProviderKey === 'deepseek') && selectedModelId?.includes('deepseek') ? {
         fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
           if (init?.body && typeof init.body === 'string') {
             try {
               const body = JSON.parse(init.body);
-              body.enable_thinking = true;
+              if (activeProviderKey === 'deepseek') {
+                body.thinking = { type: 'enabled' };
+                body.reasoning_effort = 'high';
+              } else {
+                body.enable_thinking = true;
+              }
               init.body = JSON.stringify(body);
             } catch { /* ignore parse errors */ }
           }
@@ -87,45 +134,31 @@ export class SkillOrchestrator {
       } : {}),
     });
 
-    return provider.chat(selectedModel);
+    return provider.chat(selectedModelId);
   }
 
   /**
    * 获取当前网关配置的模型列表
    */
   getAvailableModels() {
-    const vllmModels = (this.configService.get<string>('VLLM_MODEL_NAME') || '').split(',').map(m => m.trim()).filter(Boolean);
-    const omlxModel = this.configService.get<string>('AI_GATEWAY_MODEL')?.trim();
-    const cloudModels = (this.configService.get<string>('DASHSCOPE_MODEL_NAME') || '').split(',').map(m => m.trim()).filter(Boolean);
+    const models = [
+      { id: this.configService.get('DEEPSEEK_MODEL'), provider: 'deepseek', icon: 'Sparkles', color: 'text-blue-500' },
+      { id: this.configService.get('ANTHROPIC_MODEL'), provider: 'anthropic', icon: 'Brain', color: 'text-purple-500' },
+      { id: this.configService.get('GEMINI_MODEL'), provider: 'gemini', icon: 'Globe', color: 'text-orange-500' },
+      { id: this.configService.get('DASHSCOPE_MODEL'), provider: 'dashscope', icon: 'Cloud', color: 'text-indigo-500' },
+      { id: this.configService.get('OPENAI_MODEL'), provider: 'openai', icon: 'Zap', color: 'text-green-500' },
+      { id: this.configService.get('LOCAL_MODEL'), provider: 'local', icon: 'Terminal', color: 'text-gray-500' }
+    ];
 
-    const allModelIds = Array.from(new Set([...vllmModels, ...cloudModels, omlxModel].filter(Boolean)));
-
-    return allModelIds.map((modelId) => {
-      const isCloud = cloudModels.includes(modelId!);
-      const isOmlx = omlxModel === modelId;
-      
-      let provider = 'Ollama (Local)';
-      let icon = 'Globe';
-      let color = 'text-blue-500';
-
-      if (isOmlx) {
-        provider = 'oMLX (Local)';
-        icon = 'Sparkles';
-        color = 'text-orange-500';
-      } else if (isCloud) {
-        provider = 'DashScope (Cloud)';
-        icon = 'Cloud';
-        color = 'text-purple-500';
-      }
-
-      return {
-        id: modelId,
-        name: modelId,
-        provider,
-        icon,
-        color,
-      };
-    });
+    return models
+      .filter(m => m.id)
+      .map(m => ({
+        id: m.id,
+        name: m.id,
+        provider: m.provider,
+        icon: m.icon,
+        color: m.color,
+      }));
   }
 
   // ──────────────────────────────────────────────
@@ -621,24 +654,15 @@ export class SkillOrchestrator {
    */
   async autocomplete(prefix: string): Promise<string> {
     try {
-      // 动态从环境变量中收集所有已配置的模型候选
-      const vllmModels = (this.configService.get<string>('VLLM_MODEL_NAME') || '').split(',').map(m => m.trim()).filter(Boolean);
-      const omlxModel = this.configService.get<string>('AI_GATEWAY_MODEL')?.trim();
-      const cloudModels = (this.configService.get<string>('DASHSCOPE_MODEL_NAME') || '').split(',').map(m => m.trim()).filter(Boolean);
+      const models = this.getAvailableModels();
+      if (models.length === 0) return '';
 
-      const candidates = [...vllmModels, ...cloudModels];
-      if (omlxModel) candidates.unshift(omlxModel);
-
-      if (candidates.length === 0) {
-        return ''; // 无模型配置时不执行补全
-      }
-
-      const fastModelId = candidates.find(m => 
-        m.toLowerCase().includes('llama') || 
-        m.toLowerCase().includes('3b') || 
-        m.toLowerCase().includes('flash') || 
-        m.toLowerCase().includes('coder')
-      ) || candidates[0];
+      const fastModelId = models.find(m => 
+        m.name.toLowerCase().includes('llama') || 
+        m.name.toLowerCase().includes('3b') || 
+        m.name.toLowerCase().includes('flash') || 
+        m.name.toLowerCase().includes('coder')
+      )?.id || models[0].id;
 
       const { text } = await generateText({        model: this.getModel(fastModelId),
         system: `You are a Ghost-Text generator for a professional AI workspace.

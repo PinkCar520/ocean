@@ -49,7 +49,7 @@ export interface LoadedSkill {
 
 // ─── LLM System ──────────────────────────────────────────────
 
-export type ModelProvider = 'vllm' | 'dashscope' | 'omlx';
+export type ModelProvider = 'deepseek' | 'anthropic' | 'gemini' | 'dashscope' | 'openai' | 'local';
 
 export interface ModelConfig {
   id: string;
@@ -67,17 +67,23 @@ export interface ChatState {
 // ─── CLI Configuration ───────────────────────────────────────
 
 export interface CliConfig {
-  // LLM settings
-  vllmBaseUrl?: string;
-  vllmModelName?: string;
-  vllmApiKey?: string;
-  dashscopeBaseUrl?: string;
+  defaultAiProvider?: string;
+  deepseekApiKey?: string;
+  deepseekBaseUrl?: string;
+  deepseekModel?: string;
+  anthropicApiKey?: string;
+  anthropicModel?: string;
+  geminiApiKey?: string;
+  geminiModel?: string;
   dashscopeApiKey?: string;
-  dashscopeDefaultModel?: string;
-  dashscopeModelName?: string;
-  omlxBaseUrl?: string;
-  omlxModel?: string;
-  omlxApiKey?: string;
+  dashscopeBaseUrl?: string;
+  dashscopeModel?: string;
+  openaiApiKey?: string;
+  openaiBaseUrl?: string;
+  openaiModel?: string;
+  localApiKey?: string;
+  localBaseUrl?: string;
+  localModel?: string;
 
   // Gateway settings
   gatewayUrl?: string;

@@ -7,3 +7,9 @@ packages:
   - "agent/mcp/*"
 allowBuilds:
   esbuild: false
+  "@nestjs/core": true
+  "@prisma/engines": true
+  "bcrypt": true
+  "prisma": true
+  "protobufjs": true
+  "unrs-resolver": true

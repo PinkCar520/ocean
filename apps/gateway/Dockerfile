@@ -2,6 +2,7 @@
 FROM node:22-alpine AS builder
 
 WORKDIR /app
+ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
 RUN corepack enable
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -43,6 +44,7 @@ RUN pnpm --filter gateway build
 # 第二阶段：生产运行
 FROM node:22-alpine AS runner
 WORKDIR /app
+ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
 RUN corepack enable
 
 ENV NODE_ENV=production

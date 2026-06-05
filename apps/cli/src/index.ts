@@ -35,8 +35,8 @@ if (process.env.DEBUG) {
   console.log(`[dotenv debug] __dirname=${__dirname}`);
   console.log(`[dotenv debug] envRoot=${envRoot}`);
   console.log(`[dotenv debug] envResult1 parsed keys=${Object.keys(envResult1.parsed || {}).length}`);
-  console.log(`[dotenv debug] VLLM_API_BASE=${process.env.VLLM_API_BASE || '(undefined)'}`);
-  console.log(`[dotenv debug] DASHSCOPE_API_BASE=${process.env.DASHSCOPE_API_BASE || '(undefined)'}`);
+  console.log(`[dotenv debug] DEFAULT_AI_PROVIDER=${process.env.DEFAULT_AI_PROVIDER || '(undefined)'}`);
+  console.log(`[dotenv debug] DEEPSEEK_BASE_URL=${process.env.DEEPSEEK_BASE_URL || '(undefined)'}`);
 }
 
 const execAsync = promisify(exec);

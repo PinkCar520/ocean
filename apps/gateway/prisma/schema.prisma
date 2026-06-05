@@ -204,7 +204,7 @@ model DocumentChunk {
   content     String   @db.Text
   index       Int      
   
-  embedding   Json?    
+  embedding   Unsupported("vector(1536)")?
   metadata    Json?    
   tsv         Unsupported("tsvector")?
 

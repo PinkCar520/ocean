@@ -62,16 +62,23 @@ async function runSingleQuery(options: ReplOptions) {
 
   // Load config
   const cliConfig: CliConfig = {
-    vllmBaseUrl: process.env.VLLM_API_BASE,
-    vllmModelName: process.env.VLLM_MODEL_NAME,
-    vllmApiKey: process.env.VLLM_API_KEY,
-    dashscopeBaseUrl: process.env.DASHSCOPE_API_BASE,
+    defaultAiProvider: process.env.DEFAULT_AI_PROVIDER,
+    deepseekApiKey: process.env.DEEPSEEK_API_KEY,
+    deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL,
+    deepseekModel: process.env.DEEPSEEK_MODEL,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    anthropicModel: process.env.ANTHROPIC_MODEL,
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: process.env.GEMINI_MODEL,
     dashscopeApiKey: process.env.DASHSCOPE_API_KEY,
-    dashscopeDefaultModel: process.env.DASHSCOPE_DEFAULT_MODEL,
-    dashscopeModelName: process.env.DASHSCOPE_MODEL_NAME,
-    omlxBaseUrl: process.env.AI_GATEWAY_BASE_URL,
-    omlxModel: process.env.AI_GATEWAY_MODEL,
-    omlxApiKey: process.env.AI_GATEWAY_API_KEY,
+    dashscopeBaseUrl: process.env.DASHSCOPE_BASE_URL,
+    dashscopeModel: process.env.DASHSCOPE_MODEL,
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    openaiBaseUrl: process.env.OPENAI_BASE_URL,
+    openaiModel: process.env.OPENAI_MODEL,
+    localApiKey: process.env.LOCAL_API_KEY,
+    localBaseUrl: process.env.LOCAL_BASE_URL,
+    localModel: process.env.LOCAL_MODEL,
     userId: options.userId,
     workspacePath: options.workspace,
   };
@@ -139,24 +146,28 @@ async function runSingleQuery(options: ReplOptions) {
 async function runReadlineRepl(options: ReplOptions) {
   // Load config
   const cliConfig: CliConfig = {
-    vllmBaseUrl: process.env.VLLM_API_BASE,
-    vllmModelName: process.env.VLLM_MODEL_NAME,
-    vllmApiKey: process.env.VLLM_API_KEY,
-    dashscopeBaseUrl: process.env.DASHSCOPE_API_BASE,
+    defaultAiProvider: process.env.DEFAULT_AI_PROVIDER,
+    deepseekApiKey: process.env.DEEPSEEK_API_KEY,
+    deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL,
+    deepseekModel: process.env.DEEPSEEK_MODEL,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    anthropicModel: process.env.ANTHROPIC_MODEL,
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: process.env.GEMINI_MODEL,
     dashscopeApiKey: process.env.DASHSCOPE_API_KEY,
-    dashscopeDefaultModel: process.env.DASHSCOPE_DEFAULT_MODEL,
-    dashscopeModelName: process.env.DASHSCOPE_MODEL_NAME,
-    omlxBaseUrl: process.env.AI_GATEWAY_BASE_URL,
-    omlxModel: process.env.AI_GATEWAY_MODEL,
-    omlxApiKey: process.env.AI_GATEWAY_API_KEY,
+    dashscopeBaseUrl: process.env.DASHSCOPE_BASE_URL,
+    dashscopeModel: process.env.DASHSCOPE_MODEL,
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    openaiBaseUrl: process.env.OPENAI_BASE_URL,
+    openaiModel: process.env.OPENAI_MODEL,
+    localApiKey: process.env.LOCAL_API_KEY,
+    localBaseUrl: process.env.LOCAL_BASE_URL,
+    localModel: process.env.LOCAL_MODEL,
     userId: options.userId,
     workspacePath: options.workspace,
   };
 
-  console.log(chalk.gray(`[Config] VLLM_BASE: ${cliConfig.vllmBaseUrl || '(empty)'}`));
-  console.log(chalk.gray(`[Config] DASHSCOPE_BASE: ${cliConfig.dashscopeBaseUrl || '(empty)'}`));
-  console.log(chalk.gray(`[Config] OMLX_BASE: ${cliConfig.omlxBaseUrl || '(empty)'}`));
-  console.log(chalk.gray(`[Config] MODELS: ${cliConfig.vllmModelName || '(empty)'}`));
+  console.log(chalk.gray(`[Config] Default Provider: ${cliConfig.defaultAiProvider || '(none)'}`));
 
   const modelRouter = createModelRouter(cliConfig);
   const models = modelRouter.listModels();
