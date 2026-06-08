@@ -343,7 +343,10 @@ export function ChatSession({
           className="flex-1 flex overflow-hidden h-full"
           onDragOver={handleDragOver}
       >
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-white/40">
+        <div className={cn(
+          "flex-1 flex flex-col relative overflow-hidden bg-white/40",
+          messages.length === 0 && !isLoadingHistory && "justify-center"
+        )}>
           <AnimatePresence>
             {isDragging && (
                 <motion.div
@@ -360,7 +363,10 @@ export function ChatSession({
           <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto px-4 md:px-8 py-4 scroll-smooth relative"
+              className={cn(
+                "overflow-y-auto px-4 md:px-8 scroll-smooth relative w-full",
+                messages.length === 0 && !isLoadingHistory ? "flex-none py-2" : "flex-1 py-4"
+              )}
           >
             {/* 右侧栏关闭按钮 */}
             {previewAttachment && (
@@ -477,6 +483,7 @@ export function ChatSession({
           </div>
 
           <ChatInput
+          isEmpty={messages.length === 0 && !isLoadingHistory}
           localInput={localInput}
           setLocalInput={setLocalInput}
           attachments={attachments}

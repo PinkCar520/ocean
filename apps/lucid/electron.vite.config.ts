@@ -14,6 +14,7 @@ export default defineConfig({
       }
     },
     resolve: {
+      extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
       alias: {
         '@renderer': resolve('src/renderer/src'),
         '@uclaw/ui': resolve('../../packages/ui/src')

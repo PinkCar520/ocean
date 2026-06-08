@@ -20,9 +20,9 @@ export function EmptyState({
   ];
 
   return (
-    <div className="flex flex-col mt-4 md:mt-10 w-full min-w-0">
+    <div className="flex flex-col w-full min-w-0 pb-4">
       {/* Center Logo & Title */}
-      <div className="flex flex-col items-center justify-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col items-center justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] p-4 rounded-2xl shadow-[0_8px_24px_rgba(236,91,20,0.25)] mb-4 flex items-center justify-center">
           <Sparkles className="w-8 h-8 text-white" />
         </div>

@@ -21,6 +21,7 @@ export function Projects() {
 
   // New Project Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [creationMode, setCreationMode] = useState<'CLOUD' | 'LOCAL'>('CLOUD');
   const [newProject, setNewProject] = useState({ name: '', category: 'Engineering', description: '' });
   const [isCreating, setIsCreating] = useState(false);
 
@@ -61,31 +62,29 @@ export function Projects() {
     }
   };
 
-  const [createLocalFolder, setCreateLocalFolder] = useState(true);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
     try {
-      let finalDescription = newProject.description;
+      let finalDescription = newProject.description || '';
 
-      // 1. 如果勾选了“创建本地文件夹”，先通过 RPC 通知助手执行本地 mkdir
-      if (createLocalFolder) {
-        try {
-          const rpcRes = await api.post<any>('/api/user/node/create-local-project', {
-            projectName: newProject.name,
-            category: newProject.category
-          });
-          if (rpcRes.success && rpcRes.path) {
-            finalDescription += ` (path:${rpcRes.path})`;
-          }
-        } catch (rpcErr) {
-          console.warn('Local folder creation failed, falling back to cloud-only:', rpcErr);
-          // 如果助手没开，可以选择报错或者继续
-        }
+      // 如果是本地模式，且未选择路径，则报错
+      if (creationMode === 'LOCAL' && !finalDescription.includes('(path:')) {
+         alert('请选择本地项目路径！');
+         setIsCreating(false);
+         return;
       }
 
-      // 2. 将包含本地路径的项目元数据存入云端数据库
+      // 如果是云端项目，加上标识
+      if (creationMode === 'CLOUD') {
+         finalDescription += ' [CLOUD]';
+      }
+
+      // 1. 本地模式下的目录创建（可选扩展）
+      // ...
+
+      // 2. 将项目元数据存入云端数据库
       const res = await api.post<any>('/api/knowledge-projects', {
         ...newProject,
         description: finalDescription
@@ -145,14 +144,23 @@ export function Projects() {
               <ArrowUpDown className="w-4 h-4" />
             </button>
 
-            {/* Create Button */}
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-[#1C1B1B] text-white px-5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-md hover:bg-[#1C1B1B]/80 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              {t('projects.new_button')}
-            </button>
+            {/* Create Dropdown or Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setCreationMode('CLOUD'); setIsModalOpen(true); }}
+                className="bg-[#1C1B1B] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-md hover:bg-[#1C1B1B]/80 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                新建云端项目
+              </button>
+              <button
+                onClick={() => { setCreationMode('LOCAL'); setIsModalOpen(true); }}
+                className="bg-white border border-[#E8E4E2] text-[#1C1B1B] px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-[#F6F3F2] transition-all"
+              >
+                <FolderRoot className="w-4 h-4 text-[#EC5B14]" />
+                导入本地项目
+              </button>
+            </div>
           </div>
         </section>
 
@@ -217,10 +225,18 @@ export function Projects() {
                 <div className="p-6 pt-2">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="px-2.5 py-0.5 bg-[#EC5B14]/10 text-[#EC5B14] text-[10px] font-bold uppercase tracking-widest rounded-md">{project.category}</span>
-                    <span className="text-[10px] text-[#716B67] font-medium">{new Date(project.updatedAt).toLocaleDateString()}</span>
+                    <span className={cn(
+                      "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest rounded-md border",
+                      project.description?.includes('(path:') 
+                        ? "bg-blue-50 text-blue-600 border-blue-200" 
+                        : "bg-slate-50 text-slate-600 border-slate-200"
+                    )}>
+                      {project.description?.includes('(path:') ? '本地 💻' : '云端 ☁️'}
+                    </span>
+                    <span className="text-[10px] text-[#716B67] font-medium ml-auto">{new Date(project.updatedAt).toLocaleDateString()}</span>
                   </div>
                   <h4 className="text-lg font-display font-bold mb-1 group-hover:text-[#EC5B14] transition-colors">{project.name}</h4>
-                  <p className="text-[#716B67] text-sm mb-4 line-clamp-2 min-h-[40px]">{project.description}</p>
+                  <p className="text-[#716B67] text-sm mb-4 line-clamp-2 min-h-[40px]">{project.description?.replace(/\[CLOUD\]|\(path:.*?\)/g, '')}</p>
                   <div className="flex items-center justify-between pt-4 border-t border-[#F6F3F2]">
                     <div className="flex -space-x-2">
                       <img className="w-6 h-6 rounded-full border-2 border-white object-cover" src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${project.id}`} alt="user" />
@@ -257,7 +273,9 @@ export function Projects() {
             >
               <div className="p-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-2xl font-display font-bold">{t('projects.create_modal.title')}</h3>
+                  <h3 className="text-2xl font-display font-bold">
+                    {creationMode === 'LOCAL' ? '导入本地项目' : '新建云端项目'}
+                  </h3>
                   <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-[#F6F3F2] rounded-full">
                     <X className="w-5 h-5 text-[#716B67]" />
                   </button>
@@ -290,30 +308,16 @@ export function Projects() {
                     </select>
                   </div>
 
-                  <div className="bg-[#F6F3F2]/50 p-4 rounded-2xl border border-[#E8E4E2]/50">
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="text-xs font-bold uppercase tracking-widest text-[#716B67]">数据存放位置 (私有化保护)</label>
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                        <input 
-                          type="checkbox" 
-                          checked={createLocalFolder} 
-                          onChange={(e) => setCreateLocalFolder(e.target.checked)}
-                          className="w-4 h-4 rounded border-[#E8E4E2] text-[#EC5B14] focus:ring-[#EC5B14]/20"
-                        />
-                        <span className="text-[11px] font-bold text-[#1C1B1B] group-hover:text-[#EC5B14] transition-colors">同步在本地创建</span>
-                      </label>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <div className={cn(
-                        "flex-1 bg-white rounded-xl px-4 py-3 text-sm text-[#716B67] truncate font-medium border border-[#E8E4E2]",
-                        createLocalFolder && "bg-slate-50 text-slate-400 italic"
-                      )}>
-                        {createLocalFolder 
-                          ? `自动在本地创建: ~/Documents/UClaw/${newProject.name || '项目名'}` 
-                          : (newProject.description.includes('path:') ? newProject.description.split('path:')[1] : '点击选择本地工作文件夹...')}
+                  {creationMode === 'LOCAL' && (
+                    <div className="bg-[#F6F3F2]/50 p-4 rounded-2xl border border-[#E8E4E2]/50">
+                      <div className="flex items-center justify-between mb-4">
+                        <label className="text-xs font-bold uppercase tracking-widest text-[#716B67]">本地工作文件夹 (私有化保护)</label>
                       </div>
-                      {!createLocalFolder && (
+
+                      <div className="flex gap-2">
+                        <div className="flex-1 bg-white rounded-xl px-4 py-3 text-sm text-[#716B67] truncate font-medium border border-[#E8E4E2]">
+                          {newProject.description?.includes('path:') ? newProject.description.split('path:')[1].split(')')[0] : '点击选择本地工作文件夹...'}
+                        </div>
                         <button 
                           type="button"
                           onClick={handlePickLocalPath}
@@ -323,14 +327,21 @@ export function Projects() {
                           {isPickingPath ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                           浏览
                         </button>
-                      )}
+                      </div>
+                      <p className="mt-3 text-[10px] text-[#A8A4A1] font-medium leading-relaxed">
+                        💡 原始资料和索引将仅保存在您的本地电脑中，绝不会上传至云端。
+                      </p>
                     </div>
-                    <p className="mt-3 text-[10px] text-[#A8A4A1] font-medium leading-relaxed">
-                      💡 {createLocalFolder 
-                        ? '勾选后，UClaw 本地助手将为您准备好干净的工位。' 
-                        : '选择已有文件夹，助手将自动索引该文件夹下的业务文件。'} 原始资料仅保存在您的本地电脑。
-                    </p>
-                  </div>
+                  )}
+
+                  {creationMode === 'CLOUD' && (
+                    <div className="bg-[#EC5B14]/5 p-4 rounded-2xl border border-[#EC5B14]/20">
+                      <p className="text-[11px] text-[#EC5B14] font-medium leading-relaxed flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 shrink-0" />
+                        这是一个云端协作项目。文件将被加密存储于云端，并建立云端 RAG 知识库，支持跨设备漫游与团队共享。
+                      </p>
+                    </div>
+                  )}
 
                   <button
                     disabled={isCreating}

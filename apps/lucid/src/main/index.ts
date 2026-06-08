@@ -1,5 +1,7 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import * as fs from 'fs'
+import * as os from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
@@ -52,6 +54,52 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  // Native File System Operations for Local Projects
+  ipcMain.handle('create-local-project', async (_, projectName: string) => {
+    try {
+      const uclawDir = join(os.homedir(), 'Documents', 'Lucid');
+      if (!fs.existsSync(uclawDir)) {
+        fs.mkdirSync(uclawDir, { recursive: true });
+      }
+      const projectPath = join(uclawDir, projectName);
+      if (!fs.existsSync(projectPath)) {
+        fs.mkdirSync(projectPath, { recursive: true });
+      }
+      return { success: true, path: projectPath };
+    } catch (err: any) {
+      console.error('Failed to create local project directory:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('open-folder-picker', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (!result.canceled && result.filePaths.length > 0) {
+        return { success: true, path: result.filePaths[0] };
+      }
+      return { success: false, canceled: true };
+    } catch (err: any) {
+      console.error('Failed to open folder picker:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('reveal-in-finder', async (_, targetPath: string) => {
+    try {
+      if (fs.existsSync(targetPath)) {
+        shell.showItemInFolder(targetPath);
+        return { success: true };
+      }
+      return { success: false, error: 'Path does not exist' };
+    } catch (err: any) {
+      console.error('Failed to reveal in finder:', err);
+      return { success: false, error: err.message };
+    }
+  });
 
   createWindow()
 

@@ -124,7 +124,7 @@ function ChatRow({
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') cancelRename();
             }}
-            className="flex-1 bg-transparent text-sm font-medium text-[#1C1B1B] outline-none min-w-0"
+            className="flex-1 bg-transparent text-[13px] font-medium text-[#1C1B1B] outline-none min-w-0"
             autoFocus
           />
         </div>
@@ -143,7 +143,7 @@ function ChatRow({
         onClick={onLoad}
         title={chat.title}
         className={cn(
-          'w-full text-left px-2.5 py-1.5 text-[14px] font-medium rounded-[8px] transition-all flex items-center gap-2 min-w-0',
+          'w-full text-left px-2.5 py-1.5 text-[13px] font-medium rounded-[8px] transition-all flex items-center gap-2 min-w-0',
           isActive
             ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]'
             : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
@@ -229,6 +229,318 @@ function ChatRow({
 import { useWorkspace, type ProjectCategory } from '../contexts/WorkspaceContext';
 import { api } from '../lib/api-client';
 
+function ProjectRow({ 
+  project, 
+  isActive, 
+  onClick, 
+  onDeleted 
+}: { 
+  project: any; 
+  isActive: boolean; 
+  onClick: () => void;
+  onDeleted?: () => void;
+}) {
+  const { t } = useTranslation();
+  const [isHovered, setIsHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(project.name);
+  const renameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isRenaming) {
+      setRenameValue(project.name);
+      setTimeout(() => renameRef.current?.select(), 50);
+    }
+  }, [isRenaming]);
+
+  const commitRename = async () => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== project.name) {
+      // 假设有重命名 API，实际中应该在这里调用
+      // await api.put(`/api/knowledge-projects/${project.id}`, { name: trimmed });
+    }
+    setIsRenaming(false);
+  };
+
+  const handleRevealInFinder = async () => {
+    try {
+      const match = project.description?.match(/\(path:(.*?)\)/);
+      const targetPath = match && match[1] ? match[1] : undefined;
+      
+      if ((window as any).api?.revealInFinder) {
+        const res = await (window as any).api.revealInFinder(targetPath || project.id);
+        if (!res.success) {
+          alert('在 Finder 中显示失败: ' + res.error + '\n路径: ' + (targetPath || project.id));
+        }
+      } else {
+        alert('未检测到桌面端环境 (window.api 为空)，无法调用系统 Finder。');
+        await api.post('/api/user/node/reveal-in-finder', { 
+          path: targetPath,
+          projectId: project.id 
+        });
+      }
+    } catch (err) {
+      console.error('Failed to reveal in finder:', err);
+      alert('发生异常: ' + err);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (confirm(`确定要移除项目 "${project.name}" 吗？此操作不会删除本地文件。`)) {
+      try {
+        await api.delete(`/api/knowledge-projects/${project.id}`);
+        onDeleted?.();
+      } catch (err) {
+        console.error('Delete failed:', err);
+      }
+    }
+  };
+
+  if (isRenaming) {
+    return (
+      <div className="px-2 pl-6 mt-1">
+        <div className="w-full px-3 py-1.5 rounded-[12px] bg-white ring-2 ring-[#EC5B14]/30 shadow-sm flex items-center gap-2">
+          <input
+            ref={renameRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') setIsRenaming(false);
+            }}
+            className="flex-1 bg-transparent text-[12px] font-medium text-[#1C1B1B] outline-none min-w-0"
+            autoFocus
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 提取纯净的项目名或路径展示
+  const displayName = project.name || 'Untitled';
+  const isLocal = project.description?.includes('(path:');
+
+  return (
+    <div
+      className="relative group pl-6 pr-2 mt-0.5"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onDoubleClick={() => setIsRenaming(true)}
+    >
+      <button
+        onClick={onClick}
+        title={displayName}
+        className={cn(
+          'w-full text-left px-2.5 py-1.5 text-[12px] font-medium rounded-[8px] transition-all flex items-center gap-2 min-w-0',
+          isActive
+            ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]'
+            : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
+        )}
+      >
+        <FolderRoot className="w-3.5 h-3.5 shrink-0 opacity-70" />
+        <span className="truncate flex-1">{displayName}</span>
+      </button>
+
+      {(isHovered || menuOpen) && (
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[60]">
+          <DropdownMenu onOpenChange={setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  'p-1 rounded-md transition-all outline-none',
+                  menuOpen
+                    ? 'text-[#EC5B14] bg-[#1C1B1B]/5'
+                    : 'text-[#716B67] hover:text-[#1C1B1B] hover:bg-[#1C1B1B]/10'
+                )}
+              >
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-48 border-[#dddddd] shadow-[0_5px_10px_rgba(0,0,0,0.05)] rounded-xl py-1.5">
+              <DropdownMenuItem className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
+                <Star className="w-4 h-4 text-[#716B67]" />
+                <span>置顶项目</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={handleRevealInFinder} className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
+                <FolderOpen className="w-4 h-4 text-[#716B67]" />
+                <span>在 Finder 中显示</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
+                <GitMerge className="w-4 h-4 text-[#716B67]" />
+                <span>创建永久工作树</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setIsRenaming(true)} className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
+                <Pencil className="w-4 h-4 text-[#716B67]" />
+                <span>重命名项目</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
+                <BookOpen className="w-4 h-4 text-[#716B67]" />
+                <span>归档项目</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={handleDelete} className="gap-3 py-2 text-[#EF4444] focus:text-[#EF4444] focus:bg-[#FEF2F2] cursor-pointer font-medium text-[13px]">
+                <Trash2 className="w-4 h-4" />
+                <span>移除</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectQuickAddDropdown({ onCreated }: { onCreated?: () => void }) {
+  const { t } = useTranslation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isNaming, setIsNaming] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+
+  const handleQuickCreate = async (e?: React.KeyboardEvent | React.FocusEvent) => {
+    const name = newProjectName.trim();
+    if (!name) {
+      setIsNaming(false);
+      return;
+    }
+    try {
+      let finalDescription = '';
+
+      if ((window as any).api?.createLocalProject) {
+        // Desktop native FS creation
+        const res = await (window as any).api.createLocalProject(name);
+        if (res.success && res.path) {
+          finalDescription = `(path:${res.path})`;
+        } else {
+          alert('本地文件夹创建失败: ' + res.error);
+        }
+      } else {
+        alert('未检测到桌面端 API (window.api)。正在回退到 HTTP 网络请求...');
+        // Fallback or daemon API
+        const rpcRes = await api.post<any>('/api/user/node/create-local-project', {
+          projectName: name,
+          category: 'Engineering'
+        });
+        if (rpcRes.success && rpcRes.path) {
+          finalDescription = `(path:${rpcRes.path})`;
+        }
+      }
+
+      // 2. 存入云端数据库同步状态
+      const res = await api.post<any>('/api/knowledge-projects', {
+        name,
+        category: 'Engineering',
+        description: finalDescription
+      });
+
+      if (res.success) {
+        onCreated?.();
+      }
+    } catch (err) {
+      console.error('Failed to quick create project:', err);
+    }
+    setIsNaming(false);
+    setNewProjectName('');
+    setMenuOpen(false);
+  };
+
+  const handlePickLocalPath = async () => {
+    try {
+      let path = '';
+      if ((window as any).api?.openFolderPicker) {
+        const res = await (window as any).api.openFolderPicker();
+        if (res.success && res.path) path = res.path;
+      } else {
+        const res = await api.post<any>('/api/user/node/open-folder-picker');
+        if (res.success && res.path) path = res.path;
+      }
+
+      if (path) {
+        // 用最后的文件夹名作为项目名
+        const name = path.split(/[/\\]/).pop() || 'Imported Project';
+        await api.post<any>('/api/knowledge-projects', {
+          name,
+          category: 'Engineering',
+          description: `(path:${path})`
+        });
+        onCreated?.();
+      }
+    } catch (err) {
+      console.error('Failed to trigger local picker:', err);
+      alert('无法调起本地助手。请确保 UClaw 本地助手（Daemon）已启动并处于登录状态。');
+    }
+    setMenuOpen(false);
+  };
+
+  return (
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <button className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md text-[#716B67] hover:text-[#1C1B1B] hover:bg-[#1C1B1B]/10 transition-all z-10">
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" side="right" className="w-56 border-[#dddddd] shadow-lg rounded-xl">
+          <DropdownMenuItem onClick={() => { setMenuOpen(false); setIsNaming(true); }} className="gap-3 py-2 cursor-pointer font-medium">
+            <FolderRoot className="w-4 h-4 text-[#716B67]" />
+            <span>New Project</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handlePickLocalPath} className="gap-3 py-2 cursor-pointer font-medium">
+            <FolderOpen className="w-4 h-4 text-[#716B67]" />
+            <span>Quick Start (Open Folder)</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={isNaming} onOpenChange={setIsNaming}>
+        <DialogContent className="sm:max-w-[400px] sm:rounded-[16px] gap-0 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-[#1C1B1B]">Create New Project</DialogTitle>
+            <DialogDescription className="pt-2 text-sm text-[#716B67]">
+              Enter a name for your new local project workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-6 mb-4">
+            <input
+              autoFocus
+              value={newProjectName}
+              onChange={e => setNewProjectName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleQuickCreate();
+                if (e.key === 'Escape') setIsNaming(false);
+              }}
+              placeholder="e.g. my-awesome-project"
+              className="w-full bg-[#F6F3F2] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#EC5B14]/20 outline-none font-medium text-sm"
+            />
+          </div>
+          <DialogFooter className="flex sm:justify-end gap-2">
+            <button
+              onClick={() => setIsNaming(false)}
+              className="px-4 py-2 rounded-lg border border-[#E8E4E2] text-sm font-bold text-[#716B67] hover:bg-[#F1EFEB] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleQuickCreate()}
+              className="px-4 py-2 rounded-lg bg-[#1C1B1B] text-sm font-bold text-white hover:bg-[#1C1B1B]/80 transition-all"
+            >
+              Create
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 interface SidebarProps {
   // ... other props
   onOpenSearch?: () => void; // 新增可选 prop
@@ -258,18 +570,19 @@ export function Sidebar({
   const [projects, setProjects] = useState<any[]>([]);
   const { setActiveProjectId } = useWorkspace();
 
+  const fetchProjectsData = async () => {
+    try {
+      const res = await api.get<any>('/api/knowledge-projects');
+      if (res.success) setProjects(res.data);
+    } catch (err) {
+      console.error('Failed to fetch projects:', err);
+    }
+  };
+
   // 动态获取项目列表（供全局命令菜单使用）
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await api.get<any>('/api/knowledge-projects');
-        if (res.success) setProjects(res.data);
-      } catch (err) {
-        console.error('Failed to fetch projects for command menu:', err);
-      }
-    };
     const token = localStorage.getItem('uclaw_auth_token');
-    if (token) fetchProjects();
+    if (token) fetchProjectsData();
   }, [isSearchModalOpen]);
 
 
@@ -337,39 +650,39 @@ export function Sidebar({
 
       {/* 
         MacOS Desktop Permanent Drag Region 
-        Place it starting at left-200px so it doesn't overlap the traffic lights or toggle button.
+        Start it after the traffic lights and sidebar toggle so it doesn't cover controls.
         This ensures the OS doesn't apply its fallback 38px unclickable drag zone over our button when the sidebar is hidden.
       */}
-      <div className="hidden md:flex fixed top-0 left-[150px] right-0 h-14 z-[9998] titlebar-drag" />
+      <div className="hidden md:flex fixed top-0 left-[130px] right-0 h-14 z-[9998] titlebar-drag" />
 
       {/* Fixed Toggle Button (Desktop Only) */}
-      <div 
-        className="hidden md:flex fixed top-0 left-[80px] h-14 items-center z-[9999] titlebar-no-drag"
+      <div
+        className="hidden md:flex fixed top-[8px] left-[90px] z-[9999] titlebar-no-drag"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
         <button
-          className="p-2 rounded-lg hover:bg-[#1C1B1B]/10 text-[#716B67] hover:text-[#1C1B1B] transition-colors cursor-pointer titlebar-no-drag"
+          className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-[#1C1B1B]/10 text-[#716B67] hover:text-[#1C1B1B] transition-colors cursor-pointer titlebar-no-drag"
           style={{ WebkitAppRegion: 'no-drag' } as any}
           onClick={onToggle}
           title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
         >
           {isCollapsed ? (
-            <PanelRight className="w-5 h-5" />
+            <PanelRight className="w-4 h-4" />
           ) : (
-            <PanelLeft className="w-5 h-5" />
+            <PanelLeft className="w-4 h-4" />
           )}
         </button>
       </div>
 
-      <aside 
+      <aside
         className={cn(
           "fixed left-0 top-0 h-screen bg-[#f6f3f2] flex flex-col shrink-0 z-50 transition-all duration-300 ease-in-out overflow-hidden border-r border-[#E8E4E2]/60",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           isCollapsed ? "md:border-r-0" : ""
         )}
         style={{
-          width: typeof window !== 'undefined' && window.innerWidth >= 768 
-            ? (isCollapsed ? '0px' : '256px') 
+          width: typeof window !== 'undefined' && window.innerWidth >= 768
+            ? (isCollapsed ? '0px' : '256px')
             : undefined
         }}
       >
@@ -377,8 +690,8 @@ export function Sidebar({
           {/* 1. Header (Mobile Close / Desktop Drag Area) */}
           <div className="flex items-center border-b border-[#E8E4E2]/60 h-14 titlebar-no-drag justify-end px-3">
             {/* Close button for mobile */}
-            <button 
-              className="md:hidden p-1.5 text-[#716B67] titlebar-no-drag" 
+            <button
+              className="md:hidden p-1.5 text-[#716B67] titlebar-no-drag"
               onClick={onClose}
             >
               <X className="w-5 h-5" />
@@ -389,20 +702,20 @@ export function Sidebar({
           <div className="space-y-1 mt-3 px-3">
             <button
               onClick={onNewChat}
-              className="w-full flex items-center justify-start text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B] transition-all px-2.5 py-1.5 gap-2.5 rounded-[8px]"
+              className="w-full flex items-center justify-start font-medium text-[13px] text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B] transition-all px-2.5 py-1.5 gap-3 rounded-[8px] focus:outline-none"
               title={t('sidebar.new_chat')}
             >
-              <Plus className="text-[#EC5B14] w-4 h-4" />
-              <span className="text-[#1C1B1B] font-semibold text-[14px]">{t('sidebar.new_chat')}</span>
+              <Plus className="w-4 h-4" />
+              <span>{t('sidebar.new_chat')}</span>
             </button>
 
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              className="w-full flex items-center transition-all text-[#1C1B1B] hover:bg-[#1C1B1B]/5 gap-3 px-2.5 py-1.5 rounded-[8px]"
+              className="w-full flex items-center font-medium text-[13px] text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B] transition-all gap-3 px-2.5 py-1.5 rounded-[8px] focus:outline-none"
               title={i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}
             >
-              <Search className="text-[#716B67] w-4 h-4" />
-              <span className="font-medium text-[14px] flex-1 text-left">{i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}</span>
+              <Search className="w-4 h-4" />
+              <span className="flex-1 text-left">{i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}</span>
               <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-[#A8A4A1] bg-white border border-[#E8E4E2]/60 shrink-0">
                 ⌘K
               </kbd>
@@ -417,20 +730,40 @@ export function Sidebar({
             {navItems.map((item) => {
               const isActive = activeMainTab === item.id;
               return (
-                <button
-                  key={item.id}
-                  onClick={() => onMainTabChange(item.id)}
-                  className={cn(
-                    'w-full flex items-center font-medium text-[14px] transition-all focus:outline-none items-center gap-3 px-2.5 py-1.5 rounded-[8px]',
-                    isActive
-                      ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]'
-                      : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
+                <React.Fragment key={item.id}>
+                  <div className="relative group flex items-center w-full">
+                  <button
+                    onClick={() => onMainTabChange(item.id)}
+                    className={cn(
+                      'w-full flex items-center font-medium text-[13px] transition-all focus:outline-none gap-3 px-2.5 py-1.5 rounded-[8px]',
+                      isActive
+                        ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]'
+                        : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
+                    )}
+                    title={item.label}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                  </button>
+                  {item.id === 'projects' && !isCollapsed && (
+                    <ProjectQuickAddDropdown onCreated={() => { fetchProjectsData(); onMainTabChange('projects'); }} />
                   )}
-                  title={item.label}
-                >
-                  <item.icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </button>
+                </div>
+                {/* 渲染项目子列表 */}
+                {item.id === 'projects' && !isCollapsed && projects.length > 0 && (
+                  <div className="mt-1 mb-2 space-y-0.5">
+                    {projects.map((proj: any) => (
+                      <ProjectRow 
+                        key={proj.id} 
+                        project={proj} 
+                        isActive={activeMainTab === 'chat' /* Replace with actual check if needed */} 
+                        onClick={() => { setActiveProjectId(proj.id); onMainTabChange('chat'); }} 
+                        onDeleted={fetchProjectsData}
+                      />
+                    ))}
+                  </div>
+                )}
+              </React.Fragment>
               );
             })}
           </nav>
@@ -445,7 +778,7 @@ export function Sidebar({
             <button
               onClick={() => onMainTabChange('all_chats')}
               className={cn(
-                'w-full flex items-center gap-3 px-2.5 py-1.5 mb-2 rounded-[8px] font-medium text-[14px] transition-all focus:outline-none',
+                'w-full flex items-center gap-3 px-2.5 py-1.5 mb-2 rounded-[8px] font-medium text-[13px] transition-all focus:outline-none',
                 activeMainTab === 'all_chats' ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]' : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
               )}
             >
@@ -502,7 +835,7 @@ export function Sidebar({
               </div>
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-[#1C1B1B] truncate">{user?.name || 'Alex Rivera'}</span>
+                  <span className="text-[13px] font-medium text-[#716B67] group-hover:text-[#1C1B1B] transition-colors truncate">{user?.name || 'Alex Rivera'}</span>
                   <NodeStatusIndicator token={localStorage.getItem('uclaw_auth_token')} isCollapsed={false} />
                 </div>
                 <span className="text-[10px] text-[#716B67] truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || t('sidebar.admin')}</span>

@@ -40,6 +40,7 @@ interface ChatInputProps {
   ghostText?: string;
   setGhostText?: (val: string) => void;
   isPredicting?: boolean;
+  isEmpty?: boolean;
 }
 
 const ICON_MAP: Record<string, any> = {
@@ -76,6 +77,7 @@ export const ChatInput = React.memo(({
   ghostText = '',
   setGhostText = () => {},
   isPredicting = false,
+  isEmpty = false,
 }: ChatInputProps) => {
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: 'Globe', color: 'text-slate-400' };
   const activeDisplayName = beautifyModelName(activeModel.name);
@@ -181,7 +183,10 @@ export const ChatInput = React.memo(({
   const filteredSlash = SLASH_OPTIONS.filter(o => o.label.toLowerCase().includes('/' + slashQuery.toLowerCase()));
 
   return (
-    <div className="pt-2 pb-4 md:pb-8 px-4 md:px-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent z-10 w-full mt-auto font-sans">
+    <div className={cn(
+      "px-4 md:px-8 z-10 w-full font-sans transition-all duration-500",
+      isEmpty ? "pb-4 mt-4" : "pt-2 pb-4 md:pb-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent mt-auto"
+    )}>
       <div className="max-w-[800px] mx-auto relative">
         <AnimatePresence>
           {mentionMenuOpen && (
