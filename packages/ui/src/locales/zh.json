@@ -1,0 +1,631 @@
+{
+  "nav": {
+    "dashboard": "工作流",
+    "chat": "Chats",
+    "mcp_market": "MCP 市场",
+    "skill_library": "Skills",
+    "database": "项目",
+    "settings": "设置"
+  },
+  "chat": {
+    "new_chat": "新对话",
+    "placeholder": "问问 UClaw 任务执行...",
+    "empty_title": "我能帮您做什么？",
+    "empty_desc": "将您的 <1>CLI 节点</1> 与企业工作流无缝桥接。",
+    "status_secured": "企业级加密",
+    "status_stable": "v1.1 稳定版",
+    "role_assistant": "UClaw 助手",
+    "role_user": "开发者",
+    "empty_state": {
+      "title": "部署效率已优化",
+      "desc": "基于当前的 GitLab PR 模式 and Jenkins 流水线历史数据，我已为您识别出预发环境中的性能瓶颈。",
+      "improvement_label": "预计提升",
+      "improvement_value": "周期缩短 15%",
+      "success_label": "成功概率",
+      "success_value": "94%"
+    },
+    "integrations": {
+      "active_title": "活跃集成",
+      "manage": "管理",
+      "pending_mrs": "待处理 MR",
+      "pipeline_running": "正在运行的流水线",
+      "active_tasks": "活跃任务"
+    },
+    "meta": {
+      "title": "对话元数据",
+      "model": "模型",
+      "tokens": "Token 使用量",
+      "review_mode": "合规审查模式",
+      "strict": "严格模式"
+    },
+    "weekly_insight": {
+      "title": "每周洞察",
+      "content": "加州新劳动法案将于 2025 年 1 月 1 日生效。",
+      "cta": "查看更新"
+    },
+    "available_models": "可用模型",
+    "thinking": "思考中",
+    "thinking_done": "已完成",
+    "reasoning": "思考过程",
+    "reasoning.chars": "字",
+    "tools": {
+      "count": "步"
+    },
+    "tool_status": {
+      "calling": "正在调用技能...",
+      "executing": "正在调用 {{name}}...",
+      "completed": "调用 {{name}} 的技能",
+      "error": "技能调用失败",
+      "names": {
+        "read_file": "读取文件",
+        "write_file": "写入文件",
+        "ls": "检查目录",
+        "git_status": "检查 Git 状态",
+        "git_add": "暂存更改",
+        "git_commit": "提交更改",
+        "npm_build": "执行构建",
+        "activate_skill": "专家技能",
+        "getBugInfo": "获取缺陷详情",
+        "searchBugs": "搜索缺陷库",
+        "getPipelineStatus": "检查流水线状态",
+        "proposePlan": "生成任务规划",
+        "runLocalCommand": "执行环境检查"
+      }
+    },
+    "edit": {
+      "save": "保存并发送",
+      "hint": "⌘Enter 保存，Esc 取消",
+      "branch_hint": "编辑此消息将创建一个新的对话分支。您可以使用箭头导航按钮在不同分支之间切换。"
+    },
+    "branch": {
+      "current": "当前分支",
+      "total": "总分支"
+    }
+  },
+  "dashboard": {
+    "title": "研发效能大盘",
+    "desc": "来自已连接企业节点的实时洞察。",
+    "stats": {
+      "total_bugs": "总缺陷数",
+      "active_prs": "活跃 PR",
+      "sys_health": "系统健康度",
+      "team_velocity": "团队速率"
+    },
+    "throughput": "代码吞吐量分析",
+    "nodes": "活跃 CLI 节点",
+    "manage_nodes": "管理所有节点",
+    "chart_days": "天",
+    "chart_desc": "全仓储每日贡献活跃度"
+  },
+  "skills": {
+    "title": "Skills",
+    "desc": "管理并配置 UClaw 拥有的企业级工具调用能力。",
+    "categories": {
+      "all": "全部",
+      "devops": "流水线 & 部署",
+      "code": "代码 & 仓储",
+      "productivity": "生产力 & 协同",
+      "system": "系统 & 本地"
+    },
+    "status": {
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "configure": "配置",
+      "online": "在线",
+      "offline": "离线",
+      "standby": "待命"
+    },
+    "tools": {
+      "zentao": {
+        "name": "禅道 MCP 服务",
+        "desc": "连接禅道项目管理系统，支持缺陷自动流转、需求同步及工单管理。"
+      },
+      "gitlab": {
+        "name": "GitLab 连接器",
+        "desc": "深度集成 GitLab API，实现自动化代码评审、分支管理及 MR 追踪。"
+      },
+      "jenkins": {
+        "name": "Jenkins 大师",
+        "desc": "操控 Jenkins 流水线，支持远程构建触发、实时日志拉取及部署状态监控。"
+      },
+      "local_fs": {
+        "name": "本地文件系统 MCP",
+        "desc": "授权 AI 访问受限的本地文件系统，支持日志分析、AST 代码重构及文件处理。"
+      }
+    }
+  },
+  "common": {
+    "copy": "复制",
+    "copied": "已复制",
+    "edit": "修改消息",
+    "regenerate": "重新生成",
+    "upload_files": "上传文件",
+    "drag_drop": "将文件拖拽至此",
+    "file_limit": "支持图片、PDF、Log 等文档",
+    "dev_view": "视图开发中",
+    "dev_desc": "该模块正在开发中。",
+    "bugs": "缺陷",
+    "commits": "提交",
+    "cancel": "取消",
+    "confirm": "确定",
+    "show_more": "展开全文",
+    "show_less": "收起",
+    "rename": "重命名",
+    "delete": "删除",
+    "search_placeholder": "快速搜索...",
+    "new_conversation": "新对话",
+    "model_select": "模型选择",
+    "provider": "供应商",
+    "model": {
+      "gpt4o": "GPT-4o (推荐)",
+      "claude35": "Claude 3.5 Sonnet",
+      "deepseek": "DeepSeek-V3"
+    }
+  },
+  "sidebar": {
+    "environment": "运行环境",
+    "online": "在线",
+    "performance": "性能负载",
+    "workspace_context": "工作空间上下文",
+    "core_stats": "核心统计",
+    "recent_activity": "最近活动",
+    "executed_command": "执行了命令",
+    "mcp_active": "活跃 MCP 技能",
+    "knowledge_base": "项目上下文",
+    "add_knowledge": "添加知识",
+    "library": "库",
+    "workflows": "工作流",
+    "projects": "项目",
+    "console": "控制台",
+    "new_chat": "新对话",
+    "enterprise_ai": "企业级 AI",
+    "all_chats": "全部历史",
+    "no_conversations": "暂无对话",
+    "unfavorite": "取消收藏",
+    "favorite": "收藏",
+    "rename": "重命名",
+    "delete": "删除",
+    "delete_chat_title": "删除对话？",
+    "delete_chat_desc": "这将永久删除对话 \"{{title}}\" 及其消息历史。此操作无法撤销。",
+    "admin": "管理员"
+  },
+  "projects": {
+    "title": "项目",
+    "subtitle": "管理并编排您的企业级知识资产与工作流。",
+    "new_button": "新建项目",
+    "search_placeholder": "搜索项目名称或分类...",
+    "empty": "暂无项目",
+    "empty_desc": "创建一个新项目，开启您的 AI 协作之旅。",
+    "create_first": "创建您的第一个项目",
+    "create_modal": {
+      "title": "创建新项目",
+      "name_label": "项目名称",
+      "name_placeholder": "例如：Q4 合规审计",
+      "category_label": "所属分类",
+      "description_label": "项目描述",
+      "description_placeholder": "简要描述该项目的目标...",
+      "submit": "立即创建"
+    },
+    "sort": {
+      "newest": "最新创建",
+      "assets": "资产数量"
+    },
+    "stats": {
+      "assets": "项资产"
+    }
+  },
+  "knowledge_base": {
+    "title": "项目工作空间",
+    "subtitle": "管理当前项目的知识资产，为 AI 提供精准上下文。",
+    "back_link": "返回项目列表",
+    "status": {
+      "healthy": "系统就绪"
+    },
+    "stats": {
+      "active_sources": "项目资产数",
+      "data_indexed": "已索引数据量",
+      "unit_mb": "MB"
+    },
+    "ingest": {
+      "title": "添加项目资产",
+      "desc": "上传文档或代码片段到该项目的知识库中。",
+      "button": "选择文件",
+      "indexing": "AI 正在建立索引..."
+    },
+    "assets": {
+      "title": "已索引资产",
+      "table": {
+        "name": "资产名称",
+        "type": "文件类型",
+        "last_synced": "上传时间",
+        "status": "状态"
+      },
+      "status": {
+        "indexed": "已就绪",
+        "syncing": "同步中",
+        "failed": "索引失败",
+        "empty": "本项目暂无资产"
+      }
+    },
+    "sidebar": {
+      "insight_title": "项目洞察",
+      "insight_orphaned": "您的库中有 {{count}} 个孤立文档未链接到任何项目。",
+      "insight_organized": "所有知识资产均已归类。干得漂亮！",
+      "clean_button": "整理资产",
+      "suggested": "建议分类"
+    }
+  },
+  "node": {
+    "title": "节点监控",
+    "terminal": "实时终端",
+    "terminate": "终止节点",
+    "metrics": {
+      "cpu": "CPU 使用率",
+      "ram": "内存占用",
+      "disk": "磁盘空间",
+      "uptime": "运行时间"
+    },
+    "processes": "活跃进程",
+    "logs": "节点日志",
+    "terminal_placeholder": "等待指令输入...",
+    "cmd_placeholder": "输入指令..."
+  },
+  "bug": {
+    "status": {
+      "active": "激活",
+      "resolved": "已解决",
+      "closed": "已关闭"
+    },
+    "severity": {
+      "high": "紧急",
+      "medium": "中等",
+      "low": "低"
+    },
+    "has_screenshot": "此缺陷包含截图，点击卡片查看详情"
+  },
+  "settings": {
+    "title": "系统设置",
+    "mcp_desc": "Model Context Protocol 接入管理",
+    "security": "安全与隐私",
+    "encryption": "端到端加密",
+    "sandbox": "本地守护进程沙箱",
+    "residency": "数据驻留 (内网)",
+    "active": "生效中",
+    "enabled": "已开启",
+    "verified": "已验证",
+    "connect_mcp": "接入新 MCP",
+    "powered_by": "私有化高性能大模型驱动",
+    "language": "语言",
+    "settings": "设置",
+    "help": "帮助",
+    "sign_out": "退出登录",
+    "select_language": "选择语言",
+    "free_version": "免费版"
+  },
+  "library": {
+    "v3": "v3",
+    "title": "插件与 MCP 库",
+    "subtitle": "通过精选的模型上下文协议 (MCP) 连接器和专为您的企业生态系统定制的代理技能，扩展 uClaw 的智能。",
+    "stats": {
+      "total_skills": "共 {{count}} 个技能",
+      "new_this_week": "本周新增 {{count}} 个"
+    },
+    "filters": {
+      "all": "所有扩展",
+      "pm": "项目管理",
+      "cicd": "CI/CD 工具",
+      "vc": "版本控制",
+      "communication": "团队通讯",
+      "data_science": "数据科学"
+    },
+    "common": {
+      "install": "安装",
+      "mcp_connector": "MCP 连接器",
+      "skillset": "技能集",
+      "automation": "自动化",
+      "devops": "运维",
+      "productivity": "生产力"
+    },
+    "featured": {
+      "badge": "uClaw 官方推荐",
+      "title": "企业知识图谱",
+      "desc": "将您的整个 Confluence、Notion 和 Jira 工作区编入统一的 RAG 流水线，实现即时检索。",
+      "button": "启用全集"
+    },
+    "cards": {
+      "zentao": {
+        "title": "禅道 PM 集成",
+        "desc": "将 uClaw 任务直接同步至禅道项目。通过自然语言自动化迭代计划和缺陷跟踪。"
+      },
+      "jenkins": {
+        "title": "Jenkins CI/CD",
+        "desc": "在聊天会话中直接监控流水线、触发构建并分析构建日志。"
+      },
+      "gitlab": {
+        "title": "GitLab 仓库",
+        "desc": "高级仓库分析。利用 AI 驱动的洞察进行代码审查并管理合并请求 (MR)。"
+      },
+      "slack": {
+        "title": "Slack 机器人集成",
+        "desc": "将 uClaw 连接至您的 Slack 工作区。向团队通知 AI 里程碑并从频道查询 uClaw。"
+      },
+      "docker": {
+        "title": "Docker 控制",
+        "desc": "与本地或远程 Docker 引擎交互。通过语音或文字启动、停止并检查容器。"
+      },
+      "google": {
+        "title": "Google Workspace",
+        "desc": "在工作流中直接起草邮件、安排日历事件并组织 Drive 文件夹。"
+      }
+    },
+    "source_labels": {
+      "openclaw_hub": "OpenClaw Hub",
+      "claude_code": "Claude Code",
+      "git": "Git",
+      "local": "本地",
+      "internal": "内部"
+    },
+    "actions": {
+      "installing": "正在安装...",
+      "uninstalling": "正在卸载...",
+      "installed": "已安装"
+    }
+  },
+  "auth": {
+    "hero_title": "编排 <1/> <2>企业级 AI</2> <3/> 智能。",
+    "hero_desc": "下一代高性能代理工作流程与跨平台协作空间。",
+    "security": "银行级安全保护",
+    "knowledge": "知识矩阵",
+    "login_title": "欢迎回来",
+    "register_title": "创建账户",
+    "login_desc": "在 UClaw 继续您的代理之旅。",
+    "register_desc": "加入领先的 AI 劳动力编排平台。",
+    "name_label": "显示名称",
+    "name_placeholder": "张三",
+    "email_label": "邮箱或工号",
+    "email_placeholder": "alex@uclaw.ai",
+    "password_label": "密码",
+    "password_placeholder": "••••••••",
+    "forgot_password": "忘记密码？",
+    "sign_in_button": "登录 UClaw",
+    "create_account_button": "创建免费账户",
+    "continue_with": "或通过以下方式继续",
+    "sso_portal": "SSO 门户",
+    "bio_logic": "生物识别",
+    "no_account": "还没有账户？",
+    "have_account": "已有账户？",
+    "sign_up": "立即注册",
+    "sign_in": "立即登录",
+    "error_failed": "认证失败"
+  },
+  "user_center": {
+    "member_center": "个人中心",
+    "welcome": "欢迎回来，",
+    "welcome_desc": "管理您的企业身份、AI 模型偏好及生产力集成。",
+    "tabs": {
+      "general": "通用设置",
+      "profile": "身份档案",
+      "integrations": "集成与密钥",
+      "billing": "用量与配额"
+    },
+    "general": {
+      "title": "平台偏好",
+      "default_model": "默认 AI 模型",
+      "appearance": "应用外观",
+      "appearance_light": "浅色",
+      "appearance_dark": "深色",
+      "language": "首选语言",
+      "lang_zh": "简体中文",
+      "lang_en": "英语 (国际)",
+      "sync_enabled": "自动同步已开启",
+      "sync_desc": "您的偏好设置将在 CLI、Web 和 IM 机器人之间自动同步。",
+      "save_changes": "保存设置",
+      "applying": "正在应用...",
+      "saved": "设置已保存！"
+    },
+    "identity": {
+      "title": "个人信息",
+      "work_id": "工号",
+      "email": "邮箱",
+      "department": "所属部门",
+      "edit_avatar": "修改头像"
+    },
+    "integrations": {
+      "title": "活跃连接器",
+      "add": "添加集成",
+      "empty": "尚未连接 any 系统",
+      "empty_desc": "连接 ZenTao 或 GitLab 以开启 AI 任务编排",
+      "active": "已激活",
+      "settings": "配置"
+    },
+    "usage": {
+      "storage": "存储用量",
+      "tokens": "Token 消耗",
+      "plan": "套餐详情",
+      "upgrade": "升级套餐",
+      "unit_gb": "GB",
+      "unit_k": "k",
+      "pro_plan": "专业企业版"
+    },
+    "common": {
+      "syncing": "正在同步用户资产...",
+      "id_label": "ID: ",
+      "user_label": "用户: ",
+      "prompt_zentao": "请输入您的禅道 API Token:"
+    },
+    "models": {
+      "deepseek_v3": "DeepSeek V3 (默认)",
+      "qwen_turbo": "通义千问 Turbo",
+      "gpt4o_mini": "GPT-4o Mini"
+    },
+    "logout": "退出登录"
+  },
+  "all_chats": {
+    "title": "全部对话记录",
+    "subtitle": "管理并且清理您所有的历史探索、代码生成与分析会话。",
+    "search_placeholder": "搜索会话标题...",
+    "select_all": "选择所有",
+    "deselect_all": "取消选择",
+    "delete_selected": "删除选中的会话 ({{count}})",
+    "cancel": "取消",
+    "no_results": "暂未找到包含该关键词的对话",
+    "confirm_delete_title": "确认清除历史记录",
+    "confirm_delete_desc": "您将彻底清除选中的 {{count}} 个对话。这将一并销毁其关联上下文与附带资产记录且不可恢复。是否继续？",
+    "table": {
+      "title": "会话名称",
+      "date": "最后活跃",
+      "messages": "消息数"
+    }
+  },
+  "search_modal": {
+    "placeholder": "搜索历史对话或项目...",
+    "no_results": "找不到相关对话",
+    "recent_discussions": "近期讨论",
+    "shortcut_hint": "按 ↑↓ 浏览，回车进入，Esc 退出"
+  },
+  "pipeline": {
+    "view_logs": "查看日志",
+    "retry_build": "重新构建"
+  },
+  "task_plan": {
+    "proposed_strategy": "建议方案",
+    "awaiting_authorization": "等待授权",
+    "reject": "拒绝",
+    "confirm": "确认"
+  },
+  "approval": {
+    "title": "操作需要您的审批",
+    "status": {
+      "pending": "待审批",
+      "approved": "已同意",
+      "rejected": "已拒绝"
+    },
+    "view_args": "查看参数",
+    "confirm_message": "确认执行此操作？",
+    "approve": "同意",
+    "reject": "拒绝"
+  },
+  "tools": {
+    "getBugInfo": "获取缺陷详情",
+    "searchBugs": "搜索缺陷库",
+    "resolveBug": "解决缺陷",
+    "getBugStats": "缺陷统计",
+    "getPipelineStatus": "流水线状态",
+    "proposePlan": "生成任务规划",
+    "runLocalCommand": "本地命令",
+    "activate_skill": "技能激活",
+    "zentao_mcp": "禅道 MCP",
+    "createProductStory": "创建需求",
+    "getStoryInfo": "获取需求详情",
+    "searchProductStories": "搜索需求",
+    "listProducts": "产品列表",
+    "createProduct": "创建产品",
+    "createProject": "创建项目"
+  },
+  "gallery": {
+    "title": "Stitch 设计画廊",
+    "description": "Stitch 设计组件的视觉回归测试。",
+    "sections": {
+      "thinking_pills": "思考过程指示器",
+      "zentao_task": "禅道任务集成",
+      "leave_request": "请假申请表",
+      "code_diff": "代码差异查看器",
+      "print_console": "打印控制台"
+    },
+    "labels": {
+      "pills_active": "指示器（进行中）",
+      "pills_all_done": "指示器（全部完成）",
+      "list_variant": "列表变体"
+    },
+    "stitch_labels": {
+      "image_1": "Stitch 图1",
+      "image_2": "Stitch 图2",
+      "image_3": "Stitch 图3",
+      "image_4": "Stitch 图4"
+    },
+    "demo_data": {
+      "thinking": {
+        "checking_zentao": "检查禅道项目看板",
+        "fetching_member": "获取成员可用性",
+        "optimizing_allocation": "优化资源分配",
+        "locating_report": "定位 report.pdf",
+        "checking_printer": "检查 Printer-03 状态",
+        "reading_gitlab": "读取 gitlab-api-v4.ts...",
+        "comparing_oauth": "对比 OAuth 2.1 最佳实践...",
+        "identifying_leakage": "识别日志中潜在的令牌泄露..."
+      },
+      "zentao": {
+        "title": "认证重构",
+        "assignee_1": "Sarah Chen",
+        "assignee_2": "Marcus Thorne",
+        "sprint_name": "迭代 24：Q3 安全 overhaul",
+        "sprint_starts": "12小时后开始"
+      },
+      "diff_viewer": {
+        "file_name": "gitlab-api-v4.ts"
+      },
+      "print_console": {
+        "printer_name": "OfficeJet X-900",
+        "location": "3楼",
+        "paper_tray": "纸盒 1：已装载",
+        "document_name": "Q4_财务摘要.pdf",
+        "document_generated": "2小时前",
+        "security_message": "本文档包含敏感的财务数据。打印权限仅限于授权的3楼人员。"
+      }
+    }
+  },
+  "permissions": {
+    "title": "权限设置",
+    "subtitle": "Claude Code 兼容的权限规则配置",
+    "save": "保存",
+    "saving": "保存中...",
+    "refresh": "刷新配置",
+    "loading": "加载权限配置...",
+    "error_fetch": "获取配置失败",
+    "mode": {
+      "title": "权限模式",
+      "default": "Default",
+      "default_desc": "首次使用时提示用户确认",
+      "acceptEdits": "Accept Edits",
+      "acceptEdits_desc": "自动批准文件编辑，仅提示 Bash 命令",
+      "plan": "Plan Only",
+      "plan_desc": "只读模式，不执行任何写操作",
+      "bypass": "Bypass (CI/CD)",
+      "bypass_desc": "完全跳过审批，适用于 CI/CD 环境"
+    },
+    "token_limit": {
+      "title": "MCP 输出 Token 限制",
+      "hint": "防止 MCP 工具响应过大导致上下文溢出（推荐 25000）"
+    },
+    "patterns": {
+      "title": "快速模式 (allow / deny / ask)",
+      "hint": "简单模式列表，按顺序评估：deny → allow → ask → rules",
+      "placeholder": "输入模式并按回车...",
+      "add": "添加"
+    },
+    "rules": {
+      "title": "详细规则",
+      "hint": "自上而下评估，首次匹配生效。支持通配符: *, ?",
+      "add": "添加规则",
+      "empty": "尚未配置详细规则",
+      "action": "操作",
+      "pattern": "模式",
+      "comment": "备注（可选）",
+      "comment_placeholder": "描述...",
+      "pattern_placeholder": "例如: mcp__zentao:*, Bash(git:*)",
+      "cancel": "取消"
+    },
+    "test": {
+      "title": "测试工具评估",
+      "label": "工具名称",
+      "placeholder": "例如: getBugInfo, mcp__zentao:createProduct",
+      "evaluate": "评估",
+      "result": "工具 \"{tool}\" → {action}"
+    },
+    "actions": {
+      "allow": "允许",
+      "deny": "拒绝",
+      "ask": "询问"
+    }
+  }
+}

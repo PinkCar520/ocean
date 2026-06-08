@@ -1,0 +1,609 @@
+{
+  "nav": {
+    "dashboard": "Workflow",
+    "chat": "Chats",
+    "mcp_market": "MCP Market",
+    "skill_library": "Skills",
+    "database": "Projects",
+    "settings": "Settings"
+  },
+  "chat": {
+    "new_chat": "New Chat",
+    "placeholder": "Ask UClaw to perform a task...",
+    "empty_title": "How can I help you?",
+    "empty_desc": "Bridge your <1>CLI node</1> with enterprise workflows.",
+    "status_secured": "Enterprise Secured",
+    "status_stable": "v1.1 Stable",
+    "role_assistant": "UClaw Agent",
+    "role_user": "Developer",
+    "empty_state": {
+      "title": "Deployment Efficiency Optimized",
+      "desc": "Based on current GitLab PR patterns and Jenkins pipeline history, I've identified performance bottlenecks in your staging environment.",
+      "improvement_label": "Est. Improvement",
+      "improvement_value": "15% Cycle Reduction",
+      "success_label": "Success Probability",
+      "success_value": "94%"
+    },
+    "integrations": {
+      "active_title": "Active Integrations",
+      "manage": "Manage",
+      "pending_mrs": "Pending MRs",
+      "pipeline_running": "Pipeline Running",
+      "active_tasks": "Active Tasks"
+    },
+    "meta": {
+      "title": "Conversation Meta",
+      "model": "Model",
+      "tokens": "Token Usage",
+      "review_mode": "Compliance Review",
+      "strict": "Strict Mode"
+    },
+    "weekly_insight": {
+      "title": "Weekly Insight",
+      "content": "New California labor laws will take effect on January 1, 2025.",
+      "cta": "View Update"
+    },
+    "available_models": "Available Models",
+    "thinking": "Thinking",
+    "thinking_done": "Completed",
+    "reasoning": "Reasoning Process",
+    "reasoning.chars": "chars",
+    "edit": {
+      "save": "Save & Send",
+      "hint": "⌘Enter to save, Esc to cancel",
+      "branch_hint": "Editing this message will create a new conversation branch. You can switch between branches using the arrows."
+    },
+    "branch": {
+      "current": "Current Branch",
+      "total": "Total Branches"
+    },
+    "tools": {
+      "count": "steps"
+    }
+  },
+  "dashboard": {
+    "title": "Engineering Insights",
+    "desc": "Real-time visibility from your connected nodes.",
+    "stats": {
+      "total_bugs": "Total Bugs",
+      "active_prs": "Active PRs",
+      "sys_health": "System Health",
+      "team_velocity": "Team Velocity"
+    },
+    "throughput": "Throughput Analysis",
+    "nodes": "Active CLI Nodes",
+    "manage_nodes": "Manage All Nodes",
+    "chart_days": "Days",
+    "chart_desc": "Daily contribution activity across all repositories"
+  },
+  "skills": {
+    "title": "Skills",
+    "desc": "Manage and configure UClaw's enterprise-grade tool calling capabilities.",
+    "categories": {
+      "all": "All",
+      "devops": "DevOps & Deployment",
+      "code": "Code & Repo",
+      "productivity": "Productivity & Collab",
+      "system": "System & Local"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "configure": "Config",
+      "online": "Online",
+      "offline": "Offline",
+      "standby": "Standby"
+    },
+    "tools": {
+      "zentao": {
+        "name": "ZenTao MCP Server",
+        "desc": "Connects to ZenTao project management, supporting defect flow, requirement sync, and task tracking."
+      },
+      "gitlab": {
+        "name": "GitLab Connector",
+        "desc": "Deep GitLab API integration for automated code review, branch management, and MR tracking."
+      },
+      "jenkins": {
+        "name": "Jenkins Master",
+        "desc": "Control Jenkins pipelines, support remote build triggering, log fetching, and status monitoring."
+      },
+      "local_fs": {
+        "name": "Filesystem MCP",
+        "desc": "Authorize AI access to restricted local file systems for log analysis, AST refactoring, and file processing."
+      }
+    }
+  },
+  "common": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "edit": "Modify message",
+    "regenerate": "Regenerate",
+    "upload_files": "Upload Files",
+    "drag_drop": "Drop files here",
+    "file_limit": "Supports images, PDFs, Logs, etc.",
+    "dev_view": "View under development",
+    "dev_desc": "This module is under development.",
+    "bugs": "Bugs",
+    "commits": "Commits",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "show_more": "Show More",
+    "show_less": "Show Less",
+    "rename": "Rename",
+    "delete": "Delete",
+    "search_placeholder": "Quick search...",
+    "new_conversation": "New Conversation",
+    "model_select": "Model Selection",
+    "model": {
+      "gpt4o": "GPT-4o (Recommended)",
+      "claude35": "Claude 3.5 Sonnet",
+      "deepseek": "DeepSeek-V3"
+    }
+  },
+  "sidebar": {
+    "environment": "Environment",
+    "online": "Online",
+    "performance": "Performance",
+    "workspace_context": "Workspace Context",
+    "core_stats": "Core Statistics",
+    "recent_activity": "Recent Activity",
+    "executed_command": "executed command",
+    "mcp_active": "Active MCP Skills",
+    "knowledge_base": "Project Context",
+    "add_knowledge": "Add Knowledge",
+    "library": "Library",
+    "workflows": "Workflows",
+    "projects": "Projects",
+    "console": "Console",
+    "new_chat": "New Chat",
+    "enterprise_ai": "Enterprise AI",
+    "all_chats": "All Chats",
+    "no_conversations": "No conversations yet",
+    "unfavorite": "Unfavorite",
+    "favorite": "Favorite",
+    "rename": "Rename",
+    "delete": "Delete",
+    "delete_chat_title": "Delete Chat?",
+    "delete_chat_desc": "This will permanently delete the conversation \"{{title}}\" and its message history. This action cannot be undone.",
+    "admin": "Admin"
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "Manage and orchestrate your enterprise knowledge assets and workflows.",
+    "new_button": "New Project",
+    "search_placeholder": "Search projects or categories...",
+    "empty": "No Projects",
+    "empty_desc": "Create a new project to start your AI collaboration journey.",
+    "create_first": "Create your first project",
+    "create_modal": {
+      "title": "Create New Project",
+      "name_label": "Project Name",
+      "name_placeholder": "e.g. Q4 Audit Compliance",
+      "category_label": "Category",
+      "description_label": "Description",
+      "description_placeholder": "Briefly describe the goal of this project...",
+      "submit": "Create Project"
+    },
+    "sort": {
+      "newest": "Sort by Newest",
+      "assets": "Sort by Assets"
+    },
+    "stats": {
+      "assets": "Assets"
+    }
+  },
+  "knowledge_base": {
+    "title": "Project Workspace",
+    "subtitle": "Manage knowledge assets for this project to provide precise context for AI.",
+    "back_link": "Back to Projects",
+    "status": {
+      "healthy": "System Ready"
+    },
+    "stats": {
+      "active_sources": "Project Assets",
+      "data_indexed": "Data Indexed",
+      "unit_mb": "MB"
+    },
+    "ingest": {
+      "title": "Add Project Asset",
+      "desc": "Upload documents or code snippets to the project knowledge base.",
+      "button": "Select File",
+      "indexing": "AI Indexing..."
+    },
+    "assets": {
+      "title": "Indexed Assets",
+      "table": {
+        "name": "Asset Name",
+        "type": "Type",
+        "last_synced": "Uploaded At",
+        "status": "Status"
+      },
+      "status": {
+        "indexed": "Ready",
+        "syncing": "Syncing",
+        "failed": "Failed",
+        "empty": "No assets in this project"
+      }
+    },
+    "sidebar": {
+      "insight_title": "Project Insight",
+      "insight_orphaned": "You have {{count}} orphaned documents in the Library that aren't linked to any project.",
+      "insight_organized": "All knowledge assets are properly organized. Great job!",
+      "clean_button": "Organize Assets",
+      "suggested": "Suggested Categories"
+    }
+  },
+  "node": {
+    "title": "Node Monitor",
+    "terminal": "Live Terminal",
+    "terminate": "Terminate Node",
+    "metrics": {
+      "cpu": "CPU Usage",
+      "ram": "Memory",
+      "disk": "Disk Space",
+      "uptime": "Uptime"
+    },
+    "processes": "Active Processes",
+    "logs": "Node Logs",
+    "terminal_placeholder": "Awaiting command input...",
+    "cmd_placeholder": "Type a command..."
+  },
+  "bug": {
+    "status": {
+      "active": "Active",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "has_screenshot": "This bug includes screenshots. Click card for details."
+  },
+  "settings": {
+    "title": "System Settings",
+    "mcp_desc": "Model Context Protocol Integration",
+    "security": "Security & Privacy",
+    "encryption": "End-to-End Encryption",
+    "sandbox": "Local Daemon Sandbox",
+    "residency": "Data Residency (Intranet)",
+    "active": "Active",
+    "enabled": "Enabled",
+    "verified": "Verified",
+    "connect_mcp": "Connect New MCP",
+    "powered_by": "Powered by Private High-Performance LLM",
+    "language": "Language",
+    "settings": "Settings",
+    "help": "Help",
+    "sign_out": "Sign Out",
+    "select_language": "Select Language",
+    "free_version": "Free version"
+  },
+  "library": {
+    "v3": "v3",
+    "title": "Skill & MCP Library",
+    "subtitle": "Extend uClaw's intelligence with curated Model Context Protocol connectors and specialized agent skills for your enterprise ecosystem.",
+    "stats": {
+      "total_skills": "{{count}} Total Skills",
+      "new_this_week": "{{count}} New This Week"
+    },
+    "filters": {
+      "all": "All Extensions",
+      "pm": "Project Management",
+      "cicd": "CI/CD Tools",
+      "vc": "Version Control",
+      "communication": "Communication",
+      "data_science": "Data Science"
+    },
+    "common": {
+      "install": "Install",
+      "mcp_connector": "MCP Connector",
+      "skillset": "Skillset",
+      "automation": "Automation",
+      "devops": "DevOps",
+      "productivity": "Productivity"
+    },
+    "featured": {
+      "badge": "Featured by uClaw",
+      "title": "Enterprise Knowledge Graph",
+      "desc": "Index your entire Confluence, Notion, and Jira workspace into a unified RAG pipeline for instant retrieval.",
+      "button": "Enable Full Suite"
+    },
+    "cards": {
+      "zentao": {
+        "title": "ZenTao PM Integration",
+        "desc": "Sync uClaw tasks directly with ZenTao projects. Automate sprint planning and bug tracking via natural language."
+      },
+      "jenkins": {
+        "title": "Jenkins CI/CD",
+        "desc": "Monitor pipelines, trigger builds, and analyze build logs directly within your chat session."
+      },
+      "gitlab": {
+        "title": "GitLab Repo",
+        "desc": "Advanced repository analysis. Perform code reviews and manage Merge Requests with AI-driven insights."
+      },
+      "slack": {
+        "title": "Slack Bot Integration",
+        "desc": "Bridge uClaw to your Slack workspace. Notify teams of AI milestones and query uClaw from channels."
+      },
+      "docker": {
+        "title": "Docker Control",
+        "desc": "Interface with local or remote Docker engines. Start, stop, and inspect containers via voice or text."
+      },
+      "google": {
+        "title": "Google Workspace",
+        "desc": "Draft emails, schedule calendar events, and organize Drive folders within your workflow."
+      }
+    },
+    "source_labels": {
+      "openclaw_hub": "OpenClaw Hub",
+      "claude_code": "Claude Code",
+      "git": "Git",
+      "local": "Local",
+      "internal": "Internal"
+    },
+    "actions": {
+      "installing": "Installing...",
+      "uninstalling": "Uninstalling...",
+      "installed": "Installed"
+    }
+  },
+  "auth": {
+    "hero_title": "Orchestrating <1/> <2>Enterprise AI</2> <3/> Intelligence.",
+    "hero_desc": "The next-generation workspace for high-performance agentic workflows and cross-platform synergy.",
+    "security": "Bank-Grade Security",
+    "knowledge": "Knowledge Matrix",
+    "login_title": "Welcome Back",
+    "register_title": "Create Account",
+    "login_desc": "Resume your agentic journey with UClaw.",
+    "register_desc": "Join the premier AI workforce orchestration platform.",
+    "name_label": "Display Name",
+    "name_placeholder": "Jane Doe",
+    "email_label": "Email or Work ID",
+    "email_placeholder": "alex@uclaw.ai",
+    "password_label": "Password",
+    "password_placeholder": "••••••••",
+    "forgot_password": "Forgot?",
+    "sign_in_button": "Sign In to uClaw",
+    "create_account_button": "Create Free Account",
+    "continue_with": "Or continue with",
+    "sso_portal": "SSO Portal",
+    "bio_logic": "Bio-Logic",
+    "no_account": "Don't have an account?",
+    "have_account": "Already have an account?",
+    "sign_up": "Sign up",
+    "sign_in": "Sign in",
+    "error_failed": "Authentication failed"
+  },
+  "user_center": {
+    "member_center": "Member Center",
+    "welcome": "Welcome back, ",
+    "welcome_desc": "Manage your enterprise identity, AI model preferences, and productivity integrations.",
+    "tabs": {
+      "general": "General Settings",
+      "profile": "Identity Profile",
+      "integrations": "Connectors & Keys",
+      "billing": "Usage & Quota"
+    },
+    "general": {
+      "title": "Platform Preferences",
+      "default_model": "Default AI Model",
+      "appearance": "App Appearance",
+      "appearance_light": "Light",
+      "appearance_dark": "Dark",
+      "language": "Primary Language",
+      "lang_zh": "Chinese (Simplified)",
+      "lang_en": "English (International)",
+      "sync_enabled": "Auto-Sync Enabled",
+      "sync_desc": "Your preferences are automatically synced across CLI, Web, and IM bots.",
+      "save_changes": "Save Hub Changes",
+      "applying": "Applying...",
+      "saved": "Settings Saved!"
+    },
+    "identity": {
+      "title": "Identity Information",
+      "work_id": "Work ID",
+      "email": "Email",
+      "department": "Department",
+      "edit_avatar": "Edit Avatar"
+    },
+    "integrations": {
+      "title": "Active Connectors",
+      "add": "Add Integration",
+      "empty": "No systems connected yet",
+      "empty_desc": "Connect ZenTao or GitLab to enable AI task orchestration",
+      "active": "ACTIVE",
+      "settings": "Settings"
+    },
+    "usage": {
+      "storage": "Storage Used",
+      "tokens": "Tokens Consumed",
+      "plan": "Plan Details",
+      "upgrade": "Upgrade Plan",
+      "unit_gb": "GB",
+      "unit_k": "k",
+      "pro_plan": "Pro Enterprise"
+    },
+    "common": {
+      "syncing": "Synchronizing User Assets...",
+      "id_label": "ID: ",
+      "user_label": "User: ",
+      "prompt_zentao": "Enter your ZenTao API Token:"
+    },
+    "models": {
+      "deepseek_v3": "DeepSeek V3 (Default)",
+      "qwen_turbo": "Qwen Turbo",
+      "gpt4o_mini": "GPT-4o Mini"
+    },
+    "logout": "Sign Out"
+  },
+  "all_chats": {
+    "title": "Chat History Manager",
+    "subtitle": "Manage and clean up all your historical exploration, code generation, and analysis sessions.",
+    "search_placeholder": "Search by chat title...",
+    "select_all": "Select All",
+    "deselect_all": "Deselect All",
+    "delete_selected": "Delete Selected ({{count}})",
+    "cancel": "Cancel",
+    "no_results": "No chats found containing this keyword",
+    "confirm_delete_title": "Confirm Delete History",
+    "confirm_delete_desc": "You are about to permanently delete {{count}} selected chat(s). This will wipe their associated context and linked assets irrevocably. Continue?",
+    "table": {
+      "title": "Chat Name",
+      "date": "Last Active",
+      "messages": "Messages"
+    }
+  },
+  "search_modal": {
+    "placeholder": "Search chats and projects...",
+    "no_results": "No chats found",
+    "recent_discussions": "Recent Discussions",
+    "shortcut_hint": "Use ↑↓ to navigate, Enter to select, Esc to close"
+  },
+  "pipeline": {
+    "view_logs": "View Logs",
+    "retry_build": "Retry Build"
+  },
+  "task_plan": {
+    "proposed_strategy": "Proposed Strategy",
+    "awaiting_authorization": "Awaiting Authorization",
+    "reject": "Reject",
+    "confirm": "Confirm"
+  },
+  "approval": {
+    "title": "Action Requires Approval",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "view_args": "View Parameters",
+    "confirm_message": "Confirm execution of this action?",
+    "approve": "Approve",
+    "reject": "Reject"
+  },
+  "tools": {
+    "getBugInfo": "Get Bug Info",
+    "searchBugs": "Search Bugs",
+    "resolveBug": "Resolve Bug",
+    "getBugStats": "Bug Statistics",
+    "getPipelineStatus": "Pipeline Status",
+    "proposePlan": "Propose Plan",
+    "runLocalCommand": "Local Command",
+    "activate_skill": "Skill Activation",
+    "zentao_mcp": "ZenTao MCP",
+    "createProductStory": "Create Story",
+    "getStoryInfo": "Get Story Info",
+    "searchProductStories": "Search Stories",
+    "listProducts": "List Products",
+    "createProduct": "Create Product",
+    "createProject": "Create Project"
+  },
+  "gallery": {
+    "title": "Stitch Design Gallery",
+    "description": "Visual regression testing for all Stitch-designed components.",
+    "sections": {
+      "thinking_pills": "Thinking Pills",
+      "zentao_task": "ZenTao Task Integration",
+      "leave_request": "Leave Request Form",
+      "code_diff": "Code Diff Viewer",
+      "print_console": "Print Console"
+    },
+    "labels": {
+      "pills_active": "Pills (Active)",
+      "pills_all_done": "Pills (All Done)",
+      "list_variant": "List Variant"
+    },
+    "stitch_labels": {
+      "image_1": "Stitch 图1",
+      "image_2": "Stitch 图2",
+      "image_3": "Stitch 图3",
+      "image_4": "Stitch 图4"
+    },
+    "demo_data": {
+      "thinking": {
+        "checking_zentao": "Checking ZenTao project board",
+        "fetching_member": "Fetching member availability",
+        "optimizing_allocation": "Optimizing allocation",
+        "locating_report": "Locating report.pdf",
+        "checking_printer": "Checking Printer-03 status",
+        "reading_gitlab": "Reading gitlab-api-v4.ts...",
+        "comparing_oauth": "Comparing against OAuth 2.1 best practices...",
+        "identifying_leakage": "Identifying potential token leakage in logs..."
+      },
+      "zentao": {
+        "title": "Authentication Refactor",
+        "assignee_1": "Sarah Chen",
+        "assignee_2": "Marcus Thorne",
+        "sprint_name": "Sprint 24: Q3 Security Overhaul",
+        "sprint_starts": "Starts in 12h"
+      },
+      "diff_viewer": {
+        "file_name": "gitlab-api-v4.ts"
+      },
+      "print_console": {
+        "printer_name": "OfficeJet X-900",
+        "location": "Floor 03",
+        "paper_tray": "Tray 1: Loaded",
+        "document_name": "Q4_Financial_Summary.pdf",
+        "document_generated": "2h ago",
+        "security_message": "This document contains sensitive financial data. Printing is restricted to authorized 3rd floor personnel only."
+      }
+    }
+  },
+  "permissions": {
+    "title": "Permission Settings",
+    "subtitle": "Claude Code compatible permission rule configuration",
+    "save": "Save",
+    "saving": "Saving...",
+    "refresh": "Refresh",
+    "loading": "Loading permissions...",
+    "error_fetch": "Failed to fetch settings",
+    "mode": {
+      "title": "Permission Mode",
+      "default": "Default",
+      "default_desc": "Prompt on first use",
+      "acceptEdits": "Accept Edits",
+      "acceptEdits_desc": "Auto-approve file edits, prompt for Bash commands",
+      "plan": "Plan Only",
+      "plan_desc": "Read-only mode, no write operations",
+      "bypass": "Bypass (CI/CD)",
+      "bypass_desc": "Skip all approvals, for CI/CD environments"
+    },
+    "token_limit": {
+      "title": "MCP Output Token Limit",
+      "hint": "Prevent MCP tool responses from exceeding context window (recommended: 25000)"
+    },
+    "patterns": {
+      "title": "Quick Patterns (allow / deny / ask)",
+      "hint": "Simple pattern lists. Evaluated in order: deny → allow → ask → rules.",
+      "placeholder": "Enter pattern and press Enter...",
+      "add": "Add"
+    },
+    "rules": {
+      "title": "Detailed Rules",
+      "hint": "Evaluated top-down, first match wins. Supports wildcards: *, ?",
+      "add": "Add Rule",
+      "empty": "No detailed rules configured yet.",
+      "action": "Action",
+      "pattern": "Pattern",
+      "comment": "Comment (optional)",
+      "comment_placeholder": "Description...",
+      "pattern_placeholder": "e.g. mcp__zentao:*, Bash(git:*)",
+      "cancel": "Cancel"
+    },
+    "test": {
+      "title": "Test Tool Evaluation",
+      "label": "Tool Name",
+      "placeholder": "e.g. getBugInfo, mcp__zentao:createProduct",
+      "evaluate": "Evaluate",
+      "result": "Tool \"{tool}\" → {action}"
+    },
+    "actions": {
+      "allow": "Allow",
+      "deny": "Deny",
+      "ask": "Ask"
+    }
+  }
+}

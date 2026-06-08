@@ -70,9 +70,11 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   });
 
   const toggleSidebar = () => {
-    const newState = !isSidebarCollapsed;
-    setIsSidebarCollapsed(newState);
-    localStorage.setItem('uclaw_sidebar_collapsed', String(newState));
+    setIsSidebarCollapsed((current) => {
+      const newState = !current;
+      localStorage.setItem('uclaw_sidebar_collapsed', String(newState));
+      return newState;
+    });
   };
 
   const handleLoginSuccess = (newToken: string, userData: any) => {
@@ -227,7 +229,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
       {/* 2. 主区域 (Fluid Workspace) */}
       <main className={cn(
         "flex-1 flex flex-col relative h-screen max-w-full overflow-hidden transition-all duration-300",
-        isSidebarCollapsed ? "md:ml-16" : "md:ml-64"
+        isSidebarCollapsed ? "md:ml-0" : "md:ml-64"
       )}>
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-3 border-b border-[#E8E4E2] bg-white shrink-0 z-30">

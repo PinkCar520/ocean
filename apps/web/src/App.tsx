@@ -6,42 +6,42 @@ import {
   Cpu,
   Menu,
 } from 'lucide-react';
-import { ChatSession } from './components/ChatSession';
+import { ChatSession } from '@uclaw/ui/components/ChatSession';
 import { useTranslation } from 'react-i18next';
-import { Dashboard } from './components/Dashboard';
-import { UserCenter } from './components/UserCenter';
-import { UIGallery } from './components/UIGallery';
-import { SkillLibrary } from './components/SkillLibrary';
-import { MCPServerManager } from './components/MCPServerManager';
-import { KnowledgeBase } from './components/KnowledgeBase';
-import { Projects } from './components/Projects';
-import { AllChatsManager } from './components/AllChatsManager';
-import { Sidebar } from './components/Sidebar';
-import { SettingsModal } from './components/SettingsModal';
-import { AuthPage } from './components/AuthPage';
-import { useConversations } from './lib/useConversations';
-import { cn } from './lib/utils';
-import { api } from './lib/api-client';
+import { Dashboard } from '@uclaw/ui/components/Dashboard';
+import { UserCenter } from '@uclaw/ui/components/UserCenter';
+import { UIGallery } from '@uclaw/ui/components/UIGallery';
+import { SkillLibrary } from '@uclaw/ui/components/SkillLibrary';
+import { MCPServerManager } from '@uclaw/ui/components/MCPServerManager';
+import { KnowledgeBase } from '@uclaw/ui/components/KnowledgeBase';
+import { Projects } from '@uclaw/ui/components/Projects';
+import { AllChatsManager } from '@uclaw/ui/components/AllChatsManager';
+import { Sidebar } from '@uclaw/ui/components/Sidebar';
+import { SettingsModal } from '@uclaw/ui/components/SettingsModal';
+import { AuthPage } from '@uclaw/ui/components/AuthPage';
+import { useConversations } from '@uclaw/ui/lib/useConversations';
+import { cn } from '@uclaw/ui/lib/utils';
+import { api } from '@uclaw/ui/lib/api-client';
 
-import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext';
+import { WorkspaceProvider, useWorkspace } from '@uclaw/ui/contexts/WorkspaceContext';
 
 function AppContent() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { id: sessionIdFromUrl } = useParams<{ id?: string }>();
-  
+
   // ── Global Authentication & Identity State ──
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('uclaw_auth_token'));
   const [user, setUser] = useState<any>(null);
 
   return (
     <WorkspaceProvider token={token}>
-      <AppInternal 
-        token={token} 
-        setToken={setToken} 
-        user={user} 
-        setUser={setUser} 
+      <AppInternal
+        token={token}
+        setToken={setToken}
+        user={user}
+        setUser={setUser}
         sessionIdFromUrl={sessionIdFromUrl}
       />
     </WorkspaceProvider>
@@ -220,14 +220,14 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         onLoadConversation={loadConversationAndActivate}
         onRenameConversation={handleRenameChat}
         onDeleteConversation={handleDeleteChat}
-        onFavoriteConversation={() => {}} // Favorite 功能可后续实现
+        onFavoriteConversation={() => { }} // Favorite 功能可后续实现
         user={user}
         onLogout={handleLogout}
       />
       {/* 2. 主区域 (Fluid Workspace) */}
       <main className={cn(
         "flex-1 flex flex-col relative h-screen max-w-full overflow-hidden transition-all duration-300",
-        isSidebarCollapsed ? "md:ml-16" : "md:ml-64"
+        isSidebarCollapsed ? "md:ml-0" : "md:ml-0"
       )}>
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-3 border-b border-[#E8E4E2] bg-white shrink-0 z-30">
@@ -272,9 +272,9 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
             <SkillLibrary token={token} />
           ) : activeTab === 'projects' ? (
             activeProject?.id ? (
-              <KnowledgeBase 
-                projectId={activeProject.id} 
-                onBack={() => setActiveProjectId(null)} 
+              <KnowledgeBase
+                projectId={activeProject.id}
+                onBack={() => setActiveProjectId(null)}
               />
             ) : (
               <Projects />

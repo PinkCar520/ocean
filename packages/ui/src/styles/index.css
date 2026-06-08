@@ -1,0 +1,209 @@
+/* UClaw Shared Theme & Variables */
+@plugin "tailwindcss-animate";
+@plugin "@tailwindcss/typography";
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-bounce-subtle: bounce-subtle 0.8s ease-in-out infinite;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+  @keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  --animate-cursor-blink: cursor-blink 1s step-start infinite;
+  
+  /* Font mapping */
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Manrope", sans-serif;
+  
+  /* Additional Tailwind variable bridges if necessary */
+  --color-sidebar: hsl(var(--sidebar));
+}
+
+@layer base {
+  :root {
+    /* Kinetic Minimalism Core */
+    --background: 20 40% 98%; /* #fcf9f8 surface */
+    --foreground: 0 2% 11%;    /* #1c1b1b on-surface */
+    
+    --card: 0 0% 100%;         /* white surface_container_lowest */
+    --card-foreground: 0 2% 11%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 2% 11%;
+    
+    --primary: 20 86% 50%;     /* #EC5B14 Kinetic Orange */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 18 100% 90%;  /* #ffdbce secondary_fixed */
+    --secondary-foreground: 18 60% 30%;
+    
+    --muted: 22 17% 96%;       /* #F6F3F2 sidebar / surface_container_low */
+    --muted-foreground: 24 5% 43%; /* #716B67 muted */
+    
+    --accent: 20 17% 96%;
+    --accent-foreground: 0 2% 11%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 20 13% 90%;      /* #E8E4E2 Subtle Ghost borders */
+    --input: 20 13% 90%;
+    --ring: 20 86% 50%;        /* Primary orange glow on focus */
+    
+    --radius: 0.5rem;          /* 8px default */
+    --sidebar: 22 17% 96%;     /* #F6F3F2 */
+  }
+
+  :root.dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 4%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 4%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 20 86% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 20 86% 50%;
+    
+    --sidebar: 240 4% 8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+.glass-morphism {
+  @apply bg-white/80 backdrop-blur-xl border border-border/40;
+}
+
+/* Gradient Primary Button specific to Kinetic */
+.btn-kinetic {
+  @apply bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white border-0 shadow-[0_4px_14px_0_rgba(204,73,0,0.39)] hover:shadow-[0_6px_20px_rgba(204,73,0,0.23)] hover:from-[#c24200] hover:to-[#e65200] transition-all;
+}
+
+/* Stitch CTA Button — Large orange pill button with shadow */
+.btn-cta {
+  @apply bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white font-bold text-[14px] 
+         py-3.5 px-8 rounded-[16px] border-0 shadow-[0_8px_24px_rgba(163,56,0,0.35)]
+         hover:shadow-[0_12px_32px_rgba(163,56,0,0.45)] hover:from-[#c24200] hover:to-[#e65200]
+         active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 w-full;
+}
+
+.btn-cta:disabled {
+  @apply opacity-50 cursor-not-allowed hover:shadow-[0_8px_24px_rgba(163,56,0,0.35)] active:scale-100;
+}
+
+/* Stitch Quick Action Pill */
+.btn-quick-action {
+  @apply bg-[#F5E6D8] text-[#6B3A1F] text-[12px] font-semibold py-2 px-4 rounded-full
+         hover:bg-[#EED5C3] transition-colors cursor-pointer whitespace-nowrap;
+}
+
+/* Stitch Thinking Pill */
+.thinking-pill {
+  @apply inline-flex items-center gap-1.5 text-[12px] font-medium py-1.5 px-3 rounded-full
+         transition-colors whitespace-nowrap;
+}
+
+.thinking-pill--active {
+  @apply bg-[#EC5B14]/10 text-[#A33800];
+}
+
+.thinking-pill--done {
+  @apply bg-[#F6F3F2] text-[#716B67];
+}
+
+/* Zero Elevation Depth Cards */
+.card-floating {
+  @apply bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[12px] border-none;
+}
+
+/* ── Reduced Motion Support ───────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Disable framer-motion animations */
+  .framer-motion-reduced * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
