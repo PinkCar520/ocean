@@ -1,0 +1,48 @@
+
+@import "tailwindcss";
+@source "../../../../../packages/ui";
+@import "@uclaw/ui/styles/index.css";
+
+/* Lucid 桌面端专属样式补丁
+ * 设计 Token 已由 @uclaw/ui/styles 统一提供。
+ * 此文件仅覆盖桌面端独有的样式调整：
+ * - 移除 WebKit 滚动条
+ * - 禁用用户选中文字（符合原生 app 体验）
+ * - 支持 Electron 拖拽窗口区域
+ */
+
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 允许输入框、文本区域选中文字 */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* 支持 Electron 标题栏拖拽 */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 隐藏滚动条（桌面端风格） */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
