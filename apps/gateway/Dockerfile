@@ -18,6 +18,8 @@ COPY agent/mcp/mcp-jenkins/package.json agent/mcp/mcp-jenkins/
 COPY agent/mcp/mcp-gitlab/package.json agent/mcp/mcp-gitlab/
 COPY packages/shared/core/package.json packages/shared/core/
 COPY packages/tools/zentao/package.json packages/tools/zentao/
+COPY packages/tools/jenkins/package.json packages/tools/jenkins/
+COPY packages/tools/gitlab/package.json packages/tools/gitlab/
 COPY agent/skills/package.json agent/skills/
 COPY packages/shared/sandbox/package.json packages/shared/sandbox/
 
@@ -35,6 +37,8 @@ COPY . .
 # 编译各个模块
 RUN pnpm --filter @uclaw/core build
 RUN pnpm --filter @uclaw/tools-zentao build
+RUN pnpm --filter @uclaw/tools-jenkins build
+RUN pnpm --filter @uclaw/tools-gitlab build
 RUN pnpm --filter @uclaw/mcp-zentao build
 RUN pnpm --filter @uclaw/mcp-jenkins build
 RUN pnpm --filter @uclaw/mcp-gitlab build

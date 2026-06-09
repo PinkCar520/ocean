@@ -17,8 +17,11 @@ COPY agent/mcp/mcp-gitlab/package.json agent/mcp/mcp-gitlab/
 COPY agent/mcp/mcp-jenkins/package.json agent/mcp/mcp-jenkins/
 COPY agent/skills/package.json agent/skills/
 COPY packages/shared/core/package.json packages/shared/core/
+COPY packages/ui/package.json packages/ui/
 COPY packages/shared/sandbox/package.json packages/shared/sandbox/
 COPY packages/tools/zentao/package.json packages/tools/zentao/
+COPY packages/tools/jenkins/package.json packages/tools/jenkins/
+COPY packages/tools/gitlab/package.json packages/tools/gitlab/
 
 # 安装全量依赖 (配置 ignore-scripts 跳过 electron 等不必要的编译)
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm config set ignore-scripts true && pnpm install --frozen-lockfile
