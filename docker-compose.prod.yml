@@ -1,8 +1,7 @@
 services:
   # UClaw AI 网关总线 (NestJS + Prisma)
   gateway:
-    # 替换为你的 Docker Hub 用户名
-    image: ${DOCKERHUB_USERNAME:-your-dockerhub-username}/uclaw-gateway:latest
+    image: pincar/uclaw-gateway:latest
     container_name: uclaw-gateway
     restart: always
     ports:
@@ -26,8 +25,7 @@ services:
 
   # UClaw AI 可视化面板 (React/Vite + Nginx)
   web:
-    # 替换为你的 Docker Hub 用户名
-    image: ${DOCKERHUB_USERNAME:-your-dockerhub-username}/uclaw-web:latest
+    image: pincar/uclaw-web:latest
     container_name: uclaw-web
     restart: always
     ports:
