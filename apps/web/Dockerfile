@@ -20,11 +20,11 @@ COPY packages/shared/core/package.json packages/shared/core/
 COPY packages/shared/sandbox/package.json packages/shared/sandbox/
 COPY packages/tools/zentao/package.json packages/tools/zentao/
 
-# 拷贝代码
-COPY . .
-
 # 安装全量依赖 (提供完整上下文以防 pnpm workspace 丢失链接)
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
+
+# 拷贝代码
+COPY . .
 
 # 编译前端
 RUN pnpm --filter @uclaw/core build
