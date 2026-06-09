@@ -8,6 +8,7 @@ import type { GetPromptResult, CreateMessageRequestSchema } from '@modelcontextp
 import { tool, jsonSchema } from 'ai';
 import * as fs from 'fs';
 import * as path from 'path';
+
 import type {
   MCPServerConfig,
   MCPServerFileConfig,
@@ -55,7 +56,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     private moduleRef: ModuleRef,
     @Inject(forwardRef(() => RpcGateway))
     private rpcGateway: RpcGateway,
-  ) {}
+  ) { }
 
   private replaceVars(value: string): string {
     return value.replace(/\$\{(\w+)\}/g, (_, name) => {
@@ -155,7 +156,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
                   name: toolDef.name,
                   arguments: params,
                 });
-                
+
                 const content = result.content as Array<{ type: string; text?: string }>;
                 const textContent = content.find((c) => c.type === 'text');
                 const rawText = textContent?.text ?? JSON.stringify(content);
@@ -165,16 +166,16 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
                 if (uiMatch) {
                   try {
                     const uiData = JSON.parse(uiMatch[1]);
-                    
+
                     if (uiData.uiType === 'elicitation' || uiData.uiType === 'approval_card') {
                       const requestId = uiData.props?.id || `req_${Math.random().toString(36).substring(7)}`;
                       const toolName = uiData.props?.toolName || toolDef.name;
-                      
+
                       this.logger.log(`[MCP:${serverId}] Registering approval callback for ${requestId}`);
                       this.registerElicitationResponseCallback(requestId, (res) => {
                         this.logger.log(`[MCP:${serverId}] Received user response for ${requestId}: ${res.action}`);
                       });
-                      
+
                       if (params.userId || params.sessionId) {
                         this.rpcGateway.server.emit('mcp_approval', {
                           serverId,
@@ -375,7 +376,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         CreateMessageRequestSchema,
         async (request) => {
           this.logger.log(`[Sampling:${resolvedConfig.id}] Received sampling request`);
-          
+
           const { SkillOrchestrator } = await import('../skill/skill.orchestrator.js');
           const orchestrator = this.moduleRef.get(SkillOrchestrator, { strict: false });
 
