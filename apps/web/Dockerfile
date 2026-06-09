@@ -20,8 +20,8 @@ COPY packages/shared/core/package.json packages/shared/core/
 COPY packages/shared/sandbox/package.json packages/shared/sandbox/
 COPY packages/tools/zentao/package.json packages/tools/zentao/
 
-# 安装全量依赖 (提供完整上下文以防 pnpm workspace 丢失链接)
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
+# 安装全量依赖 (允许 allowBuilds 列表中的构建脚本运行)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # 拷贝代码
 COPY . .
