@@ -31,7 +31,7 @@
         "JENKINS_TOKEN": "${JENKINS_TOKEN}",
         "JENKINS_USERNAME": "${JENKINS_USERNAME}"
       },
-      "enabled": true,
+      "enabled": false,
       "description": "Jenkins 构建触发、日志查看与部署审批工具集"
     },
     {
@@ -43,7 +43,7 @@
         "GITLAB_BASE_URL": "${GITLAB_BASE_URL}",
         "GITLAB_TOKEN": "${GITLAB_TOKEN}"
       },
-      "enabled": true,
+      "enabled": false,
       "description": "GitLab 项目管理、MR 操作与 Code Review 工具集"
     }
   ]

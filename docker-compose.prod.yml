@@ -1,0 +1,100 @@
+services:
+  # UClaw AI 网关总线 (NestJS + Prisma)
+  gateway:
+    # 替换为你的 Docker Hub 用户名
+    image: ${DOCKERHUB_USERNAME:-your-dockerhub-username}/uclaw-gateway:latest
+    container_name: uclaw-gateway
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./agent/skills:/app/agent/skills
+      - uclaw_gateway_uploads:/app/public/uploads
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/uclaw?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GATEWAY_ROOT=/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # UClaw AI 可视化面板 (React/Vite + Nginx)
+  web:
+    # 替换为你的 Docker Hub 用户名
+    image: ${DOCKERHUB_USERNAME:-your-dockerhub-username}/uclaw-web:latest
+    container_name: uclaw-web
+    restart: always
+    ports:
+      - "8081:80"
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 128M
+    depends_on:
+      gateway:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # 用户中心持久化核心 (支持 Vector 检索)
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: uclaw-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=uclaw
+    ports:
+      - "5432:5432"
+    volumes:
+      - uclaw_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 可观测性中心 (Tracing / Jaeger)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: uclaw-jaeger
+    restart: always
+    ports:
+      - "16686:16686" # UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 会话记忆与流控层 (Redis)
+  redis:
+    image: redis:7-alpine
+    container_name: uclaw-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - uclaw_redis_data:/data
+
+volumes:
+  uclaw_postgres_data:
+  uclaw_redis_data:
+  uclaw_gateway_uploads:
