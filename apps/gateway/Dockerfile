@@ -21,8 +21,8 @@ COPY packages/tools/zentao/package.json packages/tools/zentao/
 COPY agent/skills/package.json agent/skills/
 COPY packages/shared/sandbox/package.json packages/shared/sandbox/
 
-# 安装全量依赖 (使用缓存挂载加速)
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
+# 安装全量依赖 (允许 allowBuilds 列表中的构建脚本运行)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # 3. 拷贝源码并生成 Prisma Client
 COPY apps/gateway/prisma apps/gateway/prisma
