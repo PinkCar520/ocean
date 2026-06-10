@@ -20,7 +20,7 @@ COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 
 # 安装依赖
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --config.minimum-release-age=0
 
 # 拷贝源代码
 COPY --from=pruner /app/out/full/ .
@@ -45,7 +45,7 @@ COPY --from=builder /app ./
 # 1. 递归删除项目中所有的 node_modules 目录（此时只剩下被 prune 过的包）
 RUN find . -name "node_modules" -type d -prune -exec rm -rf '{}' +
 # 2. 仅安装生产依赖
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile --config.minimum-release-age=0
 # 3. 由于重建了依赖，需要重新生成一次 Prisma Client
 RUN cd apps/gateway && ./node_modules/.bin/prisma generate
 
