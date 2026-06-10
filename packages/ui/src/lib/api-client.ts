@@ -37,8 +37,9 @@ export async function request<T>(
   // Handle Electron file:// protocol in production builds
   let finalUrl = url;
   if (finalUrl.startsWith('/api') && typeof window !== 'undefined' && window.location.protocol === 'file:') {
-    // In production Desktop app, point /api directly to the local Gateway since there is no Vite dev proxy
-    finalUrl = `http://127.0.0.1:3000${finalUrl}`;
+    // In production Desktop app, point /api directly to the Gateway since there is no Vite dev proxy
+    const desktopApiBase = localStorage.getItem('uclaw_desktop_api_base') || 'http://43.139.108.187:3000';
+    finalUrl = `${desktopApiBase}${finalUrl}`;
   }
 
   try {
@@ -138,7 +139,8 @@ export const authFetch = async (input: RequestInfo | URL, init?: RequestInit) =>
   
   let finalInput = input;
   if (typeof finalInput === 'string' && finalInput.startsWith('/api') && typeof window !== 'undefined' && window.location.protocol === 'file:') {
-    finalInput = `http://127.0.0.1:3000${finalInput}`;
+    const desktopApiBase = localStorage.getItem('uclaw_desktop_api_base') || 'http://43.139.108.187:3000';
+    finalInput = `${desktopApiBase}${finalInput}`;
   }
   
   return fetch(finalInput, { ...init, headers });

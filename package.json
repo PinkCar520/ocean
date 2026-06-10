@@ -11,6 +11,7 @@
     "dev": "pnpm -r --parallel run dev",
     "gateway": "pnpm --filter gateway start:dev",
     "web": "pnpm --filter web dev",
+    "lucid": "pnpm --filter lucid dev",
     "daemon": "pnpm --filter @uclaw/cli start daemon",
     "all": "pnpm run dev",
     "build": "pnpm -r run build",
