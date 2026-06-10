@@ -23,24 +23,35 @@ export function KnowledgeBase({ projectId, onBack }: KnowledgeBaseProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
 
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const docsRes = await api.get<any>(`/api/rag/documents?projectId=${projectId}`);
+      if (docsRes.success) {
+        setDocuments(docsRes.data);
+        return docsRes.data;
+      }
+    } catch (err) {
+      console.error('Failed to fetch documents:', err);
+    }
+    return [];
+  }, [projectId]);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 获取项目详情和该项目的文档
-      const [docsRes, statsRes, projectsRes] = await Promise.all([
-        api.get<any>(`/api/rag/documents?projectId=${projectId}`),
+      const [docsData, statsRes, projectsRes] = await Promise.all([
+        fetchDocuments(),
         api.get<any>('/api/rag/stats'),
         api.get<any>('/api/knowledge-projects')
       ]);
       
-      if (docsRes.success) setDocuments(docsRes.data);
       if (projectsRes.success) {
         const currentProject = projectsRes.data.find((p: any) => p.id === projectId);
         setProject(currentProject);
       }
       if (statsRes.success) {
         setStats({
-          activeSources: docsRes.data.length, // 只显示当前项目的资产数
+          activeSources: docsData.length,
           dataIndexedMb: statsRes.data.dataIndexedMb || '0.00'
         });
       }
@@ -49,7 +60,7 @@ export function KnowledgeBase({ projectId, onBack }: KnowledgeBaseProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, fetchDocuments]);
 
   useEffect(() => {
     fetchData();
@@ -90,12 +101,12 @@ export function KnowledgeBase({ projectId, onBack }: KnowledgeBaseProps) {
     if (hasProcessing) {
       const interval = setInterval(() => {
         // Silently refresh project data and documents
-        fetchData();
+        fetchDocuments();
       }, 3000); // Poll every 3 seconds
       
       return () => clearInterval(interval);
     }
-  }, [documents, fetchData]);
+  }, [documents, fetchDocuments]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this document?')) return;

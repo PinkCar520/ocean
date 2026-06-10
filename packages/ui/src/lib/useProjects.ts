@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from './api-client';
 
 export interface Project {
@@ -35,7 +35,7 @@ export function useProjects() {
     };
   }, []);
 
-  const fetchProjects = () => {
+  const fetchProjects = useCallback(() => {
     if (!isFetching) {
       isFetching = true;
       fetchPromise = api.get<any>('/api/knowledge-projects')
@@ -58,7 +58,7 @@ export function useProjects() {
         setIsLoading(false);
       });
     }
-  };
+  }, []);
 
   return { projects, isLoading, fetchProjects };
 }
