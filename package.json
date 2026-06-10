@@ -7,21 +7,23 @@
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
+  "packageManager": "pnpm@11.5.2",
   "scripts": {
-    "dev": "pnpm -r --parallel run dev",
+    "dev": "turbo run dev",
     "gateway": "pnpm --filter gateway start:dev",
     "web": "pnpm --filter web dev",
     "lucid": "pnpm --filter lucid dev",
     "daemon": "pnpm --filter @uclaw/cli start daemon",
-    "all": "pnpm run dev",
-    "build": "pnpm -r run build",
-    "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint",
-    "clean": "pnpm -r run clean"
+    "all": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "prettier": "^3.2.0"
+    "prettier": "^3.2.0",
+    "turbo": "^2.9.17",
+    "typescript": "^5.4.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
