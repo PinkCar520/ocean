@@ -45,6 +45,9 @@ RUN pnpm --filter @uclaw/mcp-gitlab build
 RUN pnpm --filter @uclaw/mcp-im build
 RUN pnpm --filter gateway build
 
+# 【核心瘦身操作】清理所有 devDependencies，只保留生产环境运行必需的 node_modules
+RUN pnpm prune --prod
+
 # 第二阶段：生产运行
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -58,6 +61,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/gateway/package.json apps/gateway/
 COPY apps/gateway/prisma apps/gateway/prisma
 COPY apps/gateway/prisma.config.js apps/gateway/prisma.config.js
+
+# 此时拷贝的 node_modules 已经是被 prune 瘦身过的了
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/gateway/node_modules ./apps/gateway/node_modules
 COPY --from=builder /app/packages ./packages
