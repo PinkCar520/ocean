@@ -169,6 +169,15 @@ importers:
 
   apps/gateway:
     dependencies:
+      '@ai-sdk/anthropic':
+        specifier: ^3.0.81
+        version: 3.0.81(zod@4.4.3)
+      '@ai-sdk/google':
+        specifier: ^3.0.80
+        version: 3.0.80(zod@4.4.3)
+      '@ai-sdk/openai':
+        specifier: ^3.0.53
+        version: 3.0.68(zod@4.4.3)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
@@ -244,6 +253,9 @@ importers:
       '@uclaw/tools-zentao':
         specifier: workspace:*
         version: link:../../packages/tools/zentao
+      ai:
+        specifier: 6.0.161
+        version: 6.0.161(zod@4.4.3)
       axios:
         specifier: ^1.7.0
         version: 1.17.0
@@ -284,15 +296,6 @@ importers:
         specifier: ^4.3.6
         version: 4.4.3
     devDependencies:
-      '@ai-sdk/anthropic':
-        specifier: ^3.0.81
-        version: 3.0.81(zod@4.4.3)
-      '@ai-sdk/google':
-        specifier: ^3.0.80
-        version: 3.0.80(zod@4.4.3)
-      '@ai-sdk/openai':
-        specifier: ^3.0.53
-        version: 3.0.68(zod@4.4.3)
       '@eslint/eslintrc':
         specifier: ^3.2.0
         version: 3.3.5
@@ -338,9 +341,6 @@ importers:
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.2
-      ai:
-        specifier: 6.0.161
-        version: 6.0.161(zod@4.4.3)
       eslint:
         specifier: ^9.18.0
         version: 9.39.4(jiti@2.7.0)
@@ -11276,7 +11276,7 @@ snapshots:
 
   '@types/minimatch@6.0.0':
     dependencies:
-      minimatch: 3.1.5
+      minimatch: 10.2.5
     optional: true
 
   '@types/ms@2.1.0': {}
@@ -17086,8 +17086,8 @@ snapshots:
   wrap-ansi@7.0.0:
     dependencies:
       ansi-styles: 4.3.0
-      string-width: 4.2.0
-      strip-ansi: 6.0.1
+      string-width: 4.1.0
+      strip-ansi: 6.0.0
 
   wrap-ansi@8.1.0:
     dependencies:

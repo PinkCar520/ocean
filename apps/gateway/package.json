@@ -20,6 +20,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.81",
+    "@ai-sdk/google": "^3.0.80",
+    "@ai-sdk/openai": "^3.0.53",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
@@ -45,6 +48,7 @@
     "@uclaw/mcp-jenkins": "workspace:*",
     "@uclaw/mcp-gitlab": "workspace:*",
     "@uclaw/tools-zentao": "workspace:*",
+    "ai": "6.0.161",
     "axios": "^1.7.0",
     "bcrypt": "^6.0.0",
     "express": "^5.2.1",
@@ -60,9 +64,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "^3.0.81",
-    "@ai-sdk/google": "^3.0.80",
-    "@ai-sdk/openai": "^3.0.53",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -78,7 +79,6 @@
     "@types/passport-local": "^1.0.38",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^6.0.2",
-    "ai": "6.0.161",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
