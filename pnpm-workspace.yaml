@@ -7,10 +7,10 @@ packages:
   - "agent/skills"
   - "agent/mcp/*"
 allowBuilds:
-  '@nestjs/core': set this to true or false
-  '@prisma/engines': set this to true or false
-  bcrypt: set this to true or false
-  electron: set this to true or false
-  prisma: set this to true or false
-  protobufjs: set this to true or false
-  unrs-resolver: set this to true or false
+  '@nestjs/core': true
+  '@prisma/engines': true
+  bcrypt: true
+  electron: true
+  prisma: true
+  protobufjs: true
+  unrs-resolver: true
