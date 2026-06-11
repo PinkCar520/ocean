@@ -1,9 +1,15 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
+import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Load env from workspace root
+  const env = loadEnv(mode, resolve('../../'), '')
+  const proxyTarget = env.VITE_API_BASE_URL || 'http://localhost:3000'
+
+  return {
   main: {},
   preload: {},
   renderer: {
@@ -23,16 +29,17 @@ export default defineConfig({
     server: {
       proxy: {
         '/api': {
-          target: 'http://43.139.108.187:8081',
+          target: proxyTarget,
           changeOrigin: true,
           secure: false
         },
         '/public': {
-          target: 'http://43.139.108.187:8081',
+          target: proxyTarget,
           changeOrigin: true
         }
       }
     },
     plugins: [tailwindcss(), react()]
+  }
   }
 })

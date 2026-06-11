@@ -38,7 +38,7 @@ export async function request<T>(
   let finalUrl = url;
   if (finalUrl.startsWith('/api') && typeof window !== 'undefined' && window.location.protocol === 'file:') {
     // In production Desktop app, point /api directly to the Gateway since there is no Vite dev proxy
-    const desktopApiBase = localStorage.getItem('ocean_desktop_api_base') || 'http://43.139.108.187:8081';
+    const desktopApiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE_URL) || 'http://localhost:3000';
     finalUrl = `${desktopApiBase}${finalUrl}`;
   }
 
@@ -139,7 +139,7 @@ export const authFetch = async (input: RequestInfo | URL, init?: RequestInit) =>
 
   let finalInput = input;
   if (typeof finalInput === 'string' && finalInput.startsWith('/api') && typeof window !== 'undefined' && window.location.protocol === 'file:') {
-    const desktopApiBase = localStorage.getItem('ocean_desktop_api_base') || 'http://43.139.108.187:8081';
+    const desktopApiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE_URL) || 'http://localhost:3000';
     finalInput = `${desktopApiBase}${finalInput}`;
   }
 
