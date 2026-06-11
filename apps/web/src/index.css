@@ -209,3 +209,28 @@
     animation: none !important;
   }
 }
+
+/* Landing Page Custom Styles */
+.glass-panel {
+  background: rgba(252, 249, 248, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.kinetic-gradient {
+  background: linear-gradient(135deg, #a33800 0%, #cc4900 100%);
+}
+.hero-mask {
+  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+}
+.active-nav-underline {
+  position: relative;
+}
+.active-nav-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #a33800;
+}

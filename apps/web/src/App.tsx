@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import {
   Sparkles,
   Cloud,
@@ -22,6 +22,7 @@ import { AuthPage } from '@ocean/ui/components/AuthPage';
 import { useConversations } from '@ocean/ui/lib/useConversations';
 import { cn } from '@ocean/ui/lib/utils';
 import { api } from '@ocean/ui/lib/api-client';
+import { LandingPage } from './components/LandingPage';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 
@@ -306,8 +307,10 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<AppContent />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/app" element={<AppContent />} />
       <Route path="/chat/:id" element={<AppContent />} />
+      <Route path="/app/chat/:id" element={<AppContent />} />
     </Routes>
   );
 }
