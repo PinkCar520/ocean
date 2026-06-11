@@ -1,7 +1,7 @@
 services:
   # UClaw AI 网关总线 (NestJS + Prisma)
   gateway:
-    image: ccr.ccs.tencentyun.com/lucid/uclaw-gateway:latest
+    image: ${DOCKERHUB_USERNAME:-lucid}/uclaw-gateway:latest
     container_name: uclaw-gateway
     restart: always
     ports:
@@ -25,7 +25,7 @@ services:
 
   # UClaw AI 可视化面板 (React/Vite + Nginx)
   web:
-    image: ccr.ccs.tencentyun.com/lucid/uclaw-web:latest
+    image: ${DOCKERHUB_USERNAME:-lucid}/uclaw-web:latest
     container_name: uclaw-web
     restart: always
     ports:
