@@ -38,7 +38,7 @@ export function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <button className="px-5 py-2 font-display text-label-sm text-primary transition-transform active:scale-95" onClick={handleGetStarted}>Request Demo</button>
-            <button className="kinetic-gradient px-6 py-2.5 rounded-lg text-on-primary font-display text-label-sm font-semibold transition-transform active:scale-95" onClick={handleGetStarted}>Get Started</button>
+            <button className="kinetic-gradient px-6 py-2.5 rounded-lg text-white font-display text-label-sm font-semibold transition-transform active:scale-95" onClick={handleGetStarted}>Get Started</button>
           </div>
         </div>
       </nav>
@@ -55,7 +55,7 @@ export function LandingPage() {
                 The next-generation AI platform for enterprise workflow automation, knowledge management, and skill orchestration.
               </p>
               <div className="flex flex-wrap gap-4">
-                <button className="kinetic-gradient px-8 py-4 rounded-lg text-on-primary font-display font-bold text-lg transition-all hover:shadow-xl hover:shadow-primary/20 active:scale-95" onClick={handleGetStarted}>Get Started</button>
+                <button className="kinetic-gradient px-8 py-4 rounded-lg text-white font-display font-bold text-lg transition-all hover:shadow-xl hover:shadow-primary/20 active:scale-95" onClick={handleGetStarted}>Get Started</button>
                 <button className="bg-surface-container-high px-8 py-4 rounded-lg text-on-surface font-display font-bold text-lg flex items-center gap-2 hover:bg-surface-container-highest transition-colors active:scale-95">
                   <span className="material-symbols-outlined text-[20px]">play_circle</span>
                   Watch Demo
@@ -222,11 +222,11 @@ export function LandingPage() {
         </section>
         {/* CTA Section */}
         <section className="py-32 px-8">
-          <div className="max-w-5xl mx-auto kinetic-gradient rounded-[2.5rem] p-12 md:p-24 text-center text-on-primary relative overflow-hidden">
+          <div className="max-w-5xl mx-auto kinetic-gradient rounded-[2.5rem] p-12 md:p-24 text-center text-white relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 blur-[80px] -ml-32 -mb-32 rounded-full"></div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-8 relative z-10 font-display tracking-tight">Ready to Orchestrate?</h2>
-            <p className="text-on-primary/80 text-xl mb-12 max-w-2xl mx-auto relative z-10 font-sans">Join the leaders in AI-driven enterprise efficiency. Start your pilot program with Ocean today.</p>
+            <h2 className="text-4xl md:text-5xl font-bold mb-8 relative z-10 font-display tracking-tight text-white">Ready to Orchestrate?</h2>
+            <p className="text-white/80 text-xl mb-12 max-w-2xl mx-auto relative z-10 font-sans">Join the leaders in AI-driven enterprise efficiency. Start your pilot program with Ocean today.</p>
             <div className="flex flex-wrap justify-center gap-6 relative z-10">
               <button className="bg-white text-primary px-10 py-4 rounded-lg font-bold text-lg hover:bg-surface-bright transition-colors font-display" onClick={handleGetStarted}>Get Started for Free</button>
               <button className="border border-white/30 text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition-colors font-display">Book a Consultation</button>
