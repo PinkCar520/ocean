@@ -101,10 +101,10 @@ importers:
     dependencies:
       '@ai-sdk/openai':
         specifier: ^3.0.49
-        version: 3.0.68(zod@4.4.3)
+        version: 3.0.68(zod@3.23.8)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
-        version: 1.29.0(zod@4.4.3)
+        version: 1.29.0(zod@3.23.8)
       '@ocean/core':
         specifier: workspace:*
         version: link:../../packages/shared/core
@@ -113,7 +113,7 @@ importers:
         version: link:../../packages/tools/zentao
       ai:
         specifier: ^6.0.141
-        version: 6.0.161(zod@4.4.3)
+        version: 6.0.161(zod@3.23.8)
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -148,8 +148,8 @@ importers:
         specifier: ^4.8.3
         version: 4.8.3
       zod:
-        specifier: ^4.3.6
-        version: 4.4.3
+        specifier: 3.23.8
+        version: 3.23.8
     devDependencies:
       '@types/inquirer':
         specifier: ^9.0.0
@@ -259,16 +259,16 @@ importers:
     dependencies:
       '@ai-sdk/anthropic':
         specifier: ^3.0.81
-        version: 3.0.81(zod@4.4.3)
+        version: 3.0.81(zod@3.23.8)
       '@ai-sdk/google':
         specifier: ^3.0.80
-        version: 3.0.80(zod@4.4.3)
+        version: 3.0.80(zod@3.23.8)
       '@ai-sdk/openai':
         specifier: ^3.0.53
-        version: 3.0.68(zod@4.4.3)
+        version: 3.0.68(zod@3.23.8)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
-        version: 1.29.0(zod@4.4.3)
+        version: 1.29.0(zod@3.23.8)
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.26(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -343,7 +343,7 @@ importers:
         version: 7.6.0(prisma@7.6.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
       ai:
         specifier: 6.0.161
-        version: 6.0.161(zod@4.4.3)
+        version: 6.0.161(zod@3.23.8)
       axios:
         specifier: ^1.7.0
         version: 1.17.0
@@ -381,8 +381,8 @@ importers:
         specifier: ^4.8.3
         version: 4.8.3
       zod:
-        specifier: ^4.3.6
-        version: 4.4.3
+        specifier: 3.23.8
+        version: 3.23.8
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
@@ -8444,11 +8444,18 @@ snapshots:
 
   7zip-bin@5.2.0: {}
 
-  '@ai-sdk/anthropic@3.0.81(zod@4.4.3)':
+  '@ai-sdk/anthropic@3.0.81(zod@3.23.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 4.0.27(zod@3.23.8)
+      zod: 3.23.8
+
+  '@ai-sdk/gateway@3.0.98(zod@3.23.8)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.23(zod@3.23.8)
+      '@vercel/oidc': 3.1.0
+      zod: 3.23.8
 
   '@ai-sdk/gateway@3.0.98(zod@4.4.3)':
     dependencies:
@@ -8457,17 +8464,24 @@ snapshots:
       '@vercel/oidc': 3.1.0
       zod: 4.4.3
 
-  '@ai-sdk/google@3.0.80(zod@4.4.3)':
+  '@ai-sdk/google@3.0.80(zod@3.23.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 4.0.27(zod@3.23.8)
+      zod: 3.23.8
 
-  '@ai-sdk/openai@3.0.68(zod@4.4.3)':
+  '@ai-sdk/openai@3.0.68(zod@3.23.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 4.0.27(zod@3.23.8)
+      zod: 3.23.8
+
+  '@ai-sdk/provider-utils@4.0.23(zod@3.23.8)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.1.0
+      zod: 3.23.8
 
   '@ai-sdk/provider-utils@4.0.23(zod@4.4.3)':
     dependencies:
@@ -8476,12 +8490,12 @@ snapshots:
       eventsource-parser: 3.1.0
       zod: 4.4.3
 
-  '@ai-sdk/provider-utils@4.0.27(zod@4.4.3)':
+  '@ai-sdk/provider-utils@4.0.27(zod@3.23.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.0
-      zod: 4.4.3
+      zod: 3.23.8
 
   '@ai-sdk/provider@3.0.10':
     dependencies:
@@ -9745,28 +9759,6 @@ snapshots:
       raw-body: 3.0.2
       zod: 3.23.8
       zod-to-json-schema: 3.25.2(zod@3.23.8)
-    transitivePeerDependencies:
-      - supports-color
-
-  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
-    dependencies:
-      '@hono/node-server': 1.19.14(hono@4.12.25)
-      ajv: 8.20.0
-      ajv-formats: 3.0.1(ajv@8.20.0)
-      content-type: 1.0.5
-      cors: 2.8.6
-      cross-spawn: 7.0.6
-      eventsource: 3.0.7
-      eventsource-parser: 3.1.0
-      express: 5.2.1
-      express-rate-limit: 8.5.2(express@5.2.1)
-      hono: 4.12.25
-      jose: 6.2.3
-      json-schema-typed: 8.0.2
-      pkce-challenge: 5.0.0
-      raw-body: 3.0.2
-      zod: 4.4.3
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -11620,6 +11612,14 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  ai@6.0.161(zod@3.23.8):
+    dependencies:
+      '@ai-sdk/gateway': 3.0.98(zod@3.23.8)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.23(zod@3.23.8)
+      '@opentelemetry/api': 1.9.0
+      zod: 3.23.8
 
   ai@6.0.161(zod@4.4.3):
     dependencies:
@@ -17036,10 +17036,6 @@ snapshots:
   zod-to-json-schema@3.25.2(zod@3.23.8):
     dependencies:
       zod: 3.23.8
-
-  zod-to-json-schema@3.25.2(zod@4.4.3):
-    dependencies:
-      zod: 4.4.3
 
   zod-validation-error@4.0.2(zod@4.4.3):
     dependencies:

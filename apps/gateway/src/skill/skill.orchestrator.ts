@@ -405,7 +405,7 @@ export class SkillOrchestrator {
           id: z.string().optional().describe('任务 ID'),
           status: z.enum(['todo', 'doing', 'done', 'failed']).optional().describe('状态'),
         }),
-        execute: async (params) => {
+        execute: async (params: any) => {
           const result = await this.rpcGateway.sendToCli(currentUserId, 'local_plan', { ...params, sessionId });
           return { status: 'Success', ...result, ui: { uiType: 'task_plan', props: result } };
         },
