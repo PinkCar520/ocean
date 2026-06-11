@@ -23,7 +23,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.0
         version: 1.29.0(zod@3.23.8)
-      '@uclaw/tools-gitlab':
+      '@ocean/tools-gitlab':
         specifier: workspace:*
         version: link:../../../packages/tools/gitlab
       zod:
@@ -39,7 +39,7 @@ importers:
 
   agent/mcp/mcp-im:
     dependencies:
-      '@uclaw/core':
+      '@ocean/core':
         specifier: workspace:*
         version: link:../../../packages/shared/core
     devDependencies:
@@ -55,7 +55,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.0
         version: 1.29.0(zod@3.23.8)
-      '@uclaw/tools-jenkins':
+      '@ocean/tools-jenkins':
         specifier: workspace:*
         version: link:../../../packages/tools/jenkins
       zod:
@@ -74,10 +74,10 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.0
         version: 1.29.0(zod@3.23.8)
-      '@uclaw/core':
+      '@ocean/core':
         specifier: workspace:*
         version: link:../../../packages/shared/core
-      '@uclaw/tools-zentao':
+      '@ocean/tools-zentao':
         specifier: workspace:*
         version: link:../../../packages/tools/zentao
       zod:
@@ -93,7 +93,7 @@ importers:
 
   agent/skills:
     dependencies:
-      '@uclaw/core':
+      '@ocean/core':
         specifier: workspace:*
         version: link:../../packages/shared/core
 
@@ -105,10 +105,10 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
-      '@uclaw/core':
+      '@ocean/core':
         specifier: workspace:*
         version: link:../../packages/shared/core
-      '@uclaw/tools-zentao':
+      '@ocean/tools-zentao':
         specifier: workspace:*
         version: link:../../packages/tools/zentao
       ai:
@@ -235,22 +235,22 @@ importers:
       '@prisma/client':
         specifier: 7.6.0
         version: 7.6.0(prisma@7.6.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
-      '@uclaw/core':
+      '@ocean/core':
         specifier: workspace:*
         version: link:../../packages/shared/core
-      '@uclaw/mcp-gitlab':
+      '@ocean/mcp-gitlab':
         specifier: workspace:*
         version: link:../../agent/mcp/mcp-gitlab
-      '@uclaw/mcp-im':
+      '@ocean/mcp-im':
         specifier: workspace:*
         version: link:../../agent/mcp/mcp-im
-      '@uclaw/mcp-jenkins':
+      '@ocean/mcp-jenkins':
         specifier: workspace:*
         version: link:../../agent/mcp/mcp-jenkins
-      '@uclaw/mcp-zentao':
+      '@ocean/mcp-zentao':
         specifier: workspace:*
         version: link:../../agent/mcp/mcp-zentao
-      '@uclaw/tools-zentao':
+      '@ocean/tools-zentao':
         specifier: workspace:*
         version: link:../../packages/tools/zentao
       ai:
@@ -384,7 +384,7 @@ importers:
         specifier: ^8.20.0
         version: 8.61.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
-  apps/lucid:
+  apps/ocean-desktop:
     dependencies:
       '@electron-toolkit/preload':
         specifier: ^3.0.2
@@ -392,7 +392,7 @@ importers:
       '@electron-toolkit/utils':
         specifier: ^4.0.0
         version: 4.0.0(electron@39.8.10)
-      '@uclaw/ui':
+      '@ocean/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       i18next:
@@ -495,7 +495,7 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.19
         version: 0.5.20(tailwindcss@4.3.0)
-      '@uclaw/ui':
+      '@ocean/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       class-variance-authority:
@@ -613,7 +613,7 @@ importers:
 
   packages/shared/sandbox:
     dependencies:
-      '@uclaw/core':
+      '@ocean/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -655,7 +655,7 @@ importers:
 
   packages/tools/zentao:
     dependencies:
-      '@uclaw/core':
+      '@ocean/core':
         specifier: workspace:*
         version: link:../../shared/core
       axios:

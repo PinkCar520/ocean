@@ -37,10 +37,10 @@ export class OAuthController {
     }
 
     // Show login page with OAuth redirect
-    const gatewayUrl = process.env.UCLAW_GATEWAY_URL || 'http://localhost:3000';
+    const gatewayUrl = process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
     const html = `<!DOCTYPE html>
 <html>
-<head><title>UClaw Login</title>
+<head><title>Ocean Login</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:system-ui,-apple-system,sans-serif;background:#f6f3f2;display:flex;align-items:center;justify-content:center;min-height:100vh}
@@ -58,7 +58,7 @@ export class OAuthController {
 </head>
 <body>
 <div class="card">
-  <div class="logo">UClaw</div>
+  <div class="logo">Ocean</div>
   <h1>Sign in to continue</h1>
   <p>Enter your credentials to authorize the CLI application.</p>
   <div id="error" class="error" style="display:none"></div>

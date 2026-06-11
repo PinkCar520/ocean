@@ -19,7 +19,7 @@ async function testFull() {
       plan: "0",
       source: "customer",
       sourceNote: "",
-      title: "UClaw Full Test " + new Date().toISOString().slice(11, 19),
+      title: "Ocean Full Test " + new Date().toISOString().slice(11, 19),
       spec: "全字段测试描述",
       verify: "验收标准测试",
       pri: 3,

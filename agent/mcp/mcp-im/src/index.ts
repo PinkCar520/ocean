@@ -1,4 +1,4 @@
-import { BugDetail } from '@uclaw/core';
+import { BugDetail } from '@ocean/core';
 
 /**
  * 统一 IM 输入消息结构

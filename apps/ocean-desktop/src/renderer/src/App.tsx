@@ -6,25 +6,25 @@ import {
   Cpu,
   Menu,
 } from 'lucide-react';
-import { ChatSession } from '@uclaw/ui/components/ChatSession';
+import { ChatSession } from '@ocean/ui/components/ChatSession';
 import { useTranslation } from 'react-i18next';
-import { Dashboard } from '@uclaw/ui/components/Dashboard';
-import { SettingsDialog } from '@uclaw/ui/components/SettingsDialog';
-import { UIGallery } from '@uclaw/ui/components/UIGallery';
-import { SkillLibrary } from '@uclaw/ui/components/SkillLibrary';
-import { MCPServerManager } from '@uclaw/ui/components/MCPServerManager';
-import { KnowledgeBase } from '@uclaw/ui/components/KnowledgeBase';
-import { Projects } from '@uclaw/ui/components/Projects';
-import { AllChatsManager } from '@uclaw/ui/components/AllChatsManager';
-import { Sidebar } from '@uclaw/ui/components/Sidebar';
-import { SettingsModal } from '@uclaw/ui/components/SettingsModal';
-import { AuthPage } from '@uclaw/ui/components/AuthPage';
-import { useConversations } from '@uclaw/ui/lib/useConversations';
-import { cn } from '@uclaw/ui/lib/utils';
-import { Toaster } from '@uclaw/ui/components/GlobalToast';
-import { api } from '@uclaw/ui/lib/api-client';
+import { Dashboard } from '@ocean/ui/components/Dashboard';
+import { SettingsDialog } from '@ocean/ui/components/SettingsDialog';
+import { UIGallery } from '@ocean/ui/components/UIGallery';
+import { SkillLibrary } from '@ocean/ui/components/SkillLibrary';
+import { MCPServerManager } from '@ocean/ui/components/MCPServerManager';
+import { KnowledgeBase } from '@ocean/ui/components/KnowledgeBase';
+import { Projects } from '@ocean/ui/components/Projects';
+import { AllChatsManager } from '@ocean/ui/components/AllChatsManager';
+import { Sidebar } from '@ocean/ui/components/Sidebar';
+import { SettingsModal } from '@ocean/ui/components/SettingsModal';
+import { AuthPage } from '@ocean/ui/components/AuthPage';
+import { useConversations } from '@ocean/ui/lib/useConversations';
+import { cn } from '@ocean/ui/lib/utils';
+import { Toaster } from '@ocean/ui/components/GlobalToast';
+import { api } from '@ocean/ui/lib/api-client';
 
-import { WorkspaceProvider, useWorkspace } from '@uclaw/ui/contexts/WorkspaceContext';
+import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 
 function AppContent() {
   const { t } = useTranslation();
@@ -33,7 +33,7 @@ function AppContent() {
   const { id: sessionIdFromUrl } = useParams<{ id?: string }>();
   
   // ── Global Authentication & Identity State ──
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('uclaw_auth_token'));
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('ocean_auth_token'));
   const [user, setUser] = useState<any>(null);
 
   return (
@@ -55,40 +55,40 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   const { activeProject, setActiveProjectId } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState(() => {
-    const saved = localStorage.getItem('uclaw_active_tab');
+    const saved = localStorage.getItem('ocean_active_tab');
     return saved || 'chat';
   });
 
   useEffect(() => {
-    localStorage.setItem('uclaw_active_tab', activeTab);
+    localStorage.setItem('ocean_active_tab', activeTab);
   }, [activeTab]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Used for UserMenu Popover
   const [isMainSettingsOpen, setIsMainSettingsOpen] = useState(false); // Used for Settings Dialog Modal
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('uclaw_sidebar_collapsed');
+    const saved = localStorage.getItem('ocean_sidebar_collapsed');
     return saved === 'true';
   });
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed((current) => {
       const newState = !current;
-      localStorage.setItem('uclaw_sidebar_collapsed', String(newState));
+      localStorage.setItem('ocean_sidebar_collapsed', String(newState));
       return newState;
     });
   };
 
   const handleLoginSuccess = (newToken: string, userData: any) => {
-    localStorage.setItem('uclaw_auth_token', newToken);
-    localStorage.setItem('uclaw_user_id', userData.workId);
+    localStorage.setItem('ocean_auth_token', newToken);
+    localStorage.setItem('ocean_user_id', userData.workId);
     setToken(newToken);
     setUser(userData);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('uclaw_auth_token');
-    localStorage.removeItem('uclaw_user_id');
+    localStorage.removeItem('ocean_auth_token');
+    localStorage.removeItem('ocean_user_id');
     setToken(null);
     setUser(null);
     navigate('/');
@@ -143,11 +143,11 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   };
 
   const [models, setModels] = useState<any[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('uclaw_selected_model') || '');
+  const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('ocean_selected_model') || '');
 
   useEffect(() => {
     if (selectedModelId) {
-      localStorage.setItem('uclaw_selected_model', selectedModelId);
+      localStorage.setItem('ocean_selected_model', selectedModelId);
     }
   }, [selectedModelId]);
 

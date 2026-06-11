@@ -46,11 +46,11 @@ export class McpClientManager {
       if (fs.existsSync(p!)) {
         const raw = fs.readFileSync(p!, 'utf-8');
         this.config = JSON.parse(raw);
-        // Resolve ${UCLAW_ROOT} in paths
+        // Resolve ${OCEAN_ROOT} in paths
         if (uclawRoot && this.config) {
           this.config.mcpServers = this.config.mcpServers.map((s: McpServerEntry) => ({
             ...s,
-            args: s.args.map(a => a.replace(/\$\{UCLAW_ROOT\}/g, uclawRoot)),
+            args: s.args.map(a => a.replace(/\$\{OCEAN_ROOT\}/g, uclawRoot)),
           }));
         }
         console.log(`[MCP] Loaded config from: ${p}`);
@@ -101,7 +101,7 @@ export class McpClientManager {
     });
 
     const client = new Client(
-      { name: `uclaw-cli-mcp-${server.id}`, version: '1.0.0' },
+      { name: `ocean-cli-mcp-${server.id}`, version: '1.0.0' },
       { capabilities: {} }
     );
 
@@ -197,7 +197,7 @@ function replaceEnvVars(str: string, env: NodeJS.ProcessEnv): string {
 }
 
 /**
- * Find the UClaw project root by walking up the directory tree
+ * Find the Ocean project root by walking up the directory tree
  */
 function findUclawRoot(startDir: string): string | null {
   let current = startDir;

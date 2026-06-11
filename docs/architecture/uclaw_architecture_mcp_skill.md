@@ -1,4 +1,4 @@
-# UClaw 架构现状 & MCP + Skill 升级方案
+# Ocean 架构现状 & MCP + Skill 升级方案
 
 ---
 
@@ -14,12 +14,12 @@ graph TD
     subgraph Gateway["NestJS Gateway (apps/gateway)"]
         ChatController["ChatController\nPOST /chat/stream\nPOST /chat/im"]
         ChatService["ChatService\n⚠️ 工具硬编码在此"]
-        ZentaoService["ZentaoService\n封装 @uclaw/tools-zentao"]
+        ZentaoService["ZentaoService\n封装 @ocean/tools-zentao"]
         RpcGateway["RpcGateway (Socket.io)\n下发 RPC 到本地 CLI"]
         SSOGuard["SSO Guard\n鉴权拦截"]
     end
 
-    CLI["uclaw-cli (apps/cli)\nDaemon 模式 WebSocket\n本地执行 ls/git/npm"]
+    CLI["ocean-cli (apps/cli)\nDaemon 模式 WebSocket\n本地执行 ls/git/npm"]
 
     WebUI -- "SSE Stream" --> ChatController
     IM --> ChatController
@@ -126,7 +126,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-const server = new McpServer({ name: 'uclaw-zentao', version: '1.0.0' });
+const server = new McpServer({ name: 'ocean-zentao', version: '1.0.0' });
 
 // 工具声明：标准化 Schema + 权限标注
 server.tool('getBugInfo', {
@@ -173,7 +173,7 @@ export class MCPClientManager implements OnModuleInit {
       command: config.command, // e.g. 'node'
       args: config.args,       // e.g. ['packages/mcp-zentao/dist/server.js']
     });
-    const client = new Client({ name: 'uclaw-gateway', version: '1.0.0' });
+    const client = new Client({ name: 'ocean-gateway', version: '1.0.0' });
     await client.connect(transport);
 
     // 动态拉取工具列表注册到聚合路由
@@ -271,7 +271,7 @@ export class SkillOrchestrator {
   }
 
   private async buildSystemPrompt(ctx: RequestContext, skill?: Skill): Promise<string> {
-    let base = `你是银行内网 AI 助手 UClaw。用户工号: ${ctx.userId}`;
+    let base = `你是银行内网 AI 助手 Ocean。用户工号: ${ctx.userId}`;
     
     // 注入 .AIGUIDE.md 团队规范
     if (skill?.aiguideEnabled || ctx.hasLocalCli) {

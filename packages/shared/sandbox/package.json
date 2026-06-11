@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/secure-sandbox",
+  "name": "@ocean/secure-sandbox",
   "version": "1.0.0",
-  "description": "Global enterprise-grade network sandbox and dirty words filtering for UClaw",
+  "description": "Global enterprise-grade network sandbox and dirty words filtering for Ocean",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@uclaw/core": "workspace:*"
+    "@ocean/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

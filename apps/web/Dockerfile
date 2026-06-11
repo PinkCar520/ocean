@@ -29,7 +29,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm config set ignore-scripts
 COPY . .
 
 # 编译前端
-RUN pnpm --filter @uclaw/core build
+RUN pnpm --filter @ocean/core build
 RUN pnpm --filter web build
 
 # 第二阶段：生产运行

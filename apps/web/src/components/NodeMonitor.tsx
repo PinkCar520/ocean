@@ -11,7 +11,7 @@ import { cn } from '../lib/utils';
 export function NodeMonitor() {
   const { t } = useTranslation();
   const [terminalLines, setTerminalLines] = useState<string[]>([
-    'Initializing UClaw CLI Node...',
+    'Initializing Ocean CLI Node...',
     'Connection established with PinkCar (192.168.1.105)',
     'Ready for commands.'
   ]);
@@ -24,7 +24,7 @@ export function NodeMonitor() {
   ];
 
   const processes = [
-    { pid: 1204, name: 'node uclaw-daemon.js', cpu: '1.2%', mem: '142MB' },
+    { pid: 1204, name: 'node ocean-daemon.js', cpu: '1.2%', mem: '142MB' },
     { pid: 842, name: 'git status', cpu: '0.1%', mem: '12MB' },
     { pid: 2105, name: 'npm run watch', cpu: '4.5%', mem: '320MB' },
   ];

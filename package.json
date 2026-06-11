@@ -1,7 +1,7 @@
 {
-  "name": "uclaw",
+  "name": "ocean",
   "version": "1.0.0",
-  "description": "UClaw - 银行内网人工智能工作流中枢",
+  "description": "Ocean - 银行内网人工智能工作流中枢",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -12,8 +12,8 @@
     "dev": "turbo run dev",
     "gateway": "pnpm --filter gateway start:dev",
     "web": "pnpm --filter web dev",
-    "lucid": "pnpm --filter lucid dev",
-    "daemon": "pnpm --filter @uclaw/cli start daemon",
+    "ocean-desktop": "pnpm --filter ocean-desktop dev",
+    "daemon": "pnpm --filter @ocean/cli start daemon",
     "all": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",

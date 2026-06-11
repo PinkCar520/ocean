@@ -1,5 +1,5 @@
 /**
- * UClaw API Client - 基于 Fetch 的社区最佳实践封装
+ * Ocean API Client - 基于 Fetch 的社区最佳实践封装
  * 
  * 核心特性：
  * 1. 自动注入 Authorization Token
@@ -20,7 +20,7 @@ export async function request<T>(
   url: string, 
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem('uclaw_auth_token');
+  const token = localStorage.getItem('ocean_auth_token');
   const headers = new Headers(options.headers);
 
   // 1. 自动注入鉴权 Token
@@ -62,7 +62,7 @@ export async function request<T>(
       // 4.1 自动处理登录失效
       if (response.status === 401) {
         console.error('[API] Unauthorized, redirecting to login...');
-        localStorage.removeItem('uclaw_auth_token');
+        localStorage.removeItem('ocean_auth_token');
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
           window.location.href = '/auth';
         }
@@ -123,7 +123,7 @@ export const api = {
  * 解决 useChat 中的鉴权与 SSE 兼容问题
  */
 export const authFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-  const token = localStorage.getItem('uclaw_auth_token');
+  const token = localStorage.getItem('ocean_auth_token');
   const headers = new Headers(init?.headers);
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);

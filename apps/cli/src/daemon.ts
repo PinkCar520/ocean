@@ -6,7 +6,7 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import type { RPCMessage } from '@uclaw/core';
+import type { RPCMessage } from '@ocean/core';
 import { resolveApiKey, getAutoUserId } from './utils/auth.js';
 import { CONFIG, LOG } from './utils/config.js';
 import { security } from './utils/security.js';
@@ -30,7 +30,7 @@ interface DaemonOptions {
 }
 
 export async function runDaemon(options: DaemonOptions) {
-  const effectiveUserId = process.env.UCLAW_WORK_ID || process.env.UCLAW_USER_ID || options.userId;
+  const effectiveUserId = process.env.OCEAN_WORK_ID || process.env.OCEAN_USER_ID || options.userId;
   const apiKey = await resolveApiKey();
 
   console.log(chalk.green(LOG.DAEMON) + ` Identity: ${chalk.bold(effectiveUserId)}`);

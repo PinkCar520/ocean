@@ -11,7 +11,7 @@ docker compose up -d postgres
 
 ```bash
 cd apps/gateway
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/uclaw?schema=public" npx prisma db push
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ocean?schema=public" npx prisma db push
 ```
 
 ## 步骤 2：注入内置技能数据

@@ -17,7 +17,7 @@ import { OAuthController } from './oauth.controller';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'uclaw-secret-key-2024',
+        secret: configService.get<string>('JWT_SECRET') || 'ocean-secret-key-2024',
         signOptions: { expiresIn: '7d' },
       }),
       inject: [ConfigService],

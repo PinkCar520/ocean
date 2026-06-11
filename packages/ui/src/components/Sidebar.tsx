@@ -429,7 +429,7 @@ function ProjectQuickAddDropdown({ onCreated }: { onCreated?: () => void }) {
       }
     } catch (err) {
       console.error('Failed to trigger local picker:', err);
-      alert('无法调起本地助手。请确保 UClaw 本地助手（Daemon）已启动并处于登录状态。');
+      alert('无法调起本地助手。请确保 Ocean 本地助手（Daemon）已启动并处于登录状态。');
     }
     setMenuOpen(false);
   };
@@ -537,7 +537,7 @@ export function Sidebar({
 
   // 动态获取项目列表（供全局命令菜单使用）
   useEffect(() => {
-    const token = localStorage.getItem('uclaw_auth_token');
+    const token = localStorage.getItem('ocean_auth_token');
     if (token) fetchProjectsData();
   }, [fetchProjectsData]);
 
@@ -795,7 +795,7 @@ export function Sidebar({
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-medium text-[#716B67] group-hover:text-[#1C1B1B] transition-colors truncate">{user?.name || 'Alex Rivera'}</span>
-                  <NodeStatusIndicator token={localStorage.getItem('uclaw_auth_token')} isCollapsed={false} />
+                  <NodeStatusIndicator token={localStorage.getItem('ocean_auth_token')} isCollapsed={false} />
                 </div>
                 <span className="text-[10px] text-[#716B67] truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || t('sidebar.admin')}</span>
               </div>

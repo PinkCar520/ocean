@@ -12,7 +12,7 @@ export function buildSystemPrompt(
   skills: LoadedSkill[],
   workspacePath: string,
 ): string {
-  let prompt = `你是银行内网 AI 助手 UClaw。
+  let prompt = `你是银行内网 AI 助手 Ocean。
 当前登录用户工号: ${userId}
 工作目录: ${workspacePath}
 

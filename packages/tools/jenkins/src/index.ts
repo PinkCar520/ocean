@@ -51,7 +51,7 @@ export class JenkinsTool {
    * 列出所有任务
    */
   async listJobs(): Promise<JenkinsJob[]> {
-    console.log(`[@uclaw/tools-jenkins] Listing jobs`);
+    console.log(`[@ocean/tools-jenkins] Listing jobs`);
 
     try {
       const response = await this.client.get('/api/json', {
@@ -75,9 +75,9 @@ export class JenkinsTool {
         } : undefined,
       }));
     } catch (err: any) {
-      console.error(`[@uclaw/tools-jenkins] List Jobs Error:`, err.message);
+      console.error(`[@ocean/tools-jenkins] List Jobs Error:`, err.message);
       if (err.response) {
-        console.error(`[@uclaw/tools-jenkins] Status:`, err.response.status, JSON.stringify(err.response.data));
+        console.error(`[@ocean/tools-jenkins] Status:`, err.response.status, JSON.stringify(err.response.data));
       }
       return [];
     }
@@ -87,7 +87,7 @@ export class JenkinsTool {
    * 获取任务详情
    */
   async getJobInfo(jobName: string): Promise<JenkinsJob | null> {
-    console.log(`[@uclaw/tools-jenkins] Getting job info: ${jobName}`);
+    console.log(`[@ocean/tools-jenkins] Getting job info: ${jobName}`);
 
     try {
       const response = await this.client.get(`/job/${this.encodeJobName(jobName)}/api/json`, {
@@ -112,7 +112,7 @@ export class JenkinsTool {
         } : undefined,
       };
     } catch (err: any) {
-      console.error(`[@uclaw/tools-jenkins] Get Job Info Error:`, err.message);
+      console.error(`[@ocean/tools-jenkins] Get Job Info Error:`, err.message);
       if (err.response && err.response.status === 404) {
         return null;
       }
@@ -124,7 +124,7 @@ export class JenkinsTool {
    * 获取构建状态
    */
   async getBuildStatus(jobName: string, buildNumber?: number): Promise<JenkinsBuild | null> {
-    console.log(`[@uclaw/tools-jenkins] Getting build status: ${jobName}${buildNumber ? ` #${buildNumber}` : ''}`);
+    console.log(`[@ocean/tools-jenkins] Getting build status: ${jobName}${buildNumber ? ` #${buildNumber}` : ''}`);
 
     try {
       const buildNum = buildNumber || 'lastBuild';
@@ -143,7 +143,7 @@ export class JenkinsTool {
         url: build.url,
       };
     } catch (err: any) {
-      console.error(`[@uclaw/tools-jenkins] Get Build Status Error:`, err.message);
+      console.error(`[@ocean/tools-jenkins] Get Build Status Error:`, err.message);
       if (err.response && err.response.status === 404) {
         return null;
       }
@@ -155,7 +155,7 @@ export class JenkinsTool {
    * 触发构建
    */
   async triggerBuild(jobName: string, params?: Record<string, string>): Promise<{ success: boolean; buildNumber?: number; queueUrl?: string }> {
-    console.log(`[@uclaw/tools-jenkins] Triggering build: ${jobName}${params ? ' with params' : ''}`);
+    console.log(`[@ocean/tools-jenkins] Triggering build: ${jobName}${params ? ' with params' : ''}`);
 
     try {
       const endpoint = params
@@ -173,14 +173,14 @@ export class JenkinsTool {
 
       // 尝试从队列 URL 提取构建号（需要轮询）
       if (queueUrl) {
-        console.log(`[@uclaw/tools-jenkins] Build queued, queue URL: ${queueUrl}`);
+        console.log(`[@ocean/tools-jenkins] Build queued, queue URL: ${queueUrl}`);
       }
 
       return { success: true, queueUrl };
     } catch (err: any) {
-      console.error(`[@uclaw/tools-jenkins] Trigger Build Error:`, err.message);
+      console.error(`[@ocean/tools-jenkins] Trigger Build Error:`, err.message);
       if (err.response) {
-        console.error(`[@uclaw/tools-jenkins] Status:`, err.response.status, JSON.stringify(err.response.data));
+        console.error(`[@ocean/tools-jenkins] Status:`, err.response.status, JSON.stringify(err.response.data));
       }
       return { success: false };
     }
@@ -190,7 +190,7 @@ export class JenkinsTool {
    * 获取构建日志
    */
   async getBuildLog(jobName: string, buildNumber: number): Promise<string> {
-    console.log(`[@uclaw/tools-jenkins] Getting build log: ${jobName} #${buildNumber}`);
+    console.log(`[@ocean/tools-jenkins] Getting build log: ${jobName} #${buildNumber}`);
 
     try {
       const response = await this.client.get(`/job/${this.encodeJobName(jobName)}/${buildNumber}/consoleText`, {
@@ -199,9 +199,9 @@ export class JenkinsTool {
 
       return response.data;
     } catch (err: any) {
-      console.error(`[@uclaw/tools-jenkins] Get Build Log Error:`, err.message);
+      console.error(`[@ocean/tools-jenkins] Get Build Log Error:`, err.message);
       if (err.response) {
-        console.error(`[@uclaw/tools-jenkins] Status:`, err.response.status);
+        console.error(`[@ocean/tools-jenkins] Status:`, err.response.status);
       }
       return '';
     }
@@ -212,7 +212,7 @@ export class JenkinsTool {
    * 注意：Jenkins 的审批通常通过 Input Step 实现，这里通过 API 提交审批
    */
   async approveDeployment(buildNumber: number, approved: boolean, comment?: string): Promise<boolean> {
-    console.log(`[@uclaw/tools-jenkins] ${approved ? 'Approving' : 'Rejecting'} deployment #${buildNumber}`);
+    console.log(`[@ocean/tools-jenkins] ${approved ? 'Approving' : 'Rejecting'} deployment #${buildNumber}`);
 
     try {
       // Jenkins 的 Input Step 审批 API
@@ -223,9 +223,9 @@ export class JenkinsTool {
       });
       return true;
     } catch (err: any) {
-      console.error(`[@uclaw/tools-jenkins] Approve Deployment Error:`, err.message);
+      console.error(`[@ocean/tools-jenkins] Approve Deployment Error:`, err.message);
       if (err.response) {
-        console.error(`[@uclaw/tools-jenkins] Status:`, err.response.status, JSON.stringify(err.response.data));
+        console.error(`[@ocean/tools-jenkins] Status:`, err.response.status, JSON.stringify(err.response.data));
       }
       return false;
     }

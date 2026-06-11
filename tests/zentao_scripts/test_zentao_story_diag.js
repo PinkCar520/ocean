@@ -14,7 +14,7 @@ async function runDiagnostic() {
     const sessionToken = loginRes.data.token;
 
     const storyData = {
-      title: 'UClaw Verify Story ' + new Date().toISOString().slice(11, 19),
+      title: 'Ocean Verify Story ' + new Date().toISOString().slice(11, 19),
       spec: 'This is a test requirement.',
       pri: 3,
       estimate: 1,

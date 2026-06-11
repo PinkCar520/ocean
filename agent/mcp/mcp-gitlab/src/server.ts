@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * UClaw GitLab MCP Server v2.0 (Production Grade)
+ * Ocean GitLab MCP Server v2.0 (Production Grade)
  * 
- * 对齐 GitLab Duo MCP 标准，并集成 UClaw Generative UI。
+ * 对齐 GitLab Duo MCP 标准，并集成 Ocean Generative UI。
  */
 
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { GitLabTool } from '@uclaw/tools-gitlab';
+import { GitLabTool } from '@ocean/tools-gitlab';
 
 // ──────────────────────────────────────────────
 // 初始化 GitLab 工具
@@ -20,7 +20,7 @@ const gitlab = new GitLabTool({
 });
 
 const server = new McpServer({
-  name: 'uclaw-gitlab',
+  name: 'ocean-gitlab',
   version: '2.0.0',
 });
 

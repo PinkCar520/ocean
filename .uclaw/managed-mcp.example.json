@@ -1,9 +1,9 @@
 {
-  "_comment": "UClaw Managed MCP Config - Organization Policy (Cannot be overridden by users)",
+  "_comment": "Ocean Managed MCP Config - Organization Policy (Cannot be overridden by users)",
   "_organization": "Your Organization Name",
   "_version": "1.0.0",
 
-  "organization": "UClaw Enterprise",
+  "organization": "Ocean Enterprise",
   "version": "1.0.0",
 
   "deniedServers": [

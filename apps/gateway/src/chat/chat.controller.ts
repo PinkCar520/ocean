@@ -4,8 +4,8 @@ import { ChatService } from './chat.service';
 import { SkillOrchestrator } from '../skill/skill.orchestrator';
 import { SkillLoader } from '../skill/skill.loader';
 import { RpcGateway } from './rpc.gateway';
-import { UpChatHandler } from '@uclaw/mcp-im';
-import type { SkillContext } from '@uclaw/core';
+import { UpChatHandler } from '@ocean/mcp-im';
+import type { SkillContext } from '@ocean/core';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -69,7 +69,7 @@ export class ChatController {
     return {
       success: true,
       user: req.user,
-      platform: 'UClaw Workbuddy',
+      platform: 'Ocean Workbuddy',
       timestamp: new Date().toISOString(),
     };
   }

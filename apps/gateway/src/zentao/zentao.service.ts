@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ZentaoTool } from '@uclaw/tools-zentao';
-import { BugDetail } from '@uclaw/core';
+import { ZentaoTool } from '@ocean/tools-zentao';
+import { BugDetail } from '@ocean/core';
 
 @Injectable()
 export class ZentaoService implements OnModuleInit {
@@ -33,7 +33,7 @@ export class ZentaoService implements OnModuleInit {
   }
 
   async getBugStats() {
-    // 默认获取产品 ID 为 4 的统计（即您刚才创建的 UClaw 产品）
+    // 默认获取产品 ID 为 4 的统计（即您刚才创建的 Ocean 产品）
     return this.zentaoTool.getBugStats(4);
   }
 }

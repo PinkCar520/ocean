@@ -1,9 +1,9 @@
 {
-  "name": "@uclaw/skills",
+  "name": "@ocean/skills",
   "version": "1.0.0",
-  "description": "SOP Business Workflow Orchestration Layer (Intelligence Zone) for UClaw",
+  "description": "SOP Business Workflow Orchestration Layer (Intelligence Zone) for Ocean",
   "private": true,
   "dependencies": {
-    "@uclaw/core": "workspace:*"
+    "@ocean/core": "workspace:*"
   }
 }

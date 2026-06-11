@@ -1,4 +1,4 @@
-// Core types for UClaw CLI
+// Core types for Ocean CLI
 
 import type { UIMessage, ModelMessage } from 'ai';
 

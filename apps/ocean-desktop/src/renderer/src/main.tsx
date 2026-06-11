@@ -1,8 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
-import '@uclaw/ui/lib/i18n'
-import { TooltipProvider } from '@uclaw/ui/components/tooltip'
+import '@ocean/ui/lib/i18n'
+import { TooltipProvider } from '@ocean/ui/components/tooltip'
 import App from './App'
 import './index.css'
 

@@ -25,7 +25,7 @@ export interface ApiKeyListResponse {
   expiresAt: Date | null;
   createdAt: Date;
   lastUsedAt: Date | null;
-  keyPrefix: string; // uclaw_sk_xxxx... (只显示前缀)
+  keyPrefix: string; // ocean_sk_xxxx... (只显示前缀)
 }
 
 @Injectable()
@@ -38,7 +38,7 @@ export class ApiKeyService {
   async createApiKey(userId: string, dto: CreateApiKeyDto): Promise<ApiKeyResponse> {
     // Generate key with prefix
     const randomPart = randomBytes(32).toString('hex');
-    const key = `uclaw_sk_${randomPart}`;
+    const key = `ocean_sk_${randomPart}`;
 
     // Hash the key for storage
     const keyHash = createHash('sha256').update(key).digest('hex');

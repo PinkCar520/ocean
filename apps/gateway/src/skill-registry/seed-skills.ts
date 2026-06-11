@@ -7,7 +7,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/uclaw?schema=public',
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ocean?schema=public',
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -50,7 +50,7 @@ const builtInSkills = [
     category: 'cicd',
     source: 'internal',
     version: '1.0',
-    author: 'uclaw',
+    author: 'ocean',
     license: 'Proprietary',
     compatibility: '需要 JENKINS_URL, JENKINS_USER, JENKINS_API_TOKEN 环境变量',
     icon: 'Rocket',
@@ -65,7 +65,7 @@ const builtInSkills = [
     category: 'vc',
     source: 'internal',
     version: '1.0',
-    author: 'uclaw',
+    author: 'ocean',
     license: 'Proprietary',
     compatibility: '需要 mcp-gitlab MCP Server',
     icon: 'GitPullRequest',

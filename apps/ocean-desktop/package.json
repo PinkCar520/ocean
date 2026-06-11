@@ -1,5 +1,5 @@
 {
-  "name": "lucid",
+  "name": "ocean-desktop",
   "productName": "Lucid",
   "version": "1.0.0",
   "description": "An Electron application with React and TypeScript",
@@ -24,7 +24,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "@uclaw/ui": "workspace:*",
+    "@ocean/ui": "workspace:*",
     "i18next": "^26.3.1",
     "lucide-react": "^1.17.0",
     "react-i18next": "^17.0.8",

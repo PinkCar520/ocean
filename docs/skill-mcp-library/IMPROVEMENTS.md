@@ -1,6 +1,6 @@
-# UClaw MCP & Skill 功能完善报告
+# Ocean MCP & Skill 功能完善报告
 
-> 基于 Claude Code 官方推荐的最佳实践，对 UClaw 的 MCP 和 Skill 系统进行全面升级。
+> 基于 Claude Code 官方推荐的最佳实践，对 Ocean 的 MCP 和 Skill 系统进行全面升级。
 
 ---
 
@@ -179,7 +179,7 @@
 
 ## 四、与 Claude Code 官方推荐的对比
 
-| 特性 | Claude Code | UClaw (改进后) | 状态 |
+| 特性 | Claude Code | Ocean (改进后) | 状态 |
 |------|-------------|-----------------|------|
 | SKILL.md 标准格式 | ✅ | ✅ | 兼容 |
 | 权限规则 (allow/deny/ask) | ✅ | ✅ | 兼容 |
@@ -265,7 +265,7 @@ curl "http://localhost:3000/api/permissions/evaluate?toolName=getBugInfo"
 
 ## 七、总结
 
-本次改进使 UClaw 的 MCP 和 Skill 系统与 Claude Code 官方推荐**高度兼容**，主要成就：
+本次改进使 Ocean 的 MCP 和 Skill 系统与 Claude Code 官方推荐**高度兼容**，主要成就：
 
 1. ✅ **标准化** — 所有 SKILL.md 遵循统一格式
 2. ✅ **细粒度权限** — 支持 allow/deny/ask 规则和通配符

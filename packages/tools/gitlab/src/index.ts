@@ -115,7 +115,7 @@ export class GitLabTool {
   private handleError(operation: string, err: any) {
     const status = err.response?.status;
     const message = err.response?.data?.message || err.message;
-    console.error(`[@uclaw/tools-gitlab] ${operation} Failed [${status}]: ${JSON.stringify(message)}`);
+    console.error(`[@ocean/tools-gitlab] ${operation} Failed [${status}]: ${JSON.stringify(message)}`);
     throw new Error(`GitLab ${operation} Error: ${status} - ${JSON.stringify(message)}`);
   }
 

@@ -54,7 +54,7 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   if (process.platform === 'darwin') {
-    app.dock.setIcon(icon)
+    app.dock?.setIcon(icon)
     app.setAboutPanelOptions({
       applicationName: app.getName(),
       applicationVersion: app.getVersion(),
@@ -79,7 +79,7 @@ app.whenReady().then(() => {
   // Native File System Operations for Local Projects
   ipcMain.handle('create-local-project', async (_, projectName: string) => {
     try {
-      const uclawDir = join(os.homedir(), 'Documents', 'Lucid');
+      const uclawDir = join(os.homedir(), 'Documents', 'Ocean');
       if (!fs.existsSync(uclawDir)) {
         fs.mkdirSync(uclawDir, { recursive: true });
       }

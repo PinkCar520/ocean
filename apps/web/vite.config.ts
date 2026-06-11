@@ -11,7 +11,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@uclaw/ui': path.resolve(__dirname, '../../packages/ui/src')
+      '@ocean/ui': path.resolve(__dirname, '../../packages/ui/src')
     }
   },
   server: {

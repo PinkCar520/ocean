@@ -16,7 +16,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@uclaw/ui/*": ["../../packages/ui/src/*"]
+      "@ocean/ui/*": ["../../packages/ui/src/*"]
     },
 
     /* Linting */

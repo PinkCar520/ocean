@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/ui",
+  "name": "@ocean/ui",
   "version": "0.1.0",
-  "description": "UClaw shared UI component library",
+  "description": "Ocean shared UI component library",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",

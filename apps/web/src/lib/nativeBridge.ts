@@ -5,7 +5,7 @@
 
 export const isNative = () => {
   return typeof window !== 'undefined' && 
-         (navigator.userAgent.includes('UClawNative') || !!(window as any).webkit?.messageHandlers?.uclaw);
+         (navigator.userAgent.includes('OceanNative') || !!(window as any).webkit?.messageHandlers?.uclaw);
 };
 
 export const nativeAction = (action: string, data: any = {}) => {

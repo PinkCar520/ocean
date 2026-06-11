@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/tools-zentao",
+  "name": "@ocean/tools-zentao",
   "version": "1.0.0",
-  "description": "ZenTao (禅道) integration tools for UClaw",
+  "description": "ZenTao (禅道) integration tools for Ocean",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -9,7 +9,7 @@
     "dev": "tsc -w"
   },
   "dependencies": {
-    "@uclaw/core": "workspace:*",
+    "@ocean/core": "workspace:*",
     "axios": "^1.14.0"
   },
   "devDependencies": {

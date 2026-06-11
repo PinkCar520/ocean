@@ -16,7 +16,7 @@ async function testWithReviewer() {
       product: 1,
       module: 0,
       branch: 0,
-      title: "UClaw Reviewer Test " + new Date().toISOString().slice(11, 19),
+      title: "Ocean Reviewer Test " + new Date().toISOString().slice(11, 19),
       spec: "这是一个带评审人的测试需求",
       pri: 3,
       category: "feature",

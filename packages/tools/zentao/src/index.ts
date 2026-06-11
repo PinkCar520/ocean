@@ -1,4 +1,4 @@
-import { BugDetail } from '@uclaw/core';
+import { BugDetail } from '@ocean/core';
 import axios, { AxiosInstance } from 'axios';
 import * as crypto from 'crypto';
 
@@ -48,7 +48,7 @@ export class ZentaoTool {
   }
 
   async getBugInfo(bugId: string): Promise<BugDetail | null> {
-    console.log(`[@uclaw/tools-zentao] Fetching bug: ${bugId} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    console.log(`[@ocean/tools-zentao] Fetching bug: ${bugId} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
 
     if (this.isMock || !this.client) {
       const bug = this.mockBugs.find(b => b.id.includes(bugId) || bugId.includes(b.id));
@@ -61,7 +61,7 @@ export class ZentaoTool {
 
       // 如果提供了账号密码，则先换取临时 Token
       if (this.token.includes(':')) {
-        console.log(`[@uclaw/tools-zentao] Token is account:password, exchanging for session token...`);
+        console.log(`[@ocean/tools-zentao] Token is account:password, exchanging for session token...`);
         const [account, password] = this.token.split(':');
         try {
           const tokenRes = await this.client.post('/api.php/v1/tokens', {
@@ -69,9 +69,9 @@ export class ZentaoTool {
             password
           });
           activeToken = tokenRes.data.token;
-          console.log(`[@uclaw/tools-zentao] Successfully obtained session token.`);
+          console.log(`[@ocean/tools-zentao] Successfully obtained session token.`);
         } catch (tokenErr: any) {
-          console.error(`[@uclaw/tools-zentao] Token exchange failed:`, tokenErr.message);
+          console.error(`[@ocean/tools-zentao] Token exchange failed:`, tokenErr.message);
           // 降级使用原始 Basic Auth 尝试
         }
       }
@@ -101,9 +101,9 @@ export class ZentaoTool {
         attachments: this.extractAttachments(data),
       };
     } catch (err: any) {
-      console.error(`[@uclaw/tools-zentao] API Error:`, err.message);
+      console.error(`[@ocean/tools-zentao] API Error:`, err.message);
       if (err.response) {
-        console.error(`[@uclaw/tools-zentao] Status:`, err.response.status, JSON.stringify(err.response.data));
+        console.error(`[@ocean/tools-zentao] Status:`, err.response.status, JSON.stringify(err.response.data));
       }
       return null;
     }
@@ -113,7 +113,7 @@ export class ZentaoTool {
    * 修改 Bug 信息 (通用接口)
    */
   async updateBug(bugId: string, updateData: any): Promise<boolean> {
-    console.log(`[@uclaw/tools-zentao] Updating bug: ${bugId} (Mode: API)`);
+    console.log(`[@ocean/tools-zentao] Updating bug: ${bugId} (Mode: API)`);
     if (this.isMock || !this.client) return true;
 
     try {
@@ -136,15 +136,15 @@ export class ZentaoTool {
       });
 
       if (response.status !== 200) {
-        console.error(`[@uclaw/tools-zentao] Update Failed. Status: ${response.status}`, response.data);
+        console.error(`[@ocean/tools-zentao] Update Failed. Status: ${response.status}`, response.data);
         return false;
       }
 
       return true;
     } catch (err: any) {
-      console.error(`[@uclaw/tools-zentao] Update Error:`, err.message);
+      console.error(`[@ocean/tools-zentao] Update Error:`, err.message);
       if (err.response) {
-        console.error(`[@uclaw/tools-zentao] Full Error Response from ZenTao:`, JSON.stringify(err.response.data, null, 2));
+        console.error(`[@ocean/tools-zentao] Full Error Response from ZenTao:`, JSON.stringify(err.response.data, null, 2));
       }
       return false;
     }
@@ -174,7 +174,7 @@ export class ZentaoTool {
    * 获取 Bug 统计数据
    */
   async getBugStats(productId: number = 4): Promise<{ total: number; active: number; resolved: number }> {
-    console.log(`[@uclaw/tools-zentao] Fetching Bug stats for product: ${productId}`);
+    console.log(`[@ocean/tools-zentao] Fetching Bug stats for product: ${productId}`);
     if (this.isMock || !this.client) return { total: 12, active: 8, resolved: 4 };
 
     try {
@@ -196,13 +196,13 @@ export class ZentaoTool {
         resolved: bugs.filter((b: any) => b.status === 'resolved').length
       };
     } catch (err: any) {
-      console.error(`[@uclaw/tools-zentao] Stats Error:`, err.message);
+      console.error(`[@ocean/tools-zentao] Stats Error:`, err.message);
       return { total: 0, active: 0, resolved: 0 };
     }
   }
 
   async searchBugs(query: string): Promise<BugDetail[]> {
-    console.log(`[@uclaw/tools-zentao] Searching bugs with query: ${query} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    console.log(`[@ocean/tools-zentao] Searching bugs with query: ${query} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
     
     if (this.isMock || !this.client) {
       const normalizedQuery = query.toLowerCase();
@@ -236,7 +236,7 @@ export class ZentaoTool {
         description: '',
       }));
     } catch (err: any) {
-      console.error(`[@uclaw/tools-zentao] API Search Error:`, err.message);
+      console.error(`[@ocean/tools-zentao] API Search Error:`, err.message);
       return [];
     }
   }
@@ -250,7 +250,7 @@ export class ZentaoTool {
    * 禅道 22.0 API: POST /api.php/v1/products/{productId}/stories
    */
   async createStory(productId: number, data: { title: string; spec: string; pri?: number; estimate?: number }): Promise<any> {
-    console.log(`[@uclaw/tools-zentao] Creating story in product: ${productId} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    console.log(`[@ocean/tools-zentao] Creating story in product: ${productId} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
     if (this.isMock || !this.client) {
       return { id: `STORY-${Math.floor(Math.random() * 1000)}`, title: data.title, status: 'active' };
     }
@@ -286,15 +286,15 @@ export class ZentaoTool {
         }
       });
       
-      console.log(`[@uclaw/tools-zentao] Create Story Success. Status: ${response.status}`);
-      console.debug(`[@uclaw/tools-zentao] Response Body:`, JSON.stringify(response.data, null, 2));
+      console.log(`[@ocean/tools-zentao] Create Story Success. Status: ${response.status}`);
+      console.debug(`[@ocean/tools-zentao] Response Body:`, JSON.stringify(response.data, null, 2));
       return { success: true, data: response.data };
     } catch (err: any) {
       const errorMsg = err.message;
       const responseData = err.response?.data;
-      console.error(`[@uclaw/tools-zentao] Create Story Error:`, errorMsg);
+      console.error(`[@ocean/tools-zentao] Create Story Error:`, errorMsg);
       if (responseData) {
-        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
+        console.error(`[@ocean/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
       }
       return { success: false, error: responseData || errorMsg };
     }
@@ -305,7 +305,7 @@ export class ZentaoTool {
    * 禅道 22.0 API: GET /api.php/v1/stories/{storyId}
    */
   async getStoryInfo(storyId: string): Promise<any> {
-    console.log(`[@uclaw/tools-zentao] Fetching story: ${storyId}`);
+    console.log(`[@ocean/tools-zentao] Fetching story: ${storyId}`);
     if (this.isMock || !this.client) {
       return { id: storyId, title: "Mock Story", status: "active", spec: "Mock story description." };
     }
@@ -325,7 +325,7 @@ export class ZentaoTool {
       
       return response.data;
     } catch (err: any) {
-      console.error(`[@uclaw/tools-zentao] Fetch Story Error:`, err.message);
+      console.error(`[@ocean/tools-zentao] Fetch Story Error:`, err.message);
       return null;
     }
   }
@@ -335,7 +335,7 @@ export class ZentaoTool {
    * 禅道 22.0 API: GET /api.php/v1/stories?title={query}
    */
   async searchStories(query: string): Promise<any[]> {
-    console.log(`[@uclaw/tools-zentao] Searching stories: ${query}`);
+    console.log(`[@ocean/tools-zentao] Searching stories: ${query}`);
     if (this.isMock || !this.client) {
       return [{ id: 'STORY-101', title: `[Mock] Search result for ${query}`, status: 'active' }];
     }
@@ -353,12 +353,12 @@ export class ZentaoTool {
         headers: { 'Token': activeToken }
       });
       
-      console.debug(`[@uclaw/tools-zentao] Search Stories Response:`, JSON.stringify(response.data, null, 2));
+      console.debug(`[@ocean/tools-zentao] Search Stories Response:`, JSON.stringify(response.data, null, 2));
       return Array.isArray(response.data.stories) ? response.data.stories : [];
     } catch (err: any) {
-      console.error(`[@uclaw/tools-zentao] Search Stories Error:`, err.message);
+      console.error(`[@ocean/tools-zentao] Search Stories Error:`, err.message);
       if (err.response && err.response.data) {
-        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(err.response.data, null, 2));
+        console.error(`[@ocean/tools-zentao] Full Error Response:`, JSON.stringify(err.response.data, null, 2));
       }
       return [];
     }
@@ -369,7 +369,7 @@ export class ZentaoTool {
    * 禅道 22.0 API: GET /api.php/v1/products
    */
   async listProducts(): Promise<any[]> {
-    console.log(`[@uclaw/tools-zentao] Listing products (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    console.log(`[@ocean/tools-zentao] Listing products (Mode: ${this.isMock ? 'Mock' : 'API'})`);
     if (this.isMock || !this.client) {
       return [{ id: 4, name: 'Mock 产品', code: 'mock-p' }];
     }
@@ -388,7 +388,7 @@ export class ZentaoTool {
       
       return Array.isArray(response.data.products) ? response.data.products : [];
     } catch (err: any) {
-      console.error(`[@uclaw/tools-zentao] List Products Error:`, err.message);
+      console.error(`[@ocean/tools-zentao] List Products Error:`, err.message);
       return [];
     }
   }
@@ -398,7 +398,7 @@ export class ZentaoTool {
    * 禅道 22.0 API: POST /api.php/v1/products
    */
   async createProduct(data: { name: string; code: string; type?: string; desc?: string }): Promise<any> {
-    console.log(`[@uclaw/tools-zentao] Creating product: ${data.name} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    console.log(`[@ocean/tools-zentao] Creating product: ${data.name} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
     if (this.isMock || !this.client) {
       return { id: 10, name: data.name, code: data.code };
     }
@@ -427,9 +427,9 @@ export class ZentaoTool {
     } catch (err: any) {
       const errorMsg = err.message;
       const responseData = err.response?.data;
-      console.error(`[@uclaw/tools-zentao] Create Product Error:`, errorMsg);
+      console.error(`[@ocean/tools-zentao] Create Product Error:`, errorMsg);
       if (responseData) {
-        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
+        console.error(`[@ocean/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
       }
       return { success: false, error: responseData || errorMsg };
     }
@@ -441,7 +441,7 @@ export class ZentaoTool {
    * 注：从 18.0 开始，项目创建必须包含关联的产品数组 products: [ID, ...]
    */
   async createProject(data: { name: string; code: string; begin: string; end: string; desc?: string; type?: string; productIds?: number[] }): Promise<any> {
-    console.log(`[@uclaw/tools-zentao] Creating project: ${data.name} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
+    console.log(`[@ocean/tools-zentao] Creating project: ${data.name} (Mode: ${this.isMock ? 'Mock' : 'API'})`);
     if (this.isMock || !this.client) {
       return { id: 20, name: data.name, code: data.code };
     }
@@ -473,9 +473,9 @@ export class ZentaoTool {
     } catch (err: any) {
       const errorMsg = err.message;
       const responseData = err.response?.data;
-      console.error(`[@uclaw/tools-zentao] Create Project Error:`, errorMsg);
+      console.error(`[@ocean/tools-zentao] Create Project Error:`, errorMsg);
       if (responseData) {
-        console.error(`[@uclaw/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
+        console.error(`[@ocean/tools-zentao] Full Error Response:`, JSON.stringify(responseData, null, 2));
       }
       return { success: false, error: responseData || errorMsg };
     }

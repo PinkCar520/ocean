@@ -15,7 +15,7 @@ async function testV1() {
     console.log('\n--- Testing POST /api.php/v1/stories ---');
     const p1 = {
       product: 1,
-      title: 'UClaw Story V1 ' + Date.now(),
+      title: 'Ocean Story V1 ' + Date.now(),
       spec: 'Detailed specification',
       openedBy: account,
       category: 'feature',
@@ -33,7 +33,7 @@ async function testV1() {
 
     console.log('\n--- Testing POST /api.php/v1/products/1/stories (Correct fields) ---');
     const p2 = {
-      title: 'UClaw Story ProductV1 ' + Date.now(),
+      title: 'Ocean Story ProductV1 ' + Date.now(),
       spec: 'Detailed specification',
       openedBy: account,
       category: 'feature',

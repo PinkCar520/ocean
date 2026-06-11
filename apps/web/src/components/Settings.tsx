@@ -122,7 +122,7 @@ export function Settings() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-[#716B67] mb-1.5">Email Address</label>
-                  <input className="w-full bg-[#F6F3F2] border border-[#E8E4E2]/50 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#1C1B1B] focus:ring-2 focus:ring-[#EC5B14]/20 outline-none transition-all" type="email" defaultValue="m.thorne@uclaw.ai" />
+                  <input className="w-full bg-[#F6F3F2] border border-[#E8E4E2]/50 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#1C1B1B] focus:ring-2 focus:ring-[#EC5B14]/20 outline-none transition-all" type="email" defaultValue="m.thorne@ocean.ai" />
                 </div>
                 <button className="text-[#EC5B14] text-xs font-bold hover:underline">Change Password</button>
               </div>

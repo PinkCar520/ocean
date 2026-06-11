@@ -1,4 +1,4 @@
-# UClaw MCP 能力对比（升级前 vs 升级后）
+# Ocean MCP 能力对比（升级前 vs 升级后）
 
 ## 快速对比
 
@@ -290,7 +290,7 @@ POST /api/mcp/servers/:id/disconnect
 
 ## 总结
 
-本次升级是 UClaw MCP 能力的**重大飞跃**：
+本次升级是 Ocean MCP 能力的**重大飞跃**：
 
 - ✅ **补齐 3 个核心能力**（Resources、Prompts、Elicitation Gateway）
 - ✅ **新增 9 个 REST API 端点**

@@ -1,10 +1,10 @@
 {
-  "name": "@uclaw/cli",
+  "name": "@ocean/cli",
   "version": "1.0.0",
-  "description": "UClaw Terminal Deep Interaction Node",
+  "description": "Ocean Terminal Deep Interaction Node",
   "main": "dist/index.js",
   "bin": {
-    "uclaw": "./dist/index.js"
+    "ocean": "./dist/index.js"
   },
   "type": "module",
   "scripts": {
@@ -16,8 +16,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.49",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@uclaw/core": "workspace:*",
-    "@uclaw/tools-zentao": "workspace:*",
+    "@ocean/core": "workspace:*",
+    "@ocean/tools-zentao": "workspace:*",
     "ai": "^6.0.141",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",

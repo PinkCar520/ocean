@@ -179,7 +179,7 @@ export function useChatSession({
 
   // 🛡️ 加固版发送函数：确保带上最新的 parentId
   const safeSendMessage = useCallback(async (message: any, options: any = {}) => {
-    const activeToken = localStorage.getItem('uclaw_auth_token');
+    const activeToken = localStorage.getItem('ocean_auth_token');
     
     // 发送消息时，明确告知后端当前所在的父节点 ID
     // 如果是编辑，options.body 中通常会有专门的处理；如果是新消息，取当前叶子 ID

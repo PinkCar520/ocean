@@ -14,8 +14,8 @@
 
 **返回示例**：
 ```
-- uclaw/backend: UClaw 后端服务
-- uclaw/frontend: UClaw 前端应用
+- uclaw/backend: Ocean 后端服务
+- uclaw/frontend: Ocean 前端应用
 - uclaw/docs: 项目文档仓库
 ```
 
@@ -54,7 +54,7 @@
 **返回示例**：
 ```
 ✅ MR 创建成功: !43 - Fix login page bug
-https://gitlab.example.com/uclaw/frontend/-/merge_requests/43
+https://gitlab.example.com/ocean/frontend/-/merge_requests/43
 ```
 
 ---

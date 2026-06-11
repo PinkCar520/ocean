@@ -1,7 +1,7 @@
-import { BugDetail } from '@uclaw/core';
+import { BugDetail } from '@ocean/core';
 
 /**
- * UClaw Secure Sandbox
+ * Ocean Secure Sandbox
  * 
  * TODO: Implement dirty words filtering and enterprise network sandbox.
  */

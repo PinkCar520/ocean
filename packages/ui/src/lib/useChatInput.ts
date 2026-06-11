@@ -136,7 +136,7 @@ export function useChatInput({
     setAttachments([]);
 
     try {
-      const activeToken = token || localStorage.getItem('uclaw_auth_token');
+      const activeToken = token || localStorage.getItem('ocean_auth_token');
       const preparedAttachments = filesToUpload.length > 0 ? filesToUpload.map(a => ({
         name: a.name,
         contentType: a.contentType,

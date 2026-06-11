@@ -64,7 +64,7 @@ export class SkillLoader {
    *
    * Scan order (last wins on name collision):
    *   1. Built-in skills (bundled with gateway)
-   *   2. User-installed skills (~/.uclaw/skills) — reserved for UClawHub
+   *   2. User-installed skills (~/.uclaw/skills) — reserved for OceanHub
    */
   async discover(dirs?: string[]): Promise<SkillEntry[]> {
     const scanDirs = dirs ?? this.getDefaultScanDirs();
@@ -99,12 +99,12 @@ export class SkillLoader {
   private getDefaultScanDirs(): string[] {
     const dirs: string[] = [];
 
-    // 1. Built-in skills from the @uclaw/skills package
+    // 1. Built-in skills from the @ocean/skills package
     // We try to resolve the package directory. If it fails, we fall back to a relative path
     // that is standard for our new monorepo layout.
     try {
       // Use require.resolve to find the package entry, then get the directory
-      const skillsPkgPath = require.resolve('@uclaw/skills/package.json');
+      const skillsPkgPath = require.resolve('@ocean/skills/package.json');
       const skillsDir = path.dirname(skillsPkgPath);
       dirs.push(skillsDir);
       this.logger.log(`Scanning built-in skills from package: ${skillsDir}`);
@@ -130,7 +130,7 @@ export class SkillLoader {
       this.logger.log(`Scanning external skills from AGP_SKILLS_PATH: ${paths.join(', ')}`);
     }
 
-    // 3. User-installed via UClawHub (~/.uclaw/skills)
+    // 3. User-installed via OceanHub (~/.uclaw/skills)
     const userHome = process.env.HOME || process.env.USERPROFILE || '';
     if (userHome) {
       const userSkillsDir = path.join(userHome, '.uclaw', 'skills');
@@ -354,7 +354,7 @@ export class SkillLoader {
 
   /**
    * Load .AIGUIDE.md from workspace root.
-   * This is a UClaw-specific team convention file, always injected (not skill-specific).
+   * This is a Ocean-specific team convention file, always injected (not skill-specific).
    *
    * Search order:
    *   1. workspacePath (from request context)

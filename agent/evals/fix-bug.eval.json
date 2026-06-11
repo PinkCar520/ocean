@@ -1,6 +1,6 @@
 {
   "name": "fix-bug-eval",
-  "description": "Verification of the full lifecycle for bug fixing in UClaw.",
+  "description": "Verification of the full lifecycle for bug fixing in Ocean.",
   "skill": "fix-bug",
   "testCases": [
     {

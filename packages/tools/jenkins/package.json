@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/tools-jenkins",
+  "name": "@ocean/tools-jenkins",
   "version": "1.0.0",
-  "description": "Jenkins CI/CD integration tools for UClaw",
+  "description": "Jenkins CI/CD integration tools for Ocean",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

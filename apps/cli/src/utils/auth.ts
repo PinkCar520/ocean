@@ -10,11 +10,11 @@ const CRED_PATH = CONFIG.CRED_PATH;
 
 /**
  * Resolve API Key from:
- * 1. UCLAW_API_KEY environment variable
+ * 1. OCEAN_API_KEY environment variable
  * 2. ~/.uclaw/credentials.json
  */
 export async function resolveApiKey(): Promise<string | null> {
-  if (process.env.UCLAW_API_KEY) return process.env.UCLAW_API_KEY;
+  if (process.env.OCEAN_API_KEY) return process.env.OCEAN_API_KEY;
 
   try {
     const raw = await fs.readFile(CRED_PATH, 'utf-8');
@@ -64,8 +64,8 @@ export async function removeCredentials(): Promise<boolean> {
  * Get current user identity (Priority: env > git config > system user)
  */
 export async function getAutoUserId(): Promise<string> {
-  if (process.env.UCLAW_USER_ID) return process.env.UCLAW_USER_ID;
-  if (process.env.UCLAW_WORK_ID) return process.env.UCLAW_WORK_ID;
+  if (process.env.OCEAN_USER_ID) return process.env.OCEAN_USER_ID;
+  if (process.env.OCEAN_WORK_ID) return process.env.OCEAN_WORK_ID;
   try {
     const { stdout } = await execAsync('git config user.name');
     return stdout.trim() || process.env.USER || 'unknown_dev';

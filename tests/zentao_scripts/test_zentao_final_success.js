@@ -16,7 +16,7 @@ async function testFinalSuccess() {
       product: 1,
       module: 0,
       branch: 0,
-      title: "UClaw Final Success " + Date.now(),
+      title: "Ocean Final Success " + Date.now(),
       spec: "<p>This is a test story.</p>",
       pri: 1,
       category: "feature",

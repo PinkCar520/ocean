@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/tools-gitlab",
+  "name": "@ocean/tools-gitlab",
   "version": "1.0.0",
-  "description": "GitLab integration tools for UClaw",
+  "description": "GitLab integration tools for Ocean",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

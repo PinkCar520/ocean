@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/mcp-zentao",
+  "name": "@ocean/mcp-zentao",
   "version": "1.0.0",
-  "description": "UClaw ZenTao MCP Server - Standard Model Context Protocol implementation",
+  "description": "Ocean ZenTao MCP Server - Standard Model Context Protocol implementation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.0",
-    "@uclaw/tools-zentao": "workspace:*",
-    "@uclaw/core": "workspace:*",
+    "@ocean/tools-zentao": "workspace:*",
+    "@ocean/core": "workspace:*",
     "zod": "3.23.8"
   },
   "devDependencies": {

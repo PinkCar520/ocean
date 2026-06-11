@@ -1,5 +1,5 @@
 /**
- * UClaw REPL - Entry point for interactive mode
+ * Ocean REPL - Entry point for interactive mode
  * Uses Ink UI for rich terminal experience
  */
 import type { ModelMessage } from 'ai';
@@ -56,9 +56,9 @@ async function runSingleQuery(options: ReplOptions) {
   const query = options.singleQuery;
   if (!query) return;
 
-  console.log(chalk.cyan(`[UClaw] Query: ${query}`));
-  console.log(chalk.cyan(`[UClaw] User: ${options.userId}`));
-  console.log(chalk.cyan(`[UClaw] Workspace: ${options.workspace}\n`));
+  console.log(chalk.cyan(`[Ocean] Query: ${query}`));
+  console.log(chalk.cyan(`[Ocean] User: ${options.userId}`));
+  console.log(chalk.cyan(`[Ocean] Workspace: ${options.workspace}\n`));
 
   // Load config
   const cliConfig: CliConfig = {

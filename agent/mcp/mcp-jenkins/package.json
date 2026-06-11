@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/mcp-jenkins",
+  "name": "@ocean/mcp-jenkins",
   "version": "1.0.0",
-  "description": "Jenkins CI/CD MCP Server for UClaw",
+  "description": "Jenkins CI/CD MCP Server for Ocean",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.0",
-    "@uclaw/tools-jenkins": "workspace:*",
+    "@ocean/tools-jenkins": "workspace:*",
     "zod": "3.23.8"
   },
   "devDependencies": {

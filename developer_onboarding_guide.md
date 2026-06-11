@@ -1,6 +1,6 @@
-# UClaw 开发者快速上手指南 🚀
+# Ocean 开发者快速上手指南 🚀
 
-欢迎加入 UClaw 研发团队！为了帮助你快速了解项目架构并顺利跑起本地开发环境，请仔细阅读本指南。
+欢迎加入 Ocean 研发团队！为了帮助你快速了解项目架构并顺利跑起本地开发环境，请仔细阅读本指南。
 
 > [!NOTE]
 > 本项目采用 **Monorepo** (单体仓库) 架构，使用 `pnpm` 作为包管理器。所有应用和共享包都在同一个代码库中进行管理。
@@ -18,7 +18,7 @@
 - **`apps/web` (可视化面板/Web 端)**
   - **技术栈**: React + Vite + TailwindCSS
   - **职责**: 提供云端用户的浏览器交互界面。
-- **`apps/lucid` (桌面客户端)**
+- **`apps/ocean-desktop` (桌面客户端)**
   - **技术栈**: Electron + Vite + React
   - **职责**: 提供 macOS/Windows 原生桌面端体验，支持本地私有知识库的高级操作。
 
@@ -83,12 +83,12 @@ pnpm run dev
 
 ## 4. Mac 客户端 (Electron) 开发与打包 🍎
 
-客户端代码位于 `apps/lucid`。它通过 `packages/ui/src/lib/api-client.ts` 与云端 Gateway 进行通信。
+客户端代码位于 `apps/ocean-desktop`。它通过 `packages/ui/src/lib/api-client.ts` 与云端 Gateway 进行通信。
 
 ### 本地开发调试
 你可以单独开启桌面端的热更新调试：
 ```bash
-cd apps/lucid
+cd apps/ocean-desktop
 pnpm run dev
 ```
 
@@ -112,7 +112,7 @@ ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/" ELECTRON_BUILDER_BINAR
   - **A**: 之前在 `Sidebar` 和 `useProjects` 中存在 Hooks 闭包导致的无限重渲染循环。该问题已通过 `useCallback` 修复。如遇类似页面死循环，请首要排查 `useEffect` 依赖项的引用地址是否发生突变。
 
 - **Q: 桌面端打不开，或者调不通后端接口？**
-  - **A**: 检查 `packages/ui/src/lib/api-client.ts`。生产环境下桌面端的 API base URL 可以通过 `localStorage.getItem('uclaw_desktop_api_base')` 覆盖，默认为 `http://43.139.108.187:3000`。如果是本地开发调试，请在终端控制台或代码中切回 `http://127.0.0.1:3000`。
+  - **A**: 检查 `packages/ui/src/lib/api-client.ts`。生产环境下桌面端的 API base URL 可以通过 `localStorage.getItem('ocean_desktop_api_base')` 覆盖，默认为 `http://43.139.108.187:3000`。如果是本地开发调试，请在终端控制台或代码中切回 `http://127.0.0.1:3000`。
 
 - **Q: 数据库提示 `type "vector" does not exist`？**
   - **A**: 这是因为你的 PostgreSQL 没有安装 `pgvector` 扩展。你可以连接进数据库后，手动执行 SQL：`CREATE EXTENSION IF NOT EXISTS vector;`。

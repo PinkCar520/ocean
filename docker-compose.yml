@@ -1,10 +1,10 @@
 services:
-  # UClaw AI 网关总线 (NestJS + Prisma)
+  # Ocean AI 网关总线 (NestJS + Prisma)
   gateway:
     build:
       context: .
       dockerfile: apps/gateway/Dockerfile
-    container_name: uclaw-gateway
+    container_name: ocean-gateway
     restart: always
     ports:
       - "3000:3000"
@@ -12,10 +12,10 @@ services:
       - .env
     volumes:
       - ./agent/skills:/app/agent/skills
-      - uclaw_gateway_uploads:/app/public/uploads
+      - ocean_gateway_uploads:/app/public/uploads
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/uclaw?schema=public
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ocean?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
@@ -29,12 +29,12 @@ services:
       redis:
         condition: service_started
 
-  # UClaw AI 可视化面板 (React/Vite + Nginx)
+  # Ocean AI 可视化面板 (React/Vite + Nginx)
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: uclaw-web
+    container_name: ocean-web
     restart: always
     ports:
       - "8081:80"
@@ -58,7 +58,7 @@ services:
   # 用户中心持久化核心 (支持 Vector 检索)
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: uclaw-postgres
+    container_name: ocean-postgres
     restart: always
     environment:
       - POSTGRES_USER=postgres
@@ -67,7 +67,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - uclaw_postgres_data:/var/lib/postgresql/data
+      - ocean_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -77,7 +77,7 @@ services:
   # 可观测性中心 (Tracing / Jaeger)
   jaeger:
     image: jaegertracing/all-in-one:latest
-    container_name: uclaw-jaeger
+    container_name: ocean-jaeger
     restart: always
     ports:
       - "16686:16686" # UI
@@ -94,13 +94,13 @@ services:
   # 会话记忆与流控层 (Redis)
   redis:
     image: redis:7-alpine
-    container_name: uclaw-redis
+    container_name: ocean-redis
     ports:
       - "6379:6379"
     volumes:
-      - uclaw_redis_data:/data
+      - ocean_redis_data:/data
 
 volumes:
-  uclaw_postgres_data:
-  uclaw_redis_data:
-  uclaw_gateway_uploads:
+  ocean_postgres_data:
+  ocean_redis_data:
+  ocean_gateway_uploads:

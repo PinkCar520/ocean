@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useInput } from 'ink';
 
-interface UseUClawInputProps {
+interface UseOceanInputProps {
   initialValue?: string;
   onEnter?: (value: string) => boolean | void; // Return true to keep value (completion)
   onTab?: (value: string) => string | void; // Return new value if completed
@@ -14,7 +14,7 @@ interface UseUClawInputProps {
  * Manages text state, cursor position, and keyboard events manually.
  * Fixed: Proper Unicode/Chinese character support and stable cursor tracking.
  */
-export function useUClawInput({ initialValue = '', onEnter, onTab, onUp, onDown }: UseUClawInputProps) {
+export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown }: UseOceanInputProps) {
   const [value, setValue] = useState(initialValue);
   const [cursorOffset, setCursorOffset] = useState(initialValue.length);
   const valueRef = useRef(value);

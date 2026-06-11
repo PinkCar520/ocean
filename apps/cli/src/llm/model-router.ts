@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import type { ModelConfig, ModelProvider } from '../types.js';
+import type { ModelConfig, ModelProvider, CliConfig } from '../types.js';
 import type { LanguageModel } from 'ai';
 
 interface ModelRouter {

@@ -9,7 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, 'apps/gateway/.env') });
 
 const baseUrl = process.env.ZENTAO_BASE_URL || 'http://localhost:8080';
 const key = process.env.ZENTAO_API_TOKEN || '';
-const code = 'uclaw';
+const code = 'ocean';
 const account = 'pinkcar';
 
 async function test() {

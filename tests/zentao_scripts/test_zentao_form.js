@@ -15,7 +15,7 @@ async function testForm() {
     console.log('--- 尝试表单格式 (URLSearchParams) ---');
     const formData = {
       product: 1,
-      title: "UClaw Form Test " + Date.now(),
+      title: "Ocean Form Test " + Date.now(),
       spec: "test description",
       pri: 1,
       category: "feature",

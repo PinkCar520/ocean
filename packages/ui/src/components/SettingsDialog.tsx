@@ -105,7 +105,7 @@ export function SettingsDialog({ isOpen, onClose, token }: SettingsDialogProps) 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `uclaw-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `ocean-data-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
     } catch (err: any) {
       console.error('Export failed:', err.message);

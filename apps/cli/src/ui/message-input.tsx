@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import chalk from 'chalk';
-import { useUClawInput } from '../hooks/useUClawInput.js';
+import { useOceanInput } from '../hooks/useOceanInput.js';
 
 interface MessageInputProps {
   isWaiting: boolean;
@@ -11,7 +11,7 @@ interface MessageInputProps {
 
 const COMMANDS = [
   { name: '/help', desc: 'Show available commands' },
-  { name: '/login', desc: 'Sign in to UClaw Gateway' },
+  { name: '/login', desc: 'Sign in to Ocean Gateway' },
   { name: '/logout', desc: 'Remove local credentials' },
   { name: '/whoami', desc: 'Show current identity' },
   { name: '/clear', desc: 'Clear conversation history' },
@@ -50,7 +50,7 @@ export function MessageInput({ isWaiting, isThinking, onSubmit }: MessageInputPr
   };
 
   // 1. Core State & Logic using our Hook
-  const { value, cursorOffset, setValue, setCursorOffset } = useUClawInput({
+  const { value, cursorOffset, setValue, setCursorOffset } = useOceanInput({
     onEnter: (val) => {
       const ms = currentMatches(val);
       if (ms.length > 0) {

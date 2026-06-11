@@ -6,13 +6,13 @@
 
 ## 2. 协议标准
 
-UClaw 的技能与 MCP 系统遵循以下三层协议架构：
+Ocean 的技能与 MCP 系统遵循以下三层协议架构：
 
 | 层级 | 协议 | 来源 | 说明 |
 |---|---|---|---|
 | L1 | **MCP (Model Context Protocol)** | Anthropic 标准 | 工具/数据源接入层，JSON-RPC 协议 |
 | L2 | **SKILL.md (Agent Skills)** | Claude Code / OpenClaw 标准 | 可复用指令打包格式 |
-| L3 | **AGP (Agent Governance Protocol)** | UClaw 原创 | 企业级权限管控与工作流编排 |
+| L3 | **AGP (Agent Governance Protocol)** | Ocean 原创 | 企业级权限管控与工作流编排 |
 
 ### 2.1 MCP 标准（L1）
 
@@ -64,7 +64,7 @@ tools_required:
   - json-parse
 ```
 
-### 2.3 AGP 扩展（L3 — UClaw 企业增强）
+### 2.3 AGP 扩展（L3 — Ocean 企业增强）
 
 在标准 SKILL.md 基础上增加企业治理字段：
 
@@ -267,5 +267,5 @@ CREATE TABLE mcp_servers (
 |---|---|---|---|
 | OpenClaw Hub | 标准 SKILL.md + skill.yaml | HTTP API | Phase 3 |
 | Claude Code | 标准 SKILL.md | 本地路径 / ZIP | Phase 3 |
-| UClaw 自建 | AGP 扩展 SKILL.md | 内置 | Phase 1 |
+| Ocean 自建 | AGP 扩展 SKILL.md | 内置 | Phase 1 |
 | 自定义 Git | SKILL.md 在仓库根目录 | Git clone | Phase 3 |

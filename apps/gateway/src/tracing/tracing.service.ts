@@ -9,7 +9,7 @@ export class TracingService implements OnModuleInit {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
   ) {
-    this.tracer = trace.getTracer('uclaw-gateway');
+    this.tracer = trace.getTracer('ocean-gateway');
   }
 
   onModuleInit() {

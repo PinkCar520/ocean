@@ -1,11 +1,11 @@
-# UClaw MCP 完整升级总结
+# Ocean MCP 完整升级总结
 
 ## 实施日期
 2026-04-13
 
 ## 执行摘要
 
-本次升级**全面完成** UClaw MCP 协议能力建设，成功对标 Claude MCP 核心能力。通过 **4 个阶段、27 项任务**的实施，实现了从"仅支持 Tools"到"完整 MCP 协议栈"的跨越式升级。
+本次升级**全面完成** Ocean MCP 协议能力建设，成功对标 Claude MCP 核心能力。通过 **4 个阶段、27 项任务**的实施，实现了从"仅支持 Tools"到"完整 MCP 协议栈"的跨越式升级。
 
 ---
 
@@ -166,14 +166,14 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                      UClaw Web 前端                       │
+│                      Ocean Web 前端                       │
 │  ┌─────────────────────┐  ┌──────────────────────────┐  │
 │  │ MCPElicitationDialog│  │  ToolApprovalDialog      │  │
 │  └─────────────────────┘  └──────────────────────────┘  │
 └────────────────────────┬─────────────────────────────────┘
                          │ WebSocket / REST API
 ┌────────────────────────▼─────────────────────────────────┐
-│                   UClaw Gateway                          │
+│                   Ocean Gateway                          │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │          MCPConfigWatcher (文件监听)              │   │
 │  └──────────────────────────────────────────────────┘   │
@@ -345,7 +345,7 @@
 
 ## 🎯 与 Claude MCP 对比（最终版）
 
-| 能力维度 | UClaw (升级后) | Claude MCP | 状态 |
+| 能力维度 | Ocean (升级后) | Claude MCP | 状态 |
 |---------|---------------|------------|------|
 | **核心协议** | | | |
 | Tools | ✅ 22 个工具 | ✅ 数百个 | ✅ 协议兼容 |
@@ -366,12 +366,12 @@
 | | | | |
 | **运维** | | | |
 | 热加载 | ✅ 文件监听 | ✅ | ✅ |
-| 健康检查 | ✅ 定时轮询 | ❌ | 🟢 UClaw 领先 |
-| 数据库持久化 | ✅ 3 个模型 | ❌ | 🟢 UClaw 领先 |
-| Web UI 管理 | ✅ | ❌ | 🟢 UClaw 领先 |
-| Generative UI | ✅ `__UI__:` 协议 | ❌ | 🟢 UClaw 领先 |
+| 健康检查 | ✅ 定时轮询 | ❌ | 🟢 Ocean 领先 |
+| 数据库持久化 | ✅ 3 个模型 | ❌ | 🟢 Ocean 领先 |
+| Web UI 管理 | ✅ | ❌ | 🟢 Ocean 领先 |
+| Generative UI | ✅ `__UI__:` 协议 | ❌ | 🟢 Ocean 领先 |
 
-**结论：UClaw MCP 已具备 Claude MCP 核心能力，并在企业管理方面实现超越。**
+**结论：Ocean MCP 已具备 Claude MCP 核心能力，并在企业管理方面实现超越。**
 
 ---
 
@@ -393,7 +393,7 @@ cd agent/mcp/mcp-zentao && pnpm build
 
 ```bash
 cd apps/gateway
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/uclaw?schema=public" \
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ocean?schema=public" \
   npx prisma db push
 ```
 
@@ -549,11 +549,11 @@ curl http://localhost:3000/api/mcp-servers
 ## 📞 联系方式
 
 如有问题或建议，请联系：
-- **开发团队**: UClaw AI 团队
+- **开发团队**: Ocean AI 团队
 - **文档**: `/docs/architecture/` 目录
 - **问题反馈**: 提交 Issue 或 PR
 
 ---
 
-*UClaw - 银行内网人工智能工作流中枢*  
+*Ocean - 银行内网人工智能工作流中枢*  
 *MCP 升级完成于 2026-04-13*

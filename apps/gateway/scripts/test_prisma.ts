@@ -3,7 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 async function main() {
-  const pool = new Pool({ connectionString: 'postgresql://postgres:postgres@localhost:5432/uclaw?schema=public' });
+  const pool = new Pool({ connectionString: 'postgresql://postgres:postgres@localhost:5432/ocean?schema=public' });
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter });
 

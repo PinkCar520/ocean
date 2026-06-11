@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 
 export const CONFIG = {
-  GATEWAY_URL: process.env.UCLAW_GATEWAY_URL || 'http://localhost:3000',
+  GATEWAY_URL: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
   CRED_DIR: path.join(os.homedir(), '.uclaw'),
   get CRED_PATH() {
     return path.join(this.CRED_DIR, 'credentials.json');
@@ -14,7 +14,7 @@ export const CONFIG = {
  * Common logging prefixes
  */
 export const LOG = {
-  PREFIX: '[UClaw]',
-  DAEMON: '[UClaw Daemon]',
+  PREFIX: '[Ocean]',
+  DAEMON: '[Ocean Daemon]',
   RPC: '[RPC Request]',
 };

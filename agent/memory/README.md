@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-The Memory Layer provides long-term persistence for the UClaw agent, enabling it to remember past bug fixes, project contexts, and user preferences across separate chat sessions.
+The Memory Layer provides long-term persistence for the Ocean agent, enabling it to remember past bug fixes, project contexts, and user preferences across separate chat sessions.
 
 ### 1. Vector Memory (RAG)
 - **Engine**: ChromaDB or Milvus (Local for Intranet).

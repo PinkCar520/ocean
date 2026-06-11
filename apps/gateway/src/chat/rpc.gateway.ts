@@ -6,7 +6,7 @@ import {
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import type { RPCResponse } from '@uclaw/core';
+import type { RPCResponse } from '@ocean/core';
 import { ApprovalService } from '../skill/approval.service';
 import { OrchestratorService } from './orchestrator.service';
 

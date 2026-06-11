@@ -14,7 +14,7 @@ async function testDoc() {
 
     console.log('\n--- 使用官方文档推荐的 POST /stories ---');
     const p = {
-      title: 'UClaw Story DocTest ' + new Date().toISOString().slice(11, 19),
+      title: 'Ocean Story DocTest ' + new Date().toISOString().slice(11, 19),
       product: 1, // ID
       pri: 3,     // 必填
       category: 'feature', // 必填

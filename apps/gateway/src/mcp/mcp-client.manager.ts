@@ -365,7 +365,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       const transport = await createTransport(resolvedConfig);
 
       const client = new Client(
-        { name: 'uclaw-gateway', version: '1.0.0' },
+        { name: 'ocean-gateway', version: '1.0.0' },
         { capabilities: { sampling: {} } },
       );
 
@@ -388,7 +388,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
           return {
             role: 'assistant',
             content: { type: 'text', text: responseText },
-            model: 'uclaw-gateway-integrated-model',
+            model: 'ocean-gateway-integrated-model',
             stopReason: 'endTurn',
           };
         },

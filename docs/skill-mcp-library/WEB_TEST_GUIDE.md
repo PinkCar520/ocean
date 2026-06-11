@@ -242,9 +242,9 @@ curl http://localhost:3000/api/mcp-servers
 ### 1. 查看 Gateway 日志
 
 ```bash
-docker logs uclaw-gateway -f | grep -i permission
+docker logs ocean-gateway -f | grep -i permission
 # 或
-docker logs uclaw-gateway -f | grep -i "AGP"
+docker logs ocean-gateway -f | grep -i "AGP"
 ```
 
 ### 2. 查看浏览器 Network 请求
@@ -285,7 +285,7 @@ curl http://localhost:3000/api/health
 curl http://localhost:3000/api/permissions/settings
 
 # 检查 Gateway 日志
-docker logs uclaw-gateway 2>&1 | tail -50
+docker logs ocean-gateway 2>&1 | tail -50
 ```
 
 ### 问题 2: 保存设置后刷新丢失
@@ -307,7 +307,7 @@ ls -la .uclaw/settings.json
 cat agent/skills/fix-bug/SKILL.md
 
 # 检查 Gateway 日志中的 Skills 加载信息
-docker logs uclaw-gateway 2>&1 | grep -i "skills"
+docker logs ocean-gateway 2>&1 | grep -i "skills"
 ```
 
 ---

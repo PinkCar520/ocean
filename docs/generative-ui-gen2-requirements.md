@@ -256,7 +256,7 @@ export interface ToolResult<T = unknown> {
 |------|------|
 | **文件** | `packages/shared/core/src/ui-protocol.ts`（新增） |
 | **导出** | 在 `packages/shared/core/src/index.ts` 中重新导出所有类型 |
-| **验收标准** | 前端 `import type { UIBugCard } from '@uclaw/core'` 可编译通过 |
+| **验收标准** | 前端 `import type { UIBugCard } from '@ocean/core'` 可编译通过 |
 
 #### 4.2 重构 BugCard 组件
 

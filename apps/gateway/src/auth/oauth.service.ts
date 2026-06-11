@@ -74,7 +74,7 @@ export class OAuthService {
 
     // Generate API key
     const randomPart = randomBytes(32).toString('hex');
-    const key = `uclaw_sk_${randomPart}`;
+    const key = `ocean_sk_${randomPart}`;
     const keyHash = createHash('sha256').update(key).digest('hex');
 
     await this.prisma.apiKey.create({

@@ -51,8 +51,8 @@ export function AuthUI({ onSelect }: AuthAppProps) {
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="cyan">
       <Box marginBottom={1}>
         <Text bold>Welcome to </Text>
-        <Text bold color="cyan">UClaw</Text>
-        <Text dimColor>, UClaw's command-line AI assistant</Text>
+        <Text bold color="cyan">Ocean</Text>
+        <Text dimColor>, Ocean's command-line AI assistant</Text>
       </Box>
 
       <Box marginBottom={1}>

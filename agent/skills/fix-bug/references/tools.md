@@ -43,7 +43,7 @@
 
 ## runLocalCommand
 
-**来源**：UClaw RPC Gateway（本地 CLI 代理）  
+**来源**：Ocean RPC Gateway（本地 CLI 代理）  
 **用途**：在开发者本地工作站执行 CLI 指令
 
 | 参数 | 类型 | 必填 | 说明 |

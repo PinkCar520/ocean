@@ -13,7 +13,7 @@
 
 > "如果 MCP（Model Context Protocol）是连接大模型与现实世界的 USB 接口，那么 AGP 则是保障这条数据总线在企业级工厂中安全、合规、确定性流转的操作系统与权限调度引擎。"
 
-AGP（Agent Governance Protocol，智能体治理协议）是由 pinkcar 提出的 AI 智能体架构标准，旨在填补当前业界在"企业级工作流编排与安全治理"层面的协议空白。它基于 pinkcar 在 UClaw 项目中的核心实践提炼升华，与 MCP、Agent Skill 形成**三足鼎立**的下一代企业级 AI 技术栈基石。
+AGP（Agent Governance Protocol，智能体治理协议）是由 pinkcar 提出的 AI 智能体架构标准，旨在填补当前业界在"企业级工作流编排与安全治理"层面的协议空白。它基于 pinkcar 在 Ocean 项目中的核心实践提炼升华，与 MCP、Agent Skill 形成**三足鼎立**的下一代企业级 AI 技术栈基石。
 
 ---
 
@@ -149,7 +149,7 @@ requires-approval:
   - mcp.zentao.resolveBug
 
 metadata:
-  author: pinkcar/uclaw-team
+  author: pinkcar/ocean-team
   version: "1.0"
   target-system: ZenTao + GitLab
 ---
@@ -249,4 +249,4 @@ metadata:
 
 - [Anthropic MCP 官方文档](https://modelcontextprotocol.io/)
 - [Agent Skills 官方规范](https://agentskills.io/)
-- [UClaw 项目架构设计](./UClaw_PRD_and_Architecture.md)
+- [Ocean 项目架构设计](./Ocean_PRD_and_Architecture.md)

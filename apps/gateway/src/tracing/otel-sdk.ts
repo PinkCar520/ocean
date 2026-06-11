@@ -13,7 +13,7 @@ const exporter = new OTLPTraceExporter({
 export const otelSDK = new NodeSDK({
   resource: defaultResource().merge(
     resourceFromAttributes({
-      [SEMRESATTRS_SERVICE_NAME]: 'uclaw-gateway',
+      [SEMRESATTRS_SERVICE_NAME]: 'ocean-gateway',
     })
   ),
   traceExporter: exporter,

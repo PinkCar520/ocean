@@ -57,7 +57,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/uclaw-gateway
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/ocean-gateway
           tags: |
             type=raw,value=latest
             type=raw,value=${{ needs.prep.outputs.sha_short }}
@@ -100,7 +100,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/uclaw-web
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/ocean-web
           tags: |
             type=raw,value=latest
             type=raw,value=${{ needs.prep.outputs.sha_short }}
@@ -135,7 +135,7 @@ jobs:
 
       - name: Pull and Restart Containers
         run: |
-          cd ~/uclaw 2>/dev/null || cd ~/uclaw
+          cd ~/ocean 2>/dev/null || cd ~/ocean
           docker compose pull
           docker compose down
           docker compose up -d

@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/uclaw?schema=public',
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ocean?schema=public',
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });

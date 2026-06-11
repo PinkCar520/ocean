@@ -9,12 +9,12 @@
   },
   "chat": {
     "new_chat": "New Chat",
-    "placeholder": "Ask UClaw to perform a task...",
+    "placeholder": "Ask Ocean to perform a task...",
     "empty_title": "How can I help you?",
     "empty_desc": "Bridge your <1>CLI node</1> with enterprise workflows.",
     "status_secured": "Enterprise Secured",
     "status_stable": "v1.1 Stable",
-    "role_assistant": "UClaw Agent",
+    "role_assistant": "Ocean Agent",
     "role_user": "Developer",
     "empty_state": {
       "title": "Deployment Efficiency Optimized",
@@ -78,7 +78,7 @@
   },
   "skills": {
     "title": "Skills",
-    "desc": "Manage and configure UClaw's enterprise-grade tool calling capabilities.",
+    "desc": "Manage and configure Ocean's enterprise-grade tool calling capabilities.",
     "categories": {
       "all": "All",
       "devops": "DevOps & Deployment",
@@ -356,12 +356,12 @@
     "knowledge": "Knowledge Matrix",
     "login_title": "Welcome Back",
     "register_title": "Create Account",
-    "login_desc": "Resume your agentic journey with UClaw.",
+    "login_desc": "Resume your agentic journey with Ocean.",
     "register_desc": "Join the premier AI workforce orchestration platform.",
     "name_label": "Display Name",
     "name_placeholder": "Jane Doe",
     "email_label": "Email or Work ID",
-    "email_placeholder": "alex@uclaw.ai",
+    "email_placeholder": "alex@ocean.ai",
     "password_label": "Password",
     "password_placeholder": "••••••••",
     "forgot_password": "Forgot?",

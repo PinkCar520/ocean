@@ -17,18 +17,18 @@ export default defineConfig({
       extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
       alias: {
         '@renderer': resolve('src/renderer/src'),
-        '@uclaw/ui': resolve('../../packages/ui/src')
+        '@ocean/ui': resolve('../../packages/ui/src')
       }
     },
     server: {
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:3000',
+          target: 'http://43.139.108.187:8081',
           changeOrigin: true,
           secure: false
         },
         '/public': {
-          target: 'http://127.0.0.1:3000',
+          target: 'http://43.139.108.187:8081',
           changeOrigin: true
         }
       }

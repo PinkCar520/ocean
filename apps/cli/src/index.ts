@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * UClaw CLI - Entry Point
+ * Ocean CLI - Entry Point
  * 
  * Dual mode:
  * - `uclaw <command>` - Single command execution
@@ -49,8 +49,8 @@ import { resolveApiKey, saveCredentials, removeCredentials, getAutoUserId } from
 const program = new Command();
 
 program
-  .name('uclaw')
-  .description('UClaw AI Workstream Terminal Node')
+  .name('ocean')
+  .description('Ocean AI Workstream Terminal Node')
   .version('1.0.0');
 
 /**
@@ -62,7 +62,7 @@ async function ensureAuth(gatewayUrl: string): Promise<boolean> {
   if (existing) return true;
 
   // Not authenticated, prompt user to login (Codex-style UI)
-  console.log(chalk.bold('\nWelcome to UClaw') + chalk.gray(", UClaw's command-line AI assistant"));
+  console.log(chalk.bold('\nWelcome to Ocean') + chalk.gray(", Ocean's command-line AI assistant"));
   console.log(chalk.gray('Sign in via browser or provide an API key to get started\n'));
 
   const { action } = await renderAuthMenu();
@@ -113,7 +113,7 @@ program
   .option('-w, --workspace <path>', 'Workspace directory', process.cwd())
   .option('-u, --user <userId>', 'User ID')
   .action(async (query, options) => {
-    const gatewayUrl = process.env.UCLAW_GATEWAY_URL || 'http://localhost:3000';
+    const gatewayUrl = process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
     const workspace = path.resolve(options.workspace);
 
     // Ensure authenticated
@@ -124,13 +124,13 @@ program
 
     if (query) {
       // Single query mode - non-interactive
-      console.log(chalk.cyan(`[UClaw] Query: ${query}`));
-      console.log(chalk.cyan(`[UClaw] User: ${userId}`));
-      console.log(chalk.cyan(`[UClaw] Workspace: ${workspace}\n`));
+      console.log(chalk.cyan(`[Ocean] Query: ${query}`));
+      console.log(chalk.cyan(`[Ocean] User: ${userId}`));
+      console.log(chalk.cyan(`[Ocean] Workspace: ${workspace}\n`));
       await runRepl({ userId, workspace, singleQuery: query });
     } else {
       // Interactive REPL
-      console.log(chalk.bold('\nUClaw Terminal AI'));
+      console.log(chalk.bold('\nOcean Terminal AI'));
       console.log(chalk.gray(`User: ${userId} | Workspace: ${workspace}`));
       console.log(chalk.gray('Type your question or use /help for commands\n'));
       await runRepl({ userId, workspace });
@@ -140,7 +140,7 @@ program
 // ─── Daemon Mode ─────────────────────────────────────────────
 program
   .command('daemon')
-  .description('Start persistent UClaw node daemon to await commands from Gateway')
+  .description('Start persistent Ocean node daemon to await commands from Gateway')
   .option('-u, --user <userId>', 'User ID for identity binding (default: auto-detected)')
   .action(async (options) => {
     const userId = options.user || await getAutoUserId();
@@ -153,7 +153,7 @@ program
   .description('Authenticate with Gateway')
   .option('--api-key <key>', 'Directly set API Key')
   .action(async (options) => {
-    const gatewayUrl = process.env.UCLAW_GATEWAY_URL || 'http://localhost:3000';
+    const gatewayUrl = process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
 
     if (options.apiKey) {
       await saveCredentials({ apiKey: options.apiKey });
@@ -204,8 +204,8 @@ program
  * Enter CLI session after successful authentication
  */
 async function enterCliSession() {
-  const userId = process.env.UCLAW_WORK_ID || process.env.UCLAW_USER_ID || (await getAutoUserId());
-  console.log(chalk.bold('\nUClaw Terminal AI'));
+  const userId = process.env.OCEAN_WORK_ID || process.env.OCEAN_USER_ID || (await getAutoUserId());
+  console.log(chalk.bold('\nOcean Terminal AI'));
   console.log(chalk.gray(`User: ${userId} | Workspace: ${process.cwd()}\n`));
   await runRepl({ userId, workspace: process.cwd() });
 }
@@ -312,7 +312,7 @@ async function waitForOAuthCode({
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(`
             <!DOCTYPE html>
-            <html><head><title>UClaw Auth Complete</title>
+            <html><head><title>Ocean Auth Complete</title>
             <style>
               body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f6f3f2;margin:0}
               .card{background:#fff;padding:40px;border-radius:16px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
@@ -363,22 +363,22 @@ async function waitForOAuthCode({
 // ─── Legacy: Start Command ───────────────────────────────────
 program
   .command('start')
-  .description('Start UClaw interaction pointing to a task/bug')
+  .description('Start Ocean interaction pointing to a task/bug')
   .argument('[task_id]', 'ID of the ZenTao or GitLab task')
   .action(async (taskId) => {
     const userId = await getAutoUserId();
     const workspace = process.cwd();
 
     if (taskId) {
-      console.log(chalk.cyan(`[UClaw] Fetching ZenTao context for: ${taskId}...`));
-      console.log(chalk.cyan(`[UClaw] User: ${userId}\n`));
+      console.log(chalk.cyan(`[Ocean] Fetching ZenTao context for: ${taskId}...`));
+      console.log(chalk.cyan(`[Ocean] User: ${userId}\n`));
       await runRepl({
         userId,
         workspace,
         singleQuery: `帮我查看禅道缺陷 ${taskId} 的详情并分析如何修复`
       });
     } else {
-      console.log(chalk.cyan('[UClaw] Initializing general analysis...\n'));
+      console.log(chalk.cyan('[Ocean] Initializing general analysis...\n'));
       await runRepl({ userId, workspace });
     }
   });

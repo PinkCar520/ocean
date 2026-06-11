@@ -1,11 +1,11 @@
-# UClaw MCP 升级实施报告
+# Ocean MCP 升级实施报告
 
 ## 实施日期
 2026-04-13
 
 ## 实施概述
 
-本次升级对标 Claude MCP 完整能力，为 UClaw 平台新增了 MCP 协议的核心能力，大幅缩小了与 Claude MCP 的差距。
+本次升级对标 Claude MCP 完整能力，为 Ocean 平台新增了 MCP 协议的核心能力，大幅缩小了与 Claude MCP 的差距。
 
 ---
 
@@ -365,7 +365,7 @@ curl -X POST http://localhost:3000/api/mcp/servers/zentao/reconnect
 
 ## 总结
 
-本次升级成功补齐了 MCP 协议的 3 大核心能力（Resources、Prompts、Elicitation）和基础设施（传输层扩展、审批机制、热加载支持），将 UClaw 与 Claude MCP 的差距从 **6 个重大差距** 缩减到 **3 个重大差距 + 3 个部分差距**。
+本次升级成功补齐了 MCP 协议的 3 大核心能力（Resources、Prompts、Elicitation）和基础设施（传输层扩展、审批机制、热加载支持），将 Ocean 与 Claude MCP 的差距从 **6 个重大差距** 缩减到 **3 个重大差距 + 3 个部分差距**。
 
 **关键成果：**
 - ✅ 新增 4 个 Resources 和 3 个 Prompts 到 mcp-zentao

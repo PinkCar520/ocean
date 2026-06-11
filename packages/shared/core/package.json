@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/core",
+  "name": "@ocean/core",
   "version": "1.0.0",
-  "description": "Core TypeScript library and shared types for UClaw Monorepo",
+  "description": "Core TypeScript library and shared types for Ocean Monorepo",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {

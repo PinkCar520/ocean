@@ -14,7 +14,7 @@ async function testBug() {
     console.log('--- 测试创建 Bug 以验证权限 ---');
     const bugPayload = {
       product: 1,
-      title: "UClaw Write Test Bug " + Date.now(),
+      title: "Ocean Write Test Bug " + Date.now(),
       steps: "1. test",
       openedBy: account,
       pri: 3,

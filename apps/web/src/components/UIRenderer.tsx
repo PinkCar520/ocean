@@ -138,7 +138,7 @@ export function UIRenderer({ uiKit, onAction }: UIRendererProps) {
 // 自动注册所有渲染器（模块加载时执行一次）
 // ──────────────────────────────────────────────
 
-const REGISTRATION_KEY = '__uclaw_ui_renderers_registered__';
+const REGISTRATION_KEY = '__ocean_ui_renderers_registered__';
 if (!(globalThis as Record<string, unknown>)[REGISTRATION_KEY]) {
   (globalThis as Record<string, unknown>)[REGISTRATION_KEY] = true;
 

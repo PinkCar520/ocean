@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/mcp-gitlab",
+  "name": "@ocean/mcp-gitlab",
   "version": "1.0.0",
-  "description": "GitLab Repository MCP Server for UClaw",
+  "description": "GitLab Repository MCP Server for Ocean",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.0",
-    "@uclaw/tools-gitlab": "workspace:*",
+    "@ocean/tools-gitlab": "workspace:*",
     "zod": "3.23.8"
   },
   "devDependencies": {

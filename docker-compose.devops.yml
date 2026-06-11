@@ -1,11 +1,11 @@
 
 services:
-  # UClaw AI 网关总线 (NestJS + Prisma 7)
+  # Ocean AI 网关总线 (NestJS + Prisma 7)
   gateway:
     build:
       context: .
       dockerfile: apps/gateway/Dockerfile
-    container_name: uclaw-gateway
+    container_name: ocean-gateway
     restart: always
     ports:
       - "3000:3000"
@@ -13,10 +13,10 @@ services:
       - .env
     volumes:
       - ./agent/skills:/app/agent/skills
-      - uclaw_gateway_uploads:/app/public/uploads
+      - ocean_gateway_uploads:/app/public/uploads
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/uclaw?schema=public
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ocean?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
@@ -33,12 +33,12 @@ services:
       gitlab:
         condition: service_started
 
-  # UClaw AI 可视化面板 (React/Vite + Nginx)
+  # Ocean AI 可视化面板 (React/Vite + Nginx)
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: uclaw-web
+    container_name: ocean-web
     restart: always
     ports:
       - "8081:80"
@@ -62,7 +62,7 @@ services:
   # 用户中心持久化核心 (支持 Vector 检索)
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: uclaw-postgres
+    container_name: ocean-postgres
     restart: always
     environment:
       - POSTGRES_USER=postgres
@@ -71,7 +71,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - uclaw_postgres_data:/var/lib/postgresql/data
+      - ocean_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -81,7 +81,7 @@ services:
   # 可观测性中心 (Tracing / Jaeger)
   jaeger:
     image: jaegertracing/all-in-one:latest
-    container_name: uclaw-jaeger
+    container_name: ocean-jaeger
     restart: always
     ports:
       - "16686:16686" # UI
@@ -98,7 +98,7 @@ services:
   # 禅道 Web 服务 (集成测试环境)
   zentao:
     image: easysoft/zentao:latest
-    container_name: uclaw-zentao
+    container_name: ocean-zentao
     restart: always
     ports:
       - "8080:80"
@@ -110,7 +110,7 @@ services:
       - MYSQL_PASSWORD=zentao_pass
       - MYSQL_DATABASE=zentao
     volumes:
-      - uclaw_zentao_data:/www/zentaopms
+      - ocean_zentao_data:/www/zentaopms
     depends_on:
       zentao-db:
         condition: service_healthy
@@ -118,7 +118,7 @@ services:
   # 禅道专用数据库
   zentao-db:
     image: mariadb:10.6
-    container_name: uclaw-zentao-db
+    container_name: ocean-zentao-db
     restart: always
     environment:
       - MYSQL_ROOT_PASSWORD=root_pass
@@ -126,7 +126,7 @@ services:
       - MYSQL_USER=zentao
       - MYSQL_PASSWORD=zentao_pass
     volumes:
-      - uclaw_zentao_mysql:/var/lib/mysql
+      - ocean_zentao_mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "zentao", "-pzentao_pass"]
       interval: 5s
@@ -136,16 +136,16 @@ services:
   # 会话记忆与流控层 (Redis)
   redis:
     image: redis:7-alpine
-    container_name: uclaw-redis
+    container_name: ocean-redis
     ports:
       - "6379:6379"
     volumes:
-      - uclaw_redis_data:/data
+      - ocean_redis_data:/data
 
   # Jenkins CI/CD
   jenkins:
     image: jenkins/jenkins:lts-jdk17
-    container_name: uclaw-jenkins
+    container_name: ocean-jenkins
     restart: always
     ports:
       - "8082:8080"
@@ -153,13 +153,13 @@ services:
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     volumes:
-      - uclaw_jenkins_data:/var/jenkins_home
+      - ocean_jenkins_data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
 
   # GitLab 代码托管
   gitlab:
     image: gitlab/gitlab-ce:latest
-    container_name: uclaw-gitlab
+    container_name: ocean-gitlab
     restart: always
     ports:
       - "8083:80"
@@ -170,17 +170,17 @@ services:
         external_url 'http://localhost:8083'
         gitlab_rails['initial_root_password'] = 'gitlab_admin_pass'
     volumes:
-      - uclaw_gitlab_data:/etc/gitlab
-      - uclaw_gitlab_logs:/var/log/gitlab
-      - uclaw_gitlab_data:/var/opt/gitlab
+      - ocean_gitlab_data:/etc/gitlab
+      - ocean_gitlab_logs:/var/log/gitlab
+      - ocean_gitlab_data:/var/opt/gitlab
     shm_size: '256m'
 
 volumes:
-  uclaw_postgres_data:
-  uclaw_redis_data:
-  uclaw_zentao_data:
-  uclaw_zentao_mysql:
-  uclaw_gateway_uploads:
-  uclaw_jenkins_data:
-  uclaw_gitlab_data:
-  uclaw_gitlab_logs:
+  ocean_postgres_data:
+  ocean_redis_data:
+  ocean_zentao_data:
+  ocean_zentao_mysql:
+  ocean_gateway_uploads:
+  ocean_jenkins_data:
+  ocean_gitlab_data:
+  ocean_gitlab_logs:

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * UClaw Jenkins MCP Server
+ * Ocean Jenkins MCP Server
  *
  * 将 Jenkins CI/CD 能力以 MCP 协议暴露给 Gateway。
  *
@@ -23,7 +23,7 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { JenkinsTool } from '@uclaw/tools-jenkins';
+import { JenkinsTool } from '@ocean/tools-jenkins';
 
 // ──────────────────────────────────────────────
 // 初始化 Jenkins 工具
@@ -39,7 +39,7 @@ const jenkins = new JenkinsTool({
 // 创建 MCP Server 实例
 // ──────────────────────────────────────────────
 const server = new McpServer({
-  name: 'uclaw-jenkins',
+  name: 'ocean-jenkins',
   version: '1.0.0',
 });
 
@@ -165,7 +165,7 @@ server.tool(
   'getJobInfo',
   '获取 Jenkins 指定任务的详细信息',
   {
-    jobName: z.string().describe('任务名称，例如 uclaw-gateway-build'),
+    jobName: z.string().describe('任务名称，例如 ocean-gateway-build'),
   },
   async ({ jobName }) => {
     const job = await jenkins.getJobInfo(jobName);

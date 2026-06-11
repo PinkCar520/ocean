@@ -56,7 +56,7 @@ export function Projects() {
     } catch (err) {
       console.error('Failed to trigger local picker:', err);
       // 如果助手未连接，给出友好提示
-      alert('无法调起本地助手。请确保 UClaw 本地助手（Daemon）已启动并处于登录状态。');
+      alert('无法调起本地助手。请确保 Ocean 本地助手（Daemon）已启动并处于登录状态。');
     } finally {
       setIsPickingPath(false);
     }

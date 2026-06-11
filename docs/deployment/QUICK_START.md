@@ -1,4 +1,4 @@
-# UClaw MCP Docker 部署 - 快速开始
+# Ocean MCP Docker 部署 - 快速开始
 
 ## 🚀 一键部署
 
@@ -290,5 +290,5 @@ docker compose exec gateway sh -c "cd /app/apps/gateway && npx prisma db push"
 
 ---
 
-*UClaw - 银行内网人工智能工作流中枢*  
+*Ocean - 银行内网人工智能工作流中枢*  
 *Docker 快速开始指南 v1.0 - 2026-04-13*

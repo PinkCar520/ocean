@@ -1,4 +1,4 @@
-export interface UClawBaseEvent {
+export interface OceanBaseEvent {
   eventId: string;
   source: 'web' | 'cli' | 'im';
   timestamp: number;
@@ -15,7 +15,7 @@ export interface BugDetail {
   attachments?: Array<{ url: string; name?: string; contentType?: string; size?: number; extension?: string }>;
 }
 
-export interface UClawLocalActionRequest {
+export interface OceanLocalActionRequest {
   toolName: string;
   args: Record<string, any>;
 }

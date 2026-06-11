@@ -33,7 +33,7 @@ export class SsoAuthGuard implements CanActivate {
 
     // ── 1. API Key ──
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    if (token.startsWith('uclaw_sk_')) {
+    if (token.startsWith('ocean_sk_')) {
       const user = await this.apiKeyService.findUserByApiKey(token);
       if (user) {
         const dbUser = await this.userService.getUserFullProfile(user.workId);

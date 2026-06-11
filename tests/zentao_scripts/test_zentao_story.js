@@ -21,8 +21,8 @@ async function testCreateStory() {
 
     console.log('\n--- Step 2: Create Story ---');
     const storyData = {
-      title: 'UClaw Test Story ' + Date.now(),
-      spec: 'This is a test story created by UClaw diagnostic script.',
+      title: 'Ocean Test Story ' + Date.now(),
+      spec: 'This is a test story created by Ocean diagnostic script.',
       pri: 3,
       estimate: 1,
       category: 'feature',

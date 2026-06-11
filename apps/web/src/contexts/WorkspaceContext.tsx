@@ -91,7 +91,7 @@ export function WorkspaceProvider({ children, token }: { children: React.ReactNo
       const data = await api.get<any>('/api/user/node-status');
       setNode({
         isOnline: data.isOnline,
-        currentPath: data.info?.cwd || '~/workspace/uwork/uclaw',
+        currentPath: data.info?.cwd || '~/workspace/uwork/ocean',
         currentBranch: data.info?.branch || 'main',
         isClean: data.info?.isClean ?? true,
         cpuUsage: data.info?.cpu || 12,

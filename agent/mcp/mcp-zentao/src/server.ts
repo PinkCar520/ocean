@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * UClaw ZenTao MCP Server
+ * Ocean ZenTao MCP Server
  *
  * 标准的 Model Context Protocol 服务端实现。
  * 将 ZenTao 缺陷管理能力以 MCP 协议暴露给 Gateway MCPClientManager。
@@ -15,7 +15,7 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { ZentaoTool } from '@uclaw/tools-zentao';
+import { ZentaoTool } from '@ocean/tools-zentao';
 
 // ──────────────────────────────────────────────
 // UI Protocol 辅助函数
@@ -37,7 +37,7 @@ const zentao = new ZentaoTool({
 // 创建 MCP Server 实例
 // ──────────────────────────────────────────────
 const server = new McpServer({
-  name: 'uclaw-zentao',
+  name: 'ocean-zentao',
   version: '1.0.0',
 });
 
@@ -346,7 +346,7 @@ server.tool(
       .number()
       .optional()
       .default(4)
-      .describe('禅道产品 ID，默认为 4（UClaw 产品）'),
+      .describe('禅道产品 ID，默认为 4（Ocean 产品）'),
   },
   async ({ productId }) => {
     const pid = productId ?? 4;

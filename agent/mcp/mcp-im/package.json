@@ -1,7 +1,7 @@
 {
-  "name": "@uclaw/mcp-im",
+  "name": "@ocean/mcp-im",
   "version": "1.0.0",
-  "description": "UClaw Intranet IM MCP Server implementation",
+  "description": "Ocean Intranet IM MCP Server implementation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -14,7 +14,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@uclaw/core": "workspace:*"
+    "@ocean/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

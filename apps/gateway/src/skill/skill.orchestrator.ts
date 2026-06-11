@@ -13,12 +13,12 @@ import { TracingService } from '../tracing/tracing.service';
 import { RAGService } from '../rag/rag.service';
 import { ZentaoService } from '../zentao/zentao.service';
 import { z } from 'zod';
-import type { SkillContext } from '@uclaw/core';
+import type { SkillContext } from '@ocean/core';
 
 /**
  * SkillOrchestrator
  *
- * Implements the AgentSkills client-side protocol for UClaw Gateway.
+ * Implements the AgentSkills client-side protocol for Ocean Gateway.
  */
 @Injectable()
 export class SkillOrchestrator {
@@ -168,7 +168,7 @@ export class SkillOrchestrator {
     const onlineClis = this.rpcGateway.getOnlineUsers();
     const promptPath = this.configService.get<string>('SYSTEM_PROMPT_PATH') || 'agent/prompts/system_prompt.md';
     
-    let basePrompt = `你是银行内网 AI 助手 UClaw。
+    let basePrompt = `你是银行内网 AI 助手 Ocean。
 当前登录用户工号: ${ctx.userId}
 当前在线的本地 CLI 节点: ${onlineClis.join(', ') || '无'}
 
@@ -296,7 +296,7 @@ export class SkillOrchestrator {
       }),
 
       rag_search: tool({
-        description: '在 UClaw 知识库（RAG）中搜索相关文档。适用于回答银行业务规则、系统使用说明、代码库规范等问题。',
+        description: '在 Ocean 知识库（RAG）中搜索相关文档。适用于回答银行业务规则、系统使用说明、代码库规范等问题。',
         inputSchema: z.object({
           query: z.string().describe('搜索关键词或语义查询'),
           limit: z.number().optional().default(5).describe('返回结果条数'),
@@ -508,7 +508,7 @@ export class SkillOrchestrator {
                 .map(r => `[Document: ${r.title}]\n${r.content}`)
                 .join('\n\n');
               
-              const ragPrompt = `以下是来自 UClaw 知识库的相关背景资料，请结合这些信息回答用户问题：\n\n${contextText}`;
+              const ragPrompt = `以下是来自 Ocean 知识库的相关背景资料，请结合这些信息回答用户问题：\n\n${contextText}`;
               
               const lastIdx = sanitizedMessages.length - 1;
               if (lastIdx >= 0 && sanitizedMessages[lastIdx].role === 'user') {

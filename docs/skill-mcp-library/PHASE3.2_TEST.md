@@ -33,7 +33,7 @@ curl -X POST http://localhost:3000/api/skills/import \
 ```bash
 curl -X POST http://localhost:3000/api/skills/import \
   -H "Content-Type: application/json" \
-  -d '{"source":"claude-code","skillPath":"/Users/caomeifengli/workspace/uwork/uclaw/agent/skills/write-prd"}' | jq
+  -d '{"source":"claude-code","skillPath":"/Users/caomeifengli/workspace/uwork/ocean/agent/skills/write-prd"}' | jq
 ```
 
 ### 1.3 直接上传 SKILL.md 内容
@@ -79,7 +79,7 @@ curl -X POST http://localhost:3000/api/skills/import \
 ```bash
 # 查询最新导入的技能
 cd apps/gateway
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/uclaw?schema=public" \
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ocean?schema=public" \
 npx prisma studio
 ```
 

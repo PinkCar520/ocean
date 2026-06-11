@@ -31,10 +31,10 @@ describe('GitLabTool', () => {
         data: [
           {
             id: 1,
-            name: 'uclaw',
-            path_with_namespace: 'uclaw/uclaw',
-            description: 'UClaw main repo',
-            web_url: 'https://gitlab.example.com/uclaw/uclaw',
+            name: 'ocean',
+            path_with_namespace: 'uclaw/ocean',
+            description: 'Ocean main repo',
+            web_url: 'https://gitlab.example.com/ocean/ocean',
             default_branch: 'main',
             visibility: 'private',
           },
@@ -44,7 +44,7 @@ describe('GitLabTool', () => {
 
       const projects = await gitlab.listProjects();
       expect(projects).toHaveLength(1);
-      expect(projects[0].name).toBe('uclaw');
+      expect(projects[0].name).toBe('ocean');
       // fetchAll will call with page=1, per_page=100
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/v4/projects', expect.objectContaining({
         params: expect.objectContaining({ page: 1, per_page: 100 })
@@ -83,7 +83,7 @@ describe('GitLabTool', () => {
           id: 2,
           name: 'new-project',
           path_with_namespace: 'uclaw/new-project',
-          web_url: 'https://gitlab.example.com/uclaw/new-project',
+          web_url: 'https://gitlab.example.com/ocean/new-project',
           default_branch: 'main',
           visibility: 'private',
         }
