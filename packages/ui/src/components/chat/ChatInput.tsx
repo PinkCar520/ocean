@@ -169,11 +169,22 @@ export const ChatInput = React.memo(({
 
     if (textAreaRef.current) {
       let html = textAreaRef.current.innerHTML;
-      html = html.replace(/(?:^|\s|&nbsp;)\/([^<\s]*)$/, (match) => {
-         const leading = match.charAt(0) === '/' ? '' : match.charAt(0);
-         return leading + `<span contenteditable="false" class="chip inline-block px-2 py-0.5 rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] select-none pointer-events-none mx-0.5 align-baseline" style="user-select: none; -webkit-user-select: none;">${label}</span><span class="cursor-anchor">&#8203;</span>`;
-      });
-      textAreaRef.current.innerHTML = html;
+      const chipHtml = `<span contenteditable="false" class="chip inline-block px-2 py-0.5 rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] select-none pointer-events-none mx-0.5 align-baseline" style="user-select: none; -webkit-user-select: none;">${label}</span><span class="cursor-anchor">&#8203;</span>`;
+      
+      const regex = /(?:^|\s|&nbsp;)\/([^<\s]*)$/;
+      if (regex.test(html)) {
+        html = html.replace(regex, (match) => {
+           const leading = match.charAt(0) === '/' ? '' : match.charAt(0);
+           return leading + chipHtml;
+        });
+        textAreaRef.current.innerHTML = html;
+      } else {
+        if (html === '' || html === '<br>') {
+          textAreaRef.current.innerHTML = chipHtml + '&nbsp;';
+        } else {
+          textAreaRef.current.innerHTML = html + '&nbsp;' + chipHtml + '&nbsp;';
+        }
+      }
       setLocalInput(textAreaRef.current.textContent || '');
 
       setTimeout(() => {
@@ -287,11 +298,8 @@ export const ChatInput = React.memo(({
                         isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
                       )}
                     >
-                      <div className={cn(
-                        "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all",
-                        isActive ? "bg-gradient-to-br from-[#EC5B14] to-[#cc4900] shadow-sm" : "bg-[#F0EDE9] border border-[#E8E4E2]"
-                      )}>
-                        <opt.icon className={cn("w-3.5 h-3.5", isActive ? "text-white" : "text-[#716B67]")} />
+                      <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
+                        <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
                       </div>
                       <span className="flex-1 truncate">
                         <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
@@ -337,11 +345,8 @@ export const ChatInput = React.memo(({
                         isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
                       )}
                     >
-                      <div className={cn(
-                        "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all",
-                        isActive ? "bg-gradient-to-br from-[#EC5B14] to-[#cc4900] shadow-sm" : "bg-[#F0EDE9] border border-[#E8E4E2]"
-                      )}>
-                        <opt.icon className={cn("w-3.5 h-3.5", isActive ? "text-white" : "text-[#716B67]")} />
+                      <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
+                        <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
                       </div>
                       <span className="flex-1 truncate">
                         <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
@@ -689,7 +694,11 @@ export const ChatInput = React.memo(({
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent sideOffset={8} className="w-60 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95">
                         {installedSkills.map(skill => (
-                          <DropdownMenuItem key={skill.id} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5">
+                          <DropdownMenuItem 
+                            key={skill.id} 
+                            onClick={() => handleSlashSelect('tool', '/' + skill.name, skill.id, Wrench)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5"
+                          >
                             <FileText className="w-4 h-4 text-[#716B67] shrink-0" />
                             <span className="text-[13px] font-medium text-[#1C1B1B] truncate">{skill.name}</span>
                           </DropdownMenuItem>
