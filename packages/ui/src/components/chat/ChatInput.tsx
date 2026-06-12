@@ -168,6 +168,12 @@ export const ChatInput = React.memo(({
     setSlashMenuOpen(false);
 
     if (textAreaRef.current) {
+      // Enforce exclusive slash command: remove any existing chip and anchor first
+      const existingChips = textAreaRef.current.querySelectorAll('.chip');
+      existingChips.forEach(chip => chip.remove());
+      const existingAnchors = textAreaRef.current.querySelectorAll('.cursor-anchor');
+      existingAnchors.forEach(anchor => anchor.remove());
+
       let html = textAreaRef.current.innerHTML;
       const chipHtml = `<span contenteditable="false" class="chip inline-block px-2 py-0.5 rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] select-none pointer-events-none mx-0.5 align-baseline" style="user-select: none; -webkit-user-select: none;">${label}</span><span class="cursor-anchor">&#8203;</span>`;
       
@@ -182,7 +188,10 @@ export const ChatInput = React.memo(({
         if (html === '' || html === '<br>') {
           textAreaRef.current.innerHTML = chipHtml + '&nbsp;';
         } else {
-          textAreaRef.current.innerHTML = html + '&nbsp;' + chipHtml + '&nbsp;';
+          // Prepend the command to the very beginning if inserted via + menu
+          // Remove leading spaces/br from html to keep it clean
+          const cleanHtml = html.replace(/^(<br>|&nbsp;|\s)+/, '');
+          textAreaRef.current.innerHTML = chipHtml + '&nbsp;' + cleanHtml;
         }
       }
       setLocalInput(textAreaRef.current.textContent || '');
@@ -202,6 +211,34 @@ export const ChatInput = React.memo(({
   };
 
   const ghostRef = React.useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (ghostRef.current && textAreaRef.current) {
+      ghostRef.current.innerHTML = textAreaRef.current.innerHTML;
+      if (ghostText) {
+        const ghostSpan = document.createElement('span');
+        ghostSpan.className = 'visible-ghost border-none';
+        ghostSpan.textContent = ghostText;
+        
+        const lastChild = ghostRef.current.lastElementChild;
+        if (lastChild && lastChild.tagName === 'DIV') {
+          const br = lastChild.querySelector('br:last-child');
+          if (br) {
+            lastChild.insertBefore(ghostSpan, br);
+          } else {
+            lastChild.appendChild(ghostSpan);
+          }
+        } else {
+          const br = ghostRef.current.querySelector('br:last-child');
+          if (br && ghostRef.current.lastElementChild === br) {
+            ghostRef.current.insertBefore(ghostSpan, br);
+          } else {
+            ghostRef.current.appendChild(ghostSpan);
+          }
+        }
+      }
+    }
+  }, [localInput, ghostText]);
 
   useLayoutEffect(() => {
     const syncScroll = () => {
@@ -434,16 +471,26 @@ export const ChatInput = React.memo(({
           </AnimatePresence>
 
           <div className="relative flex flex-col">
-            {/* Ghost overlay: renders ghost text if any */}
+            <style>{`
+              .ghost-overlay { color: transparent !important; }
+              .ghost-overlay * { 
+                color: transparent !important; 
+                background-color: transparent !important; 
+                border-color: transparent !important; 
+                box-shadow: none !important; 
+              }
+              .ghost-overlay .visible-ghost { 
+                color: rgba(168, 164, 161, 0.5) !important; 
+              }
+            `}</style>
+            {/* Ghost overlay: exactly mirrors contentEditable HTML but transparent, appending visible ghostText */}
             <div
               ref={ghostRef}
               className={cn(
-                "absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden text-[15px] px-4 leading-relaxed font-sans border-none",
+                "ghost-overlay absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden text-[15px] px-4 leading-relaxed font-sans border-none",
                 attachments.length > 0 || activeMentions.length > 0 ? "pt-1 pb-3" : "py-3"
               )}
             >
-              <span style={{ color: 'transparent' }}>{localInput}</span>
-              {ghostText && <span className="text-[#A8A4A1]/50 border-none">{ghostText}</span>}
             </div>
 
             <div
@@ -614,9 +661,13 @@ export const ChatInput = React.memo(({
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="absolute bottom-2 right-4 text-[10px] text-[#A8A4A1] px-2 py-0.5 rounded-md bg-[#F6F3F2] border border-[#E8E4E2]/60 pointer-events-none z-10 font-bold tracking-widest shadow-sm"
+                  className="absolute bottom-3 right-4 flex items-center gap-1.5 pointer-events-none z-10"
                 >
-                  [TAB] TO COMPLETE
+                  <span className="text-[11px] font-medium text-[#A8A4A1]">Press</span>
+                  <div className="flex items-center justify-center px-1.5 py-0.5 rounded-[4px] bg-[#F0EDE9] border border-[#E8E4E2] border-b-[2px]">
+                    <span className="text-[10px] font-bold text-[#716B67] tracking-wider">TAB</span>
+                  </div>
+                  <span className="text-[11px] font-medium text-[#A8A4A1]">to complete</span>
                 </motion.div>
               )}
             </AnimatePresence>
