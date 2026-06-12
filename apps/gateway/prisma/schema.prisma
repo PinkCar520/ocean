@@ -318,6 +318,7 @@ model Skill {
   isPublic      Boolean  @default(true)
   icon          String?  // lucide icon 名称
   tags          String[] // 标签数组
+  triggerKws    String[] // 触发关键词，用于感知上下文注入
   installations SkillInstallation[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -411,4 +412,17 @@ model AuthCode {
   @@index([code])
   @@index([expiresAt])
   @@map("auth_codes")
+}
+
+// 技能触发日志
+model SkillTriggerLog {
+  id            String   @id @default(uuid())
+  sessionId     String?
+  messageId     String?
+  triggeredIds  String[] // 本次触发的 Skill ID 列表
+  injectedTokens Int?
+  createdAt     DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("skill_trigger_logs")
 }

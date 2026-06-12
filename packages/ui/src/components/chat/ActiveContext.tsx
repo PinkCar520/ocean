@@ -40,7 +40,7 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
   const displayPath = projectPathMatch ? projectPathMatch[1] : (node.currentPath !== '—' ? node.currentPath : '未绑定本地目录');
 
   return (
-    <div className="flex flex-col h-full p-6 space-y-8">
+    <div className="flex flex-col h-full px-6 pb-6 pt-3 space-y-8">
       {/* ── Layer 1: Identity (Who & Why) ── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">

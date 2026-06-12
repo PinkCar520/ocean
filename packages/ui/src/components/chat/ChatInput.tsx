@@ -431,7 +431,7 @@ export const ChatInput = React.memo(({
           </div>
 
           <div className="flex items-center justify-between px-2 sm:px-4 pb-2">
-            <div className="flex items-center gap-0.5 sm:gap-1.5 overflow-hidden">
+            <div className="flex items-center gap-0.5 sm:gap-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="p-1.5 sm:p-2 rounded-lg text-[#716B67] bg-transparent hover:bg-[#eeece9] hover:text-[#1C1B1B] transition-all shrink-0">
@@ -542,17 +542,29 @@ export const ChatInput = React.memo(({
                     initial={{ opacity: 0, scale: 0.9, width: 0 }}
                     animate={{ opacity: 1, scale: 1, width: 'auto' }}
                     exit={{ opacity: 0, scale: 0.9, width: 0 }}
-                    className="flex items-center ml-1 overflow-hidden"
+                    className="flex items-center ml-1"
                   >
-                    <button 
-                      onClick={() => onMainTabChange?.('projects')}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[#EC5B14] bg-[#EC5B14]/5 hover:bg-[#EC5B14]/10 transition-colors whitespace-nowrap group"
-                    >
-                      <Briefcase className="w-3.5 h-3.5 text-[#EC5B14]" />
-                      <span className="text-xs font-bold text-[#EC5B14] truncate max-w-[120px]">
-                        {activeProject.name}
-                      </span>
-                    </button>
+                    <div className="relative group flex items-center">
+                      <button 
+                        onClick={() => onMainTabChange?.('projects')}
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-transparent bg-[#EC5B14]/5 hover:bg-[#EC5B14]/10 transition-colors whitespace-nowrap"
+                      >
+                        <Briefcase className="w-3.5 h-3.5 text-[#EC5B14]" />
+                        <span className="text-xs font-bold text-[#EC5B14] truncate max-w-[120px]">
+                          {activeProject.name}
+                        </span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveProjectId(null);
+                        }}
+                        className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#EC5B14] text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm hover:scale-110 active:scale-95 z-10"
+                        title="取消关联项目"
+                      >
+                        <CloseIcon className="w-2 h-2 stroke-[3]" />
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -164,7 +164,7 @@ export class SkillOrchestrator {
   // ──────────────────────────────────────────────
   // Step 2 + 3: System Prompt
   // ──────────────────────────────────────────────
-  private async buildSystemPrompt(ctx: SkillContext): Promise<string> {
+  private async buildSystemPrompt(ctx: SkillContext, sessionId?: string): Promise<string> {
     const onlineClis = this.rpcGateway.getOnlineUsers();
     const promptPath = this.configService.get<string>('SYSTEM_PROMPT_PATH') || 'agents/prompts/system_prompt.md';
 
@@ -184,7 +184,6 @@ export class SkillOrchestrator {
       this.logger.warn(`Failed to load prompt from ${promptPath}, using fallback.`);
     }
 
-    const catalogXml = await this.skillLoader.buildCatalogXml();
     let prompt = basePrompt
       .replace('{{currentUserId}}', ctx.userId)
       .replace('{{onlineClis}}', onlineClis.join(', ') || '无');
@@ -201,6 +200,32 @@ export class SkillOrchestrator {
       this.logger.error(`Failed to fetch user preferences: ${err.message}`);
     }
 
+    // CALL FASTAPI SKILL TRIGGER ENGINE
+    try {
+      const fastapiUrl = this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000';
+      const resolveRes = await globalThis.fetch(`${fastapiUrl}/api/internal/skills/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: ctx.userMessage || '',
+          session_id: sessionId
+        })
+      });
+      if (resolveRes.ok) {
+        const data = await resolveRes.json();
+        if (data.injected_prompt) {
+          prompt += `\n\n${data.injected_prompt}`;
+          this.logger.log(`[Orchestrator] Injected ${data.matched_skills?.length} skills from FastAPI.`);
+        }
+      } else {
+        this.logger.warn(`FastAPI skill resolve failed: ${resolveRes.statusText}`);
+      }
+    } catch (err) {
+      this.logger.error(`Failed to call FastAPI Skill Engine: ${err}`);
+    }
+
+    // Fallback: keep the old tool-based skill loader catalog just in case
+    const catalogXml = await this.skillLoader.buildCatalogXml();
     prompt += `\n\n以下 Skills 提供了特定任务的专项指令。当用户的请求与某个 Skill 的描述匹配时，请调用 activate_skill 工具加载该 Skill 的完整指令。\n\n${catalogXml}`;
 
     const guide = await this.skillLoader.loadAiguide(ctx.workspacePath);
@@ -524,7 +549,7 @@ export class SkillOrchestrator {
         }
 
         const modelMessages = await convertToModelMessages(sanitizedMessages);
-        const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx), this.buildTools(ctx, sessionId)]);
+        const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx, sessionId), this.buildTools(ctx, sessionId)]);
 
         const allParts: any[] = [];
         let fullText = '';

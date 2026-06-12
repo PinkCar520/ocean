@@ -23,6 +23,7 @@ services:
       - ZENTAO_BASE_URL=${ZENTAO_BASE_URL:-http://zentao:80}
       - JENKINS_BASE_URL=${JENKINS_BASE_URL:-http://jenkins:8080}
       - GITLAB_BASE_URL=${GITLAB_BASE_URL:-http://gitlab:80}
+      - FASTAPI_URL=http://fastapi-backend:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,6 +100,21 @@ services:
       - "6379:6379"
     volumes:
       - ocean_redis_data:/data
+
+  # Ocean AI 智力中枢 (Python FastAPI)
+  fastapi-backend:
+    build:
+      context: ./apps/fastapi-backend
+      dockerfile: Dockerfile
+    container_name: ocean-fastapi-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ocean?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   ocean_postgres_data:

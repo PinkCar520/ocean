@@ -348,7 +348,7 @@ export function ChatSession({
       >
         {/* Right Sidebar Toggle Button — 始终吸附于整个视图最右侧顶部 */}
         {(!previewAttachment && !activeCapsule) && (
-          <div className="absolute top-4 right-4 z-[9999] titlebar-no-drag">
+          <div className="absolute top-[4px] right-3 z-[9999] titlebar-no-drag">
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsRightSidebarOpen(prev => !prev); }}
               className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-[#1C1B1B]/10 text-[#716B67] hover:text-[#1C1B1B] transition-colors cursor-pointer titlebar-no-drag pointer-events-auto"
@@ -649,7 +649,8 @@ export function ChatSession({
                 </div>
               </motion.div>
           ) : (
-              <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
+              <div className="flex flex-col h-full overflow-y-auto custom-scrollbar relative">
+                <div className="h-14 border-b border-[#E8E4E2]/60 shrink-0 w-full" />
                 <ActiveContextPanel 
                   onAction={(action) => {
                     onFormSubmit({ content: action, role: 'user' });

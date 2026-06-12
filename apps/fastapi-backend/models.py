@@ -19,3 +19,4 @@ class KnowledgeProject(Base):
     isPublic = Column("isPublic", Boolean, default=True)
     createdAt = Column("createdAt", DateTime, default=datetime.utcnow)
     updatedAt = Column("updatedAt", DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
