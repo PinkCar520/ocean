@@ -115,12 +115,21 @@ export const ChatInput = React.memo(({
     { id: 'internal', label: 'Internal Docs', icon: FileText, desc: 'Workspace files', type: 'knowledge' },
   ];
 
-  const SLASH_OPTIONS = [
-    { id: 'clear', label: '/clear', desc: 'Clear conversation context', action: 'clear', icon: CloseIcon },
-    { id: 'prompt', label: '/prompt', desc: 'Insert prompt template', action: 'prompt', icon: FileText },
-    { id: 'jenkins', label: '/jenkins', desc: 'Execute Jenkins skill', action: 'tool', icon: Wrench },
-    { id: 'zentao', label: '/zentao', desc: 'Execute ZenTao skill', action: 'tool', icon: Wrench },
-  ];
+  const SLASH_OPTIONS = React.useMemo(() => {
+    const baseOptions = [
+      { id: 'clear', label: '/clear', desc: 'Clear conversation context', action: 'clear', icon: CloseIcon, type: 'system' },
+      { id: 'prompt', label: '/prompt', desc: 'Insert prompt template', action: 'prompt', icon: FileText, type: 'system' },
+    ];
+    const skillOptions = installedSkills.map(skill => ({
+      id: skill.id,
+      label: `/${skill.name}`,
+      desc: `Execute ${skill.name} skill`,
+      action: 'tool',
+      icon: Wrench,
+      type: 'skill'
+    }));
+    return [...baseOptions, ...skillOptions];
+  }, [installedSkills]);
 
   const handleMentionSelect = (type: 'search' | 'knowledge', label: string, id: string, icon: any) => {
     // Prevent duplicate mentions
@@ -372,25 +381,28 @@ export const ChatInput = React.memo(({
               <div className="p-1.5 max-h-64 overflow-y-auto">
                 {filteredSlash.length > 0 ? filteredSlash.map((opt, idx) => {
                   const isActive = idx === slashActiveIndex;
+                  const showSeparator = idx > 0 && filteredSlash[idx - 1].type !== (opt as any).type;
                   return (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleSlashSelect(opt.action, opt.label, opt.id, opt.icon)}
-                      onMouseEnter={() => setSlashActiveIndex(idx)}
-                      className={cn(
-                        "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5",
-                        isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
-                      )}
-                    >
-                      <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
-                        <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
-                      </div>
-                      <span className="flex-1 truncate">
-                        <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
-                        <span className={cn("ml-2 text-[12px] font-normal", isActive ? "text-[#EC5B14]/60" : "text-[#A8A4A1]")}>{opt.desc}</span>
-                      </span>
-                      {isActive && <span className="text-[10px] text-[#EC5B14]/50 font-medium shrink-0">↵</span>}
-                    </button>
+                    <React.Fragment key={opt.id}>
+                      {showSeparator && <div className="h-px bg-[#E8E4E2]/80 my-1 mx-2" />}
+                      <button
+                        onClick={() => handleSlashSelect(opt.action, opt.label, opt.id, opt.icon)}
+                        onMouseEnter={() => setSlashActiveIndex(idx)}
+                        className={cn(
+                          "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5",
+                          isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
+                        )}
+                      >
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
+                          <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
+                        </div>
+                        <span className="flex-1 truncate">
+                          <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
+                          <span className={cn("ml-2 text-[12px] font-normal", isActive ? "text-[#EC5B14]/60" : "text-[#A8A4A1]")}>{opt.desc}</span>
+                        </span>
+                        {isActive && <span className="text-[10px] text-[#EC5B14]/50 font-medium shrink-0">↵</span>}
+                      </button>
+                    </React.Fragment>
                   );
                 }) : (
                   <div className="px-3 py-4 text-center text-[13px] text-[#A8A4A1]">No commands found</div>
