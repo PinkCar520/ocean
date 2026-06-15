@@ -43,6 +43,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from './ui/dropdown-menu';
+import { TooltipProvider } from './ui/tooltip';
 import {
   Tooltip,
   TooltipTrigger,
@@ -400,25 +401,26 @@ export function ChatSession({
             )}
 
             <div className="max-w-[800px] mx-auto space-y-8">
-              <AnimatePresence mode="popLayout" initial={false}>
-                {isLoadingHistory ? (
-                    <div className="flex flex-col mt-8 w-full gap-8 max-w-3xl mx-auto px-2">
-                      <div className="flex justify-end w-full opacity-60">
-                        <div className="bg-[#eeece9] w-2/3 h-14 rounded-[20px] animate-pulse rounded-tr-[4px]"></div>
+              
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {isLoadingHistory ? (
+                      <div className="flex flex-col mt-8 w-full gap-8 max-w-3xl mx-auto px-2">
+                        <div className="flex justify-end w-full opacity-60">
+                          <div className="bg-[#eeece9] w-2/3 h-14 rounded-[20px] animate-pulse rounded-tr-[4px]"></div>
+                        </div>
+                        <div className="flex justify-start w-full gap-4 mt-2 opacity-60">
+                          <div className="w-8 h-8 rounded-xl bg-[#E8E4E2] animate-pulse shrink-0"></div>
+                          <div className="flex-1 max-w-[80%] h-32 rounded-[20px] bg-[#fcfcfc] animate-pulse rounded-tl-[4px] border border-[#f0f0f0]"></div>
+                        </div>
                       </div>
-                      <div className="flex justify-start w-full gap-4 mt-2 opacity-60">
-                        <div className="w-8 h-8 rounded-xl bg-[#E8E4E2] animate-pulse shrink-0"></div>
-                        <div className="flex-1 max-w-[80%] h-32 rounded-[20px] bg-[#fcfcfc] animate-pulse rounded-tl-[4px] border border-[#f0f0f0]"></div>
-                      </div>
-                    </div>
-                ) : messages.length === 0 ? (
-                  /* 还原 EmptyState 在此处的渲染，但逻辑改为判断 messages */
-                  <EmptyState
-                    t={t}
-                    setLocalInput={setLocalInput}
-                    onFormSubmit={onFormSubmit}
-                  />
-                ) : (
+                  ) : messages.length === 0 ? (
+                    /* 还原 EmptyState 在此处的渲染，但逻辑改为判断 messages */
+                    <EmptyState
+                      t={t}
+                      setLocalInput={setLocalInput}
+                      onFormSubmit={onFormSubmit}
+                    />
+                  ) : (
                     <div key="chat-messages" className="flex flex-col w-full">
                       {Array.from(new Map(messages.map((m: any) => [m.id || m.createdAt || Math.random(), m])).values())
                           .filter((m: any) => m.role === 'user' || m.role === 'assistant')
@@ -496,10 +498,13 @@ export function ChatSession({
                             </div>
                           </motion.div>
                       )}
+                      <div className="h-px w-full mt-4" />
                     </div>
-                )}
+                  )}
 
-              </AnimatePresence>            </div>
+                </AnimatePresence>
+              
+            </div>
           </div>
 
           <ChatInput

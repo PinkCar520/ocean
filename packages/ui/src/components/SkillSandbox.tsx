@@ -40,8 +40,8 @@ export function SkillSandbox({ activeSkill }: { activeSkill: any }) {
 
   return (
     <div className="flex flex-col h-full w-full">
-      <div className="p-4 border-b border-[#E8E4E2] bg-white flex items-center justify-between shadow-sm z-10">
-        <h3 className="font-bold text-[#1C1B1B] flex items-center gap-2">
+      <div className="px-4 py-0 border-b border-[#E8E4E2] bg-transparent flex items-center justify-between shrink-0 h-[60px]">
+        <h3 className="font-sans text-[14px] font-bold text-[#1C1B1B] flex items-center gap-2">
           <Activity className="w-4 h-4 text-[#EC5B14]" />
           Sandbox Testing
         </h3>

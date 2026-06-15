@@ -45,6 +45,14 @@ export function useChatInput({
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    const trySkill = localStorage.getItem('ocean_try_skill_name');
+    if (trySkill) {
+      setSelectedSkill({ name: trySkill, provider: 'ocean' });
+      localStorage.removeItem('ocean_try_skill_name');
+    }
+  }, []);
+
+  useEffect(() => {
     if (!localInput.trim() || localInput.endsWith(' ')) {
       setGhostText('');
       return;
@@ -146,7 +154,7 @@ export function useChatInput({
         url: a.url!
       })) : undefined;
       
-      const parts = [];
+      const parts: any[] = [];
       if (currentSkill) {
         parts.push({ type: 'skill', name: currentSkill.name, provider: currentSkill.provider });
       }

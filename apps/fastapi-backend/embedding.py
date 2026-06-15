@@ -13,8 +13,9 @@ class EmbeddingService:
     def get_instance(cls):
         if cls._instance is None:
             cls._instance = EmbeddingService()
-            # It will automatically pick up OPENAI_API_KEY and OPENAI_BASE_URL from env
             logger.info("Initializing OpenAI API client for remote embeddings...")
+            
+            # 使用标准的 OPENAI_API_KEY 和 OPENAI_BASE_URL
             cls._instance._client = OpenAI()
             cls._instance._model_name = os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-3-small")
         return cls._instance

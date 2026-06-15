@@ -117,7 +117,6 @@ export const ChatMessage = React.memo(({
     : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <TooltipProvider delayDuration={0}>
       <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
         <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
           {isAssistant && (
@@ -415,6 +414,5 @@ export const ChatMessage = React.memo(({
         )}
       </div>
     </motion.div>
-  </TooltipProvider>
   );
 });

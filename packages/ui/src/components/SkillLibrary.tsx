@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   CheckCircle2, Rocket, GitPullRequest, MessageSquare,
-  Star, Box, Mail, Loader2, Sparkles, LayoutGrid, Server
+  Star, Box, Mail, Loader2, Sparkles, LayoutGrid, Server, Search
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,10 +58,11 @@ const SOURCE_LABEL_KEYS: Record<string, string> = {
   'internal': 'library.source_labels.internal',
 };
 
-export function SkillLibrary({ token }: { token?: string | null }) {
+export function SkillLibrary({ token, onMainTabChange }: { token?: string | null, onMainTabChange?: (tab: string) => void }) {
   const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('marketplace');
   const [activeFilter, setActiveFilter] = useState<Category>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [skills, setSkills] = useState<SkillCard[]>([]);
   const [stats, setStats] = useState({ total: 0, newThisWeek: 0 });
   const [loading, setLoading] = useState(true);
@@ -173,6 +174,16 @@ export function SkillLibrary({ token }: { token?: string | null }) {
     { id: 'mcp', label: 'MCP Servers', icon: Server },
   ];
 
+  const filteredSkills = useMemo(() => {
+    if (!searchQuery.trim()) return skills;
+    const q = searchQuery.toLowerCase();
+    return skills.filter(
+      (skill) =>
+        (skill.name || '').toLowerCase().includes(q) ||
+        (skill.description || '').toLowerCase().includes(q)
+    );
+  }, [skills, searchQuery]);
+
   return (
     <div className="flex-1 overflow-y-auto bg-[#fcf9f8] p-10 font-sans text-[#1c1b1b] relative pb-32">
       <div className="max-w-[1400px] mx-auto w-full">
@@ -182,7 +193,7 @@ export function SkillLibrary({ token }: { token?: string | null }) {
           <div>
             <div className="flex items-center gap-4 mb-3">
               <h2 className="font-display text-4xl font-extrabold tracking-tight text-[#1c1b1b]">
-                {t('library.title')} <span className="text-[#a33800]">{t('library.v3')}</span>
+                {t('library.title')}
               </h2>
               
               {/* Tab Switcher integrated into title row */}
@@ -209,13 +220,36 @@ export function SkillLibrary({ token }: { token?: string | null }) {
             </p>
           </div>
           {activeSubTab === 'marketplace' && (
-            <div className="flex flex-wrap gap-2">
-              <span className="bg-[#ffdbce] text-[#783112] px-3 py-1 rounded-full text-xs font-bold">
-                {t('library.stats.total_skills', { count: stats.total })}
-              </span>
-              <span className="bg-[#ebe7e7] text-[#5a4138] px-3 py-1 rounded-full text-xs font-bold">
-                {t('library.stats.new_this_week', { count: stats.newThisWeek })}
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="relative w-full sm:w-56 shrink-0">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-[#A8A4A1]" />
+                </div>
+                <input
+                  type="text"
+                  placeholder={t('library.common.search') || 'Search extensions...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 bg-white border border-[#E8E4E2] shadow-sm rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#EC5B14]/30 focus:border-[#EC5B14]/30 transition-all text-[#1C1B1B]"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="bg-[#ffdbce] text-[#783112] px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">
+                  {t('library.stats.total_skills', { count: stats.total })}
+                </span>
+                <span className="bg-[#ebe7e7] text-[#5a4138] px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">
+                  {t('library.stats.new_this_week', { count: stats.newThisWeek })}
+                </span>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('ocean_active_skill_name'); // Clear selection to enter creation mode
+                    onMainTabChange?.('skill_studio');
+                  }}
+                  className="bg-[#1C1B1B] text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-[#333] transition-colors whitespace-nowrap shadow-sm"
+                >
+                  {t('library.common.create_skill') || 'Create Skill'}
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -266,7 +300,7 @@ export function SkillLibrary({ token }: { token?: string | null }) {
               ) : (
                 <div key="cards" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                   <AnimatePresence mode="popLayout">
-                    {skills.map((card) => {
+                    {filteredSkills.map((card) => {
                       const iconEl = card.icon ? ICON_MAP[card.icon] : <Star className="w-6 h-6" />;
                       const iconStyle = card.icon ? ICON_STYLE_MAP[card.icon] : { bg: 'bg-gray-50', color: 'text-gray-500' };
                       return (
@@ -277,7 +311,11 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                           exit={{ opacity: 0, scale: 0.9 }}
                           transition={{ duration: 0.2 }}
                           key={card.id}
-                          className="group card-floating p-6 flex flex-col hover:shadow-2xl hover:shadow-[#EC5B14]/5 transition-all"
+                          onClick={() => {
+                            localStorage.setItem('ocean_active_skill_name', card.name);
+                            onMainTabChange?.('skill_studio');
+                          }}
+                          className="group card-floating p-6 flex flex-col hover:shadow-2xl hover:shadow-[#EC5B14]/5 transition-all cursor-pointer"
                         >
                           <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-6", iconStyle.bg, iconStyle.color)}>
                             {iconEl}
@@ -293,7 +331,10 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                               {t(SOURCE_LABEL_KEYS[card.source] || card.source)}
                             </span>
                             <button
-                              onClick={() => installedIds.has(card.id) ? handleUninstall(card.id) : handleInstall(card.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                installedIds.has(card.id) ? handleUninstall(card.id) : handleInstall(card.id);
+                              }}
                               disabled={installingId === card.id}
                               className={cn(
                                 "flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg transition-all text-xs font-bold disabled:opacity-60 disabled:cursor-not-allowed",
@@ -366,6 +407,17 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                               </div>
                            </div>
                         </div>
+                      </motion.div>
+                    )}
+                    {/* Empty State */}
+                    {!loading && filteredSkills.length === 0 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="col-span-full flex flex-col items-center justify-center py-20 text-[#A8A4A1]"
+                      >
+                        <Search className="w-12 h-12 mb-4 opacity-20" />
+                        <p className="text-lg font-medium">{t('library.common.no_results') || 'No extensions found'}</p>
                       </motion.div>
                     )}
                   </AnimatePresence>

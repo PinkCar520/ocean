@@ -34,8 +34,8 @@ import {
 interface ChatInputProps {
   localInput: string;
   setLocalInput: (val: string) => void;
-  selectedSkill?: { name: string; provider: string; desc?: string } | null;
-  setSelectedSkill?: (skill: { name: string; provider: string; desc?: string } | null) => void;
+  selectedSkill?: { name: string; provider: string; desc?: string; icon?: any } | null;
+  setSelectedSkill?: (skill: { name: string; provider: string; desc?: string; icon?: any } | null) => void;
   attachments: any[];
   addFiles: (files: File[]) => void;
   removeFile: (id: string) => void;
@@ -424,7 +424,7 @@ export const ChatInput = React.memo(({
                   return (
                     <React.Fragment key={opt.id}>
                       {showSeparator && <div className="h-px bg-[#E8E4E2]/80 my-1 mx-2" />}
-                      <TooltipProvider delayDuration={0}>
+                      
                         <Tooltip open={isActive && !!opt.desc}>
                           <TooltipTrigger asChild>
                             <button
@@ -454,7 +454,7 @@ export const ChatInput = React.memo(({
                             {opt.desc}
                           </TooltipContent>
                         </Tooltip>
-                      </TooltipProvider>
+                      
                     </React.Fragment>
                   );
                 }) : (
@@ -540,7 +540,7 @@ export const ChatInput = React.memo(({
             attachments.length > 0 || activeMentions.length > 0 ? "pt-1 pb-3" : "py-3"
           )}>
             {selectedSkill && (
-              <TooltipProvider delayDuration={0}>
+              
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
@@ -560,6 +560,12 @@ export const ChatInput = React.memo(({
                       sideOffset={8}
                       side="top"
                       className="bg-white text-[#1C1B1B] border border-[#E8E4E2] rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-[#F6F3F2] transition-colors pointer-events-auto"
+                      onClick={() => {
+                        if (selectedSkill.provider === 'ocean' && !['clear', 'prompt'].includes(selectedSkill.name)) {
+                          localStorage.setItem('ocean_active_skill_name', selectedSkill.name);
+                          onMainTabChange?.('skill_studio');
+                        }
+                      }}
                     >
                       <div className="font-bold mb-1.5 flex items-center gap-2">
                         {selectedSkill.icon ? (
@@ -573,7 +579,7 @@ export const ChatInput = React.memo(({
                     </TooltipContent>
                   )}
                 </Tooltip>
-              </TooltipProvider>
+              
             )}
 
             <div className="flex-1 min-w-0 relative">
@@ -597,7 +603,7 @@ export const ChatInput = React.memo(({
               </div>
 
               <div
-                ref={textAreaRef as React.RefObject<HTMLDivElement>}
+                ref={textAreaRef as unknown as React.RefObject<HTMLDivElement>}
                 contentEditable
                 suppressContentEditableWarning
                 onInput={(e) => {

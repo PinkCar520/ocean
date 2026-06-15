@@ -282,7 +282,7 @@
   },
   "library": {
     "v3": "v3",
-    "title": "Skill & MCP Library",
+    "title": "Skill Library",
     "subtitle": "Extend Ocean's intelligence with curated Model Context Protocol connectors and specialized agent skills for your enterprise ecosystem.",
     "stats": {
       "total_skills": "{{count}} Total Skills",

@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@ocean/ui/components/ui/tooltip";
 import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import {
@@ -23,7 +24,7 @@ import { useConversations } from '@ocean/ui/lib/useConversations';
 import { cn } from '@ocean/ui/lib/utils';
 import { api } from '@ocean/ui/lib/api-client';
 import { LandingPage } from './components/LandingPage';
-import { SkillManager } from './components/SkillManager';
+import { SkillManager } from '@ocean/ui/components/SkillManager';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 
@@ -38,15 +39,17 @@ function AppContent() {
   const [user, setUser] = useState<any>(null);
 
   return (
-    <WorkspaceProvider token={token}>
-      <AppInternal
-        token={token}
-        setToken={setToken}
-        user={user}
-        setUser={setUser}
-        sessionIdFromUrl={sessionIdFromUrl}
-      />
-    </WorkspaceProvider>
+    <TooltipProvider delayDuration={0}>
+      <WorkspaceProvider token={token}>
+        <AppInternal
+          token={token}
+          setToken={setToken}
+          user={user}
+          setUser={setUser}
+          sessionIdFromUrl={sessionIdFromUrl}
+        />
+      </WorkspaceProvider>
+    </TooltipProvider>
   );
 }
 
@@ -270,9 +273,9 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
               onDeleteConversations={handleDeleteConversations}
             />
           ) : activeTab === 'library' ? (
-            <SkillLibrary token={token} />
+            <SkillLibrary token={token} onMainTabChange={setActiveTab} />
           ) : activeTab === 'skill_studio' ? (
-            <SkillManager token={token} />
+            <SkillManager token={token} onMainTabChange={setActiveTab} />
           ) : activeTab === 'projects' ? (
             activeProject?.id ? (
               <KnowledgeBase
