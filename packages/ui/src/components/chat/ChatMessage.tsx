@@ -22,6 +22,15 @@ import {
   TooltipTrigger, 
   TooltipContent 
 } from '../ui/tooltip';
+import { 
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../ui/dialog';
+import { useInstalledSkills } from '../../lib/useInstalledSkills';
 
 interface ChatMessageProps {
   message: any;
@@ -84,6 +93,8 @@ export const ChatMessage = React.memo(({
   isStopped,
   onExtract,
 }: ChatMessageProps) => {
+  const installedSkills = useInstalledSkills();
+
   const formatDateTime = (dateStr: string) => {
     const d = new Date(dateStr);
     const now = new Date();
@@ -187,15 +198,54 @@ export const ChatMessage = React.memo(({
                     {!hasAnySteps && isStreaming && (
                       <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
                     )}
-                    {textParts.map((part: any, i: number) => (
-                      <div key={i} className="prose prose-slate prose-sm max-w-none">
-                        {part.type === 'text' && (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents(onExtract) as any}>
-                            {part.text}
-                          </ReactMarkdown>
-                        )}
-                      </div>
-                    ))}
+                    <div className="relative clear-both overflow-hidden flex flex-wrap items-baseline">
+                      {textParts.map((part: any, i: number) => {
+                        if (part.type === 'skill') {
+                          const skill = Array.isArray(installedSkills) ? installedSkills.find((s: any) => s.name === part.name) : null;
+                          return (
+                            <React.Fragment key={i}>
+                              {skill ? (
+                                <TooltipProvider delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium hover:bg-[#2b7fff]/20 transition-colors select-none outline-none mr-2 cursor-pointer shrink-0">
+                                        /{skill.name}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent 
+                                      sideOffset={8} 
+                                      side="top" 
+                                      className="bg-white text-[#1C1B1B] border border-[#E8E4E2] rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-[#F6F3F2] transition-colors pointer-events-auto"
+                                    >
+                                      <div className="font-bold mb-1.5 flex items-center gap-2">
+                                        <Sparkles className="w-3.5 h-3.5 text-[#2b7fff]" />
+                                        /{skill.name}
+                                      </div>
+                                      <div className="text-[12px] text-[#716B67] leading-relaxed font-normal">{skill.description}</div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium select-none mr-2 shrink-0">
+                                  /{part.name}
+                                </span>
+                              )}
+                            </React.Fragment>
+                          );
+                        }
+                        
+                        if (part.type === 'text') {
+                          return (
+                            <div key={i} className="prose prose-slate prose-sm max-w-none flex-1 min-w-0 [&>p:first-child]:mt-0 [&>p:first-child]:mb-1">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents(onExtract) as any}>
+                                {part.text}
+                              </ReactMarkdown>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
                     {isStreaming && <TypingCursor />}
                     {completedTools.map((part: any) => {
                       const result = part.output || part.result;

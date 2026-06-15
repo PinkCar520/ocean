@@ -41,7 +41,8 @@ export function useInstalledSkills() {
       isFetching = true;
       fetchPromise = api.get<any>('/api/skills?installed=true') // Adjust endpoint if needed to fetch only installed skills
         .then((data) => {
-          const fetchedSkills = Array.isArray(data) ? data : (data.data || []);
+          const dataArray = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
+          const fetchedSkills = dataArray;
           globalInstalledSkillsCache = fetchedSkills;
           notifyListeners(fetchedSkills);
           setIsLoading(false);

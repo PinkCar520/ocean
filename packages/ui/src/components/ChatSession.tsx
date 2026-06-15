@@ -122,7 +122,7 @@ export function ChatSession({
   }, [data]);
 
   const {
-    localInput, setLocalInput, attachments, addFiles, removeFile,
+    localInput, setLocalInput, selectedSkill, setSelectedSkill, attachments, addFiles, removeFile,
     textAreaRef, onFormSubmit, uploadFile, ghostText, setGhostText, isPredicting
   } = useChatInput({
     sendMessage, createSession, token, selectedModelId,
@@ -502,6 +502,8 @@ export function ChatSession({
           isEmpty={messages.length === 0 && !isLoadingHistory}
           localInput={localInput}
           setLocalInput={setLocalInput}
+          selectedSkill={selectedSkill}
+          setSelectedSkill={setSelectedSkill}
           attachments={attachments}
           addFiles={addFiles}
           removeFile={removeFile}

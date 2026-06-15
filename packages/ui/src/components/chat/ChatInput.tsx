@@ -24,10 +24,18 @@ import {
   DropdownMenuSubContent,
   DropdownMenuPortal,
 } from '../ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider
+} from '../ui/tooltip';
 
 interface ChatInputProps {
   localInput: string;
   setLocalInput: (val: string) => void;
+  selectedSkill?: { name: string; provider: string; desc?: string } | null;
+  setSelectedSkill?: (skill: { name: string; provider: string; desc?: string } | null) => void;
   attachments: any[];
   addFiles: (files: File[]) => void;
   removeFile: (id: string) => void;
@@ -66,6 +74,8 @@ const ICON_MAP: Record<string, any> = {
 export const ChatInput = React.memo(({
   localInput,
   setLocalInput,
+  selectedSkill,
+  setSelectedSkill,
   attachments,
   addFiles,
   removeFile,
@@ -123,7 +133,7 @@ export const ChatInput = React.memo(({
     const skillOptions = installedSkills.map(skill => ({
       id: skill.id,
       label: `/${skill.name}`,
-      desc: `Execute ${skill.name} skill`,
+      desc: skill.description || `Execute ${skill.name} skill`,
       action: 'tool',
       icon: Wrench,
       type: 'skill'
@@ -173,36 +183,30 @@ export const ChatInput = React.memo(({
     setActiveMentions(prev => prev.filter(m => m.id !== id));
   };
 
-  const handleSlashSelect = (action: string, label: string, _id: string, _icon: any) => {
+  const handleSlashSelect = (action: string, label: string, _id: string, icon: any, desc?: string) => {
     setSlashMenuOpen(false);
 
     if (textAreaRef.current) {
-      // Enforce exclusive slash command: remove any existing chip and anchor first
+      // Remove any old legacy chips just in case
       const existingChips = textAreaRef.current.querySelectorAll('.chip');
       existingChips.forEach(chip => chip.remove());
       const existingAnchors = textAreaRef.current.querySelectorAll('.cursor-anchor');
       existingAnchors.forEach(anchor => anchor.remove());
 
       let html = textAreaRef.current.innerHTML;
-      const chipHtml = `<span contenteditable="false" class="chip inline-block px-2 py-0.5 rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] select-none pointer-events-none mx-0.5 align-baseline" style="user-select: none; -webkit-user-select: none;">${label}</span><span class="cursor-anchor">&#8203;</span>`;
       
       const regex = /(?:^|\s|&nbsp;)\/([^<\s]*)$/;
       if (regex.test(html)) {
         html = html.replace(regex, (match) => {
            const leading = match.charAt(0) === '/' ? '' : match.charAt(0);
-           return leading + chipHtml;
+           return leading;
         });
         textAreaRef.current.innerHTML = html;
-      } else {
-        if (html === '' || html === '<br>') {
-          textAreaRef.current.innerHTML = chipHtml + '&nbsp;';
-        } else {
-          // Prepend the command to the very beginning if inserted via + menu
-          // Remove leading spaces/br from html to keep it clean
-          const cleanHtml = html.replace(/^(<br>|&nbsp;|\s)+/, '');
-          textAreaRef.current.innerHTML = chipHtml + '&nbsp;' + cleanHtml;
-        }
       }
+      
+      // Update the structural state instead of DOM
+      const skillName = action === 'tool' ? label.replace(/^\//, '') : action;
+      setSelectedSkill?.({ name: skillName, provider: 'ocean', desc, icon });
       setLocalInput(textAreaRef.current.textContent || '');
 
       setTimeout(() => {
@@ -259,6 +263,15 @@ export const ChatInput = React.memo(({
     ta?.addEventListener('scroll', syncScroll);
     return () => ta?.removeEventListener('scroll', syncScroll);
   }, [textAreaRef]);
+
+  React.useEffect(() => {
+    if (slashMenuOpen) {
+      const activeEl = document.getElementById('slash-active-item');
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [slashActiveIndex, slashMenuOpen]);
 
   useLayoutEffect(() => {
     // ContentEditable div auto-resizes naturally, no need to set height manually based on scrollHeight
@@ -367,10 +380,10 @@ export const ChatInput = React.memo(({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute bottom-[calc(100%+8px)] left-4 w-auto min-w-[300px] bg-white/95 backdrop-blur-xl border border-[#E8E4E2] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl overflow-hidden z-50"
+              className="absolute bottom-[calc(100%+8px)] left-4 w-56 bg-white/95 backdrop-blur-xl border border-[#E8E4E2] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl z-50"
             >
               {/* Header */}
-              <div className="px-3 py-2 border-b border-[#E8E4E2]/60 bg-[#F6F3F2]/60 flex items-center justify-between">
+              <div className="px-3 py-2 border-b border-[#E8E4E2]/60 bg-[#F6F3F2]/60 flex items-center justify-between rounded-t-xl">
                 <span className="text-[10px] font-black uppercase text-[#716B67] tracking-widest">Commands</span>
                 <div className="flex items-center gap-2 text-[10px] text-[#A8A4A1]">
                   <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">↑↓</kbd>
@@ -385,23 +398,37 @@ export const ChatInput = React.memo(({
                   return (
                     <React.Fragment key={opt.id}>
                       {showSeparator && <div className="h-px bg-[#E8E4E2]/80 my-1 mx-2" />}
-                      <button
-                        onClick={() => handleSlashSelect(opt.action, opt.label, opt.id, opt.icon)}
-                        onMouseEnter={() => setSlashActiveIndex(idx)}
-                        className={cn(
-                          "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5",
-                          isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
-                        )}
-                      >
-                        <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
-                          <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
-                        </div>
-                        <span className="flex-1 truncate">
-                          <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
-                          <span className={cn("ml-2 text-[12px] font-normal", isActive ? "text-[#EC5B14]/60" : "text-[#A8A4A1]")}>{opt.desc}</span>
-                        </span>
-                        {isActive && <span className="text-[10px] text-[#EC5B14]/50 font-medium shrink-0">↵</span>}
-                      </button>
+                      <TooltipProvider delayDuration={0}>
+                        <Tooltip open={isActive && !!opt.desc}>
+                          <TooltipTrigger asChild>
+                            <button
+                              id={isActive ? 'slash-active-item' : undefined}
+                              onClick={() => handleSlashSelect(opt.action, opt.label, opt.id, opt.icon, opt.desc)}
+                              onMouseEnter={() => setSlashActiveIndex(idx)}
+                              className={cn(
+                                "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5 relative group",
+                                isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
+                              )}
+                            >
+                              <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
+                                <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
+                              </div>
+                              <span className="flex-1 truncate">
+                                <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
+                              </span>
+                              {isActive && <span className="text-[10px] text-[#EC5B14]/50 font-medium shrink-0 ml-2">↵</span>}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent 
+                            side="right" 
+                            sideOffset={12} 
+                            align="start"
+                            className="w-[340px] bg-[#2D2D2D] text-[#E8E4E2] p-4 rounded-xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] z-[60] text-[13px] leading-relaxed cursor-default whitespace-normal border border-white/10 pointer-events-none"
+                          >
+                            {opt.desc}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </React.Fragment>
                   );
                 }) : (
@@ -482,32 +509,70 @@ export const ChatInput = React.memo(({
             )}
           </AnimatePresence>
 
-          <div className="relative flex flex-col">
-            <style>{`
-              .ghost-overlay { color: transparent !important; }
-              .ghost-overlay * { 
-                color: transparent !important; 
-                background-color: transparent !important; 
-                border-color: transparent !important; 
-                box-shadow: none !important; 
-              }
-              .ghost-overlay .visible-ghost { 
-                color: rgba(168, 164, 161, 0.5) !important; 
-              }
-            `}</style>
-            {/* Ghost overlay: exactly mirrors contentEditable HTML but transparent, appending visible ghostText */}
-            <div
-              ref={ghostRef}
-              className={cn(
-                "ghost-overlay absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden text-[15px] px-4 leading-relaxed font-sans border-none",
-                attachments.length > 0 || activeMentions.length > 0 ? "pt-1 pb-3" : "py-3"
-              )}
-            >
-            </div>
+          <div className={cn(
+            "relative flex items-start w-full px-4",
+            attachments.length > 0 || activeMentions.length > 0 ? "pt-1 pb-3" : "py-3"
+          )}>
+            {selectedSkill && (
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium select-none outline-none mr-2 mt-[2px] group shrink-0"
+                    >
+                      /{selectedSkill.name}
+                      <button 
+                        onClick={() => setSelectedSkill?.(null)}
+                        className="w-4 h-4 ml-0.5 -mr-1 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-[#2b7fff]/20 transition-all cursor-pointer"
+                      >
+                        <CloseIcon className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  </TooltipTrigger>
+                  {selectedSkill.desc && (
+                    <TooltipContent 
+                      sideOffset={8} 
+                      side="top" 
+                      className="bg-white text-[#1C1B1B] border border-[#E8E4E2] rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-[#F6F3F2] transition-colors pointer-events-auto"
+                    >
+                      <div className="font-bold mb-1.5 flex items-center gap-2">
+                        {selectedSkill.icon ? (
+                          <selectedSkill.icon className="w-3.5 h-3.5 text-[#2b7fff]" />
+                        ) : (
+                          <Sparkles className="w-3.5 h-3.5 text-[#2b7fff]" />
+                        )}
+                        /{selectedSkill.name}
+                      </div>
+                      <div className="text-[12px] text-[#716B67] leading-relaxed font-normal">{selectedSkill.desc}</div>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
+            <div className="flex-1 min-w-0 relative">
+              <style>{`
+                .ghost-overlay { color: transparent !important; }
+                .ghost-overlay * { 
+                  color: transparent !important; 
+                  background-color: transparent !important; 
+                  border-color: transparent !important; 
+                  box-shadow: none !important; 
+                }
+                .ghost-overlay .visible-ghost { 
+                  color: rgba(168, 164, 161, 0.5) !important; 
+                }
+              `}</style>
+              {/* Ghost overlay: exactly mirrors contentEditable HTML but transparent, appending visible ghostText */}
+              <div
+                ref={ghostRef}
+                className="ghost-overlay absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden text-[15px] leading-relaxed font-sans border-none"
+              >
+              </div>
 
-            <div
-              ref={textAreaRef as React.RefObject<HTMLDivElement>}
-              contentEditable
+              <div
+                ref={textAreaRef as React.RefObject<HTMLDivElement>}
+                contentEditable
               suppressContentEditableWarning
               onInput={(e) => {
                 const val = e.currentTarget.textContent || '';
@@ -578,7 +643,7 @@ export const ChatInput = React.memo(({
                   } else if (slashMenuOpen) {
                     e.preventDefault();
                     const target = filteredSlash[slashActiveIndex] || filteredSlash[0];
-                    if (target) handleSlashSelect(target.action, target.label, target.id, target.icon);
+                    if (target) handleSlashSelect(target.action, target.label, target.id, target.icon, target.desc);
                   } else {
                     e.preventDefault();
                     if (textAreaRef.current) {
@@ -587,56 +652,21 @@ export const ChatInput = React.memo(({
                     onFormSubmit();
                   }
                 } else if (e.key === 'Backspace' && !slashMenuOpen && !mentionMenuOpen) {
+                  let isAtStart = false;
                   const sel = window.getSelection();
-                  if (sel && sel.isCollapsed) {
-                    const { anchorNode, anchorOffset } = sel;
-                    let targetChip: HTMLElement | null = null;
-                    let targetAnchor: HTMLElement | null = null;
-
-                    if (anchorNode?.nodeType === Node.TEXT_NODE) {
-                      if (anchorNode.parentElement?.classList.contains('cursor-anchor') && anchorOffset === 1) {
-                        const prev = anchorNode.parentElement.previousSibling as HTMLElement;
-                        if (prev && prev.contentEditable === 'false') {
-                          targetChip = prev;
-                          targetAnchor = anchorNode.parentElement;
-                        }
-                      } else if (anchorOffset === 0) {
-                        const prev = anchorNode.previousSibling as HTMLElement;
-                        if (prev && prev.contentEditable === 'false') {
-                          targetChip = prev;
-                        } else if (prev && prev.classList?.contains('cursor-anchor')) {
-                          const chip = prev.previousSibling as HTMLElement;
-                          if (chip && chip.contentEditable === 'false') {
-                            targetChip = chip;
-                            targetAnchor = prev;
-                          }
-                        }
-                      }
-                    } else if (anchorNode?.nodeType === Node.ELEMENT_NODE) {
-                      const child = anchorNode.childNodes[anchorOffset - 1] as HTMLElement;
-                      if (child && child.contentEditable === 'false') {
-                        targetChip = child;
-                      } else if (child && child.classList?.contains('cursor-anchor')) {
-                        const chip = child.previousSibling as HTMLElement;
-                        if (chip && chip.contentEditable === 'false') {
-                          targetChip = chip;
-                          targetAnchor = child;
-                        }
-                      }
+                  if (sel && sel.isCollapsed && textAreaRef.current) {
+                    const range = sel.getRangeAt(0);
+                    const preCaretRange = range.cloneRange();
+                    preCaretRange.selectNodeContents(textAreaRef.current);
+                    preCaretRange.setEnd(range.endContainer, range.endOffset);
+                    if (preCaretRange.toString().length === 0) {
+                      isAtStart = true;
                     }
-
-                    if (targetChip) {
-                      e.preventDefault();
-                      targetChip.remove();
-                      if (targetAnchor) targetAnchor.remove();
-                      
-                      // Trigger input change so React state stays perfectly synced
-                      if (textAreaRef.current) {
-                        const ev = new Event('input', { bubbles: true });
-                        textAreaRef.current.dispatchEvent(ev);
-                        setLocalInput(textAreaRef.current.textContent || '');
-                      }
-                    }
+                  }
+                  
+                  if (isAtStart && selectedSkill) {
+                    e.preventDefault();
+                    setSelectedSkill?.(null);
                   }
                 } else if (e.key === 'ArrowUp' && !slashMenuOpen && !mentionMenuOpen && !localInput.trim() && lastUserMessage) {
                   e.preventDefault();
@@ -660,12 +690,14 @@ export const ChatInput = React.memo(({
                   ghostRef.current.scrollTop = textAreaRef.current.scrollTop;
                 }
               }}
-              className={cn(
-                "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-[#1C1B1B] caret-[#1C1B1B] px-4 min-h-[44px] max-h-[200px] leading-relaxed font-sans relative z-0 overflow-y-auto break-words whitespace-pre-wrap outline-none empty:before:content-[attr(placeholder)] empty:before:text-[#A8A4A1] empty:before:pointer-events-none text-[15px]",
-                attachments.length > 0 || activeMentions.length > 0 ? "pt-1 pb-3" : "py-3"
-              )}
-              placeholder={t('chat.placeholder', 'Ask anything...')}
+              className="w-full bg-transparent text-[15px] text-[#1C1B1B] outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none"
             />
+            {!localInput && !selectedSkill && (
+              <div className="absolute left-0 top-0 pointer-events-none text-[#A8A4A1] text-[15px] leading-relaxed select-none">
+                {t('chat.placeholder', 'Ask anything...')}
+              </div>
+            )}
+            </div>
 
             <AnimatePresence>
               {ghostText && (
@@ -759,7 +791,7 @@ export const ChatInput = React.memo(({
                         {installedSkills.map(skill => (
                           <DropdownMenuItem 
                             key={skill.id} 
-                            onClick={() => handleSlashSelect('tool', '/' + skill.name, skill.id, Wrench)}
+                            onClick={() => handleSlashSelect('tool', '/' + skill.name, skill.id, Wrench, skill.description)}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5"
                           >
                             <FileText className="w-4 h-4 text-[#716B67] shrink-0" />

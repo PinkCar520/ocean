@@ -38,6 +38,7 @@ export function useChatInput({
   isLoading
 }: UseChatInputProps) {
   const [localInput, setLocalInput] = useState('');
+  const [selectedSkill, setSelectedSkill] = useState<{ name: string; provider: string; desc?: string; icon?: any } | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [ghostText, setGhostText] = useState<string>('');
   const [isPredicting, setIsPredicting] = useState<boolean>(false);
@@ -131,7 +132,9 @@ export function useChatInput({
     setIsLocalThinking(true);
     userScrolledUpRef.current = false;
     const val = localInput;
+    const currentSkill = selectedSkill;
     setLocalInput('');
+    setSelectedSkill(null);
     const filesToUpload = [...attachments];
     setAttachments([]);
 
@@ -143,7 +146,20 @@ export function useChatInput({
         url: a.url!
       })) : undefined;
       
-      const userMessage = { content: val, role: 'user', experimental_attachments: preparedAttachments };
+      const parts = [];
+      if (currentSkill) {
+        parts.push({ type: 'skill', name: currentSkill.name, provider: currentSkill.provider });
+      }
+      if (val.trim()) {
+        parts.push({ type: 'text', text: val.trim() });
+      }
+      
+      const userMessage = { 
+        role: 'user', 
+        content: val, // fallback for older rendering, but parts is truth
+        parts: parts.length > 0 ? parts : undefined,
+        experimental_attachments: preparedAttachments 
+      };
       await sendMessage(userMessage as any, {
         headers: {
           'Authorization': `Bearer ${activeToken}`
@@ -187,6 +203,8 @@ export function useChatInput({
   return {
     localInput,
     setLocalInput,
+    selectedSkill,
+    setSelectedSkill,
     attachments,
     addFiles,
     removeFile,
