@@ -92,8 +92,8 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
     const newSkill = {
       name: 'New Skill',
       description: '',
-      trigger_keywords: [],
-      body: '# Context\n\nYou are an expert in...',
+      triggerKws: [],
+      content: '# Context\n\nYou are an expert in...',
       scope: 'team',
     };
     setActiveSkill(newSkill);
@@ -107,8 +107,8 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
       const newSkill = {
         name: 'New Skill',
         description: '',
-        trigger_keywords: [],
-        body: '# Context\n\nYou are an expert in...',
+        triggerKws: [],
+        content: '# Context\n\nYou are an expert in...',
         scope: 'team',
       };
       setActiveSkill(newSkill);
@@ -147,7 +147,7 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
   };
 
   const restoreVersion = (version: any) => {
-    setActiveSkill({ ...activeSkill, body: version.body, name: version.name });
+    setActiveSkill({ ...activeSkill, content: version.content, name: version.name });
     setIsEditing(true);
     setIsFormEditable(true);
   };
@@ -172,7 +172,7 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
         history.unshift({
           timestamp: new Date().toISOString(),
           name: activeSkill.name,
-          body: activeSkill.body,
+          content: activeSkill.content,
         });
         const limitedHistory = history.slice(0, 10);
         localStorage.setItem(`ocean_skill_history_${skillId}`, JSON.stringify(limitedHistory));
@@ -499,15 +499,15 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#716B67] mb-1">Trigger Keywords (comma separated)</label>
+                  <label className="block text-[13px] text-[#A8A4A1] mb-1.5">Trigger Keywords (comma separated)</label>
                   <input
                     type="text"
-                    value={(activeSkill.trigger_keywords || []).join(', ')}
+                    value={(activeSkill.triggerKws || []).join(', ')}
                     readOnly={!isFormEditable}
-                    onChange={e => setActiveSkill({ ...activeSkill, trigger_keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                    onChange={e => setActiveSkill({ ...activeSkill, triggerKws: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                     className={cn(
                       "w-full border border-[#E8E4E2] rounded-lg p-2 text-sm focus:outline-none",
-                      isFormEditable ? "focus:ring-2 focus:ring-[#EC5B14]/30" : "bg-[#F6F3F2]/50 text-[#716B67]"
+                      isFormEditable ? "focus:ring-2 focus:ring-[#EC5B14]/30 bg-white" : "bg-transparent text-[#1C1B1B] font-mono opacity-80"
                     )}
                   />
                 </div>
@@ -518,10 +518,10 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
                     isFormEditable ? "focus-within:ring-2 focus-within:ring-[#EC5B14]/30 bg-white" : "border-transparent bg-transparent"
                   )}>
                     <CodeEditor
-                      value={activeSkill.body}
+                      value={activeSkill.content}
                       language="markdown"
                       placeholder="Please enter markdown code."
-                      onChange={(e) => setActiveSkill({ ...activeSkill, body: e.target.value })}
+                      onChange={(e) => setActiveSkill({ ...activeSkill, content: e.target.value })}
                       disabled={!isFormEditable}
                       padding={16}
                       style={{

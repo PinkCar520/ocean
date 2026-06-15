@@ -19,6 +19,7 @@ export interface CreateSkillDto {
   isPublic?: boolean;
   icon?: string;
   tags?: string[];
+  triggerKws?: string[];
 }
 
 export interface UpdateSkillDto {
@@ -30,6 +31,8 @@ export interface UpdateSkillDto {
   isPublic?: boolean;
   icon?: string;
   tags?: string[];
+  content?: string;
+  triggerKws?: string[];
 }
 
 export interface InstallSkillDto {
@@ -82,6 +85,7 @@ export class SkillService {
       data: {
         ...data,
         tags: data.tags || [],
+        triggerKws: data.triggerKws || [],
         isFeatured: data.isFeatured ?? false,
         isPublic: data.isPublic ?? true,
         source: data.source || 'internal',

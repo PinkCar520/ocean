@@ -89,6 +89,11 @@ export class SkillController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createSkill(@Body() body: CreateSkillDto) {
+    if (!body.slug && body.name) {
+      body.slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Math.random().toString(36).substring(2, 8);
+    } else if (!body.slug) {
+      body.slug = 'skill-' + Math.random().toString(36).substring(2, 8);
+    }
     const skill = await this.skillService.createSkill(body);
     return { success: true, data: skill };
   }
