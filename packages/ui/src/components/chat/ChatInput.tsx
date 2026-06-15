@@ -536,7 +536,7 @@ export const ChatInput = React.memo(({
           </AnimatePresence>
 
           <div className={cn(
-            "relative flex items-start w-full px-4",
+            "relative flex items-baseline w-full px-4",
             attachments.length > 0 || activeMentions.length > 0 ? "pt-1 pb-3" : "py-3"
           )}>
             {selectedSkill && (
@@ -544,7 +544,7 @@ export const ChatInput = React.memo(({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
-                      className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium select-none outline-none mr-2 mt-[2px] group shrink-0"
+                      className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium select-none outline-none mr-2 group shrink-0"
                     >
                       /{selectedSkill.name}
                       <button

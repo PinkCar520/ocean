@@ -117,19 +117,20 @@ export const ChatMessage = React.memo(({
     : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
-      <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
-        {isAssistant && (
-          <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
-            <Sparkles className="w-4 h-4" />
-          </div>
-        )}
-        <div className={cn(
-          "py-3 rounded-[20px] text-[15px] leading-relaxed",
-          isUser
-            ? "bg-[#eeece9] text-[#1C1B1B] max-w-[85%] px-5"
-            : "bg-transparent text-[#1C1B1B] flex-1 min-w-0"
-        )}>
+    <TooltipProvider delayDuration={0}>
+      <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
+        <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
+          {isAssistant && (
+            <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          )}
+          <div className={cn(
+            "py-3 rounded-[20px] text-[15px] leading-relaxed",
+            isUser
+              ? "bg-[#eeece9] text-[#1C1B1B] max-w-[85%] px-5"
+              : "bg-transparent text-[#1C1B1B] flex-1 min-w-0"
+          )}>
           {(m.experimental_attachments || m.attachments) && (m.experimental_attachments || m.attachments).length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3 pb-3 border-b border-[#E8E4E2]/40">
               {(m.experimental_attachments || m.attachments).map((at: any, aidx: number) => {
@@ -211,16 +212,15 @@ export const ChatMessage = React.memo(({
                           
                           return (
                             <React.Fragment key={i}>
-                                <TooltipProvider delayDuration={0}>
-                                  <Tooltip>
+                                  <Tooltip delayDuration={0}>
                                     <TooltipTrigger asChild>
-                                      <div className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium hover:bg-[#2b7fff]/20 transition-colors select-none outline-none mr-2 cursor-pointer shrink-0">
+                                      <div className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium hover:bg-[#2b7fff]/20 transition-colors select-none outline-none mr-2 cursor-pointer shrink-0 pointer-events-auto">
                                         /{resolvedSkill.name}
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent 
                                       sideOffset={8} 
-                                      side="top" 
+                                      side="bottom" 
                                       className="bg-white text-[#1C1B1B] border border-[#E8E4E2] rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-[#F6F3F2] transition-colors pointer-events-auto"
                                     >
                                       <div className="font-bold mb-1.5 flex items-center gap-2">
@@ -230,7 +230,6 @@ export const ChatMessage = React.memo(({
                                       <div className="text-[12px] text-[#716B67] leading-relaxed font-normal">{resolvedSkill.description}</div>
                                     </TooltipContent>
                                   </Tooltip>
-                                </TooltipProvider>
                             </React.Fragment>
                           );
                         }
@@ -416,5 +415,6 @@ export const ChatMessage = React.memo(({
         )}
       </div>
     </motion.div>
+  </TooltipProvider>
   );
 });
