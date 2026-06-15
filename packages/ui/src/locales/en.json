@@ -9,7 +9,8 @@
   },
   "chat": {
     "new_chat": "New Chat",
-    "placeholder": "Ask Ocean to perform a task...",
+    "placeholder_new": "Ask Ocean to perform a task...",
+    "placeholder_reply": "Continue the conversation...",
     "empty_title": "How can I help you?",
     "empty_desc": "Bridge your <1>CLI node</1> with enterprise workflows.",
     "status_secured": "Enterprise Secured",

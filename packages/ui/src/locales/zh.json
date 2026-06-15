@@ -9,7 +9,8 @@
   },
   "chat": {
     "new_chat": "新对话",
-    "placeholder": "问问 Ocean 任务执行...",
+    "placeholder_new": "问问 Ocean 任务执行...",
+    "placeholder_reply": "继续对话...",
     "empty_title": "我能帮您做什么？",
     "empty_desc": "将您的 <1>CLI 节点</1> 与企业工作流无缝桥接。",
     "status_secured": "企业级加密",

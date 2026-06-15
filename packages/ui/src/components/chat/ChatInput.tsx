@@ -1,6 +1,6 @@
 import React, { useState, useLayoutEffect } from 'react';
-import { 
-  Plus, FileText, X as CloseIcon, 
+import {
+  Plus, FileText, X as CloseIcon,
   ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -96,7 +96,7 @@ export const ChatInput = React.memo(({
   lastUserMessage,
   setPreviewAttachment,
   ghostText = '',
-  setGhostText = () => {},
+  setGhostText = () => { },
   isPredicting = false,
   isEmpty = false,
   onMainTabChange,
@@ -194,16 +194,16 @@ export const ChatInput = React.memo(({
       existingAnchors.forEach(anchor => anchor.remove());
 
       let html = textAreaRef.current.innerHTML;
-      
+
       const regex = /(?:^|\s|&nbsp;)\/([^<\s]*)$/;
       if (regex.test(html)) {
         html = html.replace(regex, (match) => {
-           const leading = match.charAt(0) === '/' ? '' : match.charAt(0);
-           return leading;
+          const leading = match.charAt(0) === '/' ? '' : match.charAt(0);
+          return leading;
         });
         textAreaRef.current.innerHTML = html;
       }
-      
+
       // Update the structural state instead of DOM
       const skillName = action === 'tool' ? label.replace(/^\//, '') : action;
       setSelectedSkill?.({ name: skillName, provider: 'ocean', desc, icon });
@@ -232,7 +232,7 @@ export const ChatInput = React.memo(({
         const ghostSpan = document.createElement('span');
         ghostSpan.className = 'visible-ghost border-none';
         ghostSpan.textContent = ghostText;
-        
+
         const lastChild = ghostRef.current.lastElementChild;
         if (lastChild && lastChild.tagName === 'DIV') {
           const br = lastChild.querySelector('br:last-child');
@@ -277,6 +277,14 @@ export const ChatInput = React.memo(({
     // ContentEditable div auto-resizes naturally, no need to set height manually based on scrollHeight
   }, [localInput, textAreaRef]);
 
+  React.useEffect(() => {
+    // Sync React state to DOM when input is cleared externally (e.g. after send)
+    if (localInput === '' && textAreaRef.current && textAreaRef.current.textContent !== '') {
+      textAreaRef.current.innerHTML = '';
+      textAreaRef.current.textContent = '';
+    }
+  }, [localInput, textAreaRef]);
+
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     if (e.clipboardData.files && e.clipboardData.files.length > 0) {
       e.preventDefault();
@@ -284,7 +292,25 @@ export const ChatInput = React.memo(({
       addFiles(filesArray);
     } else {
       e.preventDefault();
-      const text = e.clipboardData.getData('text/plain');
+      let text = e.clipboardData.getData('text/plain');
+      
+      // Auto-parse skill chips if pasting raw text with a slash command
+      const skillMatch = text.match(/^\/([a-zA-Z0-9_-]+)\s*(.*)/s);
+      if (skillMatch && !selectedSkill) {
+        const skillName = skillMatch[1];
+        const restText = skillMatch[2];
+        const skillOpt = SLASH_OPTIONS.find(s => s.action === skillName || s.label === `/${skillName}`);
+        if (skillOpt) {
+          const action = skillOpt.action;
+          const label = skillOpt.label;
+          const desc = skillOpt.desc;
+          const icon = skillOpt.icon;
+          const finalSkillName = action === 'tool' ? label.replace(/^\//, '') : action;
+          setSelectedSkill?.({ name: finalSkillName, provider: 'ocean', desc, icon });
+          text = restText;
+        }
+      }
+      
       document.execCommand('insertText', false, text);
     }
   };
@@ -419,9 +445,9 @@ export const ChatInput = React.memo(({
                               {isActive && <span className="text-[10px] text-[#EC5B14]/50 font-medium shrink-0 ml-2">↵</span>}
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent 
-                            side="right" 
-                            sideOffset={12} 
+                          <TooltipContent
+                            side="right"
+                            sideOffset={12}
                             align="start"
                             className="w-[340px] bg-[#2D2D2D] text-[#E8E4E2] p-4 rounded-xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] z-[60] text-[13px] leading-relaxed cursor-default whitespace-normal border border-white/10 pointer-events-none"
                           >
@@ -477,11 +503,11 @@ export const ChatInput = React.memo(({
                     "flex items-center gap-2 px-3.5 py-2 rounded-xl border group relative transition-all",
                     file.isUploading ? "bg-white/50 border-[#E8E4E2]/40" : "bg-[#F6F3F2] border-[#E8E4E2]/60 hover:border-[#EC5B14]/30 cursor-pointer hover:bg-white"
                   )}
-                  onClick={() => {
-                    if (!file.isUploading && file.url && setPreviewAttachment) {
-                      setPreviewAttachment({ name: file.name, contentType: file.contentType, url: file.url });
-                    }
-                  }}>
+                    onClick={() => {
+                      if (!file.isUploading && file.url && setPreviewAttachment) {
+                        setPreviewAttachment({ name: file.name, contentType: file.contentType, url: file.url });
+                      }
+                    }}>
                     {file.isUploading ? (
                       <div className="w-4 h-4 rounded-full border-2 border-[#E8E4E2] border-t-[#EC5B14] animate-spin" />
                     ) : (
@@ -517,11 +543,11 @@ export const ChatInput = React.memo(({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div 
+                    <div
                       className="inline-flex items-center px-2 py-[3px] rounded-md bg-[#2b7fff]/10 text-[#2b7fff] font-mono text-[13px] font-medium select-none outline-none mr-2 mt-[2px] group shrink-0"
                     >
                       /{selectedSkill.name}
-                      <button 
+                      <button
                         onClick={() => setSelectedSkill?.(null)}
                         className="w-4 h-4 ml-0.5 -mr-1 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-[#2b7fff]/20 transition-all cursor-pointer"
                       >
@@ -530,9 +556,9 @@ export const ChatInput = React.memo(({
                     </div>
                   </TooltipTrigger>
                   {selectedSkill.desc && (
-                    <TooltipContent 
-                      sideOffset={8} 
-                      side="top" 
+                    <TooltipContent
+                      sideOffset={8}
+                      side="top"
                       className="bg-white text-[#1C1B1B] border border-[#E8E4E2] rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-[#F6F3F2] transition-colors pointer-events-auto"
                     >
                       <div className="font-bold mb-1.5 flex items-center gap-2">
@@ -549,7 +575,7 @@ export const ChatInput = React.memo(({
                 </Tooltip>
               </TooltipProvider>
             )}
-            
+
             <div className="flex-1 min-w-0 relative">
               <style>{`
                 .ghost-overlay { color: transparent !important; }
@@ -573,130 +599,138 @@ export const ChatInput = React.memo(({
               <div
                 ref={textAreaRef as React.RefObject<HTMLDivElement>}
                 contentEditable
-              suppressContentEditableWarning
-              onInput={(e) => {
-                const val = e.currentTarget.textContent || '';
-                setLocalInput(val);
-                
-                const mentionMatch = val.match(/(?:^|\s)@([^\s]*)$/);
-                const slashMatch = val.match(/(?:^|\s)\/([^\s]*)$/);
-                
-                if (mentionMatch) {
-                  setMentionMenuOpen(true);
-                  setMentionQuery(mentionMatch[1]);
-                  setMentionActiveIndex(0);
-                  setSlashMenuOpen(false);
-                } else if (slashMatch) {
-                  setSlashMenuOpen(true);
-                  setSlashQuery(slashMatch[1]);
-                  setSlashActiveIndex(0);
-                  setMentionMenuOpen(false);
-                } else {
-                  setMentionMenuOpen(false);
-                  setSlashMenuOpen(false);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Tab' && ghostText) {
-                  e.preventDefault();
-                  if (textAreaRef.current) {
-                    textAreaRef.current.textContent = localInput + ghostText;
-                    setLocalInput(localInput + ghostText);
-                    setGhostText('');
-                    const range = document.createRange();
-                    const sel = window.getSelection();
-                    range.selectNodeContents(textAreaRef.current);
-                    range.collapse(false);
-                    sel?.removeAllRanges();
-                    sel?.addRange(range);
-                  }
-                  return;
-                }
-                
-                if (!['Shift', 'Control', 'Alt', 'Meta', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                  setGhostText('');
-                }
+                suppressContentEditableWarning
+                onInput={(e) => {
+                  const val = e.currentTarget.textContent || '';
+                  setLocalInput(val);
 
-                if (mentionMenuOpen && e.key === 'Escape') {
-                  setMentionMenuOpen(false);
-                  e.preventDefault();
-                } else if (slashMenuOpen && e.key === 'Escape') {
-                  setSlashMenuOpen(false);
-                  e.preventDefault();
-                } else if (slashMenuOpen && e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setSlashActiveIndex(prev => prev >= filteredSlash.length - 1 ? 0 : prev + 1);
-                } else if (slashMenuOpen && e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setSlashActiveIndex(prev => prev <= 0 ? Math.max(filteredSlash.length - 1, 0) : prev - 1);
-                } else if (mentionMenuOpen && e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setMentionActiveIndex(prev => prev >= filteredMentions.length - 1 ? 0 : prev + 1);
-                } else if (mentionMenuOpen && e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setMentionActiveIndex(prev => prev <= 0 ? Math.max(filteredMentions.length - 1, 0) : prev - 1);
-                } else if (e.key === 'Enter' && !e.shiftKey) {
-                  if (mentionMenuOpen) {
-                    e.preventDefault();
-                    const target = filteredMentions[mentionActiveIndex] || filteredMentions[0];
-                    if (target) handleMentionSelect(target.type as any, target.label, target.id, target.icon);
-                  } else if (slashMenuOpen) {
-                    e.preventDefault();
-                    const target = filteredSlash[slashActiveIndex] || filteredSlash[0];
-                    if (target) handleSlashSelect(target.action, target.label, target.id, target.icon, target.desc);
+                  const mentionMatch = val.match(/(?:^|\s)@([^\s]*)$/);
+                  const slashMatch = val.match(/(?:^|\s)\/([^\s]*)$/);
+
+                  if (mentionMatch) {
+                    setMentionMenuOpen(true);
+                    setMentionQuery(mentionMatch[1]);
+                    setMentionActiveIndex(0);
+                    setSlashMenuOpen(false);
+                  } else if (slashMatch) {
+                    setSlashMenuOpen(true);
+                    setSlashQuery(slashMatch[1]);
+                    setSlashActiveIndex(0);
+                    setMentionMenuOpen(false);
                   } else {
+                    setMentionMenuOpen(false);
+                    setSlashMenuOpen(false);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && ghostText) {
                     e.preventDefault();
                     if (textAreaRef.current) {
-                      textAreaRef.current.innerHTML = '';
+                      textAreaRef.current.textContent = localInput + ghostText;
+                      setLocalInput(localInput + ghostText);
+                      setGhostText('');
+                      const range = document.createRange();
+                      const sel = window.getSelection();
+                      range.selectNodeContents(textAreaRef.current);
+                      range.collapse(false);
+                      sel?.removeAllRanges();
+                      sel?.addRange(range);
                     }
-                    onFormSubmit();
+                    return;
                   }
-                } else if (e.key === 'Backspace' && !slashMenuOpen && !mentionMenuOpen) {
-                  let isAtStart = false;
-                  const sel = window.getSelection();
-                  if (sel && sel.isCollapsed && textAreaRef.current) {
-                    const range = sel.getRangeAt(0);
-                    const preCaretRange = range.cloneRange();
-                    preCaretRange.selectNodeContents(textAreaRef.current);
-                    preCaretRange.setEnd(range.endContainer, range.endOffset);
-                    if (preCaretRange.toString().length === 0) {
-                      isAtStart = true;
-                    }
+
+                  if (!['Shift', 'Control', 'Alt', 'Meta', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    setGhostText('');
                   }
-                  
-                  if (isAtStart && selectedSkill) {
+
+                  if (mentionMenuOpen && e.key === 'Escape') {
+                    setMentionMenuOpen(false);
                     e.preventDefault();
-                    setSelectedSkill?.(null);
-                  }
-                } else if (e.key === 'ArrowUp' && !slashMenuOpen && !mentionMenuOpen && !localInput.trim() && lastUserMessage) {
-                  e.preventDefault();
-                  if (textAreaRef.current) {
-                    textAreaRef.current.textContent = lastUserMessage;
-                    setLocalInput(lastUserMessage);
-                    const range = document.createRange();
+                  } else if (slashMenuOpen && e.key === 'Escape') {
+                    setSlashMenuOpen(false);
+                    e.preventDefault();
+                  } else if (slashMenuOpen && e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSlashActiveIndex(prev => prev >= filteredSlash.length - 1 ? 0 : prev + 1);
+                  } else if (slashMenuOpen && e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSlashActiveIndex(prev => prev <= 0 ? Math.max(filteredSlash.length - 1, 0) : prev - 1);
+                  } else if (mentionMenuOpen && e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setMentionActiveIndex(prev => prev >= filteredMentions.length - 1 ? 0 : prev + 1);
+                  } else if (mentionMenuOpen && e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setMentionActiveIndex(prev => prev <= 0 ? Math.max(filteredMentions.length - 1, 0) : prev - 1);
+                  } else if (e.key === 'Enter' && !e.shiftKey) {
+                    if (mentionMenuOpen) {
+                      e.preventDefault();
+                      const target = filteredMentions[mentionActiveIndex] || filteredMentions[0];
+                      if (target) handleMentionSelect(target.type as any, target.label, target.id, target.icon);
+                    } else if (slashMenuOpen) {
+                      e.preventDefault();
+                      const target = filteredSlash[slashActiveIndex] || filteredSlash[0];
+                      if (target) handleSlashSelect(target.action, target.label, target.id, target.icon, target.desc);
+                    } else {
+                      e.preventDefault();
+                      if (textAreaRef.current) {
+                        textAreaRef.current.innerHTML = '';
+                      }
+                      onFormSubmit();
+                    }
+                  } else if (e.key === 'Backspace' && !slashMenuOpen && !mentionMenuOpen) {
+                    let isAtStart = false;
                     const sel = window.getSelection();
-                    range.selectNodeContents(textAreaRef.current);
-                    range.collapse(false);
-                    sel?.removeAllRanges();
-                    sel?.addRange(range);
+                    if (sel && sel.isCollapsed && textAreaRef.current) {
+                      const range = sel.getRangeAt(0);
+                      const preCaretRange = range.cloneRange();
+                      preCaretRange.selectNodeContents(textAreaRef.current);
+                      preCaretRange.setEnd(range.endContainer, range.endOffset);
+                      if (preCaretRange.toString().length === 0) {
+                        isAtStart = true;
+                      }
+                    }
+
+                    if (isAtStart && selectedSkill) {
+                      e.preventDefault();
+                      setSelectedSkill?.(null);
+                    }
+                  } else if (e.key === 'ArrowUp' && !slashMenuOpen && !mentionMenuOpen && !localInput.trim() && lastUserMessage) {
+                    e.preventDefault();
+                    if (textAreaRef.current) {
+                      textAreaRef.current.textContent = lastUserMessage;
+                      setLocalInput(lastUserMessage);
+                      const range = document.createRange();
+                      const sel = window.getSelection();
+                      range.selectNodeContents(textAreaRef.current);
+                      range.collapse(false);
+                      sel?.removeAllRanges();
+                      sel?.addRange(range);
+                    }
                   }
-                }
-              }}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              onPaste={handlePaste}
-              onScroll={() => {
-                if (ghostRef.current && textAreaRef.current) {
-                  ghostRef.current.scrollTop = textAreaRef.current.scrollTop;
-                }
-              }}
-              className="w-full bg-transparent text-[15px] text-[#1C1B1B] outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none"
-            />
-            {!localInput && !selectedSkill && (
-              <div className="absolute left-0 top-0 pointer-events-none text-[#A8A4A1] text-[15px] leading-relaxed select-none">
-                {t('chat.placeholder', 'Ask anything...')}
-              </div>
-            )}
+                }}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                onPaste={handlePaste}
+                onScroll={() => {
+                  if (ghostRef.current && textAreaRef.current) {
+                    ghostRef.current.scrollTop = textAreaRef.current.scrollTop;
+                  }
+                }}
+                className="w-full bg-transparent text-[15px] text-[#1C1B1B] outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none"
+              />
+              {!localInput && !selectedSkill && !ghostText && (
+                <div className="absolute left-0 top-0 pointer-events-none text-[#A8A4A1] text-[15px] leading-relaxed select-none">
+                  {isEmpty 
+                    ? t('chat.placeholder_new', 'Ask Ocean to perform a task...') 
+                    : t('chat.placeholder_reply', 'Write a message...')}
+                </div>
+              )}
+              {localInput === '/' && slashMenuOpen && (
+                <div className="absolute left-0 top-0 pointer-events-none text-[#A8A4A1] text-[15px] leading-relaxed select-none flex">
+                  <span className="opacity-0">/</span>
+                  <span className="ml-0.5">Choose a command...</span>
+                </div>
+              )}
             </div>
 
             <AnimatePresence>
@@ -727,13 +761,13 @@ export const ChatInput = React.memo(({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="top" className="w-56 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95 mb-2">
                   <DropdownMenuItem onClick={() => {
-                    const input = document.createElement('input'); 
-                    input.type = 'file'; 
-                    input.multiple = true; 
-                    input.onchange = (e: any) => { 
-                      if (e.target.files) addFiles(Array.from(e.target.files as FileList)); 
-                    }; 
-                    input.click(); 
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.multiple = true;
+                    input.onchange = (e: any) => {
+                      if (e.target.files) addFiles(Array.from(e.target.files as FileList));
+                    };
+                    input.click();
                   }} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5">
                     <div className="flex items-center gap-3">
                       <Paperclip className="w-4 h-4 text-[#716B67]" />
@@ -748,8 +782,8 @@ export const ChatInput = React.memo(({
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent sideOffset={8} className="w-56 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95">
                         {projects.map(project => (
-                          <DropdownMenuItem 
-                            key={project.id} 
+                          <DropdownMenuItem
+                            key={project.id}
                             onClick={() => {
                               setActiveProjectId(project.id);
                               globalToast(`Chat moved to ${project.name}`);
@@ -778,9 +812,9 @@ export const ChatInput = React.memo(({
                       </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
-                  
+
                   <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />
-                  
+
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5 data-[state=open]:bg-[#F6F3F2]">
                       <Wrench className="w-4 h-4 text-[#716B67] shrink-0" />
@@ -789,8 +823,8 @@ export const ChatInput = React.memo(({
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent sideOffset={8} className="w-60 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95">
                         {installedSkills.map(skill => (
-                          <DropdownMenuItem 
-                            key={skill.id} 
+                          <DropdownMenuItem
+                            key={skill.id}
                             onClick={() => handleSlashSelect('tool', '/' + skill.name, skill.id, Wrench, skill.description)}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5"
                           >
@@ -814,9 +848,9 @@ export const ChatInput = React.memo(({
                     <Puzzle className="w-4 h-4 text-[#716B67]" />
                     <span className="text-[13px] font-medium text-[#1C1B1B]">Add plugins...</span>
                   </DropdownMenuItem>
-                  
+
                   <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />
-                  
+
                   <DropdownMenuItem onClick={() => setIsSearchMode(!isSearchMode)} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5">
                     <div className="flex items-center gap-3">
                       <Globe className="w-4 h-4 text-[#716B67]" />
@@ -836,7 +870,7 @@ export const ChatInput = React.memo(({
                     className="flex items-center ml-1"
                   >
                     <div className="relative group flex items-center">
-                      <button 
+                      <button
                         onClick={() => onMainTabChange?.('projects')}
                         className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-transparent bg-[#EC5B14]/5 hover:bg-[#EC5B14]/10 transition-colors whitespace-nowrap"
                       >
@@ -893,19 +927,19 @@ export const ChatInput = React.memo(({
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
-              
+
               <div className="w-px h-4 bg-[#E8E4E2]/60 mx-1 shrink-0" />
-              
-              <button 
-                onClick={() => { 
-                  const input = document.createElement('input'); 
-                  input.type = 'file'; 
-                  input.multiple = true; 
-                  input.onchange = (e: any) => { 
-                    if (e.target.files) addFiles(Array.from(e.target.files as FileList)); 
-                  }; 
-                  input.click(); 
-                }} 
+
+              <button
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.multiple = true;
+                  input.onchange = (e: any) => {
+                    if (e.target.files) addFiles(Array.from(e.target.files as FileList));
+                  };
+                  input.click();
+                }}
                 className="p-1.5 sm:p-2 rounded-lg text-[#716B67] hover:bg-[#eeece9] hover:text-[#1C1B1B] transition-all shrink-0"
               >
                 <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -935,13 +969,13 @@ export const ChatInput = React.memo(({
                 <Database className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
-            
-            <button 
-              onClick={() => isLoading ? handleStop() : onFormSubmit()} 
+
+            <button
+              onClick={() => isLoading ? handleStop() : onFormSubmit()}
               className={cn(
-                "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden", 
-                isLoading 
-                  ? "bg-[#1C1B1B] text-white shadow-sm" 
+                "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden",
+                isLoading
+                  ? "bg-[#1C1B1B] text-white shadow-sm"
                   : ((!localInput.trim() && attachments.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95")
               )}
             >
@@ -981,20 +1015,20 @@ export const ChatInput = React.memo(({
         onCreated={async (name: string) => {
           setIsProjectCreateModalOpen(false);
           await fetchProjects();
-          
+
           // Try to automatically find and select the new project by name
           // We need a short delay since fetchProjects might be async
           setTimeout(async () => {
-             try {
-                const res = await api.get<any>('/api/knowledge-projects');
-                const newProj = res.data?.find((p: any) => p.name === name);
-                if (newProj) {
-                   setActiveProjectId(newProj.id);
-                   globalToast(`Chat moved to ${newProj.name}`);
-                }
-             } catch (e) {
-                // Ignore error on fallback
-             }
+            try {
+              const res = await api.get<any>('/api/knowledge-projects');
+              const newProj = res.data?.find((p: any) => p.name === name);
+              if (newProj) {
+                setActiveProjectId(newProj.id);
+                globalToast(`Chat moved to ${newProj.name}`);
+              }
+            } catch (e) {
+              // Ignore error on fallback
+            }
           }, 500);
 
           onMainTabChange?.('projects');

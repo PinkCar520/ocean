@@ -232,7 +232,11 @@ export function ChatSession({
   // ── Actions ──
   const copyToClipboard = useCallback((m: any) => {
     const text = Array.isArray(m.parts)
-        ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')
+        ? m.parts.map((p: any) => {
+            if (p.type === 'text') return p.text;
+            if (p.type === 'skill') return `/${p.name} `;
+            return '';
+          }).join('')
         : m.content || '';
     navigator.clipboard.writeText(text);
     setCopiedId(m.id);
