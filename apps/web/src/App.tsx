@@ -275,7 +275,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
           ) : activeTab === 'library' ? (
             <SkillLibrary token={token} onMainTabChange={setActiveTab} />
           ) : activeTab === 'skill_studio' ? (
-            <SkillManager token={token} onMainTabChange={setActiveTab} />
+            <SkillManager token={token} onMainTabChange={setActiveTab} user={user} />
           ) : activeTab === 'projects' ? (
             activeProject?.id ? (
               <KnowledgeBase

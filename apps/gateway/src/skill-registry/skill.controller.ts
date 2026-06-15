@@ -88,13 +88,14 @@ export class SkillController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async createSkill(@Body() body: CreateSkillDto) {
+  async createSkill(@Body() body: CreateSkillDto, @Req() req: any) {
+    const userId = req.user?.dbId;
     if (!body.slug && body.name) {
       body.slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Math.random().toString(36).substring(2, 8);
     } else if (!body.slug) {
       body.slug = 'skill-' + Math.random().toString(36).substring(2, 8);
     }
-    const skill = await this.skillService.createSkill(body);
+    const skill = await this.skillService.createSkill(body, userId);
     return { success: true, data: skill };
   }
 
@@ -103,8 +104,9 @@ export class SkillController {
    * 更新技能
    */
   @Put(':id')
-  async updateSkill(@Param('id') id: string, @Body() body: UpdateSkillDto) {
-    const skill = await this.skillService.updateSkill(id, body);
+  async updateSkill(@Param('id') id: string, @Body() body: UpdateSkillDto, @Req() req: any) {
+    const userId = req.user?.dbId;
+    const skill = await this.skillService.updateSkill(id, body, userId);
     return { success: true, data: skill };
   }
 
@@ -114,9 +116,20 @@ export class SkillController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  async deleteSkill(@Param('id') id: string) {
-    await this.skillService.deleteSkill(id);
+  async deleteSkill(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.dbId;
+    await this.skillService.deleteSkill(id, userId);
     return { success: true };
+  }
+
+  /**
+   * GET /api/skills/:id/history
+   * 获取技能版本历史
+   */
+  @Get(':id/history')
+  async getSkillHistory(@Param('id') id: string) {
+    const history = await this.skillService.getSkillHistory(id);
+    return { success: true, data: history };
   }
 
   /**

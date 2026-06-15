@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
@@ -67,41 +67,106 @@ export class SkillService {
     const skills = await this.prisma.skill.findMany({
       where,
       orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        user: { select: { id: true, name: true, avatar: true } }
+      }
     });
 
     return skills;
   }
 
   async getSkillById(id: string) {
-    return this.prisma.skill.findUnique({ where: { id } });
+    return this.prisma.skill.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, name: true, avatar: true } }
+      }
+    });
   }
 
   async getSkillBySlug(slug: string) {
     return this.prisma.skill.findUnique({ where: { slug } });
   }
 
-  async createSkill(data: CreateSkillDto) {
-    return this.prisma.skill.create({
+  async createSkill(data: CreateSkillDto, userId?: string) {
+    const { scope, ...prismaData } = data as any;
+    const skill = await this.prisma.skill.create({
       data: {
-        ...data,
-        tags: data.tags || [],
-        triggerKws: data.triggerKws || [],
-        isFeatured: data.isFeatured ?? false,
-        isPublic: data.isPublic ?? true,
-        source: data.source || 'internal',
+        ...prismaData,
+        userId: userId || null,
+        tags: prismaData.tags || [],
+        triggerKws: prismaData.triggerKws || [],
+        isFeatured: prismaData.isFeatured ?? false,
+        isPublic: prismaData.isPublic ?? true,
+        source: prismaData.source || 'internal',
       },
+      include: {
+        user: { select: { id: true, name: true, avatar: true } }
+      }
     });
+
+    await this.prisma.skillVersion.create({
+      data: {
+        skillId: skill.id,
+        userId: userId || null,
+        name: skill.name,
+        content: skill.content,
+      }
+    });
+
+    return skill;
   }
 
-  async updateSkill(id: string, data: UpdateSkillDto) {
-    return this.prisma.skill.update({
+  async updateSkill(id: string, data: UpdateSkillDto, userId?: string) {
+    const skill = await this.prisma.skill.findUnique({ where: { id } });
+    if (!skill) throw new NotFoundException('Skill not found');
+
+    if (skill.userId && skill.userId !== userId) {
+      throw new ForbiddenException('You do not have permission to update this skill');
+    }
+
+    const { scope, user, id: _id, createdAt, updatedAt, ...prismaData } = data as any;
+    const updatedSkill = await this.prisma.skill.update({
       where: { id },
-      data,
+      data: prismaData,
+      include: {
+        user: { select: { id: true, name: true, avatar: true } }
+      }
     });
+
+    await this.prisma.skillVersion.create({
+      data: {
+        skillId: updatedSkill.id,
+        userId: userId || null,
+        name: updatedSkill.name,
+        content: updatedSkill.content,
+      }
+    });
+
+    return updatedSkill;
   }
 
-  async deleteSkill(id: string) {
+  async deleteSkill(id: string, userId?: string) {
+    const skill = await this.prisma.skill.findUnique({ where: { id } });
+    if (!skill) throw new NotFoundException('Skill not found');
+
+    if (skill.userId && skill.userId !== userId) {
+      throw new ForbiddenException('You do not have permission to delete this skill');
+    }
+
     return this.prisma.skill.delete({ where: { id } });
+  }
+
+  async getSkillHistory(skillId: string) {
+    return this.prisma.skillVersion.findMany({
+      where: { skillId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: { id: true, name: true, avatar: true }
+        }
+      }
+    });
   }
 
   async getStats() {

@@ -27,6 +27,8 @@ model User {
   sessions        Session[]
   skillInstallations SkillInstallation[]
   apiKeys         ApiKey[]
+  skills          Skill[]
+  skillVersions   SkillVersion[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -310,6 +312,8 @@ model Skill {
   sourceUrl     String?  // 原始来源链接
   version       String?  // 语义化版本
   author        String?
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   license       String?
   compatibility String?  // 依赖声明
   manifest      Json?    // SKILL.md frontmatter 原始 JSON
@@ -321,6 +325,7 @@ model Skill {
   triggerKws    String[] // 触发关键词，用于感知上下文注入
   embedding     Unsupported("vector(1536)")?
   installations SkillInstallation[]
+  versions      SkillVersion[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -345,6 +350,21 @@ model SkillInstallation {
   @@unique([skillId, userId])
   @@index([userId])
   @@map("skill_installations")
+}
+
+// 技能版本历史
+model SkillVersion {
+  id        String   @id @default(uuid())
+  skillId   String
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  content   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([skillId])
+  @@map("skill_versions")
 }
 
 // MCP Server 注册表

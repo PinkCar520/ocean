@@ -27,7 +27,7 @@ import {
   DialogFooter,
 } from './ui/dialog';
 
-export function SkillManager({ token, onMainTabChange }: { token?: string | null, onMainTabChange?: (tab: string) => void }) {
+export function SkillManager({ token, onMainTabChange, user }: { token?: string | null, onMainTabChange?: (tab: string) => void, user?: any }) {
   const { t } = useTranslation();
   const [skills, setSkills] = useState<any[]>([]);
   const [activeSkill, setActiveSkill] = useState<any | null>(null);
@@ -38,27 +38,59 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
   const [pinnedSkillIds, setPinnedSkillIds] = useState<string[]>([]);
   const [pendingNavigation, setPendingNavigation] = useState<any | null>(null);
   const [skillHistory, setSkillHistory] = useState<any[]>([]);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const hasUnsavedChanges = isFormEditable && JSON.stringify(activeSkill) !== JSON.stringify(originalSkill);
 
   useEffect(() => {
     if (activeSkill?.id) {
-      const history = JSON.parse(localStorage.getItem(`ocean_skill_history_${activeSkill.id}`) || '[]');
-      setSkillHistory(history);
+      api.get(`/api/skills/${activeSkill.id}/history`)
+        .then((res: any) => {
+          if (res.data?.data) {
+            setSkillHistory(res.data.data);
+          } else if (Array.isArray(res.data)) {
+            setSkillHistory(res.data);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch skill history', err);
+          setSkillHistory([]);
+        });
     } else {
       setSkillHistory([]);
     }
   }, [activeSkill?.id]);
 
+  const syncPinnedSkills = async (ids: string[]) => {
+    if (!user) return;
+    try {
+      const config = user.preferences?.config || {};
+      await api.patch('/api/user/preferences', {
+        config: {
+          ...config,
+          pinnedSkillIds: ids,
+        }
+      });
+    } catch (e) {
+      console.error('Failed to sync pinned skills', e);
+    }
+  };
+
   useEffect(() => {
     fetchSkills();
-    const savedPins = localStorage.getItem('ocean_pinned_skills');
-    if (savedPins) {
-      try {
-        setPinnedSkillIds(JSON.parse(savedPins));
-      } catch (e) {}
+    if (user?.preferences?.config?.pinnedSkillIds) {
+      setPinnedSkillIds(user.preferences.config.pinnedSkillIds);
+    } else {
+      const savedPins = localStorage.getItem('ocean_pinned_skills');
+      if (savedPins) {
+        try {
+          const parsed = JSON.parse(savedPins);
+          setPinnedSkillIds(parsed);
+          if (user) syncPinnedSkills(parsed);
+        } catch (e) {}
+      }
     }
-  }, []);
+  }, [user?.id]);
 
   const fetchSkills = async () => {
     try {
@@ -94,7 +126,7 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
       description: '',
       triggerKws: [],
       content: '# Context\n\nYou are an expert in...',
-      scope: 'team',
+      isPublic: true,
     };
     setActiveSkill(newSkill);
     setOriginalSkill(newSkill);
@@ -109,7 +141,7 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
         description: '',
         triggerKws: [],
         content: '# Context\n\nYou are an expert in...',
-        scope: 'team',
+        isPublic: true,
       };
       setActiveSkill(newSkill);
       setOriginalSkill(newSkill);
@@ -131,6 +163,7 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
     setPinnedSkillIds(prev => {
       const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
       localStorage.setItem('ocean_pinned_skills', JSON.stringify(next));
+      syncPinnedSkills(next);
       return next;
     });
   };
@@ -160,23 +193,24 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
         await api.put(`/api/skills/${activeSkill.id}`, activeSkill);
       } else {
         // Create
-        const res = await api.post('/api/skills', activeSkill);
-        setActiveSkill(res.data);
+        const res = await api.post<any>('/api/skills', activeSkill);
+        const createdSkill = res.data?.data || res.data;
+        setActiveSkill(createdSkill);
+        activeSkill.id = createdSkill.id; // temporary mutation to ensure the following code has the ID
       }
       await fetchSkills();
       
-      const skillId = activeSkill.id || (await api.get('/api/skills')).data.find((s: any) => s.name === activeSkill.name)?.id;
+      const skillId = activeSkill.id;
 
       if (skillId) {
-        const history = JSON.parse(localStorage.getItem(`ocean_skill_history_${skillId}`) || '[]');
-        history.unshift({
-          timestamp: new Date().toISOString(),
-          name: activeSkill.name,
-          content: activeSkill.content,
-        });
-        const limitedHistory = history.slice(0, 10);
-        localStorage.setItem(`ocean_skill_history_${skillId}`, JSON.stringify(limitedHistory));
-        setSkillHistory(limitedHistory);
+        try {
+          const histRes = await api.get<any>(`/api/skills/${skillId}/history`);
+          if (histRes.data?.data) {
+            setSkillHistory(histRes.data.data);
+          }
+        } catch (e) {
+          console.error('Failed to refresh history', e);
+        }
       }
 
       setOriginalSkill(activeSkill);
@@ -187,7 +221,6 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this skill?')) return;
     try {
       await api.delete(`/api/skills/${id}`);
       if (activeSkill?.id === id) {
@@ -356,50 +389,52 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
                       </button>
                     </div>
                   )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="p-1.5 rounded-lg hover:bg-[#1C1B1B]/5 text-[#716B67] hover:text-[#1C1B1B] transition-colors">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" sideOffset={8} className="w-56 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95 z-[10000]">
-                      <DropdownMenuItem 
-                        onClick={() => setIsFormEditable(true)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] focus:bg-[#F6F3F2] mb-0.5"
-                      >
-                        <Edit2 className="w-4 h-4 text-[#1C1B1B] shrink-0" />
-                        <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Edit</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={handleExport}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] focus:bg-[#F6F3F2] mb-0.5"
-                      >
-                        <Download className="w-4 h-4 text-[#1C1B1B] shrink-0" />
-                        <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Export</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => {
-                          if (activeSkill) {
-                            localStorage.setItem('ocean_try_skill_name', activeSkill.name);
-                            window.location.hash = '#/';
-                            onMainTabChange?.('chat');
-                          }
-                        }}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] focus:bg-[#F6F3F2] mb-0.5"
-                      >
-                        <MessageSquare className="w-4 h-4 text-[#1C1B1B] shrink-0" />
-                        <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Try in chat</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />
-                      <DropdownMenuItem 
-                        onClick={() => handleDelete(activeSkill.id)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#EF4444] focus:bg-[#EF4444] hover:text-white focus:text-white mb-0.5 group"
-                      >
-                        <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:text-white group-focus:text-white shrink-0 transition-colors" />
-                        <span className="text-[13px] font-medium text-[#EF4444] flex-1 group-hover:text-white group-focus:text-white transition-colors">Uninstall</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {!isFormEditable && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1.5 rounded-lg hover:bg-[#1C1B1B]/5 text-[#716B67] hover:text-[#1C1B1B] transition-colors">
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" sideOffset={8} className="w-56 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95 z-[10000]">
+                        <DropdownMenuItem 
+                          onClick={() => setIsFormEditable(true)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] focus:bg-[#F6F3F2] mb-0.5"
+                        >
+                          <Edit2 className="w-4 h-4 text-[#1C1B1B] shrink-0" />
+                          <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Edit</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={handleExport}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] focus:bg-[#F6F3F2] mb-0.5"
+                        >
+                          <Download className="w-4 h-4 text-[#1C1B1B] shrink-0" />
+                          <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Export</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            if (activeSkill) {
+                              localStorage.setItem('ocean_try_skill_name', activeSkill.name);
+                              window.location.hash = '#/';
+                              onMainTabChange?.('chat');
+                            }
+                          }}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] focus:bg-[#F6F3F2] mb-0.5"
+                        >
+                          <MessageSquare className="w-4 h-4 text-[#1C1B1B] shrink-0" />
+                          <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Try in chat</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />
+                        <DropdownMenuItem 
+                          onClick={() => setIsDeleteConfirmOpen(true)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#EF4444] focus:bg-[#EF4444] hover:text-white focus:text-white mb-0.5 group"
+                        >
+                          <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:text-white group-focus:text-white shrink-0 transition-colors" />
+                          <span className="text-[13px] font-medium text-[#EF4444] flex-1 group-hover:text-white group-focus:text-white transition-colors">Uninstall</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
 
@@ -409,7 +444,7 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
                   <div className="flex items-start gap-10">
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <span className="text-[13px] text-[#A8A4A1] whitespace-nowrap">Added by</span>
-                      <span className="text-[14px] font-medium text-[#1C1B1B] truncate">{activeSkill.author || 'You'}</span>
+                      <span className="text-[14px] font-medium text-[#1C1B1B] truncate">{activeSkill.id ? (activeSkill.user?.name || activeSkill.author || 'Unknown') : (user?.name || 'You')}</span>
                     </div>
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <span className="text-[13px] text-[#A8A4A1] whitespace-nowrap">Last updated</span>
@@ -460,7 +495,7 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
                               className="flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] focus:bg-[#F6F3F2] text-[12px]"
                             >
                               <History className="w-3.5 h-3.5 text-[#A8A4A1] shrink-0" />
-                              <span className="truncate">{new Date(version.timestamp).toLocaleString()}</span>
+                              <span className="truncate">{new Date(version.createdAt || version.timestamp).toLocaleString()}</span>
                             </DropdownMenuItem>
                           ))}
                         </DropdownMenuContent>
@@ -576,6 +611,35 @@ export function SkillManager({ token, onMainTabChange }: { token?: string | null
               className="px-4 py-2 rounded-lg font-bold text-sm bg-[#EF4444] text-white hover:bg-[#DC2626] transition-colors shadow-sm"
             >
               Discard Changes
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for deletion confirmation */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-[460px] sm:rounded-[16px] gap-0 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-[#1C1B1B]">{t('skill.confirm_delete_title', 'Delete Skill')}</DialogTitle>
+            <DialogDescription className="pt-3 text-base text-[#716B67] leading-relaxed">
+              {t('skill.confirm_delete_desc', 'Are you sure you want to delete this skill? This action cannot be undone.')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-10 flex sm:justify-end gap-3">
+            <button
+              onClick={() => setIsDeleteConfirmOpen(false)}
+              className="px-6 py-2.5 rounded-[12px] font-medium text-[15px] bg-[#F6F3F2] text-[#1C1B1B] hover:bg-[#E8E4E2] transition-colors"
+            >
+              {t('common.cancel', 'Cancel')}
+            </button>
+            <button
+              onClick={() => {
+                if (activeSkill?.id) handleDelete(activeSkill.id);
+                setIsDeleteConfirmOpen(false);
+              }}
+              className="px-6 py-2.5 rounded-[12px] font-medium text-[15px] bg-[#EF4444] text-white hover:bg-[#DC2626] transition-colors shadow-sm"
+            >
+              {t('common.delete', 'Delete')}
             </button>
           </DialogFooter>
         </DialogContent>
