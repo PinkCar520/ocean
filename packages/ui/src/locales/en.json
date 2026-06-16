@@ -395,6 +395,7 @@
       "appearance": "App Appearance",
       "appearance_light": "Light",
       "appearance_dark": "Dark",
+      "appearance_system": "System",
       "language": "Primary Language",
       "lang_zh": "Chinese (Simplified)",
       "lang_en": "English (International)",
@@ -431,6 +432,11 @@
       "messages_sent": "Messages Sent",
       "delete_all_chats": "Delete All Chats",
       "export_data": "Export My Data (.JSON)"
+    },
+    "instructions": {
+      "desc": "Give Ocean specific instructions on how you want it to behave and respond. These will be applied to every new conversation.",
+      "label": "How should Ocean respond?",
+      "placeholder": "e.g. \"Answer professionally in Chinese. Focus on legal compliance and code quality. Use California law standards for IP discussions.\""
     },
     "common": {
       "syncing": "Synchronizing User Assets...",

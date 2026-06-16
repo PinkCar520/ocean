@@ -56,7 +56,7 @@ export function DiffViewer({
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#1a1b1e]">
         <div className="flex items-center gap-3">
-          <div className="p-1.5 rounded-md bg-white/5 text-slate-400">
+          <div className="p-1.5 rounded-md bg-card/5 text-slate-400">
             <Code2 className="w-4 h-4" />
           </div>
           <div className="flex items-center gap-2">
@@ -66,14 +66,14 @@ export function DiffViewer({
         </div>
         <div className="flex items-center gap-3">
           {draft && (
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] bg-card/5 px-2.5 py-1 rounded-md border border-white/5">
               Draft
             </span>
           )}
           {onExtract && (
             <button
               onClick={() => onExtract({ title: fileName, content: diff.map(l => (l.type === 'addition' ? '+' : l.type === 'deletion' ? '-' : ' ') + l.content).join('\n'), language: 'diff' })}
-              className="p-1.5 rounded-md transition-all duration-200 hover:bg-white/10 text-slate-400 hover:text-slate-200"
+              className="p-1.5 rounded-md transition-all duration-200 hover:bg-card/10 text-slate-400 hover:text-slate-200"
               title="Open in sidebar"
             >
               <Maximize2 className="w-4 h-4" />
@@ -140,7 +140,7 @@ export function DiffViewer({
         <div className="px-6 py-8 flex justify-center items-center bg-gradient-to-t from-black/20 to-transparent border-t border-white/5">
           <button
             onClick={onApply}
-            className="group relative bg-[#EC5B14] hover:bg-[#ff6a1a] text-white font-bold text-[15px] px-10 py-3.5 rounded-[20px] shadow-[0_12px_32px_rgba(236,91,20,0.35)] hover:shadow-[0_16px_40px_rgba(236,91,20,0.45)] active:scale-[0.97] transition-all duration-300 flex items-center gap-3 overflow-hidden"
+            className="group relative bg-primary hover:bg-[#ff6a1a] text-white font-bold text-[15px] px-10 py-3.5 rounded-[20px] shadow-[0_12px_32px_rgba(236,91,20,0.35)] hover:shadow-[0_16px_40px_rgba(236,91,20,0.45)] active:scale-[0.97] transition-all duration-300 flex items-center gap-3 overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
             <GitPullRequest className="w-4 h-4 mr-1" />

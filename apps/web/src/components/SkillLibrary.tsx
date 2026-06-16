@@ -41,7 +41,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 const ICON_STYLE_MAP: Record<string, { bg: string; color: string }> = {
-  CheckCircle2: { bg: 'bg-orange-50', color: 'text-[#EC5B14]' },
+  CheckCircle2: { bg: 'bg-orange-50', color: 'text-primary' },
   Rocket: { bg: 'bg-blue-50', color: 'text-blue-600' },
   GitPullRequest: { bg: 'bg-red-50', color: 'text-red-500' },
   MessageSquare: { bg: 'bg-purple-50', color: 'text-purple-600' },
@@ -170,19 +170,19 @@ export function SkillLibrary({ token }: { token?: string | null }) {
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#fcf9f8] p-10 font-sans text-[#1c1b1b] relative pb-32">
+    <div className="flex-1 overflow-y-auto bg-background p-10 font-sans text-foreground relative pb-32">
       <div className="max-w-[1400px] mx-auto w-full">
         
         {/* Hero Section */}
         <section className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <div className="flex items-center gap-4 mb-3">
-              <h2 className="font-display text-4xl font-extrabold tracking-tight text-[#1c1b1b]">
+              <h2 className="font-display text-4xl font-extrabold tracking-tight text-foreground">
                 {t('library.title')} <span className="text-[#a33800]">{t('library.v3')}</span>
               </h2>
               
               {/* Tab Switcher integrated into title row */}
-              <div className="flex bg-[#F6F3F2] p-1 rounded-xl gap-0.5 ml-2">
+              <div className="flex bg-muted p-1 rounded-xl gap-0.5 ml-2">
                 {subTabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -190,8 +190,8 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all",
                       activeSubTab === tab.id
-                        ? "bg-white text-[#EC5B14] shadow-sm"
-                        : "text-[#716B67] hover:text-[#1C1B1B]"
+                        ? "bg-card text-primary shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     <tab.icon className="w-3.5 h-3.5" />
@@ -200,7 +200,7 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                 ))}
               </div>
             </div>
-            <p className="text-[#716B67] max-w-xl text-[17px] leading-relaxed">
+            <p className="text-muted-foreground max-w-xl text-[17px] leading-relaxed">
               {activeSubTab === 'marketplace' ? t('library.subtitle') : 'Configure and monitor your Model Context Protocol connectors.'}
             </p>
           </div>
@@ -227,8 +227,8 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                   className={cn(
                     "px-5 py-2 rounded-full text-sm font-bold transition-all duration-200",
                     activeFilter === filter.id 
-                      ? "bg-[#EC5B14] text-white shadow-md transform scale-105" 
-                      : "bg-[#F6F3F2] hover:bg-[#ebe7e7] text-[#716B67]"
+                      ? "bg-primary text-white shadow-md transform scale-105" 
+                      : "bg-muted hover:bg-[#ebe7e7] text-muted-foreground"
                   )}
                 >
                   {filter.label}
@@ -248,13 +248,13 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                   className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
                 >
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="p-6 rounded-2xl bg-[#F6F3F2]">
-                      <div className="w-12 h-12 rounded-xl bg-[#E8E4E2] mb-6 animate-pulse" />
-                      <div className="h-4 bg-[#E8E4E2] rounded w-3/4 mb-2 animate-pulse" />
-                      <div className="h-3 bg-[#E8E4E2] rounded w-full mb-6 animate-pulse" />
+                    <div key={i} className="p-6 rounded-2xl bg-muted">
+                      <div className="w-12 h-12 rounded-xl bg-border mb-6 animate-pulse" />
+                      <div className="h-4 bg-border rounded w-3/4 mb-2 animate-pulse" />
+                      <div className="h-3 bg-border rounded w-full mb-6 animate-pulse" />
                       <div className="flex justify-between mt-4">
-                        <div className="h-3 bg-[#E8E4E2] rounded w-20 animate-pulse" />
-                        <div className="h-6 bg-[#E8E4E2] rounded w-16 animate-pulse" />
+                        <div className="h-3 bg-border rounded w-20 animate-pulse" />
+                        <div className="h-6 bg-border rounded w-16 animate-pulse" />
                       </div>
                     </div>
                   ))}
@@ -279,8 +279,8 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                             {iconEl}
                           </div>
                           <div className="flex-grow">
-                            <h3 className="font-display font-bold text-lg mb-2 group-hover:text-[#EC5B14] transition-colors">{card.name}</h3>
-                            <p className="text-[13px] text-[#716B67] leading-relaxed mb-6 font-medium">
+                            <h3 className="font-display font-bold text-lg mb-2 group-hover:text-primary transition-colors">{card.name}</h3>
+                            <p className="text-[13px] text-muted-foreground leading-relaxed mb-6 font-medium">
                               {card.description}
                             </p>
                           </div>
@@ -295,8 +295,8 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                                 "flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg transition-all text-xs font-bold disabled:opacity-60 disabled:cursor-not-allowed",
                                 "w-28",
                                 installedIds.has(card.id)
-                                  ? "bg-[#EC5B14]/10 text-[#EC5B14] hover:bg-[#EC5B14]/20"
-                                  : "text-[#EC5B14] hover:bg-[#EC5B14]/10"
+                                  ? "bg-primary/10 text-primary hover:bg-primary/20"
+                                  : "text-primary hover:bg-primary/10"
                               )}
                             >
                               {installingId === card.id ? (
@@ -326,9 +326,9 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                         animate={{ opacity: 1, y: 0 }}
                         className="md:col-span-2 bg-[#2E2825] p-8 rounded-[24px] flex flex-col md:flex-row gap-8 items-center overflow-hidden relative shadow-2xl"
                       >
-                        <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-[#EC5B14] opacity-[0.15] blur-[80px] rounded-full pointer-events-none"></div>
+                        <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-primary opacity-[0.15] blur-[80px] rounded-full pointer-events-none"></div>
                         <div className="relative z-10 flex-1">
-                          <div className="inline-flex items-center gap-1.5 bg-[#EC5B14]/20 text-[#ffb599] px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest mb-5">
+                          <div className="inline-flex items-center gap-1.5 bg-primary/20 text-[#ffb599] px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest mb-5">
                             <Star className="w-3.5 h-3.5 fill-current" />
                             {t('library.featured.badge')}
                           </div>
@@ -349,7 +349,7 @@ export function SkillLibrary({ token }: { token?: string | null }) {
                            />
                            <div className="absolute inset-1 rounded-[14px] bg-[#2E2825] flex items-center justify-center p-4">
                               <div className="relative w-full h-full">
-                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#EC5B14] blur-sm opacity-50"></div>
+                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary blur-sm opacity-50"></div>
                                  <Star className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-[#ffb599] z-10" />
                                  <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-blue-400"></div>
                                  <div className="absolute bottom-4 right-4 w-4 h-4 rounded-full bg-purple-400"></div>

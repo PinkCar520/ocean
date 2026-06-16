@@ -19,7 +19,7 @@ export function StatsCard({ title, metrics }: StatsCardProps) {
   const cols = metrics.length <= 2 ? 'grid-cols-2' : metrics.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4';
 
   return (
-    <div className="my-3 bg-white border border-slate-200 rounded-2xl p-5 overflow-hidden">
+    <div className="my-3 bg-card border border-slate-200 rounded-2xl p-5 overflow-hidden">
       <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">{title}</h4>
       <div className={cn("grid gap-4", cols)}>
         {metrics.map((metric: UIStatsMetric, _i: number) => (

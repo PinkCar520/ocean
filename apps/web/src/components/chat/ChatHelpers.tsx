@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
  * Typing cursor shown during streaming response.
  */
 export const TypingCursor = () => (
-  <span className="inline-block w-[2px] h-[1.1em] bg-[#EC5B14] ml-[1px] align-text-bottom animate-cursor-blink" />
+  <span className="inline-block w-[2px] h-[1.1em] bg-primary ml-[1px] align-text-bottom animate-cursor-blink" />
 );
 
 /**
@@ -21,5 +21,5 @@ export const BrailleSpinner = () => {
     }, 80);
     return () => clearInterval(interval);
   }, []);
-  return <span className="font-mono text-[#716B67] mr-1">{pattern}</span>;
+  return <span className="font-mono text-muted-foreground mr-1">{pattern}</span>;
 };

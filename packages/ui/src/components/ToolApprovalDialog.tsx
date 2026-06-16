@@ -103,7 +103,7 @@ export const ToolApprovalDialog: React.FC<ToolApprovalDialogProps> = ({
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4"
+            className="bg-card dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -172,7 +172,7 @@ export const ToolApprovalDialog: React.FC<ToolApprovalDialogProps> = ({
             <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 rounded-b-xl flex items-center justify-end space-x-3">
               <button
                 onClick={onReject}
-                className="flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-200 hover:bg-red-50 dark:bg-gray-800 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                className="flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-card border border-red-200 hover:bg-red-50 dark:bg-gray-800 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30 rounded-lg transition-colors"
               >
                 <X className="h-4 w-4 mr-1.5" />
                 拒绝

@@ -360,14 +360,14 @@ export const ChatInput = React.memo(({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute bottom-[calc(100%+8px)] left-4 w-auto min-w-[300px] bg-white/95 backdrop-blur-xl border border-[#E8E4E2] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl overflow-hidden z-50"
+              className="absolute bottom-[calc(100%+8px)] left-4 w-auto min-w-[300px] bg-card/95 backdrop-blur-xl border border-border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl overflow-hidden z-50"
             >
-              <div className="px-3 py-2 border-b border-[#E8E4E2]/60 bg-[#F6F3F2]/60 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-[#716B67] tracking-widest">Add Context</span>
-                <div className="flex items-center gap-2 text-[10px] text-[#A8A4A1]">
-                  <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">↑↓</kbd>
-                  <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">↵</kbd>
-                  <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">Esc</kbd>
+              <div className="px-3 py-2 border-b border-border/60 bg-muted/60 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Add Context</span>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/80">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↑↓</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↵</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">Esc</kbd>
                 </div>
               </div>
               <div className="p-1.5 max-h-64 overflow-y-auto no-scrollbar">
@@ -380,21 +380,21 @@ export const ChatInput = React.memo(({
                       onMouseEnter={() => setMentionActiveIndex(idx)}
                       className={cn(
                         "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5",
-                        isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
+                        isActive ? "bg-primary/8 ring-1 ring-primary/20" : "hover:bg-muted"
                       )}
                     >
                       <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
-                        <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
+                        <opt.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
                       </div>
                       <span className="flex-1 truncate">
-                        <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
-                        <span className={cn("ml-2 text-[12px] font-normal", isActive ? "text-[#EC5B14]/60" : "text-[#A8A4A1]")}>{opt.desc}</span>
+                        <span className={cn("text-[13px] font-bold", isActive ? "text-primary" : "text-foreground")}>{opt.label}</span>
+                        <span className={cn("ml-2 text-[12px] font-normal", isActive ? "text-primary/60" : "text-muted-foreground/80")}>{opt.desc}</span>
                       </span>
-                      {isActive && <span className="text-[10px] text-[#EC5B14]/50 font-medium shrink-0">↵</span>}
+                      {isActive && <span className="text-[10px] text-primary/50 font-medium shrink-0">↵</span>}
                     </button>
                   );
                 }) : (
-                  <div className="px-3 py-4 text-center text-[13px] text-[#A8A4A1]">No matches found</div>
+                  <div className="px-3 py-4 text-center text-[13px] text-muted-foreground/80">No matches found</div>
                 )}
               </div>
             </motion.div>
@@ -406,15 +406,15 @@ export const ChatInput = React.memo(({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute bottom-[calc(100%+8px)] left-4 w-56 bg-white/95 backdrop-blur-xl border border-[#E8E4E2] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl z-50"
+              className="absolute bottom-[calc(100%+8px)] left-4 w-56 bg-card/95 backdrop-blur-xl border border-border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl z-50"
             >
               {/* Header */}
-              <div className="px-3 py-2 border-b border-[#E8E4E2]/60 bg-[#F6F3F2]/60 flex items-center justify-between rounded-t-xl">
-                <span className="text-[10px] font-black uppercase text-[#716B67] tracking-widest">Commands</span>
-                <div className="flex items-center gap-2 text-[10px] text-[#A8A4A1]">
-                  <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">↑↓</kbd>
-                  <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">↵</kbd>
-                  <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">Esc</kbd>
+              <div className="px-3 py-2 border-b border-border/60 bg-muted/60 flex items-center justify-between rounded-t-xl">
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Commands</span>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/80">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↑↓</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↵</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">Esc</kbd>
                 </div>
               </div>
               <div className="p-1.5 max-h-64 overflow-y-auto">
@@ -423,7 +423,7 @@ export const ChatInput = React.memo(({
                   const showSeparator = idx > 0 && filteredSlash[idx - 1].type !== (opt as any).type;
                   return (
                     <React.Fragment key={opt.id}>
-                      {showSeparator && <div className="h-px bg-[#E8E4E2]/80 my-1 mx-2" />}
+                      {showSeparator && <div className="h-px bg-border/80 my-1 mx-2" />}
                       
                         <Tooltip open={isActive && !!opt.desc}>
                           <TooltipTrigger asChild>
@@ -433,16 +433,16 @@ export const ChatInput = React.memo(({
                               onMouseEnter={() => setSlashActiveIndex(idx)}
                               className={cn(
                                 "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5 relative group",
-                                isActive ? "bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20" : "hover:bg-[#F6F3F2]"
+                                isActive ? "bg-primary/8 ring-1 ring-primary/20" : "hover:bg-muted"
                               )}
                             >
                               <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
-                                <opt.icon className={cn("w-4 h-4", isActive ? "text-[#EC5B14]" : "text-[#716B67]")} />
+                                <opt.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
                               </div>
                               <span className="flex-1 truncate">
-                                <span className={cn("text-[13px] font-bold", isActive ? "text-[#EC5B14]" : "text-[#1C1B1B]")}>{opt.label}</span>
+                                <span className={cn("text-[13px] font-bold", isActive ? "text-primary" : "text-foreground")}>{opt.label}</span>
                               </span>
-                              {isActive && <span className="text-[10px] text-[#EC5B14]/50 font-medium shrink-0 ml-2">↵</span>}
+                              {isActive && <span className="text-[10px] text-primary/50 font-medium shrink-0 ml-2">↵</span>}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent
@@ -458,7 +458,7 @@ export const ChatInput = React.memo(({
                     </React.Fragment>
                   );
                 }) : (
-                  <div className="px-3 py-4 text-center text-[13px] text-[#A8A4A1]">No commands found</div>
+                  <div className="px-3 py-4 text-center text-[13px] text-muted-foreground/80">No commands found</div>
                 )}
               </div>
             </motion.div>
@@ -466,8 +466,8 @@ export const ChatInput = React.memo(({
         </AnimatePresence>
 
         <div className={cn(
-          "bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] ring-1 transition-all duration-300",
-          isFocused ? "ring-[#EC5B14]/30 shadow-[0_0_15px_rgba(236,91,20,0.15)]" : "ring-[#1C1B1B]/5"
+          "bg-card/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] ring-1 transition-all duration-300",
+          isFocused ? "ring-primary/30 shadow-[0_0_15px_rgba(236,91,20,0.15)]" : "ring-[#1C1B1B]/5"
         )}>
           <AnimatePresence>
             {(attachments.length > 0 || activeMentions.length > 0) && (
@@ -482,14 +482,14 @@ export const ChatInput = React.memo(({
                   const MentionIcon = mention.icon;
                   return (
                     <div key={mention.id} className="relative group flex items-center">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#EC5B14]/8 border border-[#EC5B14]/20 text-[#EC5B14]">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/8 border border-primary/20 text-primary">
                         <MentionIcon className="w-3.5 h-3.5 shrink-0" />
                         <span className="text-[12px] font-bold">{mention.label}</span>
                       </div>
                       <button
                         tabIndex={-1}
                         onClick={() => removeMention(mention.id)}
-                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#1C1B1B] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-150 hover:bg-red-500 shadow-sm z-10"
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-foreground text-white flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-150 hover:bg-red-500 shadow-sm z-10"
                       >
                         <CloseIcon className="w-2.5 h-2.5" />
                       </button>
@@ -501,7 +501,7 @@ export const ChatInput = React.memo(({
                 {attachments.map((file) => (
                   <div key={file.id} className={cn(
                     "flex items-center gap-2 px-3.5 py-2 rounded-xl border group relative transition-all",
-                    file.isUploading ? "bg-white/50 border-[#E8E4E2]/40" : "bg-[#F6F3F2] border-[#E8E4E2]/60 hover:border-[#EC5B14]/30 cursor-pointer hover:bg-white"
+                    file.isUploading ? "bg-card/50 border-border/40" : "bg-muted border-border/60 hover:border-primary/30 cursor-pointer hover:bg-card"
                   )}
                     onClick={() => {
                       if (!file.isUploading && file.url && setPreviewAttachment) {
@@ -509,13 +509,13 @@ export const ChatInput = React.memo(({
                       }
                     }}>
                     {file.isUploading ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-[#E8E4E2] border-t-[#EC5B14] animate-spin" />
+                      <div className="w-4 h-4 rounded-full border-2 border-border border-t-[#EC5B14] animate-spin" />
                     ) : (
-                      <FileText className="w-4 h-4 text-[#EC5B14]" />
+                      <FileText className="w-4 h-4 text-primary" />
                     )}
                     <span className={cn(
                       "text-[12px] font-bold max-w-[160px] truncate",
-                      file.isUploading ? "text-[#716B67] animate-pulse" : "text-[#1C1B1B]"
+                      file.isUploading ? "text-muted-foreground animate-pulse" : "text-foreground"
                     )}>{file.name}</span>
                     <button
                       onClick={(e) => {
@@ -525,7 +525,7 @@ export const ChatInput = React.memo(({
                           setPreviewAttachment((prev: any) => prev?.name === file.name ? null : prev);
                         }
                       }}
-                      className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-[#E8E4E2] text-[#716B67] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-1"
+                      className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-border text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-1"
                     >
                       <CloseIcon className="w-3.5 h-3.5" />
                     </button>
@@ -559,7 +559,7 @@ export const ChatInput = React.memo(({
                     <TooltipContent
                       sideOffset={8}
                       side="top"
-                      className="bg-white text-[#1C1B1B] border border-[#E8E4E2] rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-[#F6F3F2] transition-colors pointer-events-auto"
+                      className="bg-card text-foreground border border-border rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-muted transition-colors pointer-events-auto"
                       onClick={() => {
                         if (selectedSkill.provider === 'ocean' && !['clear', 'prompt'].includes(selectedSkill.name)) {
                           localStorage.setItem('ocean_active_skill_name', selectedSkill.name);
@@ -575,7 +575,7 @@ export const ChatInput = React.memo(({
                         )}
                         /{selectedSkill.name}
                       </div>
-                      <div className="text-[12px] text-[#716B67] leading-relaxed font-normal">{selectedSkill.desc}</div>
+                      <div className="text-[12px] text-muted-foreground leading-relaxed font-normal">{selectedSkill.desc}</div>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -722,17 +722,17 @@ export const ChatInput = React.memo(({
                     ghostRef.current.scrollTop = textAreaRef.current.scrollTop;
                   }
                 }}
-                className="w-full bg-transparent text-[15px] text-[#1C1B1B] outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none"
+                className="w-full bg-transparent text-[15px] text-foreground outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none"
               />
               {!localInput && !selectedSkill && !ghostText && (
-                <div className="absolute left-0 top-0 pointer-events-none text-[#A8A4A1] text-[15px] leading-relaxed select-none">
+                <div className="absolute left-0 top-0 pointer-events-none text-muted-foreground/80 text-[15px] leading-relaxed select-none">
                   {isEmpty 
                     ? t('chat.placeholder_new', 'Ask Ocean to perform a task...') 
                     : t('chat.placeholder_reply', 'Write a message...')}
                 </div>
               )}
               {localInput === '/' && slashMenuOpen && (
-                <div className="absolute left-0 top-0 pointer-events-none text-[#A8A4A1] text-[15px] leading-relaxed select-none flex">
+                <div className="absolute left-0 top-0 pointer-events-none text-muted-foreground/80 text-[15px] leading-relaxed select-none flex">
                   <span className="opacity-0">/</span>
                   <span className="ml-0.5">Choose a command...</span>
                 </div>
@@ -747,11 +747,11 @@ export const ChatInput = React.memo(({
                   exit={{ opacity: 0 }}
                   className="absolute bottom-3 right-4 flex items-center gap-1.5 pointer-events-none z-10"
                 >
-                  <span className="text-[11px] font-medium text-[#A8A4A1]">Press</span>
-                  <div className="flex items-center justify-center px-1.5 py-0.5 rounded-[4px] bg-[#F0EDE9] border border-[#E8E4E2] border-b-[2px]">
-                    <span className="text-[10px] font-bold text-[#716B67] tracking-wider">TAB</span>
+                  <span className="text-[11px] font-medium text-muted-foreground/80">Press</span>
+                  <div className="flex items-center justify-center px-1.5 py-0.5 rounded-[4px] bg-muted border border-border border-b-[2px]">
+                    <span className="text-[10px] font-bold text-muted-foreground tracking-wider">TAB</span>
                   </div>
-                  <span className="text-[11px] font-medium text-[#A8A4A1]">to complete</span>
+                  <span className="text-[11px] font-medium text-muted-foreground/80">to complete</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -761,11 +761,11 @@ export const ChatInput = React.memo(({
             <div className="flex items-center gap-0.5 sm:gap-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="p-1.5 sm:p-2 rounded-lg text-[#716B67] bg-transparent hover:bg-[#eeece9] hover:text-[#1C1B1B] transition-all shrink-0">
+                  <button className="p-1.5 sm:p-2 rounded-lg text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground transition-all shrink-0">
                     <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="top" className="w-56 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95 mb-2">
+                <DropdownMenuContent align="start" side="top" className="w-56 border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-card/95 mb-2">
                   <DropdownMenuItem onClick={() => {
                     const input = document.createElement('input');
                     input.type = 'file';
@@ -774,19 +774,19 @@ export const ChatInput = React.memo(({
                       if (e.target.files) addFiles(Array.from(e.target.files as FileList));
                     };
                     input.click();
-                  }} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5">
+                  }} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5">
                     <div className="flex items-center gap-3">
-                      <Paperclip className="w-4 h-4 text-[#716B67]" />
-                      <span className="text-[13px] font-medium text-[#1C1B1B]">Add files or photos</span>
+                      <Paperclip className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-[13px] font-medium text-foreground">Add files or photos</span>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5 data-[state=open]:bg-[#F6F3F2]">
-                      <FolderPlus className="w-4 h-4 text-[#716B67] shrink-0" />
-                      <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Add to project</span>
+                    <DropdownMenuSubTrigger className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5 data-[state=open]:bg-muted">
+                      <FolderPlus className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-[13px] font-medium text-foreground flex-1">Add to project</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuSubContent sideOffset={8} className="w-56 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95">
+                      <DropdownMenuSubContent sideOffset={8} className="w-56 border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-card/95">
                         {projects.map(project => (
                           <DropdownMenuItem
                             key={project.id}
@@ -794,75 +794,75 @@ export const ChatInput = React.memo(({
                               setActiveProjectId(project.id);
                               globalToast(`Chat moved to ${project.name}`);
                             }}
-                            className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2]"
+                            className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-muted"
                           >
                             <div className="flex items-center gap-3 overflow-hidden flex-1">
-                              <div className="w-8 h-8 rounded-lg bg-white border border-[#E8E4E2] flex items-center justify-center shrink-0">
-                                <Briefcase className="w-4 h-4 text-[#716B67]" />
+                              <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
+                                <Briefcase className="w-4 h-4 text-muted-foreground" />
                               </div>
                               <div className="flex flex-col overflow-hidden">
-                                <span className="text-[13px] font-bold text-[#1C1B1B] truncate">{project.name}</span>
-                                <span className="text-[10px] text-[#A8A4A1] truncate">Local Project</span>
+                                <span className="text-[13px] font-bold text-foreground truncate">{project.name}</span>
+                                <span className="text-[10px] text-muted-foreground/80 truncate">Local Project</span>
                               </div>
                             </div>
                             {activeProject?.id === project.id && (
-                              <Check className="w-4 h-4 text-[#EC5B14] shrink-0" />
+                              <Check className="w-4 h-4 text-primary shrink-0" />
                             )}
                           </DropdownMenuItem>
                         ))}
-                        {projects.length > 0 && <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />}
-                        <DropdownMenuItem onClick={() => setIsProjectCreateModalOpen(true)} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2]">
-                          <Plus className="w-4 h-4 text-[#716B67]" />
-                          <span className="text-[13px] font-medium text-[#1C1B1B]">Start a new project</span>
+                        {projects.length > 0 && <DropdownMenuSeparator className="bg-border/50 my-1" />}
+                        <DropdownMenuItem onClick={() => setIsProjectCreateModalOpen(true)} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted">
+                          <Plus className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-[13px] font-medium text-foreground">Start a new project</span>
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
 
-                  <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />
+                  <DropdownMenuSeparator className="bg-border/50 my-1" />
 
                   <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5 data-[state=open]:bg-[#F6F3F2]">
-                      <Wrench className="w-4 h-4 text-[#716B67] shrink-0" />
-                      <span className="text-[13px] font-medium text-[#1C1B1B] flex-1">Skills</span>
+                    <DropdownMenuSubTrigger className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5 data-[state=open]:bg-muted">
+                      <Wrench className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-[13px] font-medium text-foreground flex-1">Skills</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuSubContent sideOffset={8} className="w-60 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-white/95">
+                      <DropdownMenuSubContent sideOffset={8} className="w-60 border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-xl p-1.5 backdrop-blur-xl bg-card/95">
                         {installedSkills.map(skill => (
                           <DropdownMenuItem
                             key={skill.id}
                             onClick={() => handleSlashSelect('tool', '/' + skill.name, skill.id, Wrench, skill.description)}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5"
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5"
                           >
-                            <FileText className="w-4 h-4 text-[#716B67] shrink-0" />
-                            <span className="text-[13px] font-medium text-[#1C1B1B] truncate">{skill.name}</span>
+                            <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <span className="text-[13px] font-medium text-foreground truncate">{skill.name}</span>
                           </DropdownMenuItem>
                         ))}
-                        {installedSkills.length > 0 && <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />}
-                        <DropdownMenuItem onClick={() => onMainTabChange?.('library')} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5">
-                          <Archive className="w-4 h-4 text-[#716B67] shrink-0" />
-                          <span className="text-[13px] font-medium text-[#1C1B1B]">Manage skills</span>
+                        {installedSkills.length > 0 && <DropdownMenuSeparator className="bg-border/50 my-1" />}
+                        <DropdownMenuItem onClick={() => onMainTabChange?.('library')} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5">
+                          <Archive className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <span className="text-[13px] font-medium text-foreground">Manage skills</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onMainTabChange?.('library')} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2]">
-                          <Plus className="w-4 h-4 text-[#716B67] shrink-0" />
-                          <span className="text-[13px] font-medium text-[#1C1B1B]">Add skill</span>
+                        <DropdownMenuItem onClick={() => onMainTabChange?.('library')} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted">
+                          <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <span className="text-[13px] font-medium text-foreground">Add skill</span>
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
                   <DropdownMenuItem disabled className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-not-allowed opacity-40 mb-0.5">
-                    <Puzzle className="w-4 h-4 text-[#716B67]" />
-                    <span className="text-[13px] font-medium text-[#1C1B1B]">Add plugins...</span>
+                    <Puzzle className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-[13px] font-medium text-foreground">Add plugins...</span>
                   </DropdownMenuItem>
 
-                  <DropdownMenuSeparator className="bg-[#E8E4E2]/50 my-1" />
+                  <DropdownMenuSeparator className="bg-border/50 my-1" />
 
-                  <DropdownMenuItem onClick={() => setIsSearchMode(!isSearchMode)} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-[#F6F3F2] mb-0.5">
+                  <DropdownMenuItem onClick={() => setIsSearchMode(!isSearchMode)} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5">
                     <div className="flex items-center gap-3">
-                      <Globe className="w-4 h-4 text-[#716B67]" />
-                      <span className="text-[13px] font-medium text-[#1C1B1B]">Web search</span>
+                      <Globe className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-[13px] font-medium text-foreground">Web search</span>
                     </div>
-                    {isSearchMode && <Check className="w-4 h-4 text-[#EC5B14]" />}
+                    {isSearchMode && <Check className="w-4 h-4 text-primary" />}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -878,10 +878,10 @@ export const ChatInput = React.memo(({
                     <div className="relative group flex items-center">
                       <button
                         onClick={() => onMainTabChange?.('projects')}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-transparent bg-[#EC5B14]/5 hover:bg-[#EC5B14]/10 transition-colors whitespace-nowrap"
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-transparent bg-primary/5 hover:bg-primary/10 transition-colors whitespace-nowrap"
                       >
-                        <Briefcase className="w-3.5 h-3.5 text-[#EC5B14]" />
-                        <span className="text-xs font-bold text-[#EC5B14] truncate max-w-[120px]">
+                        <Briefcase className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-bold text-primary truncate max-w-[120px]">
                           {activeProject.name}
                         </span>
                       </button>
@@ -890,7 +890,7 @@ export const ChatInput = React.memo(({
                           e.stopPropagation();
                           setActiveProjectId(null);
                         }}
-                        className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#EC5B14] text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm hover:scale-110 active:scale-95 z-10"
+                        className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm hover:scale-110 active:scale-95 z-10"
                         title="取消关联项目"
                       >
                         <CloseIcon className="w-2 h-2 stroke-[3]" />
@@ -902,31 +902,31 @@ export const ChatInput = React.memo(({
 
               <DropdownMenu open={isModelDropdownOpen} onOpenChange={setIsModelDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-[#716B67] hover:bg-[#eeece9] transition-all border border-transparent hover:border-[#E8E4E2]/40 shrink-0">
+                  <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-muted-foreground hover:bg-muted transition-all border border-transparent hover:border-border/40 shrink-0">
                     <ActiveIcon className={cn("w-4 h-4 shrink-0", activeModel.color)} />
                     <span className="text-[10px] sm:text-[11px] font-bold tracking-tight max-w-[60px] sm:max-w-none truncate">{activeDisplayName}</span>
                     <ChevronDown className={cn("w-3 h-3 transition-transform shrink-0", isModelDropdownOpen ? "rotate-180" : "")} />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-60 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-1.5 backdrop-blur-xl bg-white/90">
-                  <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase text-[#716B67] tracking-widest">{t('chat.available_models')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-[#E8E4E2]/40" />
+                <DropdownMenuContent align="start" className="w-60 border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-1.5 backdrop-blur-xl bg-card/90">
+                  <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">{t('chat.available_models')}</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-border/40" />
                   <div className="max-h-[300px] overflow-y-auto no-scrollbar">
                     {models.map((m) => {
                       const displayName = beautifyModelName(m.name);
                       const ModelIcon = ICON_MAP[m.icon] || Globe;
                       return (
-                        <DropdownMenuItem key={m.id} onClick={() => setSelectedModelId(m.id)} className="flex items-center justify-between gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all mb-0.5 hover:bg-[#eeece9]">
+                        <DropdownMenuItem key={m.id} onClick={() => setSelectedModelId(m.id)} className="flex items-center justify-between gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all mb-0.5 hover:bg-muted">
                           <div className="flex items-center gap-3">
                             <div className={cn("flex items-center justify-center w-8 h-8", m.color)}>
                               <ModelIcon className="w-5 h-5" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[14px] font-bold text-[#1C1B1B]">{displayName}</span>
-                              <span className="text-[11px] text-[#716B67] font-medium">{m.provider}</span>
+                              <span className="text-[14px] font-bold text-foreground">{displayName}</span>
+                              <span className="text-[11px] text-muted-foreground font-medium">{m.provider}</span>
                             </div>
                           </div>
-                          {selectedModelId === m.id && <Check className="w-4 h-4 text-[#EC5B14] shrink-0" />}
+                          {selectedModelId === m.id && <Check className="w-4 h-4 text-primary shrink-0" />}
                         </DropdownMenuItem>
                       );
                     })}
@@ -934,7 +934,7 @@ export const ChatInput = React.memo(({
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <div className="w-px h-4 bg-[#E8E4E2]/60 mx-1 shrink-0" />
+              <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
 
               <button
                 onClick={() => {
@@ -946,7 +946,7 @@ export const ChatInput = React.memo(({
                   };
                   input.click();
                 }}
-                className="p-1.5 sm:p-2 rounded-lg text-[#716B67] hover:bg-[#eeece9] hover:text-[#1C1B1B] transition-all shrink-0"
+                className="p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all shrink-0"
               >
                 <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
@@ -956,8 +956,8 @@ export const ChatInput = React.memo(({
                 className={cn(
                   "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
                   isSearchMode
-                    ? "text-[#EC5B14] bg-[#EC5B14]/5"
-                    : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
+                    ? "text-primary bg-primary/5"
+                    : "text-muted-foreground hover:bg-muted hover:text-primary"
                 )}
               >
                 <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -968,8 +968,8 @@ export const ChatInput = React.memo(({
                 className={cn(
                   "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
                   isKnowledgeMode
-                    ? "text-[#EC5B14] bg-[#EC5B14]/5"
-                    : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
+                    ? "text-primary bg-primary/5"
+                    : "text-muted-foreground hover:bg-muted hover:text-primary"
                 )}
               >
                 <Database className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -981,8 +981,8 @@ export const ChatInput = React.memo(({
               className={cn(
                 "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden",
                 isLoading
-                  ? "bg-[#1C1B1B] text-white shadow-sm"
-                  : ((!localInput.trim() && attachments.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95")
+                  ? "bg-foreground text-background shadow-sm"
+                  : ((!localInput.trim() && attachments.length === 0) ? "bg-muted text-muted-foreground/40 cursor-not-allowed" : "bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95")
               )}
             >
               <AnimatePresence mode="wait" initial={false}>

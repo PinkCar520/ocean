@@ -111,7 +111,7 @@ function DocumentAttachmentCard({ attachment }: { attachment: UIAttachment }) {
       href={fixZenTaoFileUrl(attachment.url)}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[#E8E4E2] bg-white hover:bg-[#F6F3F2] transition-colors group"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-muted transition-colors group"
     >
       {/* 图标 */}
       <div
@@ -123,8 +123,8 @@ function DocumentAttachmentCard({ attachment }: { attachment: UIAttachment }) {
 
       {/* 文件名 + 大小 */}
       <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-medium text-[#1C1B1B] truncate">{attachment.name || '未命名文件'}</div>
-        <div className="flex items-center gap-2 text-[10px] text-[#716B67]">
+        <div className="text-[12px] font-medium text-foreground truncate">{attachment.name || '未命名文件'}</div>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           <span className="font-bold uppercase tracking-wider" style={{ color: iconInfo.color }}>
             {iconInfo.label}
           </span>
@@ -133,7 +133,7 @@ function DocumentAttachmentCard({ attachment }: { attachment: UIAttachment }) {
       </div>
 
       {/* 打开图标 */}
-      <ExternalLink className="w-3.5 h-3.5 text-[#716B67] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
     </a>
   );
 }
@@ -166,7 +166,7 @@ export function BugCard({
   const statusIcons: Record<string, React.JSX.Element> = {
     active: <Clock className="w-3.5 h-3.5 text-[#F59E0B]" />,
     resolved: <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />,
-    closed: <CheckCircle2 className="w-3.5 h-3.5 text-[#716B67]" />,
+    closed: <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />,
   };
 
   const formattedDate = createdAt
@@ -207,15 +207,15 @@ export function BugCard({
   }, []);
 
   return (
-    <div className="bg-white border border-[#E8E4E2] rounded-[20px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-2">
+    <div className="bg-card border border-border rounded-[20px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-2">
       {/* Header */}
-      <div className="px-6 pt-5 pb-4 border-b border-[#E8E4E2]/60">
+      <div className="px-6 pt-5 pb-4 border-b border-border/60">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className="bg-blue-50 p-1.5 rounded-lg">
               <Bug className="w-4 h-4 text-blue-600" />
             </div>
-            <span className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em]">{id}</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">{id}</span>
           </div>
           <div className={cn(
             "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border uppercase",
@@ -225,19 +225,19 @@ export function BugCard({
             {t(`bug.severity.${normalizedSeverity}`, normalizedSeverity)}
           </div>
         </div>
-        <h3 className="text-[16px] font-bold text-[#1C1B1B] mt-2 leading-snug">{title}</h3>
+        <h3 className="text-[16px] font-bold text-foreground mt-2 leading-snug">{title}</h3>
       </div>
 
       {/* Description */}
       {cleanDescription && (
         <div className="px-6 py-4">
-          <div className="text-[13px] text-[#716B67] leading-relaxed whitespace-pre-wrap bg-[#F6F3F2] p-4 rounded-[14px]">
+          <div className="text-[13px] text-muted-foreground leading-relaxed whitespace-pre-wrap bg-muted p-4 rounded-[14px]">
             {displayDescription}
           </div>
           {isLongDescription && (
             <button
               onClick={() => setDescExpanded(!descExpanded)}
-              className="mt-2 text-[11px] font-bold text-[#EC5B14] hover:underline flex items-center gap-1"
+              className="mt-2 text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
             >
               {descExpanded ? (
                 <><ChevronUp className="w-3 h-3" />收起</>
@@ -255,7 +255,7 @@ export function BugCard({
           {/* 图片附件 */}
           {imageAttachments.length > 0 && (
             <div className="mb-3">
-              <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
                 附图 ({imageAttachments.length})
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -263,7 +263,7 @@ export function BugCard({
                   <button
                     key={idx}
                     onClick={() => handlePreview(img)}
-                    className="rounded-[10px] overflow-hidden border border-[#E8E4E2] bg-[#F6F3F2] relative group cursor-pointer hover:border-[#EC5B14]/40 transition-colors"
+                    className="rounded-[10px] overflow-hidden border border-border bg-muted relative group cursor-pointer hover:border-primary/40 transition-colors"
                   >
                     <img
                       src={fixZenTaoFileUrl(img.url)}
@@ -275,7 +275,7 @@ export function BugCard({
                         const parent = target.parentElement;
                         if (parent && !parent.querySelector('.placeholder')) {
                           const placeholder = document.createElement('div');
-                          placeholder.className = 'placeholder flex flex-col items-center justify-center h-24 text-[#716B67]/50';
+                          placeholder.className = 'placeholder flex flex-col items-center justify-center h-24 text-muted-foreground/50';
                           placeholder.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span class="text-[10px] mt-1">${img.name || 'Image'}</span>`;
                           parent.appendChild(placeholder);
                         }
@@ -296,7 +296,7 @@ export function BugCard({
           {/* 文档附件 */}
           {documentAttachments.length > 0 && (
             <div>
-              <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
                 附件 ({documentAttachments.length})
               </label>
               <div className="space-y-2">
@@ -314,28 +314,28 @@ export function BugCard({
         {/* Assignee */}
         {assignee && (
           <div>
-            <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
               Assignee
             </label>
-            <div className="flex items-center gap-2.5 bg-[#F6F3F2] rounded-[10px] px-4 py-2.5 border border-[#E8E4E2]">
-              <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center border border-[#E8E4E2]">
-                <Users2 className="w-3.5 h-3.5 text-[#716B67]" />
+            <div className="flex items-center gap-2.5 bg-muted rounded-[10px] px-4 py-2.5 border border-border">
+              <div className="w-7 h-7 rounded-full bg-card flex items-center justify-center border border-border">
+                <Users2 className="w-3.5 h-3.5 text-muted-foreground" />
               </div>
-              <span className="text-[13px] font-medium text-[#1C1B1B]">{assignee}</span>
+              <span className="text-[13px] font-medium text-foreground">{assignee}</span>
             </div>
           </div>
         )}
 
         {/* Status + Date */}
-        <div className="flex items-center justify-between pt-2 border-t border-[#E8E4E2]/60">
+        <div className="flex items-center justify-between pt-2 border-t border-border/60">
           <div className="flex items-center gap-2">
             {statusIcons[normalizedStatus]}
-            <span className="text-[11px] font-bold text-[#716B67] capitalize">
+            <span className="text-[11px] font-bold text-muted-foreground capitalize">
               {t(`bug.status.${normalizedStatus}`, normalizedStatus)}
             </span>
           </div>
           {formattedDate && (
-            <span className="text-[11px] text-[#716B67]/70">{formattedDate}</span>
+            <span className="text-[11px] text-muted-foreground/70">{formattedDate}</span>
           )}
         </div>
       </div>
@@ -348,7 +348,7 @@ export function BugCard({
           className={cn(
             'w-full py-3.5 rounded-[16px] font-bold text-[14px] transition-all duration-200 flex items-center justify-center gap-2 border',
             actionState === 'idle' && 'bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white border-0 shadow-[0_8px_24px_rgba(163,56,0,0.35)] hover:shadow-[0_12px_32px_rgba(163,56,0,0.45)] hover:from-[#c24200] hover:to-[#e65200] active:scale-[0.98]',
-            actionState === 'loading' && 'bg-[#F6F3F2] text-[#716B67] border-[#E8E4E2] cursor-wait',
+            actionState === 'loading' && 'bg-muted text-muted-foreground border-border cursor-wait',
             actionState === 'success' && 'bg-[#10B981]/10 text-[#059669] border-[#10B981]/30 cursor-default'
           )}
         >

@@ -13,19 +13,19 @@ export function UIGallery() {
   const { t } = useTranslation();
 
   return (
-    <div className="p-10 space-y-16 overflow-y-auto h-full bg-[#fcf9f8]">
+    <div className="p-10 space-y-16 overflow-y-auto h-full bg-background">
       <header>
-        <h2 className="text-2xl font-bold text-[#1C1B1B]">{t('gallery.title')}</h2>
-        <p className="text-[#716B67] text-sm mt-1">{t('gallery.description')}</p>
+        <h2 className="text-2xl font-bold text-foreground">{t('gallery.title')}</h2>
+        <p className="text-muted-foreground text-sm mt-1">{t('gallery.description')}</p>
       </header>
 
       {/* 0. Thinking Pills */}
       <section className="space-y-6">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#EC5B14] border-b border-[#E8E4E2] pb-2">0. {t('gallery.sections.thinking_pills')}</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary border-b border-border pb-2">0. {t('gallery.sections.thinking_pills')}</h3>
         <div className="space-y-4">
           {/* Active state */}
-          <div className="bg-white rounded-[16px] p-6 border border-[#E8E4E2]">
-            <span className="text-[10px] text-[#716B67] font-bold uppercase tracking-[0.15em]">{t('gallery.labels.pills_active')}</span>
+          <div className="bg-card rounded-[16px] p-6 border border-border">
+            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.15em]">{t('gallery.labels.pills_active')}</span>
             <ThinkingPills
               steps={[
                 { label: t('gallery.demo_data.thinking.checking_zentao'), status: 'done' },
@@ -36,8 +36,8 @@ export function UIGallery() {
           </div>
 
           {/* All done */}
-          <div className="bg-white rounded-[16px] p-6 border border-[#E8E4E2]">
-            <span className="text-[10px] text-[#716B67] font-bold uppercase tracking-[0.15em]">{t('gallery.labels.pills_all_done')}</span>
+          <div className="bg-card rounded-[16px] p-6 border border-border">
+            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.15em]">{t('gallery.labels.pills_all_done')}</span>
             <ThinkingPills
               steps={[
                 { label: t('gallery.demo_data.thinking.locating_report'), status: 'done' },
@@ -48,7 +48,7 @@ export function UIGallery() {
 
           {/* List variant */}
           <div className="max-w-[400px]">
-            <span className="text-[10px] text-[#716B67] font-bold uppercase tracking-[0.15em] mb-2 block">{t('gallery.labels.list_variant')}</span>
+            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.15em] mb-2 block">{t('gallery.labels.list_variant')}</span>
             <ThinkingList
               steps={[
                 { label: t('gallery.demo_data.thinking.reading_gitlab'), status: 'done' },
@@ -62,7 +62,7 @@ export function UIGallery() {
 
       {/* 1. ZenTao Task Integration Card */}
       <section className="space-y-6">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#EC5B14] border-b border-[#E8E4E2] pb-2">1. {t('gallery.sections.zentao_task')} ({t('gallery.stitch_labels.image_1')})</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary border-b border-border pb-2">1. {t('gallery.sections.zentao_task')} ({t('gallery.stitch_labels.image_1')})</h3>
         <div className="space-y-6">
           <ZenTaoTaskCard
             title={t('gallery.demo_data.zentao.title')}
@@ -82,7 +82,7 @@ export function UIGallery() {
 
       {/* 2. Leave Request Form */}
       <section className="space-y-6">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#EC5B14] border-b border-[#E8E4E2] pb-2">2. {t('gallery.sections.leave_request')} ({t('gallery.stitch_labels.image_2')})</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary border-b border-border pb-2">2. {t('gallery.sections.leave_request')} ({t('gallery.stitch_labels.image_2')})</h3>
         <LeaveRequestForm
           remainingDays={18}
           defaultDates="2023-10-23"
@@ -93,7 +93,7 @@ export function UIGallery() {
 
       {/* 3. Code Diff Viewer */}
       <section className="space-y-6">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#EC5B14] border-b border-[#E8E4E2] pb-2">3. {t('gallery.sections.code_diff')} ({t('gallery.stitch_labels.image_3')})</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary border-b border-border pb-2">3. {t('gallery.sections.code_diff')} ({t('gallery.stitch_labels.image_3')})</h3>
         <DiffViewer
           fileName={t('gallery.demo_data.diff_viewer.file_name')}
           draft
@@ -109,7 +109,7 @@ export function UIGallery() {
 
       {/* 4. Print Console */}
       <section className="space-y-6">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#EC5B14] border-b border-[#E8E4E2] pb-2">4. {t('gallery.sections.print_console')} ({t('gallery.stitch_labels.image_4')})</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary border-b border-border pb-2">4. {t('gallery.sections.print_console')} ({t('gallery.stitch_labels.image_4')})</h3>
         <PrintConsole
           printerName={t('gallery.demo_data.print_console.printer_name')}
           location={t('gallery.demo_data.print_console.location')}

@@ -148,25 +148,25 @@ export function LandingPage() {
               </div>
               <div className="md:w-2/3 grid grid-cols-2 md:grid-cols-4 gap-8">
                 <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
                     <span className="material-symbols-outlined text-3xl">forum</span>
                   </div>
                   <span className="text-xs font-bold font-display uppercase tracking-wider">Slack</span>
                 </div>
                 <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
                     <span className="material-symbols-outlined text-3xl">terminal</span>
                   </div>
                   <span className="text-xs font-bold font-display uppercase tracking-wider">GitLab</span>
                 </div>
                 <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
                     <span className="material-symbols-outlined text-3xl">settings_applications</span>
                   </div>
                   <span className="text-xs font-bold font-display uppercase tracking-wider">Jenkins</span>
                 </div>
                 <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
                     <span className="material-symbols-outlined text-3xl">account_tree</span>
                   </div>
                   <span className="text-xs font-bold font-display uppercase tracking-wider">ZenTao</span>
@@ -223,13 +223,13 @@ export function LandingPage() {
         {/* CTA Section */}
         <section className="py-32 px-8">
           <div className="max-w-5xl mx-auto kinetic-gradient rounded-[2.5rem] p-12 md:p-24 text-center text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 blur-[80px] -ml-32 -mb-32 rounded-full"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-card/10 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-card/5 blur-[80px] -ml-32 -mb-32 rounded-full"></div>
             <h2 className="text-4xl md:text-5xl font-bold mb-8 relative z-10 font-display tracking-tight text-white">Ready to Orchestrate?</h2>
             <p className="text-white/80 text-xl mb-12 max-w-2xl mx-auto relative z-10 font-sans">Join the leaders in AI-driven enterprise efficiency. Start your pilot program with Ocean today.</p>
             <div className="flex flex-wrap justify-center gap-6 relative z-10">
-              <button className="bg-white text-primary px-10 py-4 rounded-lg font-bold text-lg hover:bg-surface-bright transition-colors font-display" onClick={handleGetStarted}>Get Started for Free</button>
-              <button className="border border-white/30 text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition-colors font-display">Book a Consultation</button>
+              <button className="bg-card text-primary px-10 py-4 rounded-lg font-bold text-lg hover:bg-surface-bright transition-colors font-display" onClick={handleGetStarted}>Get Started for Free</button>
+              <button className="border border-white/30 text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-card/10 transition-colors font-display">Book a Consultation</button>
             </div>
           </div>
         </section>

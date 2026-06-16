@@ -44,4 +44,6 @@ export interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   token: string | null;
+  onProfileUpdate?: (user: any) => void;
+  onConversationsCleared?: () => void;
 }

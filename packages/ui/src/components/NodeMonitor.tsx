@@ -40,7 +40,7 @@ export function NodeMonitor() {
           <p className="text-sm text-slate-500">PinkCar • Darwin ARM64 • Node.js v20.11.0</p>
         </div>
         <div className="flex gap-3">
-          <button className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all">
+          <button className="p-2.5 rounded-xl border border-slate-200 bg-card text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all">
             <RefreshCw className="w-4 h-4" />
           </button>
           <button className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 text-[11px] font-bold uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-2">
@@ -58,7 +58,7 @@ export function NodeMonitor() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white p-6 rounded-3xl border border-slate-200"
+            className="bg-card p-6 rounded-3xl border border-slate-200"
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
@@ -103,7 +103,7 @@ export function NodeMonitor() {
             </div>
           </div>
           <div className="bg-slate-900 rounded-b-[32px] border-x border-b border-slate-800 p-3 flex items-center gap-4">
-             <div className="flex-1 bg-white/5 rounded-xl border border-white/10 px-4 py-1.5 flex items-center gap-3 group focus-within:border-blue-500/50 transition-all">
+             <div className="flex-1 bg-card/5 rounded-xl border border-white/10 px-4 py-1.5 flex items-center gap-3 group focus-within:border-blue-500/50 transition-all">
                 <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
                 <input 
                   placeholder="Type a command..." 
@@ -117,14 +117,14 @@ export function NodeMonitor() {
         </div>
 
         {/* Process List */}
-        <div className="bg-white rounded-[32px] border border-slate-200 p-8 flex flex-col h-[500px]">
+        <div className="bg-card rounded-[32px] border border-slate-200 p-8 flex flex-col h-[500px]">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-8 flex items-center gap-2">
              <Activity className="w-4 h-4 text-blue-500" />
              {t('node.processes')}
           </h3>
           <div className="space-y-4 flex-1 overflow-y-auto pr-2">
             {processes.map(proc => (
-              <div key={proc.pid} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-blue-200 hover:bg-white transition-all cursor-default">
+              <div key={proc.pid} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-blue-200 hover:bg-card transition-all cursor-default">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-700 truncate max-w-[140px]">{proc.name}</span>
                   <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">PID {proc.pid}</span>

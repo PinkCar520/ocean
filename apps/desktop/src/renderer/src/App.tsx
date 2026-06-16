@@ -10,7 +10,7 @@ import {
 import { ChatSession } from '@ocean/ui/components/ChatSession';
 import { useTranslation } from 'react-i18next';
 import { Dashboard } from '@ocean/ui/components/Dashboard';
-import { SettingsDialog } from '@ocean/ui/components/SettingsDialog';
+import { SettingsDialog } from '@ocean/ui/components/Settings/SettingsDialog';
 import { UIGallery } from '@ocean/ui/components/UIGallery';
 import { SkillLibrary } from '@ocean/ui/components/SkillLibrary';
 import { MCPServerManager } from '@ocean/ui/components/MCPServerManager';
@@ -54,7 +54,7 @@ function AppContent() {
 }
 
 function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { activeProject, setActiveProjectId } = useWorkspace();
 
@@ -110,6 +110,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     handleRenameChat,
     handleDeleteConversations,
     onStreamFinished,
+    refreshConversations,
   } = useConversations({
     token,
     sessionId: sessionIdFromUrl ?? null,
@@ -118,6 +119,48 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     onUserProfile: setUser,
     t,
   });
+
+  // Sync Global Settings from User Profile
+  useEffect(() => {
+    if (user?.preferences) {
+      // Sync Theme
+      if (user.preferences.theme) {
+        const applyTheme = (theme: string) => {
+          document.documentElement.classList.remove('light', 'dark');
+          if (theme === 'system') {
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.classList.add(isDark ? 'dark' : 'light');
+          } else {
+            document.documentElement.classList.add(theme);
+          }
+        };
+
+        applyTheme(user.preferences.theme);
+
+        if (user.preferences.theme === 'system') {
+          const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+          const handler = () => applyTheme('system');
+          mediaQuery.addEventListener('change', handler);
+          return () => mediaQuery.removeEventListener('change', handler);
+        }
+      }
+      
+      // Sync Language
+      if (user.preferences.language && i18n.language !== user.preferences.language) {
+        i18n.changeLanguage(user.preferences.language);
+      }
+      
+      // Sync Default Model (Only on initial load or explicit update)
+      if (user.preferences.defaultModel) {
+        setSelectedModelId(prev => {
+          if (!prev || prev !== user.preferences.defaultModel) {
+            return user.preferences.defaultModel;
+          }
+          return prev;
+        });
+      }
+    }
+  }, [user, i18n]);
 
   useEffect(() => {
     if (activeTab === 'chat') return;
@@ -213,11 +256,11 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   }
 
   if (!isInitialized) {
-    return <div className="h-screen w-full flex items-center justify-center bg-[#f6f3f2]"><div className="animate-pulse font-bold text-[#716B67]">Loading...</div></div>;
+    return <div className="h-screen w-full flex items-center justify-center bg-muted"><div className="animate-pulse font-bold text-muted-foreground">Loading...</div></div>;
   }
 
   return (
-    <div className="flex h-screen w-full bg-[#f6f3f2] font-sans selection:bg-[#EC5B14]/10 selection:text-[#EC5B14]">
+    <div className="flex h-screen w-full bg-muted font-sans selection:bg-primary/10 selection:text-primary">
       <Toaster />
       {/* 1. 侧边栏 (Fixed App Shell) */}
       <Sidebar
@@ -244,14 +287,14 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         isSidebarCollapsed ? "md:ml-0" : "md:ml-64"
       )}>
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between p-3 border-b border-[#E8E4E2] bg-white shrink-0 z-30">
+        <div className="md:hidden flex items-center justify-between p-3 border-b border-border bg-card shrink-0 z-30">
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 -ml-2 text-[#716B67] hover:bg-[#F6F3F2] rounded-lg transition-colors"
+            className="p-2 -ml-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-display font-bold text-[#1C1B1B] text-lg">Ocean</span>
+          <span className="font-display font-bold text-foreground text-lg">Ocean</span>
           <div className="w-9" />
         </div>
 
@@ -314,6 +357,11 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         isOpen={isMainSettingsOpen} 
         onClose={() => setIsMainSettingsOpen(false)} 
         token={token} 
+        onProfileUpdate={(updatedUser: any) => setUser(updatedUser)}
+        onConversationsCleared={async () => {
+          await refreshConversations();
+          navigate('/');
+        }}
       />
     </div>
   );

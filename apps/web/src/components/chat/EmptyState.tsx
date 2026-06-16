@@ -30,12 +30,12 @@ export function EmptyState({
               setLocalInput(s.prompt);
               setTimeout(() => onFormSubmit(), 0);
             }}
-            className="flex items-center gap-3 p-4 rounded-[16px] bg-white border border-[#E8E4E2]/60 hover:border-[#EC5B14]/30 hover:shadow-[0_4px_16px_rgba(236,91,20,0.08)] transition-all text-left group"
+            className="flex items-center gap-3 p-4 rounded-[16px] bg-card border border-border/60 hover:border-primary/30 hover:shadow-[0_4px_16px_rgba(236,91,20,0.08)] transition-all text-left group"
           >
-            <div className="w-8 h-8 rounded-lg bg-[#EC5B14]/5 flex items-center justify-center shrink-0 group-hover:bg-[#EC5B14]/10 transition-colors">
-              <s.icon className="w-4 h-4 text-[#EC5B14]" />
+            <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+              <s.icon className="w-4 h-4 text-primary" />
             </div>
-            <span className="text-sm font-medium text-[#1C1B1B] group-hover:text-[#EC5B14] transition-colors">
+            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
               {s.label}
             </span>
           </button>

@@ -76,14 +76,14 @@ export const SkillPicker = forwardRef<SkillPickerHandle>((_, ref) => {
         transition={{ duration: 0.15 }}
         className="absolute bottom-full left-0 mb-2 w-[400px] max-w-full z-50"
       >
-        <div className="bg-white/95 backdrop-blur-xl rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] border border-[#E8E4E2] overflow-hidden">
+        <div className="bg-card/95 backdrop-blur-xl rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] border border-border overflow-hidden">
           {/* Header */}
-          <div className="px-3 py-2.5 border-b border-[#E8E4E2]/60 bg-[#F6F3F2]/60 flex items-center justify-between">
+          <div className="px-3 py-2.5 border-b border-border/60 bg-muted/60 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#EC5B14] to-[#cc4900] flex items-center justify-center shadow-sm">
                 <Zap className="w-3 h-3 text-white" />
               </div>
-              <span className="text-[10px] font-black uppercase text-[#716B67] tracking-widest">
+              <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Select an AI Skill
               </span>
             </div>
@@ -93,24 +93,24 @@ export const SkillPicker = forwardRef<SkillPickerHandle>((_, ref) => {
                 e.stopPropagation();
                 closePicker();
               }}
-              className="w-5 h-5 flex items-center justify-center rounded-md text-[#A8A4A1] hover:text-[#1C1B1B] hover:bg-[#E8E4E2]/60 transition-all"
+              className="w-5 h-5 flex items-center justify-center rounded-md text-muted-foreground/80 hover:text-foreground hover:bg-border/60 transition-all"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {/* Keyboard hint */}
-          <div className="px-3 py-1.5 border-b border-[#E8E4E2]/40 flex items-center gap-3 bg-[#FDFCFB]">
-            <div className="flex items-center gap-1 text-[10px] text-[#A8A4A1]">
-              <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">↑↓</kbd>
+          <div className="px-3 py-1.5 border-b border-border/40 flex items-center gap-3 bg-[#FDFCFB]">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80">
+              <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-border font-mono text-[9px] text-muted-foreground">↑↓</kbd>
               <span>导航</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-[#A8A4A1]">
-              <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">↵</kbd>
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80">
+              <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-border font-mono text-[9px] text-muted-foreground">↵</kbd>
               <span>选择</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-[#A8A4A1]">
-              <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-[#E8E4E2] font-mono text-[9px] text-[#716B67]">Esc</kbd>
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80">
+              <kbd className="px-1.5 py-0.5 rounded bg-[#F0EDE9] border border-border font-mono text-[9px] text-muted-foreground">Esc</kbd>
               <span>关闭</span>
             </div>
           </div>
@@ -122,7 +122,7 @@ export const SkillPicker = forwardRef<SkillPickerHandle>((_, ref) => {
             style={{ scrollbarWidth: 'thin' }}
           >
             {filteredCatalog.length === 0 ? (
-              <div className="py-8 text-center text-sm text-[#A8A4A1]">
+              <div className="py-8 text-center text-sm text-muted-foreground/80">
                 <Cpu className="w-6 h-6 mx-auto mb-2 opacity-30" />
                 <p>没有找到匹配的 Skill</p>
                 {pickerQuery && (
@@ -141,8 +141,8 @@ export const SkillPicker = forwardRef<SkillPickerHandle>((_, ref) => {
                     className={cn(
                       'flex flex-col gap-0.5 w-full px-3 py-2.5 rounded-lg text-left transition-all duration-100',
                       isActive
-                        ? 'bg-[#EC5B14]/8 ring-1 ring-[#EC5B14]/20'
-                        : 'hover:bg-[#F6F3F2]'
+                        ? 'bg-primary/8 ring-1 ring-primary/20'
+                        : 'hover:bg-muted'
                     )}
                   >
                     <div className="flex items-center gap-2">
@@ -150,18 +150,18 @@ export const SkillPicker = forwardRef<SkillPickerHandle>((_, ref) => {
                         'w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-all',
                         isActive
                           ? 'bg-gradient-to-br from-[#EC5B14] to-[#cc4900] shadow-sm'
-                          : 'bg-[#F0EDE9] border border-[#E8E4E2]'
+                          : 'bg-[#F0EDE9] border border-border'
                       )}>
-                        <Cpu className={cn('w-3.5 h-3.5', isActive ? 'text-white' : 'text-[#716B67]')} />
+                        <Cpu className={cn('w-3.5 h-3.5', isActive ? 'text-white' : 'text-muted-foreground')} />
                       </div>
                       <span className={cn(
                         'text-[13px] font-bold transition-colors',
-                        isActive ? 'text-[#EC5B14]' : 'text-[#1C1B1B]'
+                        isActive ? 'text-primary' : 'text-foreground'
                       )}>
                         {skill.name}
                       </span>
                       {isActive && (
-                        <span className="ml-auto text-[10px] text-[#EC5B14]/60 font-medium shrink-0">
+                        <span className="ml-auto text-[10px] text-primary/60 font-medium shrink-0">
                           ↵ 选择
                         </span>
                       )}
@@ -169,7 +169,7 @@ export const SkillPicker = forwardRef<SkillPickerHandle>((_, ref) => {
                     {skill.description && (
                       <span className={cn(
                         'text-[11px] line-clamp-1 ml-8 transition-colors',
-                        isActive ? 'text-[#EC5B14]/70' : 'text-[#A8A4A1]'
+                        isActive ? 'text-primary/70' : 'text-muted-foreground/80'
                       )}>
                         {skill.description}
                       </span>
@@ -199,7 +199,7 @@ export function SkillChip({
   onRemove: (id: string) => void;
 }) {
   return (
-    <span className="relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EC5B14]/8 text-[#EC5B14] text-xs font-bold border border-[#EC5B14]/20 shadow-sm group animate-in zoom-in-95 duration-200">
+    <span className="relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/8 text-primary text-xs font-bold border border-primary/20 shadow-sm group animate-in zoom-in-95 duration-200">
       <Cpu className="w-3 h-3 opacity-70 shrink-0" />
       <span className="max-w-[120px] truncate">{name}</span>
       {/* X button: absolute top-right, visible on group hover */}
@@ -212,7 +212,7 @@ export function SkillChip({
         className={cn(
           'absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full',
           'flex items-center justify-center',
-          'bg-[#1C1B1B] text-white shadow-sm',
+          'bg-foreground text-white shadow-sm',
           'opacity-0 group-hover:opacity-100',
           'scale-75 group-hover:scale-100',
           'transition-all duration-150',

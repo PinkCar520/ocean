@@ -96,7 +96,7 @@ function FormField({
         <select
           value={value ?? schema.default ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-card dark:bg-gray-800 focus:ring-2 focus:ring-blue-500"
         >
           {schema.enum.map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
@@ -109,7 +109,7 @@ function FormField({
           value={value ?? schema.default ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`请输入 ${label}`}
-          className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 ${
+          className={`w-full px-3 py-2 border rounded-lg bg-card dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 ${
             error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
           }`}
         />
@@ -120,7 +120,7 @@ function FormField({
           value={value ?? schema.default ?? ''}
           onChange={(e) => onChange(Number(e.target.value))}
           placeholder={`请输入 ${label}`}
-          className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 ${
+          className={`w-full px-3 py-2 border rounded-lg bg-card dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 ${
             error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
           }`}
         />
@@ -224,7 +224,7 @@ export const MCPElicitationDialog: React.FC<MCPElicitationDialogProps> = ({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6"
+            className="bg-card dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

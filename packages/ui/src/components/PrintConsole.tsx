@@ -60,18 +60,18 @@ export function PrintConsole({
   return (
     <div className="space-y-4 max-w-[520px]">
       {/* Main Card */}
-      <div className="bg-white rounded-[20px] border border-[#E8E4E2] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+      <div className="bg-card rounded-[20px] border border-border overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
         {/* Header */}
-        <div className="px-6 pt-6 pb-5 border-b border-[#E8E4E2]/60">
+        <div className="px-6 pt-6 pb-5 border-b border-border/60">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-[#F6F3F2] p-2 rounded-xl">
-                <Printer className="w-5 h-5 text-[#1C1B1B]" />
+              <div className="bg-muted p-2 rounded-xl">
+                <Printer className="w-5 h-5 text-foreground" />
               </div>
               <div>
-                <h3 className="text-[16px] font-bold text-[#1C1B1B]">Print Console</h3>
-                <p className="text-[12px] text-[#716B67] mt-0.5">
-                  Destination: <span className="text-[#EC5B14] font-semibold">{location} • {printerName}</span>
+                <h3 className="text-[16px] font-bold text-foreground">Print Console</h3>
+                <p className="text-[12px] text-muted-foreground mt-0.5">
+                  Destination: <span className="text-primary font-semibold">{location} • {printerName}</span>
                 </p>
               </div>
             </div>
@@ -90,35 +90,35 @@ export function PrintConsole({
         <div className="px-6 py-5">
           <div className="grid grid-cols-2 gap-4">
             {/* Ink Levels */}
-            <div className="bg-[#F6F3F2] rounded-[14px] p-4">
+            <div className="bg-muted rounded-[14px] p-4">
               <div className="flex items-center gap-2 mb-3">
-                <Droplets className="w-3.5 h-3.5 text-[#716B67]" />
-                <span className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em]">
+                <Droplets className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
                   Ink Levels
                 </span>
               </div>
               <div className="flex justify-between mt-3">
                 {(['c', 'm', 'y', 'k'] as const).map(color => (
                   <div key={color} className="flex flex-col items-center gap-1.5">
-                    <div className="w-8 h-12 bg-white rounded-lg border border-[#E8E4E2] overflow-hidden relative">
+                    <div className="w-8 h-12 bg-card rounded-lg border border-border overflow-hidden relative">
                       <div
                         className={cn("absolute bottom-0 w-full rounded-b-lg transition-all", inkColors[color])}
                         style={{ height: `${inkLevels[color]}%` }}
                       />
                     </div>
-                    <span className="text-[10px] font-bold text-[#716B67] uppercase">{color.toUpperCase()}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">{color.toUpperCase()}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Paper Status */}
-            <div className="bg-[#F6F3F2] rounded-[14px] p-4 flex flex-col items-center justify-center text-center">
-              <FileText className="w-6 h-6 text-[#716B67]/50 mb-2" />
-              <span className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em]">
+            <div className="bg-muted rounded-[14px] p-4 flex flex-col items-center justify-center text-center">
+              <FileText className="w-6 h-6 text-muted-foreground/50 mb-2" />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
                 Paper Status
               </span>
-              <span className="text-[24px] font-bold text-[#1C1B1B] mt-1">{paperPercent}%</span>
+              <span className="text-[24px] font-bold text-foreground mt-1">{paperPercent}%</span>
               <span className="text-[11px] text-emerald-600 font-medium">{paperTray}</span>
             </div>
           </div>
@@ -138,8 +138,8 @@ export function PrintConsole({
       </div>
 
       {/* Document Preview Card */}
-      <div className="bg-white rounded-[20px] border border-[#E8E4E2] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-        <span className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] block mb-3">
+      <div className="bg-card rounded-[20px] border border-border p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] block mb-3">
           Document Preview
         </span>
         {/* Placeholder image area */}
@@ -148,8 +148,8 @@ export function PrintConsole({
         </div>
         <div className="flex items-start justify-between">
           <div>
-            <h4 className="text-[13px] font-bold text-[#1C1B1B]">{documentName}</h4>
-            <p className="text-[11px] text-[#716B67] mt-1">
+            <h4 className="text-[13px] font-bold text-foreground">{documentName}</h4>
+            <p className="text-[11px] text-muted-foreground mt-1">
               {documentPages} Pages • {documentSize} • Generated {documentGenerated}
             </p>
           </div>
@@ -157,13 +157,13 @@ export function PrintConsole({
 
         {/* Security Pass */}
         {securityPass && (
-          <div className="mt-4 bg-[#F6F3F2] rounded-[12px] p-4 flex gap-3">
+          <div className="mt-4 bg-muted rounded-[12px] p-4 flex gap-3">
             <div className="shrink-0 mt-0.5">
-              <ShieldCheck className="w-5 h-5 text-[#EC5B14]" />
+              <ShieldCheck className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <span className="text-[12px] font-bold text-[#1C1B1B]">Security Pass</span>
-              <p className="text-[11px] text-[#716B67] mt-1 leading-relaxed">{securityMessage}</p>
+              <span className="text-[12px] font-bold text-foreground">Security Pass</span>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{securityMessage}</p>
             </div>
           </div>
         )}

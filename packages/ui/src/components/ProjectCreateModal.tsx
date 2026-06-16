@@ -61,8 +61,8 @@ export function ProjectCreateModal({ isOpen, onClose, onCreated }: ProjectCreate
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[400px] sm:rounded-[16px] gap-0 p-6 z-[99999]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-[#1C1B1B]">Create New Project</DialogTitle>
-          <DialogDescription className="pt-2 text-sm text-[#716B67]">
+          <DialogTitle className="text-xl font-bold text-foreground">Create New Project</DialogTitle>
+          <DialogDescription className="pt-2 text-sm text-muted-foreground">
             Enter a name for your new local project workspace.
           </DialogDescription>
         </DialogHeader>
@@ -76,19 +76,19 @@ export function ProjectCreateModal({ isOpen, onClose, onCreated }: ProjectCreate
               if (e.key === 'Escape') onClose();
             }}
             placeholder="e.g. my-awesome-project"
-            className="w-full bg-[#F6F3F2] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#EC5B14]/20 outline-none font-medium text-sm"
+            className="w-full bg-muted border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 outline-none font-medium text-sm"
           />
         </div>
         <DialogFooter className="flex sm:justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-[#E8E4E2] text-sm font-bold text-[#716B67] hover:bg-[#F1EFEB] transition-colors"
+            className="px-4 py-2 rounded-lg border border-border text-sm font-bold text-muted-foreground hover:bg-[#F1EFEB] transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleQuickCreate}
-            className="px-4 py-2 rounded-lg bg-[#1C1B1B] text-sm font-bold text-white hover:bg-[#1C1B1B]/80 transition-all"
+            className="px-4 py-2 rounded-lg bg-foreground text-sm font-bold text-white hover:bg-foreground/80 transition-all"
           >
             Create
           </button>

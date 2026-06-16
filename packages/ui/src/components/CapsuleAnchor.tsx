@@ -49,16 +49,16 @@ export const CapsuleAnchor: React.FC<CapsuleAnchorProps> = ({
         className={cn(
           'w-full flex items-center gap-3 px-5 py-3.5 rounded-[20px] text-[13px] font-semibold',
           'transition-all duration-200 cursor-pointer select-none',
-          'border bg-white',
+          'border bg-card',
           isActive
-            ? 'border-[#EC5B14]/30 shadow-[0_0_8px_rgba(236,91,20,0.1)] text-[#EC5B14]'
-            : 'border-[#E8E4E2]/60 text-[#716B67] hover:bg-[#EC5B14]/[0.03] hover:border-[#EC5B14]/20 hover:text-[#EC5B14]'
+            ? 'border-primary/30 shadow-[0_0_8px_rgba(236,91,20,0.1)] text-primary'
+            : 'border-border/60 text-muted-foreground hover:bg-primary/[0.03] hover:border-primary/20 hover:text-primary'
         )}
       >
         <IconComponent className="w-4 h-4 shrink-0" />
         <span className="tracking-tight">{label}</span>
         {isActive && (
-          <span className="ml-auto text-[10px] font-medium text-[#EC5B14]">
+          <span className="ml-auto text-[10px] font-medium text-primary">
             已展开
           </span>
         )}
@@ -74,8 +74,8 @@ export const CapsuleAnchor: React.FC<CapsuleAnchorProps> = ({
         'transition-all duration-200 cursor-pointer select-none',
         'border shadow-sm',
         isActive
-          ? 'bg-[#EC5B14]/10 border-[#EC5B14]/30 text-[#EC5B14] shadow-[0_0_8px_rgba(236,91,20,0.15)]'
-          : 'bg-[#F6F3F2]/80 border-[#E8E4E2]/60 text-[#716B67] hover:bg-[#EC5B14]/5 hover:border-[#EC5B14]/20 hover:text-[#EC5B14]'
+          ? 'bg-primary/10 border-primary/30 text-primary shadow-[0_0_8px_rgba(236,91,20,0.15)]'
+          : 'bg-muted/80 border-border/60 text-muted-foreground hover:bg-primary/5 hover:border-primary/20 hover:text-primary'
       )}
       title={`点击查看${label}`}
     >

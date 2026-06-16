@@ -8,6 +8,7 @@ export function ProfileTab() {
   const { userProfile, updateProfile } = useSettings();
   const [editedName, setEditedName] = useState('');
   const [editedEmail, setEditedEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     if (userProfile) {
@@ -16,14 +17,70 @@ export function ProfileTab() {
     }
   }, [userProfile]);
 
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 256;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        const base64String = canvas.toDataURL('image/jpeg', 0.8);
+        updateProfile({ avatar: base64String });
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleEmailBlur = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editedEmail)) {
+      setEmailError(t('user_center.identity.email_invalid', 'Invalid email format'));
+      return;
+    }
+    setEmailError('');
+    updateProfile({ email: editedEmail });
+  };
+
   return (
     <section className="space-y-8 max-w-3xl">
       <div className="flex items-center gap-6">
-        <div className="relative w-24 h-24">
-          <img alt={t('user_center.identity.edit_avatar')} className="w-full h-full rounded-3xl object-cover border-4 border-card shadow-xl shadow-[#000]/5" src={userProfile?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuA0oS2KtsdNSGQoheV6v31oxAq-NhwZzQ47xg8__EJhv8OqGKGnZL3wep9OPHmM8x2Ik6mpZYLUp_nlIoldi6DXVNzDnTDsq10ls1jkUj-t_evdmGKwkn_t5xfFRgHK6-mmcStkVS-zdI45IF3rmBL3mH9KmAB8N9AvKqU-Dv45N0-NNrOIrD2ZlsGh9MmfkPMjEPcNRAJQVNa20KRYE9eY-Svv7Taq6vVmmqM9HxckuxqA9UWUSYJjawCeP6JhTrR_2ym5Y9kmaeo"} />
-          <button className="absolute -bottom-2 -right-2 bg-card p-2 rounded-xl shadow-lg border border-border">
-            <Edit2 className="w-4 h-4 text-[#EC5B14]" />
-          </button>
+        <div className="relative w-24 h-24 group cursor-pointer">
+          {userProfile?.avatar ? (
+            <img alt={t('user_center.identity.edit_avatar')} className="w-full h-full rounded-3xl object-cover border-4 border-card shadow-xl shadow-[#000]/5" src={userProfile.avatar} />
+          ) : (
+            <div className="w-full h-full rounded-3xl bg-primary/10 text-primary flex items-center justify-center text-4xl font-black border-4 border-card shadow-xl shadow-[#000]/5">
+              {userProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+          )}
+          <label className="absolute -bottom-2 -right-2 bg-card p-2 rounded-xl shadow-lg border border-border cursor-pointer hover:bg-muted transition-colors">
+            <Edit2 className="w-4 h-4 text-primary" />
+            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+          </label>
         </div>
         <div>
           <h4 className="text-2xl font-bold text-foreground">{userProfile?.name}</h4>
@@ -50,11 +107,15 @@ export function ProfileTab() {
           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('user_center.identity.email')}</label>
           <input 
             value={editedEmail}
-            onChange={(e) => setEditedEmail(e.target.value)}
-            onBlur={() => updateProfile({ email: editedEmail })}
-            className="w-full p-3 bg-muted border border-transparent focus:bg-card focus:border-border/50 rounded-xl text-sm font-bold text-foreground outline-none transition-all"
+            onChange={(e) => {
+               setEditedEmail(e.target.value);
+               if (emailError) setEmailError('');
+            }}
+            onBlur={handleEmailBlur}
+            className={`w-full p-3 bg-muted border ${emailError ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:border-border/50'} focus:bg-card rounded-xl text-sm font-bold text-foreground outline-none transition-all`}
             placeholder={t('user_center.identity.email_placeholder')}
           />
+          {emailError && <p className="text-xs text-red-500 font-bold">{emailError}</p>}
         </div>
       </div>
     </section>

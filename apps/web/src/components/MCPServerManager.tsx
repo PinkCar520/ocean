@@ -251,10 +251,10 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
 
   if (loading) {
     return (
-      <div className={cn("flex-1 overflow-y-auto bg-[#fcf9f8]", !hideHeader && "p-10")}>
+      <div className={cn("flex-1 overflow-y-auto bg-background", !hideHeader && "p-10")}>
         <div className="max-w-5xl mx-auto space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="p-6 rounded-2xl bg-[#F6F3F2] animate-pulse h-24" />
+            <div key={i} className="p-6 rounded-2xl bg-muted animate-pulse h-24" />
           ))}
         </div>
       </div>
@@ -262,23 +262,23 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
   }
 
   return (
-    <div className={cn("flex-1 overflow-y-auto bg-[#fcf9f8]", !hideHeader && "p-10")}>
+    <div className={cn("flex-1 overflow-y-auto bg-background", !hideHeader && "p-10")}>
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         {!hideHeader && (
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="font-display text-3xl font-extrabold text-[#1C1B1B]">
-                MCP Server <span className="text-[#EC5B14]">Management</span>
+              <h2 className="font-display text-3xl font-extrabold text-foreground">
+                MCP Server <span className="text-primary">Management</span>
               </h2>
-              <p className="text-[#716B67] mt-1">
+              <p className="text-muted-foreground mt-1">
                 Manage and monitor your MCP server connections
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCheckAllHealth}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E8E4E2] text-sm font-medium text-[#716B67] hover:text-[#1C1B1B] hover:border-[#EC5B14]/30 transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
               >
                 <motion.div
                   key={spinKey}
@@ -292,7 +292,7 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
               </button>
               <button
                 onClick={handleSyncFromConfig}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E8E4E2] text-sm font-medium text-[#716B67] hover:text-[#1C1B1B] hover:border-[#EC5B14]/30 transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
               >
                 <motion.div
                   key={syncSpinKey}
@@ -306,14 +306,14 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
               </button>
               <button
                 onClick={handleNew}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#EC5B14] text-white text-sm font-bold hover:bg-[#d44f0e] transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-[#d44f0e] transition-all shadow-sm"
               >
                 <Plus className="w-4 h-4" />
                 Add Server
               </button>
               <button
                 onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E8E4E2] text-sm font-medium text-[#716B67] hover:text-[#1C1B1B] hover:border-[#EC5B14]/30 transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
               >
                 <Globe className="w-4 h-4" />
                 Import Skill
@@ -326,14 +326,14 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
           <div className="flex items-center justify-end gap-2 mb-6">
             <button
               onClick={handleCheckAllHealth}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E8E4E2] text-xs font-bold text-[#716B67] hover:text-[#1C1B1B] transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-xs font-bold text-muted-foreground hover:text-foreground transition-all"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Check All
             </button>
             <button
               onClick={handleNew}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#EC5B14] text-white text-xs font-bold hover:bg-[#d44f0e] transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-[#d44f0e] transition-all shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
               Add Server
@@ -356,8 +356,8 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                   className={cn(
                     "p-5 rounded-2xl border transition-all",
                     server.enabled
-                      ? "bg-white border-[#E8E4E2]/60 hover:shadow-md"
-                      : "bg-[#F6F3F2]/60 border-transparent opacity-60"
+                      ? "bg-card border-border/60 hover:shadow-md"
+                      : "bg-muted/60 border-transparent opacity-60"
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -366,19 +366,19 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                         {statusCfg.icon}
                       </div>
                       <div>
-                        <h3 className="font-display font-bold text-[#1C1B1B]">{server.name}</h3>
+                        <h3 className="font-display font-bold text-foreground">{server.name}</h3>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs text-[#716B67] flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
                             {transportIcon(server.transport)}
                             {server.transport}
                           </span>
                           {server.category && (
-                            <span className="text-xs text-[#A8A4A1] uppercase tracking-wider font-bold">
+                            <span className="text-xs text-muted-foreground/80 uppercase tracking-wider font-bold">
                               {CATEGORY_LABELS[server.category] || server.category}
                             </span>
                           )}
                           {server.command && (
-                            <span className="text-xs text-[#A8A4A1] font-mono truncate max-w-[200px]">
+                            <span className="text-xs text-muted-foreground/80 font-mono truncate max-w-[200px]">
                               {server.command}
                             </span>
                           )}
@@ -397,11 +397,11 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                         onClick={() => handleToggleEnabled(server.id, !server.enabled)}
                         className={cn(
                           "relative w-10 h-5 rounded-full transition-colors",
-                          server.enabled ? "bg-[#EC5B14]" : "bg-[#E8E4E2]"
+                          server.enabled ? "bg-primary" : "bg-border"
                         )}
                       >
                         <div className={cn(
-                          "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
+                          "absolute top-0.5 w-4 h-4 rounded-full bg-card shadow-sm transition-transform",
                           server.enabled ? "left-[22px]" : "left-0.5"
                         )} />
                       </button>
@@ -409,13 +409,13 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                       {/* Actions */}
                       <button
                         onClick={() => handleEdit(server)}
-                        className="p-1.5 rounded-lg text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#1C1B1B] transition-colors"
+                        className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(server.id)}
-                        className="p-1.5 rounded-lg text-[#716B67] hover:bg-[#FEF2F2] hover:text-[#EF4444] transition-colors"
+                        className="p-1.5 rounded-lg text-muted-foreground hover:bg-[#FEF2F2] hover:text-[#EF4444] transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -423,10 +423,10 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                   </div>
 
                   {server.description && (
-                    <p className="text-sm text-[#716B67] mt-3 ml-[52px]">{server.description}</p>
+                    <p className="text-sm text-muted-foreground mt-3 ml-[52px]">{server.description}</p>
                   )}
                   {server.lastCheck && (
-                    <p className="text-xs text-[#A8A4A1] mt-1 ml-[52px]">
+                    <p className="text-xs text-muted-foreground/80 mt-1 ml-[52px]">
                       Last checked: {new Date(server.lastCheck).toLocaleString()}
                     </p>
                   )}
@@ -436,7 +436,7 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
           </AnimatePresence>
 
           {servers.length === 0 && (
-            <div className="text-center py-16 text-[#716B67]">
+            <div className="text-center py-16 text-muted-foreground">
               <Server className="w-12 h-12 mx-auto mb-4 opacity-30" />
               <p className="text-lg font-medium">No MCP servers configured</p>
               <p className="text-sm mt-1">Click "Add Server" or "Sync from Config" to get started</p>
@@ -461,30 +461,30 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
               >
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg pointer-events-auto max-h-[90vh] overflow-y-auto">
-                  <div className="p-6 border-b border-[#E8E4E2]">
-                    <h3 className="font-display font-bold text-xl text-[#1C1B1B]">
+                <div className="bg-card rounded-3xl shadow-2xl w-full max-w-lg pointer-events-auto max-h-[90vh] overflow-y-auto">
+                  <div className="p-6 border-b border-border">
+                    <h3 className="font-display font-bold text-xl text-foreground">
                       {editingId ? 'Edit MCP Server' : 'Add MCP Server'}
                     </h3>
                   </div>
 
                   <div className="p-6 space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Name *</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Name *</label>
                       <input
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none"
+                        className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                         placeholder="e.g., ZenTao Bug Management"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Description</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Description</label>
                       <textarea
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none resize-none"
+                        className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
                         rows={2}
                         placeholder="Server description..."
                       />
@@ -492,11 +492,11 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Category</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Category</label>
                         <select
                           value={formData.category}
                           onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none bg-white"
+                          className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-card"
                         >
                           {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                             <option key={key} value={key}>{label}</option>
@@ -504,11 +504,11 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Transport</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Transport</label>
                         <select
                           value={formData.transport}
                           onChange={(e) => setFormData({ ...formData, transport: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none bg-white"
+                          className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-card"
                         >
                           <option value="stdio">stdio</option>
                           <option value="sse">sse</option>
@@ -518,48 +518,48 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Command</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Command</label>
                       <input
                         value={formData.command}
                         onChange={(e) => setFormData({ ...formData, command: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm font-mono focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none"
+                        className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                         placeholder="node"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Args (JSON)</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Args (JSON)</label>
                       <textarea
                         value={formData.args}
                         onChange={(e) => setFormData({ ...formData, args: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm font-mono focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none resize-none"
+                        className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
                         rows={2}
                         placeholder='["../../../agents/mcp/mcp-zentao/dist/server.js"]'
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Env (JSON)</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Env (JSON)</label>
                       <textarea
                         value={formData.env}
                         onChange={(e) => setFormData({ ...formData, env: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm font-mono focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none resize-none"
+                        className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
                         rows={3}
                         placeholder='{"ZENTAO_BASE_URL": "${ZENTAO_BASE_URL}"}'
                       />
                     </div>
                   </div>
 
-                  <div className="p-6 border-t border-[#E8E4E2] flex justify-end gap-3">
+                  <div className="p-6 border-t border-border flex justify-end gap-3">
                     <button
                       onClick={() => setShowForm(false)}
-                      className="px-6 py-2 rounded-xl border border-[#E8E4E2] text-sm font-medium text-[#716B67] hover:bg-[#F6F3F2] transition-colors"
+                      className="px-6 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSave}
-                      className="flex items-center gap-2 px-6 py-2 rounded-xl bg-[#EC5B14] text-white text-sm font-bold hover:bg-[#d44f0e] transition-all"
+                      className="flex items-center gap-2 px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-[#d44f0e] transition-all"
                     >
                       <Save className="w-4 h-4" />
                       {editingId ? 'Update' : 'Create'}
@@ -588,21 +588,21 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
               >
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md pointer-events-auto">
-                  <div className="p-6 border-b border-[#E8E4E2]">
-                    <h3 className="font-display font-bold text-xl text-[#1C1B1B]">
+                <div className="bg-card rounded-3xl shadow-2xl w-full max-w-md pointer-events-auto">
+                  <div className="p-6 border-b border-border">
+                    <h3 className="font-display font-bold text-xl text-foreground">
                       Import Skill
                     </h3>
-                    <p className="text-sm text-[#716B67] mt-1">Import skills from external sources</p>
+                    <p className="text-sm text-muted-foreground mt-1">Import skills from external sources</p>
                   </div>
 
                   <div className="p-6 space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-[#1C1B1B] mb-1">Source</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Source</label>
                       <select
                         value={importSource}
                         onChange={(e) => setImportSource(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none bg-white"
+                        className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-card"
                       >
                         <option value="openclaw-hub">OpenClaw Hub</option>
                         <option value="claude-code">Claude Code Skill</option>
@@ -612,14 +612,14 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#1C1B1B] mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         {importSource === 'git' ? 'Repository URL' : importSource === 'local' ? 'SKILL.md Content' : importSource === 'openclaw-hub' ? 'Skill ID' : 'Local Path'}
                       </label>
                       {importSource === 'local' ? (
                         <textarea
                           value={importUrl}
                           onChange={(e) => setImportUrl(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm font-mono focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none resize-none"
+                          className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
                           rows={4}
                           placeholder='---&#10;name: my-skill&#10;description: "My custom skill"&#10;---&#10;&#10;# Instructions...'
                         />
@@ -627,23 +627,23 @@ export function MCPServerManager({ token, hideHeader = false }: { token?: string
                         <input
                           value={importUrl}
                           onChange={(e) => setImportUrl(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-[#E8E4E2] text-sm focus:ring-2 focus:ring-[#EC5B14]/20 focus:border-[#EC5B14] outline-none"
+                          className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                           placeholder={importSource === 'openclaw-hub' ? 'e.g., fix-bug' : importSource === 'git' ? 'https://github.com/user/skill-repo' : '/path/to/skill'}
                         />
                       )}
                     </div>
                   </div>
 
-                  <div className="p-6 border-t border-[#E8E4E2] flex justify-end gap-3">
+                  <div className="p-6 border-t border-border flex justify-end gap-3">
                     <button
                       onClick={() => setShowImportModal(false)}
-                      className="px-6 py-2 rounded-xl border border-[#E8E4E2] text-sm font-medium text-[#716B67] hover:bg-[#F6F3F2] transition-colors"
+                      className="px-6 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleImportSkill}
-                      className="flex items-center gap-2 px-6 py-2 rounded-xl bg-[#EC5B14] text-white text-sm font-bold hover:bg-[#d44f0e] transition-all"
+                      className="flex items-center gap-2 px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-[#d44f0e] transition-all"
                     >
                       <Globe className="w-4 h-4" />
                       Import

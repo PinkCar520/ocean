@@ -91,21 +91,21 @@ export function GlobalSearchModal({
 
       <DialogContent
         aria-describedby={undefined}
-        className="sm:max-w-[640px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-[#E8E4E2] shadow-2xl rounded-[12px] top-[15%] translate-y-0 [&>button]:hidden"
+        className="sm:max-w-[640px] p-0 overflow-hidden bg-card/95 backdrop-blur-xl border-border shadow-2xl rounded-[12px] top-[15%] translate-y-0 [&>button]:hidden"
       >
         <div className="flex flex-col h-full max-h-[80vh]">
           {/* Search Input Area */}
-          <div className="flex items-center px-6 py-5 border-b border-[#E8E4E2]/50 gap-4">
-            <Search className="w-5 h-5 text-[#716B67]" />
+          <div className="flex items-center px-6 py-5 border-b border-border/50 gap-4">
+            <Search className="w-5 h-5 text-muted-foreground" />
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('search_modal.placeholder', '搜索项目、任务或对话...')}
-              className="flex-1 bg-transparent border-none outline-none text-[16px] font-medium text-[#1C1B1B] placeholder:text-[#A8A4A1] placeholder:font-normal"
+              className="flex-1 bg-transparent border-none outline-none text-[16px] font-medium text-foreground placeholder:text-muted-foreground/80 placeholder:font-normal"
             />
-            <div className="hidden sm:flex px-2 py-1 rounded-md text-[11px] font-bold text-[#A8A4A1] bg-[#F6F3F2]">
+            <div className="hidden sm:flex px-2 py-1 rounded-md text-[11px] font-bold text-muted-foreground/80 bg-muted">
               ESC
             </div>
           </div>
@@ -113,7 +113,7 @@ export function GlobalSearchModal({
           {/* Results Area */}
           <div className="flex-1 overflow-y-auto p-3">
             {filtered.length === 0 ? (
-              <div className="py-16 text-center text-[#A8A4A1] text-[15px]">
+              <div className="py-16 text-center text-muted-foreground/80 text-[15px]">
                 没有找到相关内容
               </div>
             ) : (
@@ -128,7 +128,7 @@ export function GlobalSearchModal({
                   return (
                     <React.Fragment key={`${item.type}-${item.id}`}>
                       {showHeader && (
-                        <div className="px-4 py-3 text-[10px] font-bold tracking-widest text-[#A8A4A1] uppercase mt-2 mb-1">
+                        <div className="px-4 py-3 text-[10px] font-bold tracking-widest text-muted-foreground/80 uppercase mt-2 mb-1">
                           {isProject ? '企业工作空间 (Projects)' : '历史会话 (Chats)'}
                         </div>
                       )}
@@ -140,21 +140,21 @@ export function GlobalSearchModal({
                         }}
                         onMouseEnter={() => setSelectedIndex(index)}
                         className={`flex items-center justify-between px-4 py-3 rounded-[8px] cursor-pointer transition-colors ${
-                          isSelected ? 'bg-[#1C1B1B]/[0.06]' : 'hover:bg-[#1C1B1B]/[0.04]'
+                          isSelected ? 'bg-foreground/[0.06]' : 'hover:bg-foreground/[0.04]'
                         }`}
                       >
                         <div className="flex items-center gap-4 min-w-0">
                           {isProject ? (
-                            <FolderRoot className={`w-4 h-4 shrink-0 ${isSelected ? 'text-[#EC5B14]' : 'text-[#A8A4A1]'}`} />
+                            <FolderRoot className={`w-4 h-4 shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground/80'}`} />
                           ) : (
-                            <MessageSquare className={`w-4 h-4 shrink-0 ${isSelected ? 'text-[#1C1B1B]' : 'text-[#A8A4A1]'}`} />
+                            <MessageSquare className={`w-4 h-4 shrink-0 ${isSelected ? 'text-foreground' : 'text-muted-foreground/80'}`} />
                           )}
                           <div className="flex flex-col min-w-0">
-                            <span className={`text-[14px] truncate ${isSelected ? 'text-[#1C1B1B] font-bold' : 'text-[#494543] font-semibold'}`}>
+                            <span className={`text-[14px] truncate ${isSelected ? 'text-foreground font-bold' : 'text-[#494543] font-semibold'}`}>
                               {isProject ? item.name : item.title}
                             </span>
                             {isProject && (
-                              <span className="text-[10px] text-[#A8A4A1] font-medium uppercase tracking-tighter">
+                              <span className="text-[10px] text-muted-foreground/80 font-medium uppercase tracking-tighter">
                                 {item.category} • 激活此空间开始编排
                               </span>
                             )}
@@ -163,10 +163,10 @@ export function GlobalSearchModal({
 
                         {isSelected && (
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-[#EC5B14] uppercase tracking-tighter">
+                            <span className="text-[10px] font-bold text-primary uppercase tracking-tighter">
                               {isProject ? '立即激活' : '查看对话'}
                             </span>
-                            <CornerDownLeft className="w-3.5 h-3.5 text-[#EC5B14]" />
+                            <CornerDownLeft className="w-3.5 h-3.5 text-primary" />
                           </div>
                         )}
                       </div>
@@ -177,8 +177,8 @@ export function GlobalSearchModal({
             )}
           </div>
 
-          <div className="px-6 py-3 border-t border-[#E8E4E2]/50 bg-[#FBFBFB] flex items-center justify-between">
-            <span className="text-[12px] font-medium text-[#A8A4A1]">
+          <div className="px-6 py-3 border-t border-border/50 bg-[#FBFBFB] flex items-center justify-between">
+            <span className="text-[12px] font-medium text-muted-foreground/80">
               使用 ↑↓ 导航, Enter 选择, Esc 关闭
             </span>
           </div>

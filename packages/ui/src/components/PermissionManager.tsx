@@ -186,7 +186,7 @@ export function PermissionManager({ token }: { token?: string | null }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-[#716B67]">{t('permissions.loading')}</div>
+        <div className="text-muted-foreground">{t('permissions.loading')}</div>
       </div>
     );
   }
@@ -196,18 +196,18 @@ export function PermissionManager({ token }: { token?: string | null }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold tracking-tight text-[#1C1B1B] flex items-center gap-2">
-            <Shield className="w-5 h-5 text-[#EC5B14]" />
+          <h3 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Shield className="w-5 h-5 text-primary" />
             {t('permissions.title')}
           </h3>
-          <p className="text-[#716B67] text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             {t('permissions.subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={fetchSettings}
-            className="px-3 py-2 text-sm font-semibold text-[#716B67] bg-white border border-[#E8E4E2]/50 rounded-xl hover:bg-[#F6F3F2] transition-all"
+            className="px-3 py-2 text-sm font-semibold text-muted-foreground bg-card border border-border/50 rounded-xl hover:bg-muted transition-all"
             title={t('permissions.refresh')}
           >
             <RotateCcw className="w-4 h-4" />
@@ -215,7 +215,7 @@ export function PermissionManager({ token }: { token?: string | null }) {
           <button
             onClick={saveSettings}
             disabled={saving}
-            className="px-4 py-2 text-sm font-bold text-white bg-[#EC5B14] rounded-xl hover:bg-[#D84E0F] transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-sm font-bold text-white bg-primary rounded-xl hover:bg-[#D84E0F] transition-all disabled:opacity-50 flex items-center gap-2"
           >
             <Save className="w-4 h-4" />
             {saving ? t('permissions.saving') : t('permissions.save')}
@@ -231,10 +231,10 @@ export function PermissionManager({ token }: { token?: string | null }) {
       )}
 
       {/* Mode Selection */}
-      <section className="bg-white border border-[#E8E4E2]/50 rounded-2xl p-6 space-y-4">
+      <section className="bg-card border border-border/50 rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-2 mb-4">
-          <Settings2 className="w-4 h-4 text-[#EC5B14]" />
-          <h4 className="font-bold text-[#1C1B1B]">{t('permissions.mode.title')}</h4>
+          <Settings2 className="w-4 h-4 text-primary" />
+          <h4 className="font-bold text-foreground">{t('permissions.mode.title')}</h4>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {(['default', 'acceptEdits', 'plan', 'bypassPermissions'] as PermissionMode[]).map((mode) => {
@@ -247,15 +247,15 @@ export function PermissionManager({ token }: { token?: string | null }) {
                 className={cn(
                   'p-4 rounded-xl border-2 text-left transition-all',
                   isActive
-                    ? 'border-[#EC5B14] bg-[#FFF5F0] shadow-sm'
-                    : 'border-[#E8E4E2]/50 bg-white hover:border-[#EC5B14]/30'
+                    ? 'border-primary bg-[#FFF5F0] shadow-sm'
+                    : 'border-border/50 bg-card hover:border-primary/30'
                 )}
               >
                 <div className={cn('flex items-center gap-2 mb-1', config.color)}>
                   {config.icon}
                   <span className="font-bold text-sm">{config.label}</span>
                 </div>
-                <p className="text-xs text-[#716B67]">{config.description}</p>
+                <p className="text-xs text-muted-foreground">{config.description}</p>
               </button>
             );
           })}
@@ -263,28 +263,28 @@ export function PermissionManager({ token }: { token?: string | null }) {
       </section>
 
       {/* Max MCP Output Tokens */}
-      <section className="bg-white border border-[#E8E4E2]/50 rounded-2xl p-6 space-y-4">
+      <section className="bg-card border border-border/50 rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <Info className="w-4 h-4 text-[#EC5B14]" />
-          <h4 className="font-bold text-[#1C1B1B]">{t('permissions.token_limit.title')}</h4>
+          <Info className="w-4 h-4 text-primary" />
+          <h4 className="font-bold text-foreground">{t('permissions.token_limit.title')}</h4>
         </div>
         <div className="flex items-center gap-4">
           <input
             type="number"
             value={settings.maxMcpOutputTokens}
             onChange={(e) => setSettings({ ...settings, maxMcpOutputTokens: Number(e.target.value) })}
-            className="w-32 px-3 py-2 border border-[#E8E4E2]/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#EC5B14]/30"
+            className="w-32 px-3 py-2 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
-          <span className="text-xs text-[#716B67]">
+          <span className="text-xs text-muted-foreground">
             {t('permissions.token_limit.hint')}
           </span>
         </div>
       </section>
 
       {/* Category Patterns (allow/deny/ask shorthand) */}
-      <section className="bg-white border border-[#E8E4E2]/50 rounded-2xl p-6 space-y-4">
-        <h4 className="font-bold text-[#1C1B1B]">{t('permissions.patterns.title')}</h4>
-        <p className="text-xs text-[#716B67]">{t('permissions.patterns.hint')}</p>
+      <section className="bg-card border border-border/50 rounded-2xl p-6 space-y-4">
+        <h4 className="font-bold text-foreground">{t('permissions.patterns.title')}</h4>
+        <p className="text-xs text-muted-foreground">{t('permissions.patterns.hint')}</p>
 
         {(['allow', 'deny', 'ask'] as const).map((category) => (
           <CategoryPatternList
@@ -298,15 +298,15 @@ export function PermissionManager({ token }: { token?: string | null }) {
       </section>
 
       {/* Detailed Rules */}
-      <section className="bg-white border border-[#E8E4E2]/50 rounded-2xl p-6 space-y-4">
+      <section className="bg-card border border-border/50 rounded-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-bold text-[#1C1B1B]">{t('permissions.rules.title')}</h4>
-            <p className="text-xs text-[#716B67]">{t('permissions.rules.hint')}</p>
+            <h4 className="font-bold text-foreground">{t('permissions.rules.title')}</h4>
+            <p className="text-xs text-muted-foreground">{t('permissions.rules.hint')}</p>
           </div>
           <button
             onClick={() => setShowNewRuleForm(true)}
-            className="px-3 py-1.5 text-sm font-semibold text-[#EC5B14] border border-[#EC5B14]/30 rounded-lg hover:bg-[#FFF5F0] transition-all flex items-center gap-1.5"
+            className="px-3 py-1.5 text-sm font-semibold text-primary border border-primary/30 rounded-lg hover:bg-[#FFF5F0] transition-all flex items-center gap-1.5"
           >
             <Plus className="w-3.5 h-3.5" />
             {t('permissions.rules.add')}
@@ -314,13 +314,13 @@ export function PermissionManager({ token }: { token?: string | null }) {
         </div>
 
         {showNewRuleForm && (
-          <div className="flex gap-2 items-end p-4 bg-[#F6F3F2] rounded-xl">
+          <div className="flex gap-2 items-end p-4 bg-muted rounded-xl">
             <div className="flex-1 space-y-1">
-              <label className="text-xs font-semibold text-[#716B67]">{t('permissions.rules.action')}</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t('permissions.rules.action')}</label>
               <select
                 value={newRule.action}
                 onChange={(e) => setNewRule({ ...newRule, action: e.target.value as PermissionAction })}
-                className="w-full px-3 py-2 border border-[#E8E4E2]/50 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-border/50 rounded-lg text-sm"
               >
                 <option value="allow">{t('permissions.actions.allow')}</option>
                 <option value="deny">{t('permissions.actions.deny')}</option>
@@ -328,39 +328,39 @@ export function PermissionManager({ token }: { token?: string | null }) {
               </select>
             </div>
             <div className="flex-[2] space-y-1">
-              <label className="text-xs font-semibold text-[#716B67]">{t('permissions.rules.pattern')}</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t('permissions.rules.pattern')}</label>
               <input
                 value={newRule.pattern}
                 onChange={(e) => setNewRule({ ...newRule, pattern: e.target.value })}
                 placeholder={t('permissions.rules.pattern_placeholder')}
-                className="w-full px-3 py-2 border border-[#E8E4E2]/50 rounded-lg text-sm font-mono"
+                className="w-full px-3 py-2 border border-border/50 rounded-lg text-sm font-mono"
               />
             </div>
             <div className="flex-[2] space-y-1">
-              <label className="text-xs font-semibold text-[#716B67]">{t('permissions.rules.comment')}</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t('permissions.rules.comment')}</label>
               <input
                 value={newRule.comment || ''}
                 onChange={(e) => setNewRule({ ...newRule, comment: e.target.value })}
                 placeholder={t('permissions.rules.comment_placeholder')}
-                className="w-full px-3 py-2 border border-[#E8E4E2]/50 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-border/50 rounded-lg text-sm"
               />
             </div>
-            <button onClick={addRule} className="px-3 py-2 bg-[#EC5B14] text-white rounded-lg text-sm font-bold">
+            <button onClick={addRule} className="px-3 py-2 bg-primary text-white rounded-lg text-sm font-bold">
               {t('permissions.actions.allow')}
             </button>
-            <button onClick={() => setShowNewRuleForm(false)} className="px-3 py-2 text-[#716B67] text-sm">
+            <button onClick={() => setShowNewRuleForm(false)} className="px-3 py-2 text-muted-foreground text-sm">
               {t('permissions.rules.cancel')}
             </button>
           </div>
         )}
 
         {settings.rules.length === 0 && !showNewRuleForm && (
-          <div className="text-center py-8 text-[#716B67] text-sm">{t('permissions.rules.empty')}</div>
+          <div className="text-center py-8 text-muted-foreground text-sm">{t('permissions.rules.empty')}</div>
         )}
 
         <div className="space-y-2">
           {settings.rules.map((rule, index) => (
-            <div key={index} className="flex items-center gap-3 p-3 bg-[#F6F3F2] rounded-xl">
+            <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-xl">
               {editingRule === index ? (
                 <>
                   <select
@@ -390,9 +390,9 @@ export function PermissionManager({ token }: { token?: string | null }) {
                     {ACTION_COLORS[rule.action].icon}
                     {t(`permissions.actions.${rule.action}`).toUpperCase()}
                   </span>
-                  <code className="flex-1 text-sm font-mono text-[#1C1B1B]">{rule.pattern}</code>
-                  {rule.comment && <span className="text-xs text-[#716B67] max-w-[200px] truncate">{rule.comment}</span>}
-                  <button onClick={() => setEditingRule(index)} className="text-[#716B67] hover:text-[#EC5B14]">
+                  <code className="flex-1 text-sm font-mono text-foreground">{rule.pattern}</code>
+                  {rule.comment && <span className="text-xs text-muted-foreground max-w-[200px] truncate">{rule.comment}</span>}
+                  <button onClick={() => setEditingRule(index)} className="text-muted-foreground hover:text-primary">
                     <Settings2 className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => removeRule(index)} className="text-red-400 hover:text-red-600">
@@ -406,25 +406,25 @@ export function PermissionManager({ token }: { token?: string | null }) {
       </section>
 
       {/* Test Tool Evaluation */}
-      <section className="bg-white border border-[#E8E4E2]/50 rounded-2xl p-6 space-y-4">
-        <h4 className="font-bold text-[#1C1B1B] flex items-center gap-2">
-          <Shield className="w-4 h-4 text-[#EC5B14]" />
+      <section className="bg-card border border-border/50 rounded-2xl p-6 space-y-4">
+        <h4 className="font-bold text-foreground flex items-center gap-2">
+          <Shield className="w-4 h-4 text-primary" />
           {t('permissions.test.title')}
         </h4>
         <div className="flex gap-2 items-end">
           <div className="flex-1 space-y-1">
-            <label className="text-xs font-semibold text-[#716B67]">{t('permissions.test.label')}</label>
+            <label className="text-xs font-semibold text-muted-foreground">{t('permissions.test.label')}</label>
             <input
               value={testTool}
               onChange={(e) => { setTestTool(e.target.value); setTestResult(null); }}
               onKeyDown={(e) => e.key === 'Enter' && testEvaluate()}
               placeholder={t('permissions.test.placeholder')}
-              className="w-full px-3 py-2 border border-[#E8E4E2]/50 rounded-lg text-sm font-mono"
+              className="w-full px-3 py-2 border border-border/50 rounded-lg text-sm font-mono"
             />
           </div>
           <button
             onClick={testEvaluate}
-            className="px-4 py-2 bg-[#EC5B14] text-white rounded-lg text-sm font-bold hover:bg-[#D84E0F] transition-all"
+            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-[#D84E0F] transition-all"
           >
             {t('permissions.test.evaluate')}
           </button>
@@ -488,11 +488,11 @@ function CategoryPatternList({
             }
           }}
           placeholder={t('permissions.patterns.placeholder')}
-          className="flex-1 px-3 py-2 border border-[#E8E4E2]/50 rounded-lg text-sm font-mono"
+          className="flex-1 px-3 py-2 border border-border/50 rounded-lg text-sm font-mono"
         />
         <button
           onClick={() => { if (input.trim()) { onAdd(input.trim()); setInput(''); } }}
-          className="px-3 py-2 text-sm font-bold text-[#EC5B14] border border-[#EC5B14]/30 rounded-lg hover:bg-[#FFF5F0]"
+          className="px-3 py-2 text-sm font-bold text-primary border border-primary/30 rounded-lg hover:bg-[#FFF5F0]"
         >
           {t('permissions.patterns.add')}
         </button>

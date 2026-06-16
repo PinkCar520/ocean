@@ -41,14 +41,14 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
       {/* ── Layer 1: Identity (Who & Why) ── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#716B67]">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <Icon className={cn("w-4 h-4", domain.color)} />
             <h2 className="text-xs font-bold tracking-widest uppercase">{domain.label}</h2>
           </div>
           {activeProject && (
             <button 
               onClick={handleSwitchProject}
-              className="text-[10px] font-bold text-[#EC5B14] hover:underline uppercase tracking-tighter"
+              className="text-[10px] font-bold text-primary hover:underline uppercase tracking-tighter"
             >
               切换项目
             </button>
@@ -57,7 +57,7 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
 
         <div className={cn(
           "bg-[#FDFCFB] rounded-[24px] p-6 border border-[#F1EEEB] space-y-4 group transition-all duration-300 shadow-sm relative overflow-hidden",
-          !activeProject ? "border-dashed border-[#E8E4E2] bg-white flex flex-col items-center justify-center py-10" : "hover:border-[#EC5B14]/30 hover:shadow-md"
+          !activeProject ? "border-dashed border-border bg-card flex flex-col items-center justify-center py-10" : "hover:border-primary/30 hover:shadow-md"
         )}>
           {/* Privacy Shield Background Watermark */}
           {activeProject && (
@@ -66,14 +66,14 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
 
           {!activeProject ? (
             <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-2xl bg-[#F6F3F2] flex items-center justify-center mb-4 text-[#A8A4A1]">
+              <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-4 text-muted-foreground/80">
                 <FolderOpen className="w-6 h-6" />
               </div>
-              <p className="text-sm font-bold text-[#1C1B1B] mb-1">未激活工作空间</p>
-              <p className="text-[11px] text-[#716B67] mb-6 px-4">请选择一个项目以同步业务领域与执行规范</p>
+              <p className="text-sm font-bold text-foreground mb-1">未激活工作空间</p>
+              <p className="text-[11px] text-muted-foreground mb-6 px-4">请选择一个项目以同步业务领域与执行规范</p>
               <button 
                 onClick={handleSwitchProject}
-                className="bg-[#1C1B1B] text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-[#1C1B1B]/80 transition-all flex items-center gap-2"
+                className="bg-foreground text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-foreground/80 transition-all flex items-center gap-2"
               >
                 <Plus className="w-3.5 h-3.5" />
                 选择项目
@@ -83,14 +83,14 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
             <>
               <div className="min-w-0 relative z-10">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h3 className="text-[18px] font-bold truncate text-[#1C1B1B]">
+                  <h3 className="text-[18px] font-bold truncate text-foreground">
                     {activeProject?.name} 
                   </h3>
                   <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-md border tracking-tight", domain.bgColor, domain.color, "border-current/10")}>
                     {activeProject.category}
                   </span>
                 </div>
-                <p className="text-[12px] text-[#716B67] leading-relaxed line-clamp-2">
+                <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2">
                   {activeProject?.description?.split('(path:')[0] || '正在为您提供专业的业务编排支持。'}
                 </p>
               </div>
@@ -110,19 +110,19 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
       {/* ── Layer 2: Environment (Where & How) ── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#716B67]">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <Activity className="w-4 h-4" />
             <h2 className="text-xs font-bold tracking-widest uppercase">本地助手 (Secure Client)</h2>
           </div>
           <div className="flex items-center gap-1.5">
             <span className={cn("w-2 h-2 rounded-full", node.isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-300")} />
-            <span className="text-[10px] font-bold text-[#716B67] uppercase tracking-tighter">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
               {node.isOnline ? '助手已连接' : '等待启动'}
             </span>
           </div>
         </div>
 
-        <div className="bg-[#1C1B1B] rounded-[24px] p-5 space-y-4 text-white/90 shadow-lg shadow-black/5 relative overflow-hidden group border border-white/5">
+        <div className="bg-foreground rounded-[24px] p-5 space-y-4 text-white/90 shadow-lg shadow-black/5 relative overflow-hidden group border border-white/5">
           <div className="space-y-3 relative z-10">
             <div className="flex items-start gap-3">
               <FolderOpen className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
@@ -160,7 +160,7 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
                     <span>处理性能</span>
                     <span>{node.cpuUsage}%</span>
                   </div>
-                  <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-1 bg-card/10 rounded-full overflow-hidden">
                     <motion.div 
                       className="h-full bg-gradient-to-r from-emerald-500 to-blue-500"
                       initial={{ width: 0 }}
@@ -176,8 +176,8 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
 
       {/* Suggested Actions (Domain Driven) */}
       <div className="space-y-3">
-        <h4 className="text-[10px] font-bold text-[#716B67] uppercase tracking-widest flex items-center gap-2">
-          <Zap className="w-3 h-3 text-[#EC5B14]" />
+        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+          <Zap className="w-3 h-3 text-primary" />
           领域建议指令
         </h4>
         <div className="flex flex-wrap gap-2">
@@ -185,7 +185,7 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
             <button
               key={idx}
               onClick={() => onAction?.(suggestion)}
-              className="px-4 py-1.5 rounded-full bg-white border border-[#E8E4E2] text-[11px] font-bold text-[#1C1B1B] hover:border-[#EC5B14] hover:text-[#EC5B14] hover:shadow-sm transition-all"
+              className="px-4 py-1.5 rounded-full bg-card border border-border text-[11px] font-bold text-foreground hover:border-primary hover:text-primary hover:shadow-sm transition-all"
             >
               {suggestion}
             </button>

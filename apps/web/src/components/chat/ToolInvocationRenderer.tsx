@@ -132,19 +132,19 @@ export function ToolInvocationBadge({
         className={cn(
           "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all w-fit group/invocation",
           isCompleted
-            ? "bg-[#F6F3F2]/40 border-[#E8E4E2]/40 text-[#716B67] opacity-80"
-            : "bg-[#EC5B14]/5 border-[#EC5B14]/15 text-[#EC5B14] shadow-sm shadow-[#EC5B14]/5",
-          isSkillActivation && isCompleted && "cursor-pointer hover:bg-[#F6F3F2]/60 hover:border-[#EC5B14]/30 hover:opacity-100"
+            ? "bg-muted/40 border-border/40 text-muted-foreground opacity-80"
+            : "bg-primary/5 border-primary/15 text-primary shadow-sm shadow-[#EC5B14]/5",
+          isSkillActivation && isCompleted && "cursor-pointer hover:bg-muted/60 hover:border-primary/30 hover:opacity-100"
         )}
       >
         <div className={cn(
           "w-4 h-4 rounded-full flex items-center justify-center shrink-0",
-          isCompleted ? "bg-[#716B67]/10" : "bg-[#EC5B14]/10 animate-pulse"
+          isCompleted ? "bg-[#716B67]/10" : "bg-primary/10 animate-pulse"
         )}>
           {isCompleted ? (
             <div className="w-1.5 h-1.5 rounded-full bg-[#716B67]" />
           ) : (
-            <div className="w-1.5 h-1.5 rounded-full bg-[#EC5B14]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
           )}
         </div>
         <span className="text-[11px] font-bold tracking-tight">{toolDisplayName}</span>

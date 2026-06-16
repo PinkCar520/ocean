@@ -351,7 +351,7 @@ export function ChatSession({
           onDragOver={handleDragOver}
       >
         <div className={cn(
-          "flex-1 flex flex-col relative overflow-hidden bg-white/40",
+          "flex-1 flex flex-col relative overflow-hidden bg-card/40",
           messages.length === 0 && !isLoadingHistory && "justify-center"
         )}>
           <AnimatePresence>
@@ -359,7 +359,7 @@ export function ChatSession({
                 <motion.div
                     {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } })}
                     onDragLeave={handleDragLeave} onDrop={handleDrop}
-                    className="absolute inset-0 z-50 bg-[#EC5B14]/5 backdrop-blur-[2px] border-4 border-dashed border-[#EC5B14]/20 m-4 rounded-[40px] flex flex-col items-center justify-center text-[#EC5B14]"
+                    className="absolute inset-0 z-50 bg-primary/5 backdrop-blur-[2px] border-4 border-dashed border-primary/20 m-4 rounded-[40px] flex flex-col items-center justify-center text-primary"
                 >
                   <Plus className="w-12 h-12 mb-4" />
                   <p className="text-xl font-bold font-display">{t('common.drag_drop')}</p>
@@ -379,7 +379,7 @@ export function ChatSession({
             {previewAttachment && (
                 <button
                     onClick={() => setPreviewAttachment(null)}
-                    className="absolute right-4 top-4 z-30 p-2 rounded-lg bg-white/80 backdrop-blur-sm border border-[#E8E4E2]/60 text-[#716B67] hover:text-[#EC5B14] hover:bg-white hover:border-[#EC5B14]/30 transition-all shadow-sm"
+                    className="absolute right-4 top-4 z-30 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-border/60 text-muted-foreground hover:text-primary hover:bg-card hover:border-primary/30 transition-all shadow-sm"
                     title="关闭预览"
                 >
                   <CloseIcon className="w-4 h-4" />
@@ -394,7 +394,7 @@ export function ChatSession({
                         <div className="bg-[#eeece9] w-2/3 h-14 rounded-[20px] animate-pulse rounded-tr-[4px]"></div>
                       </div>
                       <div className="flex justify-start w-full gap-4 mt-2 opacity-60">
-                        <div className="w-8 h-8 rounded-xl bg-[#E8E4E2] animate-pulse shrink-0"></div>
+                        <div className="w-8 h-8 rounded-xl bg-border animate-pulse shrink-0"></div>
                         <div className="flex-1 max-w-[80%] h-32 rounded-[20px] bg-[#fcfcfc] animate-pulse rounded-tl-[4px] border border-[#f0f0f0]"></div>
                       </div>
                     </div>
@@ -529,7 +529,7 @@ export function ChatSession({
 
         {/* Sidebar Right (Capsule Panel + Preview + Meta) */}
         <aside className={cn(
-            "absolute lg:relative right-0 top-0 bottom-0 z-40 border-l border-[#E8E4E2] bg-[#fcf9f8] lg:bg-[#fcf9f8]/80 backdrop-blur-md flex-col h-full overflow-hidden transition-all duration-300",
+            "absolute lg:relative right-0 top-0 bottom-0 z-40 border-l border-border bg-background lg:bg-background/80 backdrop-blur-md flex-col h-full overflow-hidden transition-all duration-300",
             (previewAttachment || activeCapsule) ? "translate-x-0 flex w-full lg:w-[450px]" : "translate-x-full lg:translate-x-0 hidden lg:flex lg:w-80"
         )}>
           {activeCapsule ? (
@@ -539,14 +539,14 @@ export function ChatSession({
                           ? { initial: false, animate: { x: 0, opacity: 1 } }
                           : { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '100%', opacity: 0 }, transition: { type: 'spring', damping: 25, stiffness: 200 } }
                   )}
-                  className="flex-1 flex flex-col h-full bg-white"
+                  className="flex-1 flex flex-col h-full bg-card"
               >
-                <div className="px-4 py-3 border-b border-[#E8E4E2]/60 flex items-center justify-between bg-[#F6F3F2]/50">
+                <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between bg-muted/50">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-[#1C1B1B]">
+                    <span className="font-bold text-sm text-foreground">
                       {activeCapsule.artifact ? '代码组件' : '交互胶囊'}
                     </span>
-                    <span className="text-[10px] text-[#716B67] bg-[#E8E4E2] px-1.5 py-0.5 rounded-full">
+                    <span className="text-[10px] text-muted-foreground bg-border px-1.5 py-0.5 rounded-full">
                       {activeCapsule.artifact ? activeCapsule.artifact.language : activeCapsule.uiKit?.uiType}
                     </span>
                   </div>
@@ -557,11 +557,11 @@ export function ChatSession({
                     <CloseIcon className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white">
+                <div className="flex-1 overflow-y-auto bg-card">
                   {activeCapsule.artifact ? (
                     <div className="flex flex-col h-full">
                       <div className="flex items-center justify-between px-6 py-4 border-b border-[#F6F3F2]">
-                        <h3 className="text-[15px] font-bold text-[#1C1B1B]">{activeCapsule.artifact.title}</h3>
+                        <h3 className="text-[15px] font-bold text-foreground">{activeCapsule.artifact.title}</h3>
                         <CopyCodeButton code={activeCapsule.artifact.content} />
                       </div>
                       <div className="flex-1 bg-[#0d0d0d] overflow-auto">
@@ -604,18 +604,18 @@ export function ChatSession({
                           ? { initial: false, animate: { x: 0, opacity: 1 } }
                           : { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '100%', opacity: 0 }, transition: { type: 'spring', damping: 25, stiffness: 200 } }
                   )}
-                  className="flex-1 flex flex-col h-full bg-white"
+                  className="flex-1 flex flex-col h-full bg-card"
               >
-                <div className="p-4 border-b border-[#E8E4E2]/60 flex items-center justify-between bg-[#F6F3F2]/50">
+                <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/50">
                   <div className="flex items-center gap-3">
-                    {previewAttachment.contentType.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-[#EC5B14]" /> : <FileText className="w-4 h-4 text-[#EC5B14]" />}
-                    <span className="font-bold text-[12px] text-[#1C1B1B] truncate max-w-[150px]">{previewAttachment.name}</span>
+                    {previewAttachment.contentType.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-primary" /> : <FileText className="w-4 h-4 text-primary" />}
+                    <span className="font-bold text-[12px] text-foreground truncate max-w-[150px]">{previewAttachment.name}</span>
                   </div>
                   <button onClick={() => setPreviewAttachment(null)} className="p-1.5 hover:bg-[#eeece9] rounded-lg transition-colors"><CloseIcon className="w-4 h-4" /></button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {previewAttachment.contentType.startsWith('image/') ? (
-                      <div className="p-4 flex items-center justify-center"><img src={previewAttachment.url} alt={previewAttachment.name} className="max-w-full rounded-xl border border-[#E8E4E2]/60" /></div>
+                      <div className="p-4 flex items-center justify-center"><img src={previewAttachment.url} alt={previewAttachment.name} className="max-w-full rounded-xl border border-border/60" /></div>
                   ) : (
                       <div className="p-4">
                         <div className="prose prose-slate prose-xs max-w-none text-[13px]">
@@ -643,7 +643,7 @@ export function ChatSession({
                     onFormSubmit({ content: action, role: 'user' });
                   }}
                 />
-                <div className="border-t border-[#E8E4E2]/60 bg-[#F6F3F2]/30">
+                <div className="border-t border-border/60 bg-muted/30">
                   <IntegrationsPanel
                     t={t}
                     activeDisplayName={activeDisplayName}

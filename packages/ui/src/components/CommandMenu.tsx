@@ -55,7 +55,7 @@ export function CommandMenu({ onSelectTab, onOpenSettings, onNewChat }: CommandM
         <span className="text-xs text-slate-400 group-hover:text-slate-600 truncate flex-1">
           {t('common.search_placeholder')}
         </span>
-        <kbd className="hidden sm:inline-flex h-4 select-none items-center gap-1 rounded border border-slate-200 bg-white px-1.5 font-mono text-[10px] font-medium text-slate-400 opacity-100">
+        <kbd className="hidden sm:inline-flex h-4 select-none items-center gap-1 rounded border border-slate-200 bg-card px-1.5 font-mono text-[10px] font-medium text-slate-400 opacity-100">
           <span className="text-[8px]">⌘</span>K
         </kbd>
       </button>
@@ -67,7 +67,7 @@ export function CommandMenu({ onSelectTab, onOpenSettings, onNewChat }: CommandM
         label="Global Command Menu"
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm"
       >
-        <div className="w-full max-w-[640px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="w-full max-w-[640px] bg-card rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
           <div className="flex items-center border-b border-slate-100 px-4">
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <Command.Input 
@@ -126,14 +126,14 @@ export function CommandMenu({ onSelectTab, onOpenSettings, onNewChat }: CommandM
           <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5 bg-slate-50/50">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
-                <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px]">↑↓</kbd> 导航
+                <kbd className="px-1.5 py-0.5 bg-card border border-slate-200 rounded text-[9px]">↑↓</kbd> 导航
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
-                <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px]">↵</kbd> 选择
+                <kbd className="px-1.5 py-0.5 bg-card border border-slate-200 rounded text-[9px]">↵</kbd> 选择
               </div>
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px]">ESC</kbd> 关闭
+              <kbd className="px-1.5 py-0.5 bg-card border border-slate-200 rounded text-[9px]">ESC</kbd> 关闭
             </div>
           </div>
         </div>
@@ -150,7 +150,7 @@ function Item({ children, icon: Icon, onSelect, color }: { children: React.React
     >
       <div className={cn(
         "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-        color || "bg-slate-100 text-slate-500 aria-selected:bg-white"
+        color || "bg-slate-100 text-slate-500 aria-selected:bg-card"
       )}>
         <Icon className="w-4 h-4" />
       </div>

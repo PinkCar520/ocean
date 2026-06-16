@@ -127,11 +127,11 @@ export const ChatMessage = React.memo(({
           <div className={cn(
             "py-3 rounded-[20px] text-[15px] leading-relaxed",
             isUser
-              ? "bg-[#eeece9] text-[#1C1B1B] max-w-[85%] px-5"
-              : "bg-transparent text-[#1C1B1B] flex-1 min-w-0"
+              ? "bg-[#eeece9] text-foreground max-w-[85%] px-5"
+              : "bg-transparent text-foreground flex-1 min-w-0"
           )}>
           {(m.experimental_attachments || m.attachments) && (m.experimental_attachments || m.attachments).length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3 pb-3 border-b border-[#E8E4E2]/40">
+            <div className="flex flex-wrap gap-2 mb-3 pb-3 border-b border-border/40">
               {(m.experimental_attachments || m.attachments).map((at: any, aidx: number) => {
                 const isImage = at.contentType?.startsWith('image/') || at.type?.startsWith('image/');
                 const displayUrl = at.url || (at.data ? `data:${at.contentType || at.type};base64,${at.data}` : '');
@@ -140,9 +140,9 @@ export const ChatMessage = React.memo(({
                   <button
                     key={aidx}
                     onClick={() => setPreviewAttachment(isActive ? null : { name: at.name, contentType: at.contentType || at.type || '', url: displayUrl })}
-                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl border max-w-[200px] transition-all", isActive ? 'bg-[#EC5B14]/10 border-[#EC5B14]/40 text-[#EC5B14]' : 'bg-[#F6F3F2] border-[#E8E4E2]/60 hover:border-[#EC5B14]/30 hover:bg-[#EC5B14]/5')}
+                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl border max-w-[200px] transition-all", isActive ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-muted border-border/60 hover:border-primary/30 hover:bg-primary/5')}
                   >
-                    {isImage && displayUrl ? <div className="w-6 h-6 rounded-md bg-white border border-[#E8E4E2] overflow-hidden flex items-center justify-center shrink-0"><img src={displayUrl} alt={at.name} className="w-full h-full object-cover" /></div> : <FileText className="w-4 h-4 shrink-0" />}
+                    {isImage && displayUrl ? <div className="w-6 h-6 rounded-md bg-card border border-border overflow-hidden flex items-center justify-center shrink-0"><img src={displayUrl} alt={at.name} className="w-full h-full object-cover" /></div> : <FileText className="w-4 h-4 shrink-0" />}
                     <span className="text-[11px] font-bold truncate" title={at.name}>{at.name}</span>
                   </button>
                 );
@@ -220,13 +220,13 @@ export const ChatMessage = React.memo(({
                                     <TooltipContent 
                                       sideOffset={8} 
                                       side="bottom" 
-                                      className="bg-white text-[#1C1B1B] border border-[#E8E4E2] rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-[#F6F3F2] transition-colors pointer-events-auto"
+                                      className="bg-card text-foreground border border-border rounded-xl px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.1)] max-w-[280px] z-50 cursor-pointer hover:bg-muted transition-colors pointer-events-auto"
                                     >
                                       <div className="font-bold mb-1.5 flex items-center gap-2">
                                         <Sparkles className="w-3.5 h-3.5 text-[#2b7fff]" />
                                         /{resolvedSkill.name}
                                       </div>
-                                      <div className="text-[12px] text-[#716B67] leading-relaxed font-normal">{resolvedSkill.description}</div>
+                                      <div className="text-[12px] text-muted-foreground leading-relaxed font-normal">{resolvedSkill.description}</div>
                                     </TooltipContent>
                                   </Tooltip>
                             </React.Fragment>
@@ -291,14 +291,14 @@ export const ChatMessage = React.memo(({
                   }}
                   autoFocus
                   rows={Math.min(6, editText.split('\n').length + 1)}
-                  className="w-full bg-white border border-[#E8E4E2] rounded-xl px-4 py-3 text-sm text-[#1C1B1B] focus:ring-2 focus:ring-[#EC5B14]/30 focus:border-[#EC5B14]/30 outline-none resize-none"
+                  className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary/30 outline-none resize-none"
                 />
                 <div className="flex items-center gap-2 justify-end">
-                  <span className="text-[10px] text-[#716B67]/60 mr-auto hidden sm:inline">
+                  <span className="text-[10px] text-muted-foreground/60 mr-auto hidden sm:inline">
                     {t('chat.edit.hint', '⌘Enter to save, Esc to cancel')}
                   </span>
-                  <button onClick={cancelEdit} className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#716B67] hover:bg-[#F6F3F2] transition-colors">{t('common.cancel')}</button>
-                  <button onClick={() => submitEdit(m.id)} className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[#EC5B14] text-white hover:bg-[#d44e00] transition-colors">{t('chat.edit.save', 'Save & Send')}</button>
+                  <button onClick={cancelEdit} className="px-4 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">{t('common.cancel')}</button>
+                  <button onClick={() => submitEdit(m.id)} className="px-4 py-1.5 rounded-lg text-xs font-medium bg-primary text-white hover:bg-[#d44e00] transition-colors">{t('chat.edit.save', 'Save & Send')}</button>
                 </div>
               </div>
             ) : (
@@ -323,7 +323,7 @@ export const ChatMessage = React.memo(({
         {/* Date/Time */}
         {m.createdAt && (
           <span className={cn(
-            "text-[10px] text-[#716B67]/40 font-mono tracking-tighter shrink-0",
+            "text-[10px] text-muted-foreground/40 font-mono tracking-tighter shrink-0",
             isUser ? "ml-1" : "mr-1"
           )}>
             {formatDateTime(m.createdAt)}
@@ -335,7 +335,7 @@ export const ChatMessage = React.memo(({
           {isAssistant && (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <button onClick={() => handleRegenerate(m.id)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67] transition-colors" aria-label={t('common.regenerate')}><RotateCcw className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleRegenerate(m.id)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.regenerate')}><RotateCcw className="w-3.5 h-3.5" /></button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.regenerate')}</TooltipContent>
             </Tooltip>
@@ -345,7 +345,7 @@ export const ChatMessage = React.memo(({
           {isUser && (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <button onClick={() => startEditing(m.id, m.content || '')} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67] transition-colors" aria-label={t('common.edit')}><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => startEditing(m.id, m.content || '')} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.edit')}><Pencil className="w-3.5 h-3.5" /></button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[200px] text-[10px] leading-relaxed px-2 py-1.5 bg-[#4A443F] border-none text-white shadow-lg">
                 {t('chat.edit.branch_hint', 'Editing this message will create a new conversation branch. You can switch between branches using the arrows.')}
@@ -356,7 +356,7 @@ export const ChatMessage = React.memo(({
           {/* Copy */}
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-[#F6F3F2] rounded-md text-[#716B67] transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
+              <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
           </Tooltip>
@@ -366,13 +366,13 @@ export const ChatMessage = React.memo(({
             <div className="flex items-center gap-0.5">
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
-                  <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'up' ? undefined : 'up' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'up' ? "bg-[#EC5B14]/10 text-[#EC5B14]" : "hover:bg-[#F6F3F2] text-[#716B67]")} aria-label={t('common.good_response', 'Good response')}><ThumbsUp className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'up' ? undefined : 'up' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'up' ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground")} aria-label={t('common.good_response', 'Good response')}><ThumbsUp className="w-3.5 h-3.5" /></button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.good_response', 'Good response')}</TooltipContent>
               </Tooltip>
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
-                  <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'down' ? undefined : 'down' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'down' ? "bg-red-500/10 text-red-500" : "hover:bg-[#F6F3F2] text-[#716B67]")} aria-label={t('common.bad_response', 'Bad response')}><ThumbsDown className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setMessageFeedback(prev => ({ ...prev, [m.id]: prev[m.id] === 'down' ? undefined : 'down' }))} className={cn("p-1.5 rounded-md transition-colors", messageFeedback[m.id] === 'down' ? "bg-red-500/10 text-red-500" : "hover:bg-muted text-muted-foreground")} aria-label={t('common.bad_response', 'Bad response')}><ThumbsDown className="w-3.5 h-3.5" /></button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.bad_response', 'Bad response')}</TooltipContent>
               </Tooltip>
@@ -382,23 +382,23 @@ export const ChatMessage = React.memo(({
           {/* Branch Navigation Switcher */}
           {(totalBranches[m.id] || 0) > 1 && (
             <div className={cn(
-              "flex items-center gap-1 border-l border-[#E8E4E2] ml-1 pl-1 transition-all",
+              "flex items-center gap-1 border-l border-border ml-1 pl-1 transition-all",
               isUser ? "flex-row-reverse" : "flex-row"
             )}>
               <button 
                 onClick={() => onBranchChange?.(m.id, Math.max(0, (branchIndex[m.id] || 0) - 1))}
                 disabled={(branchIndex[m.id] || 0) === 0}
-                className="p-1 rounded-md text-[#716B67] hover:bg-[#F6F3F2] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[10px] text-[#716B67]/80 font-mono tracking-tight min-w-[30px] text-center">
+              <span className="text-[10px] text-muted-foreground/80 font-mono tracking-tight min-w-[30px] text-center">
                 {(branchIndex[m.id] || 0) + 1} / {totalBranches[m.id] || 1}
               </span>
               <button 
                 onClick={() => onBranchChange?.(m.id, Math.min((totalBranches[m.id] || 1) - 1, (branchIndex[m.id] || 0) + 1))}
                 disabled={(branchIndex[m.id] || 0) === (totalBranches[m.id] || 1) - 1}
-                className="p-1 rounded-md text-[#716B67] hover:bg-[#F6F3F2] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
@@ -407,7 +407,7 @@ export const ChatMessage = React.memo(({
         </div>
 
         {isAssistant && isStopped && isLast && (
-          <span className="text-[10px] text-[#716B67] font-medium flex items-center gap-1 ml-auto">
+          <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 ml-auto">
             <Square className="w-2.5 h-2.5 fill-current" />
             {t('chat.stopped', '已停止')}
           </span>

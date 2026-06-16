@@ -5,18 +5,21 @@ import { useTranslation } from 'react-i18next';
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-export function SettingsProvider({ children, token }: { children: React.ReactNode; token: string | null }) {
+export function SettingsProvider({ children, token, onProfileUpdate }: { children: React.ReactNode; token: string | null; onProfileUpdate?: (user: any) => void }) {
   const { i18n } = useTranslation();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
   const fetchProfile = async () => {
-    setIsLoading(true);
+    if (!userProfile) setIsLoading(true);
     try {
       const data = await api.get<{ success: boolean; profile: UserProfile }>('/api/user/profile');
       if (data.success) {
         setUserProfile(data.profile);
+        if (onProfileUpdate) {
+          onProfileUpdate(data.profile);
+        }
       }
     } catch (err: any) {
       console.error('Failed to fetch profile:', err.message);
@@ -38,7 +41,10 @@ export function SettingsProvider({ children, token }: { children: React.ReactNod
       
       if (updates.theme) {
         document.documentElement.classList.remove('light', 'dark');
-        if (updates.theme !== 'system') {
+        if (updates.theme === 'system') {
+          const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.classList.add(isDark ? 'dark' : 'light');
+        } else {
           document.documentElement.classList.add(updates.theme);
         }
       }

@@ -231,28 +231,28 @@ export const ChatInput = React.memo(({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute bottom-[calc(100%+8px)] left-4 w-64 bg-white/95 backdrop-blur-xl border border-[#E8E4E2] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] rounded-xl overflow-hidden z-50"
+              className="absolute bottom-[calc(100%+8px)] left-4 w-64 bg-card/95 backdrop-blur-xl border border-border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] rounded-xl overflow-hidden z-50"
             >
-              <div className="px-3 py-2 bg-[#F6F3F2]/50 border-b border-[#E8E4E2]/50">
-                <span className="text-[10px] font-black uppercase text-[#716B67] tracking-widest">Add Context</span>
+              <div className="px-3 py-2 bg-muted/50 border-b border-border/50">
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Add Context</span>
               </div>
               <div className="p-1 max-h-64 overflow-y-auto">
                 {filteredMentions.length > 0 ? filteredMentions.map((opt) => (
                   <button
                     key={opt.id}
                     onClick={() => handleMentionSelect(opt.type as any, opt.label)}
-                    className="flex items-center gap-3 w-full p-2 text-left hover:bg-[#EC5B14]/5 hover:text-[#EC5B14] rounded-lg transition-colors group"
+                    className="flex items-center gap-3 w-full p-2 text-left hover:bg-primary/5 hover:text-primary rounded-lg transition-colors group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-white border border-[#E8E4E2] flex items-center justify-center group-hover:border-[#EC5B14]/30 group-hover:bg-white shadow-sm shrink-0 transition-colors">
-                      <opt.icon className="w-4 h-4 text-[#716B67] group-hover:text-[#EC5B14] transition-colors" />
+                    <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center group-hover:border-primary/30 group-hover:bg-card shadow-sm shrink-0 transition-colors">
+                      <opt.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[13px] font-bold text-[#1C1B1B]">{opt.label}</span>
-                      <span className="text-[10px] text-[#A8A4A1] group-hover:text-[#EC5B14]/70 transition-colors">{opt.desc}</span>
+                      <span className="text-[13px] font-bold text-foreground">{opt.label}</span>
+                      <span className="text-[10px] text-muted-foreground/80 group-hover:text-primary/70 transition-colors">{opt.desc}</span>
                     </div>
                   </button>
                 )) : (
-                  <div className="p-3 text-center text-xs text-[#A8A4A1]">No matches found</div>
+                  <div className="p-3 text-center text-xs text-muted-foreground/80">No matches found</div>
                 )}
               </div>
             </motion.div>
@@ -264,28 +264,28 @@ export const ChatInput = React.memo(({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute bottom-[calc(100%+8px)] left-4 w-64 bg-white/95 backdrop-blur-xl border border-[#E8E4E2] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] rounded-xl overflow-hidden z-50"
+              className="absolute bottom-[calc(100%+8px)] left-4 w-64 bg-card/95 backdrop-blur-xl border border-border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] rounded-xl overflow-hidden z-50"
             >
-              <div className="px-3 py-2 bg-[#F6F3F2]/50 border-b border-[#E8E4E2]/50">
-                <span className="text-[10px] font-black uppercase text-[#716B67] tracking-widest">Slash Commands</span>
+              <div className="px-3 py-2 bg-muted/50 border-b border-border/50">
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Slash Commands</span>
               </div>
               <div className="p-1 max-h-64 overflow-y-auto">
                 {filteredSlash.length > 0 ? filteredSlash.map((opt) => (
                   <button
                     key={opt.id}
                     onClick={() => handleSlashSelect(opt.action, opt.label, opt)}
-                    className="flex items-center gap-3 w-full p-2 text-left hover:bg-[#EC5B14]/5 hover:text-[#EC5B14] rounded-lg transition-colors group"
+                    className="flex items-center gap-3 w-full p-2 text-left hover:bg-primary/5 hover:text-primary rounded-lg transition-colors group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-white border border-[#E8E4E2] flex items-center justify-center group-hover:border-[#EC5B14]/30 group-hover:bg-white shadow-sm shrink-0 transition-colors">
-                      <opt.icon className="w-4 h-4 text-[#716B67] group-hover:text-[#EC5B14] transition-colors" />
+                    <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center group-hover:border-primary/30 group-hover:bg-card shadow-sm shrink-0 transition-colors">
+                      <opt.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[13px] font-bold text-[#1C1B1B]">{opt.label}</span>
-                      <span className="text-[10px] text-[#A8A4A1] group-hover:text-[#EC5B14]/70 transition-colors">{opt.desc}</span>
+                      <span className="text-[13px] font-bold text-foreground">{opt.label}</span>
+                      <span className="text-[10px] text-muted-foreground/80 group-hover:text-primary/70 transition-colors">{opt.desc}</span>
                     </div>
                   </button>
                 )) : (
-                  <div className="p-3 text-center text-xs text-[#A8A4A1]">No commands found</div>
+                  <div className="p-3 text-center text-xs text-muted-foreground/80">No commands found</div>
                 )}
               </div>
             </motion.div>
@@ -293,8 +293,8 @@ export const ChatInput = React.memo(({
         </AnimatePresence>
 
         <div className={cn(
-          "bg-white/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] ring-1 transition-all duration-300",
-          isFocused ? "ring-[#EC5B14]/30 shadow-[0_0_15px_rgba(236,91,20,0.15)]" : "ring-[#1C1B1B]/5"
+          "bg-card/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] ring-1 transition-all duration-300",
+          isFocused ? "ring-primary/30 shadow-[0_0_15px_rgba(236,91,20,0.15)]" : "ring-[#1C1B1B]/5"
         )}>
           <AnimatePresence>
             {attachments.length > 0 && (
@@ -307,7 +307,7 @@ export const ChatInput = React.memo(({
                 {attachments.map((file) => (
                   <div key={file.id} className={cn(
                     "flex items-center gap-2 px-3.5 py-2 rounded-xl border group relative transition-all",
-                    file.isUploading ? "bg-white/50 border-[#E8E4E2]/40" : "bg-[#F6F3F2] border-[#E8E4E2]/60 hover:border-[#EC5B14]/30 cursor-pointer hover:bg-white"
+                    file.isUploading ? "bg-card/50 border-border/40" : "bg-muted border-border/60 hover:border-primary/30 cursor-pointer hover:bg-card"
                   )}
                   onClick={() => {
                     if (!file.isUploading && file.url && setPreviewAttachment) {
@@ -315,13 +315,13 @@ export const ChatInput = React.memo(({
                     }
                   }}>
                     {file.isUploading ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-[#E8E4E2] border-t-[#EC5B14] animate-spin" />
+                      <div className="w-4 h-4 rounded-full border-2 border-border border-t-[#EC5B14] animate-spin" />
                     ) : (
-                      <FileText className="w-4 h-4 text-[#EC5B14]" />
+                      <FileText className="w-4 h-4 text-primary" />
                     )}
                     <span className={cn(
                       "text-[12px] font-bold max-w-[160px] truncate",
-                      file.isUploading ? "text-[#716B67] animate-pulse" : "text-[#1C1B1B]"
+                      file.isUploading ? "text-muted-foreground animate-pulse" : "text-foreground"
                     )}>{file.name}</span>
                     <button 
                       onClick={(e) => { 
@@ -331,7 +331,7 @@ export const ChatInput = React.memo(({
                           setPreviewAttachment((prev: any) => prev?.name === file.name ? null : prev);
                         }
                       }} 
-                      className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-[#E8E4E2] text-[#716B67] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-1"
+                      className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-border text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-1"
                     >
                       <CloseIcon className="w-3.5 h-3.5" />
                     </button>
@@ -345,12 +345,12 @@ export const ChatInput = React.memo(({
           {activeSkills && activeSkills.length > 0 && (
             <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1">
               {activeSkills.map((skill) => (
-                <div key={skill.id} className="flex items-center gap-1.5 px-3 py-1 bg-[#EC5B14]/10 border border-[#EC5B14]/20 rounded-full">
-                  <span className="text-[12px] font-bold text-[#EC5B14]">/{skill.name}</span>
+                <div key={skill.id} className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+                  <span className="text-[12px] font-bold text-primary">/{skill.name}</span>
                   {removeSkill && (
                     <button 
                       onClick={() => removeSkill(skill.id)}
-                      className="text-[#EC5B14]/60 hover:text-[#EC5B14] hover:bg-[#EC5B14]/10 rounded-full p-0.5 transition-colors"
+                      className="text-primary/60 hover:text-primary hover:bg-primary/10 rounded-full p-0.5 transition-colors"
                     >
                       <CloseIcon className="w-3 h-3" />
                     </button>
@@ -369,7 +369,7 @@ export const ChatInput = React.memo(({
               )}
             >
               <span className="text-transparent border-none">{localInput}</span>
-              {ghostText && <span className="text-[#A8A4A1]/50 border-none">{ghostText}</span>}
+              {ghostText && <span className="text-muted-foreground/80/50 border-none">{ghostText}</span>}
             </div>
 
             <textarea
@@ -459,7 +459,7 @@ export const ChatInput = React.memo(({
               }}
               placeholder={t('chat.placeholder', 'Ask anything...')}
               className={cn(
-                "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-[15px] text-[#1C1B1B] placeholder:text-[#A8A4A1] px-4 resize-none min-h-[44px] max-h-[200px] leading-relaxed font-sans relative z-0",
+                "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-[15px] text-foreground placeholder:text-muted-foreground/80 px-4 resize-none min-h-[44px] max-h-[200px] leading-relaxed font-sans relative z-0",
                 attachments.length > 0 ? "pt-1 pb-3" : "py-3"
               )}
               rows={1}
@@ -471,7 +471,7 @@ export const ChatInput = React.memo(({
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="absolute bottom-2 right-4 text-[10px] text-[#A8A4A1] px-2 py-0.5 rounded-md bg-[#F6F3F2] border border-[#E8E4E2]/60 pointer-events-none z-10 font-bold tracking-widest shadow-sm"
+                  className="absolute bottom-2 right-4 text-[10px] text-muted-foreground/80 px-2 py-0.5 rounded-md bg-muted border border-border/60 pointer-events-none z-10 font-bold tracking-widest shadow-sm"
                 >
                   [TAB] TO COMPLETE
                 </motion.div>
@@ -483,15 +483,15 @@ export const ChatInput = React.memo(({
             <div className="flex items-center gap-0.5 sm:gap-1.5 overflow-hidden">
               <DropdownMenu open={isModelDropdownOpen} onOpenChange={setIsModelDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-[#716B67] hover:bg-[#eeece9] transition-all border border-transparent hover:border-[#E8E4E2]/40 shrink-0">
+                  <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-muted-foreground hover:bg-[#eeece9] transition-all border border-transparent hover:border-border/40 shrink-0">
                     <ActiveIcon className={cn("w-4 h-4 shrink-0", activeModel.color)} />
                     <span className="text-[10px] sm:text-[11px] font-bold tracking-tight max-w-[60px] sm:max-w-none truncate">{activeDisplayName}</span>
                     <ChevronDown className={cn("w-3 h-3 transition-transform shrink-0", isModelDropdownOpen ? "rotate-180" : "")} />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-60 border-[#E8E4E2] shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-1.5 backdrop-blur-xl bg-white/90">
-                  <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase text-[#716B67] tracking-widest">{t('chat.available_models')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-[#E8E4E2]/40" />
+                <DropdownMenuContent align="start" className="w-60 border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-1.5 backdrop-blur-xl bg-card/90">
+                  <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">{t('chat.available_models')}</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-border/40" />
                   <div className="max-h-[300px] overflow-y-auto no-scrollbar">
                     {models.map((m) => {
                       const displayName = beautifyModelName(m.name);
@@ -503,11 +503,11 @@ export const ChatInput = React.memo(({
                               <ModelIcon className="w-5 h-5" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[14px] font-bold text-[#1C1B1B]">{displayName}</span>
-                              <span className="text-[11px] text-[#716B67] font-medium">{m.provider}</span>
+                              <span className="text-[14px] font-bold text-foreground">{displayName}</span>
+                              <span className="text-[11px] text-muted-foreground font-medium">{m.provider}</span>
                             </div>
                           </div>
-                          {selectedModelId === m.id && <Check className="w-4 h-4 text-[#EC5B14] shrink-0" />}
+                          {selectedModelId === m.id && <Check className="w-4 h-4 text-primary shrink-0" />}
                         </DropdownMenuItem>
                       );
                     })}
@@ -515,7 +515,7 @@ export const ChatInput = React.memo(({
                 </DropdownMenuContent>
               </DropdownMenu>
               
-              <div className="w-px h-4 bg-[#E8E4E2]/60 mx-1 shrink-0" />
+              <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
               
               <button 
                 onClick={() => { 
@@ -527,7 +527,7 @@ export const ChatInput = React.memo(({
                   }; 
                   input.click(); 
                 }} 
-                className="p-1.5 sm:p-2 rounded-lg text-[#716B67] hover:bg-[#eeece9] hover:text-[#1C1B1B] transition-all shrink-0"
+                className="p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:bg-[#eeece9] hover:text-foreground transition-all shrink-0"
               >
                 <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
@@ -537,8 +537,8 @@ export const ChatInput = React.memo(({
                 className={cn(
                   "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
                   isSearchMode
-                    ? "text-[#EC5B14] bg-[#EC5B14]/5"
-                    : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
+                    ? "text-primary bg-primary/5"
+                    : "text-muted-foreground hover:bg-muted hover:text-primary"
                 )}
               >
                 <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -549,8 +549,8 @@ export const ChatInput = React.memo(({
                 className={cn(
                   "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
                   isKnowledgeMode
-                    ? "text-[#EC5B14] bg-[#EC5B14]/5"
-                    : "text-[#716B67] hover:bg-[#F6F3F2] hover:text-[#EC5B14]"
+                    ? "text-primary bg-primary/5"
+                    : "text-muted-foreground hover:bg-muted hover:text-primary"
                 )}
               >
                 <Database className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -562,8 +562,8 @@ export const ChatInput = React.memo(({
               className={cn(
                 "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden", 
                 isLoading 
-                  ? "bg-[#1C1B1B] text-white shadow-sm" 
-                  : ((!localInput.trim() && attachments.length === 0) ? "bg-[#eeece9] text-[#716B67]/40 cursor-not-allowed" : "bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95")
+                  ? "bg-foreground text-white shadow-sm" 
+                  : ((!localInput.trim() && attachments.length === 0) ? "bg-[#eeece9] text-muted-foreground/40 cursor-not-allowed" : "bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95")
               )}
             >
               <AnimatePresence mode="wait" initial={false}>

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettings } from '../SettingsContext';
 import { ConfirmDeleteDialog } from '../dialogs/ConfirmDeleteDialog';
 
-export function BillingTab() {
+export function BillingTab({ onConversationsCleared }: { onConversationsCleared?: () => void }) {
   const { t } = useTranslation();
   const { userProfile } = useSettings();
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
@@ -23,7 +23,7 @@ export function BillingTab() {
   return (
     <section className="space-y-8 max-w-3xl text-foreground">
       <div className="flex items-center gap-3">
-        <div className="bg-[#EC5B14]/10 p-2 rounded-lg text-[#EC5B14]">
+        <div className="bg-primary/10 p-2 rounded-lg text-primary">
           <CreditCard className="w-5 h-5" />
         </div>
         <h3 className="text-xl font-bold tracking-tight">{t('user_center.tabs.billing', 'Usage & Billing')}</h3>
@@ -38,7 +38,7 @@ export function BillingTab() {
            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4">{t('user_center.usage.messages_sent', 'Messages Sent')}</p>
            <p className="text-2xl font-bold">{userProfile?.stats?.messageCount || 0}</p>
         </div>
-        <div className="p-6 bg-[#EC5B14] text-white rounded-[32px] flex flex-col items-center justify-center text-center shadow-xl shadow-[#EC5B14]/20">
+        <div className="p-6 bg-primary text-white rounded-[32px] flex flex-col items-center justify-center text-center shadow-xl shadow-[#EC5B14]/20">
            <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">{t('user_center.usage.plan')}</p>
            <p className="text-xl font-bold">{t('user_center.usage.pro_plan')}</p>
         </div>
@@ -61,7 +61,7 @@ export function BillingTab() {
         </div>
       </div>
 
-      <ConfirmDeleteDialog isOpen={showConfirmDelete} onClose={() => setShowConfirmDelete(false)} />
+      <ConfirmDeleteDialog isOpen={showConfirmDelete} onClose={() => setShowConfirmDelete(false)} onConversationsCleared={onConversationsCleared} />
     </section>
   );
 }

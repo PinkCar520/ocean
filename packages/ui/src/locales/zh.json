@@ -417,6 +417,7 @@
       "appearance": "应用外观",
       "appearance_light": "浅色",
       "appearance_dark": "深色",
+      "appearance_system": "跟随系统",
       "language": "首选语言",
       "lang_zh": "简体中文",
       "lang_en": "英语 (国际)",
@@ -453,6 +454,11 @@
       "messages_sent": "已发消息数",
       "delete_all_chats": "删除所有对话",
       "export_data": "导出我的数据 (.JSON)"
+    },
+    "instructions": {
+      "desc": "告诉 Ocean 您希望它如何表现和回答。这些指令将应用于您创建的每个新对话中。",
+      "label": "您希望 Ocean 怎样回答？",
+      "placeholder": "例如：“请用中文提供专业的解答。重点关注代码质量和合规性。在讨论 IP 问题时，使用加州法律标准。”"
     },
     "common": {
       "syncing": "正在同步用户资产...",

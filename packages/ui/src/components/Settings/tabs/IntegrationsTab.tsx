@@ -14,14 +14,14 @@ export function IntegrationsTab() {
     <section className="space-y-8 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-[#EC5B14]/10 p-2 rounded-lg text-[#EC5B14]">
+          <div className="bg-primary/10 p-2 rounded-lg text-primary">
             <Blocks className="w-5 h-5" />
           </div>
           <h3 className="text-xl font-bold text-foreground tracking-tight">{t('user_center.integrations.title')}</h3>
         </div>
         <button 
           onClick={() => setShowAddCredential(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#EC5B14] text-white text-xs font-bold rounded-xl shadow-lg shadow-[#EC5B14]/20"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow-lg shadow-[#EC5B14]/20"
         >
           <Plus className="w-4 h-4" /> {t('user_center.integrations.add')}
         </button>
@@ -46,8 +46,8 @@ export function IntegrationsTab() {
               <span className="bg-green-500/10 text-green-500 text-[9px] font-black px-2 py-0.5 rounded-full tracking-widest uppercase">{t('user_center.integrations.active')}</span>
             </div>
             <div className="pt-4 border-t border-border/50 flex items-center justify-between">
-              <code className="text-xs font-mono text-muted-foreground">••••••••••••{cred.id.slice(-4)}</code>
-              <button className="text-[10px] font-black text-[#EC5B14] uppercase hover:underline">{t('user_center.integrations.settings')}</button>
+              <code className="text-xs font-mono text-muted-foreground">••••••••••••{(cred.token || cred.id).slice(-4)}</code>
+              <button className="text-[10px] font-black text-primary uppercase hover:underline">{t('user_center.integrations.settings')}</button>
             </div>
           </div>
         ))}

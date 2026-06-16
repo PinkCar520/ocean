@@ -67,7 +67,7 @@ export function Dashboard() {
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
                 activePersona === persona.id 
-                  ? "bg-white text-blue-600 border border-slate-200 shadow-sm" 
+                  ? "bg-card text-blue-600 border border-slate-200 shadow-sm" 
                   : "text-slate-500 hover:text-slate-700"
               )}
             >
@@ -88,7 +88,7 @@ export function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white p-6 rounded-3xl border border-slate-200"
+              className="bg-card p-6 rounded-3xl border border-slate-200"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className={cn("p-2.5 rounded-2xl", stat.bg)}>
@@ -111,7 +111,7 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* 动态内容区 (根据职位展示不同的大卡片) */}
-        <div className="xl:col-span-2 bg-white rounded-[32px] border border-slate-200 p-8 min-h-[400px]">
+        <div className="xl:col-span-2 bg-card rounded-[32px] border border-slate-200 p-8 min-h-[400px]">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
                <BarChart3 className="w-4 h-4 text-blue-500" />
@@ -145,7 +145,7 @@ export function Dashboard() {
         </div>
 
         {/* 右侧小面板 */}
-        <div className="bg-white rounded-[32px] border border-slate-200 p-8">
+        <div className="bg-card rounded-[32px] border border-slate-200 p-8">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-8 flex items-center gap-2">
              {activePersona === 'manager' ? <Users className="w-4 h-4 text-indigo-500" /> : <Terminal className="w-4 h-4 text-emerald-500" />}
              {activePersona === 'manager' ? 'Team Distribution' : t('dashboard.nodes')}
@@ -169,7 +169,7 @@ export function Dashboard() {
                 { name: 'BlueDragon', status: 'Standby', load: '2%', color: 'bg-blue-400' },
                 { name: 'RedHawk', status: 'Offline', load: '0%', color: 'bg-slate-300' }
               ].map(node => (
-                <div key={node.name} className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-white hover:border-blue-200">
+                <div key={node.name} className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-card hover:border-blue-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={cn("w-2 h-2 rounded-full", node.color)} />

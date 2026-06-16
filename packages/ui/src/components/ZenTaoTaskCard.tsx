@@ -28,24 +28,24 @@ export function ZenTaoTaskCard({
 
   const priorities: Array<'High' | 'Medium' | 'Low'> = ['High', 'Medium', 'Low'];
   const priorityColors: Record<string, string> = {
-    High: 'border-[#EC5B14] bg-[#EC5B14]/5 text-[#A33800]',
-    Medium: 'border-[#E8E4E2] bg-white text-[#716B67]',
-    Low: 'border-[#E8E4E2] bg-white text-[#716B67]',
+    High: 'border-primary bg-primary/5 text-[#A33800]',
+    Medium: 'border-border bg-card text-muted-foreground',
+    Low: 'border-border bg-card text-muted-foreground',
   };
 
   const assigneesToShow = assignees.length > 0 ? assignees.slice(0, 2) : [];
   const remaining = assignees.length > 2 ? assignees.length - 2 : assigneeCount > 2 ? assigneeCount - 2 : 0;
 
   return (
-    <div className="bg-white rounded-[20px] border border-[#E8E4E2] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-4 max-w-[520px]">
+    <div className="bg-card rounded-[20px] border border-border overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-4 max-w-[520px]">
       {/* Header */}
-      <div className="px-6 pt-6 pb-5 border-b border-[#E8E4E2]/60">
+      <div className="px-6 pt-6 pb-5 border-b border-border/60">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className="bg-blue-50 p-1.5 rounded-lg">
               <ClipboardList className="w-4 h-4 text-blue-600" />
             </div>
-            <span className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em]">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
               ZenTao Task Integration
             </span>
           </div>
@@ -62,21 +62,21 @@ export function ZenTaoTaskCard({
                 </div>
               ))}
               {remaining > 0 && (
-                <div className="w-7 h-7 rounded-full bg-[#F6F3F2] border-2 border-white flex items-center justify-center text-[9px] font-bold text-[#716B67] -ml-2">
+                <div className="w-7 h-7 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[9px] font-bold text-muted-foreground -ml-2">
                   +{remaining}
                 </div>
               )}
             </div>
           )}
         </div>
-        <h3 className="text-[16px] font-bold text-[#1C1B1B] mt-2">{title}</h3>
+        <h3 className="text-[16px] font-bold text-foreground mt-2">{title}</h3>
       </div>
 
       {/* Body */}
       <div className="px-6 py-5 space-y-5">
         {/* Priority Level */}
         <div>
-          <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
             Priority Level
           </label>
           <div className="flex gap-2">
@@ -98,13 +98,13 @@ export function ZenTaoTaskCard({
         {/* Primary Assignee */}
         {assignees.length > 0 && (
           <div>
-            <label className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.15em] mb-2 block">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
               Primary Assignee
             </label>
             <select
               value={selectedAssignee}
               onChange={e => setSelectedAssignee(e.target.value)}
-              className="w-full bg-[#F6F3F2] border border-[#E8E4E2] rounded-[10px] px-4 py-2.5 text-[13px] font-medium text-[#1C1B1B] focus:outline-none focus:ring-2 focus:ring-[#EC5B14]/30 appearance-none cursor-pointer"
+              className="w-full bg-muted border border-border rounded-[10px] px-4 py-2.5 text-[13px] font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
             >
               {assignees.map(a => (
                 <option key={a.name} value={a.name}>{a.name}</option>
@@ -115,18 +115,18 @@ export function ZenTaoTaskCard({
 
         {/* Active Sprint */}
         {sprintName && (
-          <div className="bg-[#F6F3F2] rounded-[14px] p-4 flex items-center justify-between">
+          <div className="bg-muted rounded-[14px] p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Calendar className="w-4 h-4 text-[#716B67]" />
+              <Calendar className="w-4 h-4 text-muted-foreground" />
               <div>
-                <span className="text-[10px] font-bold text-[#716B67] uppercase tracking-[0.1em]">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.1em]">
                   Active Sprint
                 </span>
-                <p className="text-[13px] font-bold text-[#1C1B1B] mt-0.5">{sprintName}</p>
+                <p className="text-[13px] font-bold text-foreground mt-0.5">{sprintName}</p>
               </div>
             </div>
             {sprintStartsIn && (
-              <span className="text-[11px] text-[#716B67] italic">{sprintStartsIn}</span>
+              <span className="text-[11px] text-muted-foreground italic">{sprintStartsIn}</span>
             )}
           </div>
         )}

@@ -25,7 +25,7 @@ export function CodeBlock({ command, output, status, language = 'bash' }: CodeBl
   };
 
   return (
-    <div className="my-3 bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <div className="my-3 bg-card border border-slate-200 rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
         <div className="flex items-center gap-2">

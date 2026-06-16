@@ -114,7 +114,7 @@ function ChatRow({
   if (isRenaming) {
     return (
       <div className="px-2">
-        <div className="w-full px-3 py-1.5 rounded-[12px] bg-white ring-2 ring-[#EC5B14]/30 shadow-sm flex items-center gap-2">
+        <div className="w-full px-3 py-1.5 rounded-[12px] bg-card ring-2 ring-primary/30 shadow-sm flex items-center gap-2">
           {chat.favorited && (
             <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
           )}
@@ -127,7 +127,7 @@ function ChatRow({
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') cancelRename();
             }}
-            className="flex-1 bg-transparent text-[13px] font-medium text-[#1C1B1B] outline-none min-w-0"
+            className="flex-1 bg-transparent text-[13px] font-medium text-foreground outline-none min-w-0"
             autoFocus
           />
         </div>
@@ -148,8 +148,8 @@ function ChatRow({
         className={cn(
           'w-full text-left px-2.5 py-1.5 text-[13px] font-medium rounded-[8px] transition-all flex items-center gap-2 min-w-0',
           isActive
-            ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]'
-            : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
+            ? 'bg-foreground/[0.06] text-foreground'
+            : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
         )}
       >
         {chat.favorited && (
@@ -167,22 +167,22 @@ function ChatRow({
                 className={cn(
                   'p-1.5 rounded-lg transition-all outline-none',
                   menuOpen
-                    ? 'text-[#EC5B14]'
-                    : 'text-[#716B67] hover:text-[#1C1B1B]'
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-44 border-[#dddddd] shadow-[0_5px_10px_rgba(0,0,0,0.01)]">
+            <DropdownMenuContent align="end" className="w-44 border-border shadow-[0_5px_10px_rgba(0,0,0,0.01)]">
               <DropdownMenuItem onClick={onFavorite} className="gap-3 py-1.5 cursor-pointer">
-                <Star className={cn('w-4 h-4 transition-colors', chat.favorited ? 'text-amber-400 fill-amber-400' : 'text-[#716B67]')} />
+                <Star className={cn('w-4 h-4 transition-colors', chat.favorited ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground')} />
                 <span>{chat.favorited ? t('sidebar.unfavorite') : t('sidebar.favorite')}</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => setIsRenaming(true)} className="gap-3 py-1.5 cursor-pointer">
-                <Pencil className="w-4 h-4 text-[#716B67]" />
+                <Pencil className="w-4 h-4 text-muted-foreground" />
                 <span>{t('sidebar.rename')}</span>
               </DropdownMenuItem>
 
@@ -200,15 +200,15 @@ function ChatRow({
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <DialogContent className="sm:max-w-[460px] sm:rounded-[16px] gap-0 p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[#1C1B1B]">{t('sidebar.delete_chat_title')}</DialogTitle>
-            <DialogDescription className="pt-3 text-base text-[#716B67] leading-relaxed">
+            <DialogTitle className="text-2xl font-bold text-foreground">{t('sidebar.delete_chat_title')}</DialogTitle>
+            <DialogDescription className="pt-3 text-base text-muted-foreground leading-relaxed">
               {t('sidebar.delete_chat_desc', { title: chat.title })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-10 flex sm:justify-end gap-3">
             <button
               onClick={() => setIsConfirmOpen(false)}
-              className="px-8 py-1.5 rounded-[12px] border border-[#E8E4E2] text-sm font-bold text-[#716B67] hover:bg-[#F1EFEB] transition-colors min-w-[100px]"
+              className="px-8 py-1.5 rounded-[12px] border border-border text-sm font-bold text-muted-foreground hover:bg-[#F1EFEB] transition-colors min-w-[100px]"
             >
               {t('common.cancel')}
             </button>
@@ -303,7 +303,7 @@ function ProjectRow({
   if (isRenaming) {
     return (
       <div className="px-2 pl-6 mt-1">
-        <div className="w-full px-3 py-1.5 rounded-[12px] bg-white ring-2 ring-[#EC5B14]/30 shadow-sm flex items-center gap-2">
+        <div className="w-full px-3 py-1.5 rounded-[12px] bg-card ring-2 ring-primary/30 shadow-sm flex items-center gap-2">
           <input
             ref={renameRef}
             value={renameValue}
@@ -313,7 +313,7 @@ function ProjectRow({
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') setIsRenaming(false);
             }}
-            className="flex-1 bg-transparent text-[12px] font-medium text-[#1C1B1B] outline-none min-w-0"
+            className="flex-1 bg-transparent text-[12px] font-medium text-foreground outline-none min-w-0"
             autoFocus
           />
         </div>
@@ -338,8 +338,8 @@ function ProjectRow({
         className={cn(
           'w-full text-left px-2.5 py-1.5 text-[12px] font-medium rounded-[8px] transition-all flex items-center gap-2 min-w-0',
           isActive
-            ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]'
-            : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
+            ? 'bg-foreground/[0.06] text-foreground'
+            : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
         )}
       >
         <FolderRoot className="w-3.5 h-3.5 shrink-0 opacity-70" />
@@ -354,39 +354,39 @@ function ProjectRow({
                 className={cn(
                   'p-1 rounded-md transition-all outline-none',
                   menuOpen
-                    ? 'text-[#EC5B14] bg-[#1C1B1B]/5'
-                    : 'text-[#716B67] hover:text-[#1C1B1B] hover:bg-[#1C1B1B]/10'
+                    ? 'text-primary bg-foreground/5'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-foreground/10'
                 )}
               >
                 <MoreHorizontal className="w-3.5 h-3.5" />
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-48 border-[#dddddd] shadow-[0_5px_10px_rgba(0,0,0,0.05)] rounded-xl py-1.5">
+            <DropdownMenuContent align="end" className="w-48 border-border shadow-[0_5px_10px_rgba(0,0,0,0.05)] rounded-xl py-1.5">
               <DropdownMenuItem className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
-                <Star className="w-4 h-4 text-[#716B67]" />
+                <Star className="w-4 h-4 text-muted-foreground" />
                 <span>置顶项目</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={handleRevealInFinder} className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
-                <FolderOpen className="w-4 h-4 text-[#716B67]" />
+                <FolderOpen className="w-4 h-4 text-muted-foreground" />
                 <span>在 Finder 中显示</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
-                <GitMerge className="w-4 h-4 text-[#716B67]" />
+                <GitMerge className="w-4 h-4 text-muted-foreground" />
                 <span>创建永久工作树</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => setIsRenaming(true)} className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
-                <Pencil className="w-4 h-4 text-[#716B67]" />
+                <Pencil className="w-4 h-4 text-muted-foreground" />
                 <span>重命名项目</span>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
               <DropdownMenuItem className="gap-3 py-2 cursor-pointer font-medium text-[13px]">
-                <BookOpen className="w-4 h-4 text-[#716B67]" />
+                <BookOpen className="w-4 h-4 text-muted-foreground" />
                 <span>归档项目</span>
               </DropdownMenuItem>
 
@@ -438,17 +438,17 @@ function ProjectQuickAddDropdown({ onCreated }: { onCreated?: () => void }) {
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <button className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md text-[#716B67] hover:text-[#1C1B1B] hover:bg-[#1C1B1B]/10 transition-all z-10">
+          <button className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all z-10">
             <Plus className="w-3.5 h-3.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="right" className="w-56 border-[#dddddd] shadow-lg rounded-xl">
+        <DropdownMenuContent align="start" side="right" className="w-56 border-border shadow-lg rounded-xl">
           <DropdownMenuItem onClick={() => { setMenuOpen(false); setIsNaming(true); }} className="gap-3 py-2 cursor-pointer font-medium">
-            <FolderRoot className="w-4 h-4 text-[#716B67]" />
+            <FolderRoot className="w-4 h-4 text-muted-foreground" />
             <span>New Project</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handlePickLocalPath} className="gap-3 py-2 cursor-pointer font-medium">
-            <FolderOpen className="w-4 h-4 text-[#716B67]" />
+            <FolderOpen className="w-4 h-4 text-muted-foreground" />
             <span>Quick Start (Open Folder)</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -620,7 +620,7 @@ export function Sidebar({
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
         <button
-          className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-[#1C1B1B]/10 text-[#716B67] hover:text-[#1C1B1B] transition-colors cursor-pointer titlebar-no-drag"
+          className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer titlebar-no-drag"
           style={{ WebkitAppRegion: 'no-drag' } as any}
           onClick={onToggle}
           title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
@@ -635,7 +635,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen bg-[#f6f3f2] flex flex-col shrink-0 z-50 transition-all duration-300 ease-in-out overflow-hidden border-r border-[#E8E4E2]/60",
+          "fixed left-0 top-0 h-screen bg-muted flex flex-col shrink-0 z-50 transition-all duration-300 ease-in-out overflow-hidden border-r border-border/60",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           isCollapsed ? "md:border-r-0" : ""
         )}
@@ -647,10 +647,10 @@ export function Sidebar({
       >
         <div className="w-64 h-full flex flex-col shrink-0">
           {/* 1. Header (Mobile Close / Desktop Drag Area) */}
-          <div className="flex items-center border-b border-[#E8E4E2]/60 h-14 titlebar-no-drag justify-end px-3">
+          <div className="flex items-center border-b border-border/60 h-14 titlebar-no-drag justify-end px-3">
             {/* Close button for mobile */}
             <button
-              className="md:hidden p-1.5 text-[#716B67] titlebar-no-drag"
+              className="md:hidden p-1.5 text-muted-foreground titlebar-no-drag"
               onClick={onClose}
             >
               <X className="w-5 h-5" />
@@ -661,7 +661,7 @@ export function Sidebar({
           <div className="space-y-1 mt-3 px-3">
             <button
               onClick={onNewChat}
-              className="w-full flex items-center justify-start font-medium text-[13px] text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B] transition-all px-2.5 py-1.5 gap-3 rounded-[8px] focus:outline-none"
+              className="w-full flex items-center justify-start font-medium text-[13px] text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-all px-2.5 py-1.5 gap-3 rounded-[8px] focus:outline-none"
               title={t('sidebar.new_chat')}
             >
               <Plus className="w-4 h-4" />
@@ -670,19 +670,19 @@ export function Sidebar({
 
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              className="w-full flex items-center font-medium text-[13px] text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B] transition-all gap-3 px-2.5 py-1.5 rounded-[8px] focus:outline-none"
+              className="w-full flex items-center font-medium text-[13px] text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-all gap-3 px-2.5 py-1.5 rounded-[8px] focus:outline-none"
               title={i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}
             >
               <Search className="w-4 h-4" />
               <span className="flex-1 text-left">{i18n.language === 'zh' ? '搜索聊天' : 'Search Chats'}</span>
-              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-[#A8A4A1] bg-white border border-[#E8E4E2]/60 shrink-0">
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-muted-foreground bg-muted border border-border/60 shrink-0">
                 ⌘K
               </kbd>
             </button>
           </div>
 
           {/* Separator */}
-          <div className="border-t border-[#E8E4E2]/60 mx-3 mt-3" />
+          <div className="border-t border-border/60 mx-3 mt-3" />
 
           {/* 3. Navigation Links (Platform Modules) */}
           <nav className="mt-3 space-y-1 relative px-3">
@@ -696,8 +696,8 @@ export function Sidebar({
                       className={cn(
                         'w-full flex items-center font-medium text-[13px] transition-all focus:outline-none gap-3 px-2.5 py-1.5 rounded-[8px]',
                         isActive
-                          ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]'
-                          : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
+                          ? 'bg-foreground/[0.06] text-foreground'
+                          : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
                       )}
                       title={item.label}
                     >
@@ -728,17 +728,17 @@ export function Sidebar({
           </nav>
 
           {/* Separator */}
-          <div className={cn("border-t border-[#E8E4E2]/60", isCollapsed ? "mx-3 mt-3" : "mx-3 mt-3")} />
+          <div className={cn("border-t border-border/60", isCollapsed ? "mx-3 mt-3" : "mx-3 mt-3")} />
 
           {/* 4. Recent Activity & All Chats */}
           <div className={cn("flex-1 mt-5 overflow-y-auto no-scrollbar relative", isCollapsed ? "px-2 hidden" : "px-3")}>
-            <div className="absolute top-0 left-6 right-6 h-px bg-[#E8E4E2] -mt-2 opacity-70" />
+            <div className="absolute top-0 left-6 right-6 h-px bg-border -mt-2 opacity-70" />
 
             <button
               onClick={() => onMainTabChange('all_chats')}
               className={cn(
                 'w-full flex items-center gap-3 px-2.5 py-1.5 mb-2 rounded-[8px] font-medium text-[13px] transition-all focus:outline-none',
-                activeMainTab === 'all_chats' ? 'bg-[#1C1B1B]/[0.06] text-[#1C1B1B]' : 'text-[#716B67] hover:bg-[#1C1B1B]/5 hover:text-[#1C1B1B]'
+                activeMainTab === 'all_chats' ? 'bg-foreground/[0.06] text-foreground' : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
               )}
             >
               <History className="w-4 h-4" />
@@ -748,14 +748,14 @@ export function Sidebar({
             {/* Grouped conversation list */}
             <div className="space-y-3 mt-3">
               {conversations.length === 0 ? (
-                <p className="px-2 text-[11px] text-[#716B67]/60 italic">{t('sidebar.no_conversations')}</p>
+                <p className="px-2 text-[11px] text-muted-foreground/60 italic">{t('sidebar.no_conversations')}</p>
               ) : (
                 groupOrder.map(groupKey => {
                   const chats = groupedChats[groupKey];
                   if (chats.length === 0) return null;
                   return (
                     <div key={groupKey}>
-                      <h4 className="text-[10px] font-bold text-[#A8A4A1] uppercase tracking-widest px-2.5 mb-1.5">
+                      <h4 className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest px-2.5 mb-1.5">
                         {groupLabels[groupKey]}
                       </h4>
                       <div className="space-y-0.5">
@@ -782,24 +782,24 @@ export function Sidebar({
           <div className="pb-3 mt-auto px-3">
             <button
               onClick={onOpenSettings}
-              className="w-full flex items-center border border-transparent hover:bg-white hover:border-[#E8E4E2]/50 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all text-left group overflow-hidden outline-none gap-3 p-2 rounded-xl"
+              className="w-full flex items-center border border-transparent hover:bg-card hover:border-border/50 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all text-left group overflow-hidden outline-none gap-3 p-2 rounded-xl"
               title={user?.name || 'Alex Rivera'}
             >
               <div className="relative">
                 <img
                   src={user?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuA0oS2KtsdNSGQoheV6v31oxAq-NhwZzQ47xg8__EJhv8OqGKGnZL3wep9OPHmM8x2Ik6mpZYLUp_nlIoldi6DXVNzDnTDsq10ls1jkUj-t_evdmGKwkn_t5xfFRgHK6-mmcStkVS-zdI45IF3rmBL3mH9KmAB8N9AvKqU-Dv45N0-NNrOIrD2ZlsGh9MmfkPMjEPcNRAJQVNa20KRYE9eY-Svv7Taq6vVmmqM9HxckuxqA9UWUSYJjawCeP6JhTrR_2ym5Y9kmaeo"}
                   alt="profile"
-                  className="w-8 h-8 rounded-full border border-[#E8E4E2] shrink-0 object-cover"
+                  className="w-8 h-8 rounded-full border border-border shrink-0 object-cover"
                 />
               </div>
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-[#716B67] group-hover:text-[#1C1B1B] transition-colors truncate">{user?.name || 'Alex Rivera'}</span>
+                  <span className="text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate">{user?.name || 'Alex Rivera'}</span>
                   <NodeStatusIndicator token={localStorage.getItem('ocean_auth_token')} isCollapsed={false} />
                 </div>
-                <span className="text-[10px] text-[#716B67] truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || t('sidebar.admin')}</span>
+                <span className="text-[10px] text-muted-foreground truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || t('sidebar.admin')}</span>
               </div>
-              <ChevronUp className="w-4 h-4 text-[#716B67] shrink-0" />
+              <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
             </button>
           </div>
         </div>

@@ -2,14 +2,15 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../../lib/api-client';
-import { useSettings } from '../../SettingsContext';
+import { useSettings } from '../SettingsContext';
 
 interface ConfirmDeleteDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onConversationsCleared?: () => void;
 }
 
-export function ConfirmDeleteDialog({ isOpen, onClose }: ConfirmDeleteDialogProps) {
+export function ConfirmDeleteDialog({ isOpen, onClose, onConversationsCleared }: ConfirmDeleteDialogProps) {
   const { t } = useTranslation();
   const { fetchProfile } = useSettings();
 
@@ -18,7 +19,10 @@ export function ConfirmDeleteDialog({ isOpen, onClose }: ConfirmDeleteDialogProp
   const executeDeleteConversations = async () => {
     try {
       await api.delete('/api/sessions/all');
-      fetchProfile();
+      await fetchProfile();
+      if (onConversationsCleared) {
+        onConversationsCleared();
+      }
       onClose();
     } catch (err: any) {
       console.error('Delete failed:', err.message);

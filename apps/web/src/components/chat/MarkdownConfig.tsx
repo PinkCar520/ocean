@@ -17,7 +17,7 @@ export const CopyCodeButton = React.memo(({ code }: { code: string }) => {
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all duration-200 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10"
+      className="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all duration-200 hover:bg-card/[0.08] text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10"
     >
       {copied ? (
         <>
@@ -72,7 +72,7 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
       {!minimal && (
         <div className="flex items-center justify-between px-6 py-3.5 bg-[#1a1b1e] border-b border-white/[0.05]">
           <div className="flex items-center gap-3">
-            <div className="p-1 rounded bg-white/5 text-slate-500">
+            <div className="p-1 rounded bg-card/5 text-slate-500">
               <Code2 className="w-3.5 h-3.5" />
             </div>
             <div className="flex items-center gap-2 overflow-hidden">
@@ -80,7 +80,7 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
                 {filename || (language === 'text' ? 'snippet' : language || 'code')}
               </span>
               {filename && language && (
-                <span className="text-[11px] font-medium text-slate-600 lowercase bg-white/5 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] font-medium text-slate-600 lowercase bg-card/5 px-1.5 py-0.5 rounded">
                   {language}
                 </span>
               )}
@@ -90,7 +90,7 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
             {onExtract && (
               <button
                 onClick={() => onExtract({ title: filename || 'Code snippet', content: displayCode, language: language || 'text' })}
-                className="p-1.5 rounded-lg transition-all duration-200 hover:bg-white/[0.08] text-slate-500 hover:text-slate-300"
+                className="p-1.5 rounded-lg transition-all duration-200 hover:bg-card/[0.08] text-slate-500 hover:text-slate-300"
                 title="Open in sidebar"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -135,7 +135,7 @@ export const MarkdownComponents = (onExtract?: any) => ({
 
     if (!lang && !codeStr.includes('\n')) {
       return (
-        <code className="bg-[#F0EDE9] text-[#EC5B14] px-1.5 py-0.5 rounded text-[0.85em] font-mono" {...props}>
+        <code className="bg-[#F0EDE9] text-primary px-1.5 py-0.5 rounded text-[0.85em] font-mono" {...props}>
           {children}
         </code>
       );

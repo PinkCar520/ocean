@@ -17,7 +17,7 @@ export function InstructionsTab() {
   return (
     <section className="space-y-8 max-w-3xl">
       <div className="flex items-center gap-3">
-        <div className="bg-[#EC5B14]/10 p-2 rounded-lg text-[#EC5B14]">
+        <div className="bg-primary/10 p-2 rounded-lg text-primary">
           <Sparkles className="w-5 h-5" />
         </div>
         <h3 className="text-xl font-bold tracking-tight text-foreground">{t('user_center.tabs.instructions', 'Custom Instructions')}</h3>
