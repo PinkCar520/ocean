@@ -99,11 +99,34 @@ export class ChatController {
 
     console.log(`[Gateway] [${requestId}] Skill mode. Employee: ${req.user?.workId} (${req.user?.dbId}), session: ${sessionId || 'none'}, msg: "${userMessage.slice(0, 60)}..."`);
 
+    // 从消息的 parts 中提取技能
+    const skillIdsFromParts: string[] = [];
+    if (Array.isArray(messages)) {
+      messages.forEach(msg => {
+        if (msg.role === 'user' && Array.isArray(msg.parts)) {
+          msg.parts.forEach(part => {
+            if (part.type === 'skill' && part.name) {
+              skillIdsFromParts.push(part.name);
+            }
+          });
+        }
+      });
+    }
+
+    const mergedSkillIds = [
+      ...(body.skillIds || []),
+      ...(body.activeSkills || []),
+      ...(body.skills || []),
+      ...(body.skillId ? [body.skillId] : []),
+      ...skillIdsFromParts
+    ];
+
     const ctx: SkillContext = {
       userId: req.user?.workId || 'Anonymous',
       source: 'web',
       userMessage,
       workspacePath: body.workspacePath,
+      skillIds: mergedSkillIds.length > 0 ? Array.from(new Set(mergedSkillIds)) : undefined,
       // @ts-ignore
       search: body.search,
       // @ts-ignore

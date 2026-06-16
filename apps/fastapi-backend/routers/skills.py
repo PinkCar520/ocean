@@ -4,8 +4,9 @@ from sqlalchemy import text
 from pydantic import BaseModel
 from typing import List, Optional
 from database import get_db
-from models import SkillTriggerLog
+from models import SkillTriggerLog, SystemConfig
 import uuid
+import json
 import asyncio
 
 # Lazy load embedding to avoid blocking startup
@@ -25,7 +26,7 @@ class ResolveResponse(BaseModel):
 @router.post("/resolve", response_model=ResolveResponse)
 def resolve_skills(request: ResolveRequest, db: Session = Depends(get_db)):
     # 1. 优先获取所有有效的 Skill
-    skills_query = text("SELECT id, name, description, content, \"triggerKws\", embedding FROM skills WHERE \"isPublic\" = true")
+    skills_query = text("SELECT id, slug, name, description, content, \"triggerKws\", embedding FROM skills WHERE \"isPublic\" = true")
     result = db.execute(skills_query)
     all_skills = result.fetchall()
     
@@ -36,19 +37,19 @@ def resolve_skills(request: ResolveRequest, db: Session = Depends(get_db)):
     pending_skills = []
     
     for row in all_skills:
-        skill_id = row[0]
-        name = row[1]
-        desc = row[2]
-        content = row[3]
-        trigger_kws = row[4]
-        # embedding is row[5], but we'll do vector match in memory or via DB query.
-        # Since we already fetched all skills, we can do keyword match first.
+        skill_id = str(row[0])
+        slug = str(row[1]).lower() if row[1] else ""
+        name = row[2]
+        desc = row[3]
+        content = row[4]
+        trigger_kws = row[5]
+        # embedding is row[6]
         
         should_trigger = False
         match_type = ""
         
-        # 策略 A: 显式指定 (SK-06 斜杠命令强制命中)
-        if request.skill_ids and skill_id in request.skill_ids:
+        # 策略 A: 显式指定 (依赖网关传过来的 skill_ids)
+        if request.skill_ids and (skill_id in request.skill_ids or slug in request.skill_ids):
             should_trigger = True
             match_type = "explicit"
             
@@ -82,11 +83,11 @@ def resolve_skills(request: ResolveRequest, db: Session = Depends(get_db)):
             pending_ids = tuple([s[0] for s in pending_skills])
             if pending_ids:
                 vector_query = text("""
-                    SELECT id, name, content, 1 - (embedding <=> :emb::vector) as score
+                    SELECT id, name, content, 1 - (embedding <=> CAST(:emb AS vector)) as score
                     FROM skills
                     WHERE id IN :p_ids
                       AND embedding IS NOT NULL
-                    ORDER BY embedding <=> :emb::vector
+                    ORDER BY embedding <=> CAST(:emb AS vector)
                     LIMIT 2
                 """)
                 v_res = db.execute(vector_query, {"emb": str(user_embedding), "p_ids": pending_ids})
@@ -138,3 +139,93 @@ def resolve_skills(request: ResolveRequest, db: Session = Depends(get_db)):
         injected_prompt=injected_prompt,
         matched_skills=[{"id": s["id"], "name": s["name"], "match_type": s.get("match_type")} for s in final_matched]
     )
+
+
+class GenerateSkillRequest(BaseModel):
+    instruction: str
+
+class GenerateSkillResponse(BaseModel):
+    name: str
+    description: str
+    content: str
+    triggerKws: List[str]
+
+DEFAULT_SKILL_CREATOR_PROMPT = """You are an expert AI Assistant specialized in writing high-quality Skill Prompts for other AI agents.
+The user will give you a brief instruction on what they want the skill to do.
+You need to generate:
+1. 'name': A short, descriptive name (max 3 words).
+2. 'description': A brief explanation of what the skill does.
+3. 'content': The detailed system prompt for this skill. It should be well-structured, clear, and comprehensive. Use markdown. You can define variables like {{variable_name}} if the skill needs dynamic context.
+4. 'triggerKws': A list of 2-5 keyword strings that would trigger this skill based on user queries.
+
+Return the result strictly as a valid JSON object. No markdown code blocks, just raw JSON.
+Example:
+{
+  "name": "PR Reviewer",
+  "description": "Reviews pull requests for code quality",
+  "content": "You are a senior engineer. Review the provided code...",
+  "triggerKws": ["review", "pr", "pull request", "code check"]
+}
+"""
+
+@router.post("/generate", response_model=GenerateSkillResponse)
+def generate_skill(request: GenerateSkillRequest, db: Session = Depends(get_db)):
+    # 1. Fetch system config for the prompt
+    config = db.query(SystemConfig).filter(SystemConfig.key == 'skill_creator_prompt').first()
+    
+    if not config:
+        # Insert default if missing
+        config = SystemConfig(
+            key='skill_creator_prompt',
+            value=DEFAULT_SKILL_CREATOR_PROMPT,
+            description="Default system prompt for the AI Skill Creator feature."
+        )
+        db.add(config)
+        db.commit()
+    
+    system_prompt = config.value
+
+    # 2. Call OpenAI
+    from openai import OpenAI
+    import os
+    
+    provider = os.getenv("DEFAULT_AI_PROVIDER", "openai").upper()
+    api_key = os.getenv(f"{provider}_API_KEY") or os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv(f"{provider}_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url
+    )
+    
+    # Try dynamic model, fallback to gpt-4o, then gpt-3.5-turbo
+    model_name = os.getenv(f"{provider}_MODEL") or os.getenv("OPENAI_MODEL", "gpt-4o")
+    if not model_name:
+        model_name = "gpt-3.5-turbo" # fallback
+
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": request.instruction}
+        ],
+        response_format={"type": "json_object"}
+    )
+    
+    result_text = response.choices[0].message.content
+    try:
+        data = json.loads(result_text)
+        return GenerateSkillResponse(
+            name=data.get("name", "New Skill"),
+            description=data.get("description", ""),
+            content=data.get("content", ""),
+            triggerKws=data.get("triggerKws", [])
+        )
+    except json.JSONDecodeError:
+        # Fallback if json is malformed
+        return GenerateSkillResponse(
+            name="Generated Skill",
+            description="",
+            content=result_text,
+            triggerKws=[]
+        )

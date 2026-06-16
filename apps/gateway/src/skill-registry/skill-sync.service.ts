@@ -41,6 +41,7 @@ export class SkillSyncService implements OnModuleInit {
             slug,
             name: skill.name,
             description: skill.description,
+            content: skill.content,
             category,
             source: 'internal',
             isFeatured: false,
@@ -56,6 +57,7 @@ export class SkillSyncService implements OnModuleInit {
           await this.skillService.updateSkill(existing.id, {
             name: skill.name,
             description: skill.description,
+            content: skill.content,
             category,
             icon,
             tags,

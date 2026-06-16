@@ -15,6 +15,9 @@ import {
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu';
 
+import type { SkillMeta } from '../../lib/skill-store';
+import { useSkillStore } from '../../lib/skill-store';
+
 interface ChatInputProps {
   localInput: string;
   setLocalInput: (val: string) => void;
@@ -27,6 +30,8 @@ interface ChatInputProps {
   setIsSearchMode: (val: boolean) => void;
   isKnowledgeMode: boolean;
   setIsKnowledgeMode: (val: boolean) => void;
+  activeSkills?: SkillMeta[];
+  removeSkill?: (id: string) => void;
   onFormSubmit: (e?: any) => void;
   handleStop: () => void;
   isLoading: boolean;
@@ -64,6 +69,8 @@ export const ChatInput = React.memo(({
   setIsSearchMode,
   isKnowledgeMode,
   setIsKnowledgeMode,
+  activeSkills = [],
+  removeSkill,
   onFormSubmit,
   handleStop,
   isLoading,
@@ -89,6 +96,8 @@ export const ChatInput = React.memo(({
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
 
+  const { catalog, selectSkill } = useSkillStore();
+
   const MENTION_OPTIONS = [
     { id: 'search', label: 'Web Search', icon: Globe, desc: 'Search the live web', type: 'search' },
     { id: 'lexis', label: 'LexisNexis', icon: Database, desc: 'Case law & statutes', type: 'knowledge' },
@@ -100,6 +109,16 @@ export const ChatInput = React.memo(({
     { id: 'prompt', label: '/prompt', desc: 'Use prompt template', action: 'prompt', icon: FileText },
     { id: 'jenkins', label: '/jenkins', desc: 'Run Jenkins tool', action: 'tool', icon: Plus },
     { id: 'zentao', label: '/zentao', desc: 'Run ZenTao tool', action: 'tool', icon: Plus },
+    ...catalog.map(s => ({
+      id: s.id,
+      label: `/${s.name}`,
+      desc: s.description,
+      action: 'skill',
+      icon: Sparkles,
+      skillId: s.id,
+      skillName: s.name,
+      skillFull: s
+    }))
   ];
 
   const handleMentionSelect = (type: 'search' | 'knowledge', label: string) => {
@@ -128,7 +147,7 @@ export const ChatInput = React.memo(({
     }, 10);
   };
 
-  const handleSlashSelect = (action: string, label: string) => {
+  const handleSlashSelect = (action: string, label: string, opt?: any) => {
     const cursorPosition = textAreaRef.current?.selectionStart || 0;
     const textBeforeCursor = localInput.slice(0, cursorPosition);
     const textAfterCursor = localInput.slice(cursorPosition);
@@ -137,6 +156,23 @@ export const ChatInput = React.memo(({
       return match.startsWith(' ') ? ' ' : '';
     });
     
+    if (action === 'skill' && opt?.skillFull) {
+      selectSkill(opt.skillFull);
+      const newText = textBeforeMatch + textAfterCursor;
+      setLocalInput(newText);
+      setSlashMenuOpen(false);
+      
+      setTimeout(() => {
+        if (textAreaRef.current) {
+          textAreaRef.current.focus();
+          const newPos = textBeforeMatch.length;
+          textAreaRef.current.selectionStart = newPos;
+          textAreaRef.current.selectionEnd = newPos;
+        }
+      }, 10);
+      return;
+    }
+
     const newText = textBeforeMatch + label + ' ' + textAfterCursor;
     setLocalInput(newText);
     setSlashMenuOpen(false);
@@ -237,7 +273,7 @@ export const ChatInput = React.memo(({
                 {filteredSlash.length > 0 ? filteredSlash.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => handleSlashSelect(opt.action, opt.label)}
+                    onClick={() => handleSlashSelect(opt.action, opt.label, opt)}
                     className="flex items-center gap-3 w-full p-2 text-left hover:bg-[#EC5B14]/5 hover:text-[#EC5B14] rounded-lg transition-colors group"
                   >
                     <div className="w-8 h-8 rounded-lg bg-white border border-[#E8E4E2] flex items-center justify-center group-hover:border-[#EC5B14]/30 group-hover:bg-white shadow-sm shrink-0 transition-colors">
@@ -304,6 +340,25 @@ export const ChatInput = React.memo(({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Active Skills Pills */}
+          {activeSkills && activeSkills.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1">
+              {activeSkills.map((skill) => (
+                <div key={skill.id} className="flex items-center gap-1.5 px-3 py-1 bg-[#EC5B14]/10 border border-[#EC5B14]/20 rounded-full">
+                  <span className="text-[12px] font-bold text-[#EC5B14]">/{skill.name}</span>
+                  {removeSkill && (
+                    <button 
+                      onClick={() => removeSkill(skill.id)}
+                      className="text-[#EC5B14]/60 hover:text-[#EC5B14] hover:bg-[#EC5B14]/10 rounded-full p-0.5 transition-colors"
+                    >
+                      <CloseIcon className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="relative flex flex-col">
             <div 
@@ -376,7 +431,8 @@ export const ChatInput = React.memo(({
                   } else if (slashMenuOpen) {
                     e.preventDefault();
                     if (filteredSlash.length > 0) {
-                      handleSlashSelect(filteredSlash[0].action, filteredSlash[0].label);
+                      const opt = filteredSlash[0];
+                      handleSlashSelect(opt.action, opt.label, opt);
                     }
                   } else {
                     e.preventDefault();

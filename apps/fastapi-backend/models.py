@@ -44,3 +44,11 @@ class SkillTriggerLog(Base):
     triggeredIds = Column("triggeredIds", ARRAY(String), nullable=True)
     injectedTokens = Column("injectedTokens", Integer, nullable=True)
     createdAt = Column("createdAt", DateTime, default=datetime.utcnow)
+
+class SystemConfig(Base):
+    __tablename__ = "system_configs"
+
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    updatedAt = Column("updatedAt", DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

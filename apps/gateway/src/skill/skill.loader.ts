@@ -22,6 +22,7 @@ export interface SkillEntry {
   requiresApproval?: string[];
   metadata?: Record<string, string>;
   compatibility?: string;
+  content?: string;
   /** Localized mapping overrides for the frontend UI (e.g. { zh: { displayName: "..." } }) */
   locales?: Record<string, { displayName?: string; description?: string }>;
 }
@@ -199,6 +200,7 @@ export class SkillLoader {
 
     const name = fm['name'];
     const description = fm['description'];
+    const bodyContent = raw.slice(frontmatterMatch[0].length).trim();
 
     // Per spec: skip if description is missing
     if (!name || !description) {
@@ -209,6 +211,7 @@ export class SkillLoader {
     return {
       name: String(name),
       description: String(description),
+      content: bodyContent,
       allowedTools: fm['allowed-tools']
         ? String(fm['allowed-tools'])
           .split(' ')

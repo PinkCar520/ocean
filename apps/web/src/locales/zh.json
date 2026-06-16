@@ -406,7 +406,9 @@
       "general": "通用设置",
       "profile": "身份档案",
       "integrations": "集成与密钥",
-      "billing": "用量与配额"
+      "billing": "用量与配额",
+      "instructions": "自定义指令",
+      "permissions": "权限与安全"
     },
     "general": {
       "title": "平台偏好",
@@ -445,13 +447,19 @@
       "upgrade": "升级套餐",
       "unit_gb": "GB",
       "unit_k": "k",
-      "pro_plan": "专业企业版"
+      "pro_plan": "专业企业版",
+      "total_sessions": "总对话数",
+      "messages_sent": "已发消息数",
+      "delete_all_chats": "删除所有对话",
+      "export_data": "导出我的数据 (.JSON)"
     },
     "common": {
       "syncing": "正在同步用户资产...",
       "id_label": "ID: ",
       "user_label": "用户: ",
-      "prompt_zentao": "请输入您的禅道 API Token:"
+      "prompt_zentao": "请输入您的禅道 API Token:",
+      "search": "搜索",
+      "settings": "设置"
     },
     "models": {
       "deepseek_v3": "DeepSeek V3 (默认)",

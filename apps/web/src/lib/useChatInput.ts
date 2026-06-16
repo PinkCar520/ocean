@@ -17,6 +17,7 @@ interface UseChatInputProps {
   selectedModelId: string;
   isSearchMode: boolean;
   isKnowledgeMode: boolean;
+  activeSkillIds: string[];
   navigate: (path: string, options?: any) => void;
   sessionIdRef: React.MutableRefObject<string | null>;
   setIsLocalThinking: (val: boolean) => void;
@@ -31,6 +32,7 @@ export function useChatInput({
   selectedModelId,
   isSearchMode,
   isKnowledgeMode,
+  activeSkillIds,
   navigate,
   sessionIdRef,
   setIsLocalThinking,
@@ -153,6 +155,7 @@ export function useChatInput({
           search: isSearchMode,
           knowledge: isKnowledgeMode,
           sessionId: activeSessionId,
+          skillIds: activeSkillIds,
         }
       });
     } catch (err) {
@@ -173,7 +176,9 @@ export function useChatInput({
     sendMessage, 
     selectedModelId, 
     isSearchMode, 
-    isKnowledgeMode
+    isKnowledgeMode,
+    activeSkillIds,
+    token
   ]);
 
   // Handle auto-resize

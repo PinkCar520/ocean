@@ -384,7 +384,9 @@
       "general": "General Settings",
       "profile": "Identity Profile",
       "integrations": "Connectors & Keys",
-      "billing": "Usage & Quota"
+      "billing": "Usage & Quota",
+      "instructions": "Custom Instructions",
+      "permissions": "Permissions"
     },
     "general": {
       "title": "Platform Preferences",
@@ -423,13 +425,19 @@
       "upgrade": "Upgrade Plan",
       "unit_gb": "GB",
       "unit_k": "k",
-      "pro_plan": "Pro Enterprise"
+      "pro_plan": "Pro Enterprise",
+      "total_sessions": "Total Sessions",
+      "messages_sent": "Messages Sent",
+      "delete_all_chats": "Delete All Chats",
+      "export_data": "Export My Data (.JSON)"
     },
     "common": {
       "syncing": "Synchronizing User Assets...",
       "id_label": "ID: ",
       "user_label": "User: ",
-      "prompt_zentao": "Enter your ZenTao API Token:"
+      "prompt_zentao": "Enter your ZenTao API Token:",
+      "search": "Search",
+      "settings": "Settings"
     },
     "models": {
       "deepseek_v3": "DeepSeek V3 (Default)",

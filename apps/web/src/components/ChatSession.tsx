@@ -5,6 +5,7 @@ import { TypingCursor, BrailleSpinner } from './chat/ChatHelpers';
 import { parseReasoningToSteps, getFriendlyToolName, beautifyModelName, type ThinkingStep } from '../lib/chat-utils';
 import { useChatSession } from '../lib/useChatSession';
 import { useChatInput } from '../lib/useChatInput';
+import { useSkillStore } from '../lib/skill-store';
 import { ChatInput } from './chat/ChatInput';
 import { ToolInvocationRenderer, ToolInvocationBadge } from './chat/ToolInvocationRenderer';
 import { ChatMessage } from './chat/ChatMessage';
@@ -93,6 +94,12 @@ export function ChatSession({
   // ── Session Configuration State ──
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
+  const { activeSkills, removeSkill, refreshCatalog } = useSkillStore();
+  const activeSkillIds = useMemo(() => activeSkills.map((s: any) => s.id), [activeSkills]);
+
+  useEffect(() => {
+    refreshCatalog();
+  }, [refreshCatalog]);
 
   // ── Hooks ──
   const {
@@ -101,7 +108,7 @@ export function ChatSession({
     sessionIdRef, titleGeneratedRef, data, switchBranch, setCurrentLeafId
   } = useChatSession({
     sessionId, initialMessages, token, selectedModelId,
-    isSearchMode, isKnowledgeMode, onStreamFinished
+    isSearchMode, isKnowledgeMode, activeSkillIds, onStreamFinished
   });
 
   // ── 实时解析并合并 Active Context 元数据 ──
@@ -124,7 +131,7 @@ export function ChatSession({
     textAreaRef, onFormSubmit, uploadFile, ghostText, setGhostText, isPredicting
   } = useChatInput({
     sendMessage, createSession, token, selectedModelId,
-    isSearchMode, isKnowledgeMode, navigate,
+    isSearchMode, isKnowledgeMode, activeSkillIds, navigate,
     sessionIdRef, setIsLocalThinking, userScrolledUpRef, isLoading
   });
 
@@ -495,6 +502,8 @@ export function ChatSession({
           setIsSearchMode={setIsSearchMode}
           isKnowledgeMode={isKnowledgeMode}
           setIsKnowledgeMode={setIsKnowledgeMode}
+          activeSkills={activeSkills}
+          removeSkill={removeSkill}
           onFormSubmit={onFormSubmit}
           handleStop={handleStop}
           isLoading={isLoading}

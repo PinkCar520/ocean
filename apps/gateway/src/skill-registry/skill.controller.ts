@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, HttpCode, 
 import { SkillService, CreateSkillDto, UpdateSkillDto } from './skill.service';
 import { SkillImportService, ImportSkillDto } from './skill-import.service';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
+import { SkillOrchestrator } from '../skill/skill.orchestrator';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -10,6 +11,7 @@ export class SkillController {
   constructor(
     private readonly skillService: SkillService,
     private readonly skillImportService: SkillImportService,
+    private readonly skillOrchestrator: SkillOrchestrator,
   ) {}
 
   /**
@@ -191,5 +193,29 @@ export class SkillController {
         error: err.message,
       };
     }
+  }
+
+  /**
+   * POST /api/skills/sandbox/test
+   * 运行沙盒测试调用
+   */
+  @Post('sandbox/test')
+  async testSandbox(@Body() body: any) {
+    const { message, activeSkill, variables } = body;
+    const result = await this.skillOrchestrator.runSandboxTest(message, activeSkill, variables);
+    return { success: true, data: result };
+  }
+  /**
+   * POST /api/skills/generate
+   * 从自然语言描述生成技能
+   */
+  @Post('generate')
+  async generateSkill(@Body() body: any) {
+    const { instruction } = body;
+    if (!instruction) {
+      throw new Error('Instruction is required');
+    }
+    const result = await this.skillOrchestrator.generateSkill(instruction);
+    return { success: true, data: result };
   }
 }

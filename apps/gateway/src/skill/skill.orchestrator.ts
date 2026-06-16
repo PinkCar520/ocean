@@ -208,7 +208,8 @@ export class SkillOrchestrator {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: ctx.userMessage || '',
-          session_id: sessionId
+          session_id: sessionId,
+          skill_ids: ctx.skillIds
         })
       });
       if (resolveRes.ok) {
@@ -224,9 +225,28 @@ export class SkillOrchestrator {
       this.logger.error(`Failed to call FastAPI Skill Engine: ${err}`);
     }
 
-    // Fallback: keep the old tool-based skill loader catalog just in case
-    const catalogXml = await this.skillLoader.buildCatalogXml();
-    prompt += `\n\n以下 Skills 提供了特定任务的专项指令。当用户的请求与某个 Skill 的描述匹配时，请调用 activate_skill 工具加载该 Skill 的完整指令。\n\n${catalogXml}`;
+    // 显式注入通过 UI 选中的本地 Skills
+    let explicitLocalSkillsInjected = false;
+    if (ctx.skillIds && ctx.skillIds.length > 0) {
+      let localInjected = '';
+      for (const skillId of ctx.skillIds) {
+        const content = await this.skillLoader.activate(skillId);
+        if (content) {
+          localInjected += `\n${content}`;
+        }
+      }
+      if (localInjected) {
+        prompt += `\n\n<injected_skills>\n以下为你注入了用户显式选定的专门领域的AI专家技能，请优先并重点根据它们的内容来回答用户的问题。如果用户询问该技能的作用，请严格基于以下内容进行回答：\n${localInjected}\n</injected_skills>`;
+        explicitLocalSkillsInjected = true;
+      }
+    }
+
+    // 仅在未明确指定 skill 且 FastAPI 没有下发特定技能时，才下发全量 Catalog 供其自行探索
+    // 避免全量 Catalog 导致大模型在明确询问特定 skill 时回答全部 skill 列表
+    if (!explicitLocalSkillsInjected && (!ctx.skillIds || ctx.skillIds.length === 0)) {
+      const catalogXml = await this.skillLoader.buildCatalogXml();
+      prompt += `\n\n以下 Skills 提供了特定任务的专项指令。当用户的请求与某个 Skill 的描述匹配时，请调用 activate_skill 工具加载该 Skill 的完整指令。\n\n${catalogXml}`;
+    }
 
     const guide = await this.skillLoader.loadAiguide(ctx.workspacePath);
     if (guide) {
@@ -234,6 +254,28 @@ export class SkillOrchestrator {
     }
 
     return prompt;
+  }
+
+  /**
+   * 代理到 FastAPI 的生成技能接口
+   */
+  async generateSkill(instruction: string): Promise<any> {
+    try {
+      const fastapiUrl = this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000';
+      const res = await globalThis.fetch(`${fastapiUrl}/api/internal/skills/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction }),
+      });
+      if (res.ok) {
+        return await res.json();
+      } else {
+        throw new Error(`FastAPI responded with status: ${res.status}`);
+      }
+    } catch (err) {
+      this.logger.error(`Failed to generate skill via FastAPI: ${err}`);
+      throw err;
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -714,5 +756,106 @@ EXAMPLES:
       this.logger.error(`Autocomplete error: ${err?.message || String(err)}`);
       return '';
     }
+  }
+
+  /**
+   * 运行沙盒测试大模型调用
+   */
+  async runSandboxTest(
+    message: string,
+    activeSkill?: { name?: string; content?: string; triggerKws?: string[] },
+    variables?: Record<string, string>,
+  ) {
+    const startTime = Date.now();
+    
+    // 1. 构建环境感知 Context
+    const ctx: SkillContext = {
+      userId: 'Sandbox-User',
+      source: 'web',
+      userMessage: message,
+    };
+
+    // 2. 构建系统基础 System Prompt
+    let systemPrompt = await this.buildSystemPrompt(ctx);
+
+    // 3. 调用 FastAPI 匹配其它关联的 Skill
+    let matchedSkills: any[] = [];
+    let injectedPrompt = '';
+    
+    try {
+      const fastapiUrl = this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000';
+      const resolveRes = await globalThis.fetch(`${fastapiUrl}/api/internal/skills/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: message,
+          skill_ids: ctx.skillIds
+        }),
+      });
+      if (resolveRes.ok) {
+        const data = await resolveRes.json();
+        if (data.injected_prompt) {
+          injectedPrompt = data.injected_prompt;
+        }
+        if (data.matched_skills) {
+          matchedSkills = data.matched_skills;
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Sandbox: Failed to call FastAPI Skill Engine: ${err}`);
+    }
+
+    // 4. 强制注入当前正在编辑且未保存的 activeSkill
+    let activeSkillInjected = '';
+    if (activeSkill && activeSkill.content) {
+      activeSkillInjected = `<injected_skills>\n`;
+      activeSkillInjected += `以下为你注入了当前正在测试的AI专家技能，请根据用户的问题，综合运用它们的规则来回答。\n`;
+      activeSkillInjected += `<skill name="${activeSkill.name || 'TestSkill'}">\n`;
+      activeSkillInjected += `${activeSkill.content}\n`;
+      activeSkillInjected += `</skill>\n`;
+      activeSkillInjected += `</injected_skills>\n`;
+      
+      systemPrompt += `\n\n${activeSkillInjected}`;
+    }
+
+    // 如果还有其它关联命中的技能，追加到 Prompt 中
+    if (injectedPrompt) {
+      systemPrompt += `\n\n${injectedPrompt}`;
+    }
+
+    // 5. 替换 Mock 注入的上下文变量 (如 {{ticket_id}} -> 123)
+    if (variables) {
+      for (const [key, val] of Object.entries(variables)) {
+        const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g');
+        systemPrompt = systemPrompt.replace(regex, val);
+        message = message.replace(regex, val);
+      }
+    }
+
+    // 6. 运行大模型调用
+    const model = this.getModel();
+    
+    const { text, usage } = await generateText({
+      model: model,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: message }],
+    });
+
+    const latencyMs = Date.now() - startTime;
+
+    return {
+      response_text: text,
+      raw_prompt: systemPrompt,
+      metrics: {
+        latency_ms: latencyMs,
+        prompt_tokens: usage?.inputTokens || 0,
+        completion_tokens: usage?.outputTokens || 0,
+        total_tokens: usage?.totalTokens || 0,
+      },
+      matched_skills: [
+        ...(activeSkill ? [{ id: activeSkill.name || 'TestSkill', name: activeSkill.name || 'TestSkill', match_type: 'forced' }] : []),
+        ...matchedSkills,
+      ],
+    };
   }
 }

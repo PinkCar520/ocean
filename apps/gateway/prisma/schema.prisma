@@ -447,3 +447,13 @@ model SkillTriggerLog {
   @@index([sessionId])
   @@map("skill_trigger_logs")
 }
+
+// 系统配置表
+model SystemConfig {
+  key         String   @id // 唯一键，如 'skill_creator_prompt'
+  value       String   @db.Text
+  description String?  @db.Text
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_configs")
+}

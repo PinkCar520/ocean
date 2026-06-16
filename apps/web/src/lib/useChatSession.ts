@@ -9,6 +9,7 @@ interface UseChatSessionProps {
   selectedModelId: string;
   isSearchMode: boolean;
   isKnowledgeMode: boolean;
+  activeSkillIds: string[];
   onStreamFinished: (id: string) => Promise<void>;
 }
 
@@ -19,6 +20,7 @@ export function useChatSession({
   selectedModelId,
   isSearchMode,
   isKnowledgeMode,
+  activeSkillIds,
   onStreamFinished
 }: UseChatSessionProps) {
   const initializedRef = useRef(false);
@@ -81,6 +83,7 @@ export function useChatSession({
       search: isSearchMode,
       knowledge: isKnowledgeMode,
       sessionId: sessionId,
+      skillIds: activeSkillIds,
     },
     onFinish: async ({ message }: any) => {
       const sid = sessionIdRef.current;
@@ -198,9 +201,10 @@ export function useChatSession({
         knowledge: isKnowledgeMode,
         sessionId: sessionId,
         parentId,
+        skillIds: activeSkillIds,
       }
     });
-  }, [sendMessage, selectedModelId, isSearchMode, isKnowledgeMode, sessionId, currentLeafId]);
+  }, [sendMessage, selectedModelId, isSearchMode, isKnowledgeMode, sessionId, currentLeafId, activeSkillIds]);
 
   // 切换分支
   const switchBranch = useCallback((nodeId: string) => {

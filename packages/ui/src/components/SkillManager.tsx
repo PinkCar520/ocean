@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api-client';
-import { Plus, Save, Trash2, Cpu, Play, ArrowLeft, Wrench, MoreVertical, MessageSquare, HelpCircle, Edit2, Download, UploadCloud, RefreshCw, Info, Search, Pin, Terminal, History, Copy, ChevronDown, X } from 'lucide-react';
+import { Plus, Save, Trash2, Cpu, Play, ArrowLeft, Wrench, MoreVertical, MessageSquare, HelpCircle, Edit2, Download, UploadCloud, RefreshCw, Info, Search, Pin, Terminal, History, Copy, ChevronDown, X, Sparkles } from 'lucide-react';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import { cn } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +39,11 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
   const [pendingNavigation, setPendingNavigation] = useState<any | null>(null);
   const [skillHistory, setSkillHistory] = useState<any[]>([]);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  
+  // AI Generate state
+  const [isAIGenerateOpen, setIsAIGenerateOpen] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const hasUnsavedChanges = isFormEditable && JSON.stringify(activeSkill) !== JSON.stringify(originalSkill);
 
@@ -132,6 +137,34 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
     setOriginalSkill(newSkill);
     setIsEditing(true);
     setIsFormEditable(true);
+  };
+
+  const handleAIGenerate = async () => {
+    if (!aiInstruction.trim()) return;
+    setIsGenerating(true);
+    try {
+      const res: any = await api.post('/api/skills/generate', { instruction: aiInstruction });
+      const generatedSkill = res.data?.data || res.data;
+      if (generatedSkill) {
+        const newSkill = {
+          name: generatedSkill.name || 'Generated Skill',
+          description: generatedSkill.description || '',
+          triggerKws: generatedSkill.triggerKws || [],
+          content: generatedSkill.content || '',
+          isPublic: true,
+        };
+        setActiveSkill(newSkill);
+        setOriginalSkill(newSkill);
+        setIsEditing(true);
+        setIsFormEditable(true);
+        setIsAIGenerateOpen(false);
+        setAiInstruction('');
+      }
+    } catch (err) {
+      console.error('Failed to generate skill', err);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleDiscardAndNavigate = () => {
@@ -307,14 +340,24 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
             </button>
             Skill Studio
           </h2>
-          <button 
-            onClick={handleCreate}
-            className="relative z-[9999] p-1 hover:bg-[#1C1B1B]/5 rounded text-[#716B67] hover:text-[#1C1B1B] transition-colors"
-            style={{ WebkitAppRegion: 'no-drag' } as any}
-            title="Create New Skill"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setIsAIGenerateOpen(true)}
+              className="relative z-[9999] p-1.5 hover:bg-emerald-500/10 rounded text-emerald-600 transition-colors flex items-center gap-1"
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+              title="Generate with AI"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={handleCreate}
+              className="relative z-[9999] p-1.5 hover:bg-[#1C1B1B]/5 rounded text-[#716B67] hover:text-[#1C1B1B] transition-colors"
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+              title="Create New Skill"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -640,6 +683,55 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
               className="px-6 py-2.5 rounded-[12px] font-medium text-[15px] bg-[#EF4444] text-white hover:bg-[#DC2626] transition-colors shadow-sm"
             >
               {t('common.delete', 'Delete')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* AI Generate Dialog */}
+      <Dialog open={isAIGenerateOpen} onOpenChange={setIsAIGenerateOpen}>
+        <DialogContent className="sm:max-w-[460px] sm:rounded-[16px] gap-0 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-[#1C1B1B] flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-emerald-500" />
+              Generate with AI
+            </DialogTitle>
+            <DialogDescription className="pt-3 text-base text-[#716B67] leading-relaxed">
+              Describe what you want this skill to do, and our AI will generate a structured prompt for you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <textarea
+              value={aiInstruction}
+              onChange={e => setAiInstruction(e.target.value)}
+              placeholder="e.g. A code reviewer that checks for security vulnerabilities and performance bottlenecks..."
+              className="w-full bg-[#F6F3F2] border border-[#E8E4E2] rounded-xl p-3 text-[13px] text-[#1C1B1B] focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 min-h-[120px] resize-none"
+              disabled={isGenerating}
+            />
+          </div>
+          <DialogFooter className="mt-6 flex sm:justify-end gap-3">
+            <button
+              onClick={() => {
+                setIsAIGenerateOpen(false);
+                setAiInstruction('');
+              }}
+              disabled={isGenerating}
+              className="px-6 py-2.5 rounded-[12px] font-medium text-[15px] bg-[#F6F3F2] text-[#1C1B1B] hover:bg-[#E8E4E2] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAIGenerate}
+              disabled={isGenerating || !aiInstruction.trim()}
+              className="px-6 py-2.5 rounded-[12px] font-medium text-[15px] bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+            >
+              {isGenerating ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'Generate'
+              )}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -78,6 +78,8 @@ export interface SkillContext {
   userMessage: string;
   /** 解析出的技能输入参数 */
   extractedParams?: Record<string, any>;
+  /** 明确选中的技能 ID 列表 */
+  skillIds?: string[];
 }
 
 /** Skill 执行步骤结果 */

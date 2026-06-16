@@ -24,13 +24,7 @@ interface SkillStore {
 }
 
 export const useSkillStore = create<SkillStore>((set, get) => ({
-  catalog: [
-    { id: 'mock-1', name: 'Code Review', description: '自动审查代码质量，给出改进建议', trigger_keywords: ['code', 'review', '代码'] },
-    { id: 'mock-2', name: 'Document Writer', description: '根据需求生成技术文档', trigger_keywords: ['doc', 'write', '文档'] },
-    { id: 'mock-3', name: 'SQL Generator', description: '自然语言转 SQL 查询语句', trigger_keywords: ['sql', 'query', '查询'] },
-    { id: 'mock-4', name: 'Bug Analyzer', description: '分析错误日志，定位 Bug 根因', trigger_keywords: ['bug', 'error', '错误'] },
-    { id: 'mock-5', name: 'Test Generator', description: '自动生成单元测试用例', trigger_keywords: ['test', 'unit', '测试'] },
-  ],
+  catalog: [],
   activeSkills: [],
   pickerOpen: false,
   pickerQuery: '',
@@ -58,11 +52,9 @@ export const useSkillStore = create<SkillStore>((set, get) => ({
 
   refreshCatalog: async () => {
     try {
-      // In a real app, you might want to hit a /catalog endpoint to just get L1 metadata.
-      // Here we assume /api/skills returns the list.
-      const res = await api.get<any>('/api/skills');
-      if (res.data) {
-        set({ catalog: res.data });
+      const res = await api.get<any>('/api/chat/skills');
+      if (res.data && res.data.skills) {
+        set({ catalog: res.data.skills });
       }
     } catch (err) {
       console.error('Failed to fetch skill catalog', err);
