@@ -13,14 +13,6 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { globalToast } from '../GlobalToast';
 import { api } from '../../lib/api-client';
 import { useVoiceInput } from '../../lib/useVoiceInput';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import Mention from '@tiptap/extension-mention';
-import { getMentionSuggestion } from './extensions/mentionSuggestion';
-import { getSlashSuggestion } from './extensions/slashSuggestion';
-import { SlashCommand } from './extensions/SlashCommandExtension';
-import { GhostTextExtension } from './extensions/GhostTextExtension';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -115,6 +107,13 @@ export const ChatInput = React.memo(({
   const ActiveIcon = ICON_MAP[activeModel.icon] || Globe;
 
   const [isFocused, setIsFocused] = useState(false);
+  const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [slashQuery, setSlashQuery] = useState("");
+  const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
+  const [activeMentions, setActiveMentions] = useState<{ id: string; label: string; type: string; icon: any }[]>([]);
   const [isProjectCreateModalOpen, setIsProjectCreateModalOpen] = useState(false);
 
   const preRecordTextRef = React.useRef(localInput);
@@ -162,114 +161,211 @@ export const ChatInput = React.memo(({
     return [...baseOptions, ...skillOptions];
   }, [installedSkills]);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({
-        placeholder: () => {
-          if (ghostText) return '';
-          return isEmpty 
-            ? t('chat.placeholder_new', 'Ask Ocean to perform a task...') 
-            : t('chat.placeholder_reply', 'Write a message...');
+  const handleMentionSelect = (type: 'search' | 'knowledge', label: string, id: string, icon: any) => {
+    // Prevent duplicate mentions
+    if (activeMentions.find(m => m.id === id)) {
+      setMentionMenuOpen(false);
+      setTimeout(() => textAreaRef.current?.focus(), 10);
+      return;
+    }
+
+    if (type === 'search') setIsSearchMode(true);
+    if (type === 'knowledge') setIsKnowledgeMode(true);
+
+    // Add as chip instead of inserting text in textarea
+    setActiveMentions(prev => [...prev, { id, label, type, icon }]);
+
+    // Remove the @query from the textarea
+    const cursorPosition = textAreaRef.current?.selectionStart || 0;
+    const textBeforeCursor = localInput.slice(0, cursorPosition);
+    const textAfterCursor = localInput.slice(cursorPosition);
+    const textBeforeMatch = textBeforeCursor.replace(/(?:^|\s)@([^\s]*)$/, (match) => {
+      return match.startsWith(' ') ? ' ' : '';
+    });
+    const newText = textBeforeMatch + textAfterCursor;
+    setLocalInput(newText.trimStart());
+    setMentionMenuOpen(false);
+
+    setTimeout(() => {
+      if (textAreaRef.current) {
+        textAreaRef.current.focus();
+        const newPos = textBeforeMatch.trimStart().length;
+        textAreaRef.current.selectionStart = newPos;
+        textAreaRef.current.selectionEnd = newPos;
+      }
+    }, 10);
+  };
+
+  const removeMention = (id: string) => {
+    const mention = activeMentions.find(m => m.id === id);
+    if (mention?.type === 'search') setIsSearchMode(false);
+    if (mention?.type === 'knowledge') setIsKnowledgeMode(false);
+    setActiveMentions(prev => prev.filter(m => m.id !== id));
+  };
+
+  const handleSlashSelect = (action: string, label: string, _id: string, icon: any, desc?: string) => {
+    setSlashMenuOpen(false);
+
+    if (textAreaRef.current) {
+      // Remove any old legacy chips just in case
+      const existingChips = textAreaRef.current.querySelectorAll('.chip');
+      existingChips.forEach(chip => chip.remove());
+      const existingAnchors = textAreaRef.current.querySelectorAll('.cursor-anchor');
+      existingAnchors.forEach(anchor => anchor.remove());
+
+      let html = textAreaRef.current.innerHTML;
+
+      const regex = /(?:^|\s|&nbsp;)\/([^<\s]*)$/;
+      if (regex.test(html)) {
+        html = html.replace(regex, (match) => {
+          const leading = match.charAt(0) === '/' ? '' : match.charAt(0);
+          return leading;
+        });
+        textAreaRef.current.innerHTML = html;
+      }
+
+      // Update the structural state instead of DOM
+      const skillName = action === 'tool' ? label.replace(/^\//, '') : action;
+      setSelectedSkill?.({ name: skillName, provider: 'ocean', desc, icon });
+      setLocalInput(textAreaRef.current.textContent || '');
+
+      setTimeout(() => {
+        if (textAreaRef.current) {
+          textAreaRef.current.focus();
+          const sel = window.getSelection();
+          const newRange = document.createRange();
+          newRange.selectNodeContents(textAreaRef.current);
+          newRange.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(newRange);
         }
-      }),
-      Mention.configure({
-        HTMLAttributes: {
-          class: 'mention',
-        },
-        suggestion: getMentionSuggestion((query) => {
-          return MENTION_OPTIONS.filter(o => o.label.toLowerCase().includes(query.toLowerCase()));
-        }),
-      }),
-      SlashCommand.configure({
-        suggestion: getSlashSuggestion((query) => {
-          return SLASH_OPTIONS.filter(o => o.label.toLowerCase().includes('/' + query.toLowerCase()) || o.label.toLowerCase().includes(query.toLowerCase()));
-        }, (props, ed, range) => {
-          ed.chain().focus().deleteRange(range).run();
-          const item = props;
-          if (item) {
-            const skillName = item.action === 'tool' ? item.label.replace('/', '') : item.action;
-            if (setSelectedSkill) setSelectedSkill({ name: skillName, provider: 'ocean', desc: item.desc, icon: item.icon });
+      }, 10);
+    }
+  };
+
+  const ghostRef = React.useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (ghostRef.current && textAreaRef.current) {
+      ghostRef.current.innerHTML = textAreaRef.current.innerHTML;
+      if (ghostText) {
+        const ghostSpan = document.createElement('span');
+        ghostSpan.className = 'visible-ghost border-none';
+        ghostSpan.textContent = ghostText;
+
+        const lastChild = ghostRef.current.lastElementChild;
+        if (lastChild && lastChild.tagName === 'DIV') {
+          const br = lastChild.querySelector('br:last-child');
+          if (br) {
+            lastChild.insertBefore(ghostSpan, br);
+          } else {
+            lastChild.appendChild(ghostSpan);
           }
-        }),
-      }),
-      GhostTextExtension.configure({
-        text: ghostText,
-      }),
-    ],
-    content: localInput,
-    onUpdate: ({ editor }) => {
-      setLocalInput(editor.getText());
-      
-      let hasSearch = false;
-      let hasKnowledge = false;
-      editor.state.doc.descendants((node) => {
-        if (node.type.name === 'mention') {
-          if (node.attrs.id === 'search') hasSearch = true;
-          if (node.attrs.id === 'lexis' || node.attrs.id === 'internal') hasKnowledge = true;
+        } else {
+          const br = ghostRef.current.querySelector('br:last-child');
+          if (br && ghostRef.current.lastElementChild === br) {
+            ghostRef.current.insertBefore(ghostSpan, br);
+          } else {
+            ghostRef.current.appendChild(ghostSpan);
+          }
         }
-      });
-      setIsSearchMode(hasSearch);
-      setIsKnowledgeMode(hasKnowledge);
-      
-      if (editor.isEmpty && selectedSkill) {
-         // Intentionally left empty to prevent auto-clearing skill when backspacing content
-      }
-    },
-    autofocus: 'end',
-    onFocus: () => setIsFocused(true),
-    onBlur: () => setIsFocused(false),
-    editorProps: {
-      attributes: {
-        class: "w-full text-[15px] text-foreground outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none focus:outline-none focus:ring-0",
-      },
-      handleKeyDown: (view, event) => {
-        if (document.querySelector('.tippy-box')) {
-           // Allow tippy events to process
-        } else if (event.key === 'Enter' && !event.shiftKey) {
-          event.preventDefault();
-          onFormSubmit();
-          return true;
-        }
-        
-        if (event.key === 'Tab' && ghostText) {
-          event.preventDefault();
-          view.dispatch(view.state.tr.insertText(ghostText, view.state.selection.to));
-          if (setGhostText) setGhostText('');
-          return true;
-        }
-        if (event.key === 'Backspace' && view.state.doc.textContent === '' && selectedSkill) {
-          event.preventDefault();
-          if (setSelectedSkill) setSelectedSkill(null);
-          return true;
-        }
-        if (event.key === 'ArrowUp' && view.state.doc.textContent.trim() === '' && lastUserMessage) {
-          event.preventDefault();
-          view.dispatch(view.state.tr.insertText(lastUserMessage));
-          return true;
-        }
-        return false;
       }
     }
-  }, [isEmpty, t, ghostText, selectedSkill, lastUserMessage, installedSkills]);
+  }, [localInput, ghostText]);
+
+  useLayoutEffect(() => {
+    const syncScroll = () => {
+      if (textAreaRef.current && ghostRef.current) {
+        ghostRef.current.scrollTop = textAreaRef.current.scrollTop;
+      }
+    };
+    const ta = textAreaRef.current;
+    ta?.addEventListener('scroll', syncScroll);
+    return () => ta?.removeEventListener('scroll', syncScroll);
+  }, [textAreaRef]);
 
   React.useEffect(() => {
-    if (editor && localInput === '' && !editor.isDestroyed && editor.getText() !== '') {
-       editor.commands.clearContent();
-    }
-  }, [localInput, editor]);
-
-  React.useEffect(() => {
-    if (editor && !editor.isDestroyed && editor.extensionManager && ghostText !== undefined) {
-      const ext = editor.extensionManager.extensions.find((e: any) => e.name === 'ghostText');
-      if (ext) {
-        ext.options.text = ghostText;
-        editor.view.dispatch(editor.state.tr);
+    if (slashMenuOpen) {
+      const activeEl = document.getElementById('slash-active-item');
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' });
       }
     }
-  }, [ghostText, editor]);
+  }, [slashActiveIndex, slashMenuOpen]);
 
+  useLayoutEffect(() => {
+    // ContentEditable div auto-resizes naturally, no need to set height manually based on scrollHeight
+  }, [localInput, textAreaRef]);
 
+  React.useEffect(() => {
+    // Sync React state to DOM when input is cleared externally (e.g. after send)
+    if (localInput === '' && textAreaRef.current && textAreaRef.current.textContent !== '') {
+      textAreaRef.current.innerHTML = '';
+      textAreaRef.current.textContent = '';
+    }
+  }, [localInput, textAreaRef]);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      e.preventDefault();
+      const filesArray = Array.from(e.clipboardData.files);
+      addFiles(filesArray);
+    } else {
+      e.preventDefault();
+      let text = e.clipboardData.getData('text/plain');
+      
+      // Auto-parse skill chips if pasting raw text with a slash command
+      const skillMatch = text.match(/^\/([a-zA-Z0-9_-]+)\s*(.*)/s);
+      if (skillMatch && !selectedSkill) {
+        const skillName = skillMatch[1];
+        const restText = skillMatch[2];
+        const skillOpt = SLASH_OPTIONS.find(s => s.action === skillName || s.label === `/${skillName}`);
+        if (skillOpt) {
+          const action = skillOpt.action;
+          const label = skillOpt.label;
+          const desc = skillOpt.desc;
+          const icon = skillOpt.icon;
+          const finalSkillName = action === 'tool' ? label.replace(/^\//, '') : action;
+          setSelectedSkill?.({ name: finalSkillName, provider: 'ocean', desc, icon });
+          text = restText;
+        }
+      }
+      
+      document.execCommand('insertText', false, text);
+    }
+  };
+
+  const filteredMentions = MENTION_OPTIONS.filter(o => o.label.toLowerCase().includes(mentionQuery.toLowerCase()));
+  const filteredSlash = SLASH_OPTIONS.filter(o => o.label.toLowerCase().includes('/' + slashQuery.toLowerCase()));
+
+  // Parse localInput to highlight /command tokens in the ghost overlay
+  const renderHighlightedInput = (text: string) => {
+    // Split text into segments: /word tokens (blue) and everything else (transparent)
+    const parts: { text: string; highlight: boolean }[] = [];
+    let remaining = text;
+    const regex = /((?:^|(?<=\s))\/\S+)/g;
+    let lastIndex = 0;
+    let match;
+    // Use simple split approach for broad compatibility
+    const tokens = text.split(/((?:^|\s)\/\S+)/);
+    let idx = 0;
+    for (const token of tokens) {
+      const isSlashToken = /^(\s?\/\S+)$/.test(token) && token.includes('/');
+      if (isSlashToken) {
+        // Leading space should be transparent, /word should be blue
+        const spaceMatch = token.match(/^(\s*)(\/\S+)$/);
+        if (spaceMatch) {
+          if (spaceMatch[1]) parts.push({ text: spaceMatch[1], highlight: false });
+          parts.push({ text: spaceMatch[2], highlight: true });
+        } else {
+          parts.push({ text: token, highlight: true });
+        }
+      } else {
+        parts.push({ text: token, highlight: false });
+      }
+    }
+    return parts;
+  };
 
   return (
     <div className={cn(
@@ -277,14 +373,124 @@ export const ChatInput = React.memo(({
       isEmpty ? "pb-4 mt-4" : "pt-2 pb-4 md:pb-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent mt-auto"
     )}>
       <div className="max-w-[800px] mx-auto relative">
-        
+        <AnimatePresence>
+          {mentionMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute bottom-[calc(100%+8px)] left-4 w-auto min-w-[300px] bg-card/95 backdrop-blur-xl border border-border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl overflow-hidden z-50"
+            >
+              <div className="px-3 py-2 border-b border-border/60 bg-muted/60 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Add Context</span>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/80">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↑↓</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↵</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">Esc</kbd>
+                </div>
+              </div>
+              <div className="p-1.5 max-h-64 overflow-y-auto no-scrollbar">
+                {filteredMentions.length > 0 ? filteredMentions.map((opt, idx) => {
+                  const isActive = idx === mentionActiveIndex;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleMentionSelect(opt.type as any, opt.label, opt.id, opt.icon)}
+                      onMouseEnter={() => setMentionActiveIndex(idx)}
+                      className={cn(
+                        "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5",
+                        isActive ? "bg-primary/8 ring-1 ring-primary/20" : "hover:bg-muted"
+                      )}
+                    >
+                      <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
+                        <opt.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                      </div>
+                      <span className="flex-1 truncate">
+                        <span className={cn("text-[13px] font-bold", isActive ? "text-primary" : "text-foreground")}>{opt.label}</span>
+                        <span className={cn("ml-2 text-[12px] font-normal", isActive ? "text-primary/60" : "text-muted-foreground/80")}>{opt.desc}</span>
+                      </span>
+                      {isActive && <span className="text-[10px] text-primary/50 font-medium shrink-0">↵</span>}
+                    </button>
+                  );
+                }) : (
+                  <div className="px-3 py-4 text-center text-[13px] text-muted-foreground/80">No matches found</div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {slashMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute bottom-[calc(100%+8px)] left-4 w-56 bg-card/95 backdrop-blur-xl border border-border shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] rounded-xl z-50"
+            >
+              {/* Header */}
+              <div className="px-3 py-2 border-b border-border/60 bg-muted/60 flex items-center justify-between rounded-t-xl">
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Commands</span>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/80">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↑↓</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↵</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">Esc</kbd>
+                </div>
+              </div>
+              <div className="p-1.5 max-h-64 overflow-y-auto">
+                {filteredSlash.length > 0 ? filteredSlash.map((opt, idx) => {
+                  const isActive = idx === slashActiveIndex;
+                  const showSeparator = idx > 0 && filteredSlash[idx - 1].type !== (opt as any).type;
+                  return (
+                    <React.Fragment key={opt.id}>
+                      {showSeparator && <div className="h-px bg-border/80 my-1 mx-2" />}
+                      
+                        <Tooltip open={isActive && !!opt.desc}>
+                          <TooltipTrigger asChild>
+                            <button
+                              id={isActive ? 'slash-active-item' : undefined}
+                              onClick={() => handleSlashSelect(opt.action, opt.label, opt.id, opt.icon, opt.desc)}
+                              onMouseEnter={() => setSlashActiveIndex(idx)}
+                              className={cn(
+                                "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5 relative group",
+                                isActive ? "bg-primary/8 ring-1 ring-primary/20" : "hover:bg-muted"
+                              )}
+                            >
+                              <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">
+                                <opt.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                              </div>
+                              <span className="flex-1 truncate">
+                                <span className={cn("text-[13px] font-bold", isActive ? "text-primary" : "text-foreground")}>{opt.label}</span>
+                              </span>
+                              {isActive && <span className="text-[10px] text-primary/50 font-medium shrink-0 ml-2">↵</span>}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="right"
+                            sideOffset={12}
+                            align="start"
+                            className="w-[340px] bg-[#2D2D2D] text-[#E8E4E2] p-4 rounded-xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] z-[60] text-[13px] leading-relaxed cursor-default whitespace-normal border border-white/10 pointer-events-none"
+                          >
+                            {opt.desc}
+                          </TooltipContent>
+                        </Tooltip>
+                      
+                    </React.Fragment>
+                  );
+                }) : (
+                  <div className="px-3 py-4 text-center text-[13px] text-muted-foreground/80">No commands found</div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className={cn(
           "bg-card/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] ring-1 transition-all duration-300",
           isFocused ? "ring-primary/30 shadow-[0_0_15px_rgba(236,91,20,0.15)]" : "ring-[#1C1B1B]/5"
         )}>
           <AnimatePresence>
-            {(attachments.length > 0) && (
+            {(attachments.length > 0 || activeMentions.length > 0) && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -292,6 +498,25 @@ export const ChatInput = React.memo(({
                 className="flex flex-wrap gap-2 px-4 pt-3 pb-1"
               >
                 {/* Mention chips with hover X */}
+                {activeMentions.map((mention) => {
+                  const MentionIcon = mention.icon;
+                  return (
+                    <div key={mention.id} className="relative group flex items-center">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/8 border border-primary/20 text-primary">
+                        <MentionIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="text-[12px] font-bold">{mention.label}</span>
+                      </div>
+                      <button
+                        tabIndex={-1}
+                        onClick={() => removeMention(mention.id)}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-foreground text-white flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-150 hover:bg-red-500 shadow-sm z-10"
+                      >
+                        <CloseIcon className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+
                 {/* File attachments */}
                 {attachments.map((file) => (
                   <div key={file.id} className={cn(
@@ -332,7 +557,7 @@ export const ChatInput = React.memo(({
 
           <div className={cn(
             "relative flex items-baseline w-full px-4",
-            attachments.length > 0 ? "pt-1 pb-3" : "py-3"
+            attachments.length > 0 || activeMentions.length > 0 ? "pt-1 pb-3" : "py-3"
           )}>
             {selectedSkill && (
               
@@ -343,8 +568,7 @@ export const ChatInput = React.memo(({
                     >
                       /{selectedSkill.name}
                       <button
-                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedSkill?.(null); }}
+                        onClick={() => setSelectedSkill?.(null)}
                         className="w-4 h-4 ml-0.5 -mr-1 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-[#2b7fff]/20 transition-all cursor-pointer"
                       >
                         <CloseIcon className="w-2.5 h-2.5" />
@@ -378,11 +602,182 @@ export const ChatInput = React.memo(({
               
             )}
 
-                        <div className="flex-1 min-w-0 relative overflow-hidden">
-              <EditorContent editor={editor} />
+            <div className="flex-1 min-w-0 relative">
+              <style>{`
+                .ghost-overlay { color: transparent !important; }
+                .ghost-overlay * { 
+                  color: transparent !important; 
+                  background-color: transparent !important; 
+                  border-color: transparent !important; 
+                  box-shadow: none !important; 
+                }
+                .ghost-overlay .visible-ghost { 
+                  color: rgba(168, 164, 161, 0.5) !important; 
+                }
+              `}</style>
+              {/* Ghost overlay: exactly mirrors contentEditable HTML but transparent, appending visible ghostText */}
+              <div
+                ref={ghostRef}
+                className="ghost-overlay absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden text-[15px] leading-relaxed font-sans border-none"
+              >
+              </div>
+
+              <div
+                ref={textAreaRef as unknown as React.RefObject<HTMLDivElement>}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={(e) => {
+                  const val = e.currentTarget.textContent || '';
+                  setLocalInput(val);
+
+                  const mentionMatch = val.match(/(?:^|\s)@([^\s]*)$/);
+                  const slashMatch = val.match(/(?:^|\s)\/([^\s]*)$/);
+
+                  if (mentionMatch) {
+                    setMentionMenuOpen(true);
+                    setMentionQuery(mentionMatch[1]);
+                    setMentionActiveIndex(0);
+                    setSlashMenuOpen(false);
+                  } else if (slashMatch) {
+                    setSlashMenuOpen(true);
+                    setSlashQuery(slashMatch[1]);
+                    setSlashActiveIndex(0);
+                    setMentionMenuOpen(false);
+                  } else {
+                    setMentionMenuOpen(false);
+                    setSlashMenuOpen(false);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && ghostText) {
+                    e.preventDefault();
+                    if (textAreaRef.current) {
+                      textAreaRef.current.textContent = localInput + ghostText;
+                      setLocalInput(localInput + ghostText);
+                      setGhostText('');
+                      const range = document.createRange();
+                      const sel = window.getSelection();
+                      range.selectNodeContents(textAreaRef.current);
+                      range.collapse(false);
+                      sel?.removeAllRanges();
+                      sel?.addRange(range);
+                    }
+                    return;
+                  }
+
+                  if (!['Shift', 'Control', 'Alt', 'Meta', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    setGhostText('');
+                  }
+
+                  if (mentionMenuOpen && e.key === 'Escape') {
+                    setMentionMenuOpen(false);
+                    e.preventDefault();
+                  } else if (slashMenuOpen && e.key === 'Escape') {
+                    setSlashMenuOpen(false);
+                    e.preventDefault();
+                  } else if (slashMenuOpen && e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSlashActiveIndex(prev => prev >= filteredSlash.length - 1 ? 0 : prev + 1);
+                  } else if (slashMenuOpen && e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSlashActiveIndex(prev => prev <= 0 ? Math.max(filteredSlash.length - 1, 0) : prev - 1);
+                  } else if (mentionMenuOpen && e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setMentionActiveIndex(prev => prev >= filteredMentions.length - 1 ? 0 : prev + 1);
+                  } else if (mentionMenuOpen && e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setMentionActiveIndex(prev => prev <= 0 ? Math.max(filteredMentions.length - 1, 0) : prev - 1);
+                  } else if (e.key === 'Enter' && !e.shiftKey) {
+                    if (mentionMenuOpen) {
+                      e.preventDefault();
+                      const target = filteredMentions[mentionActiveIndex] || filteredMentions[0];
+                      if (target) handleMentionSelect(target.type as any, target.label, target.id, target.icon);
+                    } else if (slashMenuOpen) {
+                      e.preventDefault();
+                      const target = filteredSlash[slashActiveIndex] || filteredSlash[0];
+                      if (target) handleSlashSelect(target.action, target.label, target.id, target.icon, target.desc);
+                    } else {
+                      e.preventDefault();
+                      if (textAreaRef.current) {
+                        textAreaRef.current.innerHTML = '';
+                      }
+                      onFormSubmit();
+                    }
+                  } else if (e.key === 'Backspace' && !slashMenuOpen && !mentionMenuOpen) {
+                    let isAtStart = false;
+                    const sel = window.getSelection();
+                    if (sel && sel.isCollapsed && textAreaRef.current) {
+                      const range = sel.getRangeAt(0);
+                      const preCaretRange = range.cloneRange();
+                      preCaretRange.selectNodeContents(textAreaRef.current);
+                      preCaretRange.setEnd(range.endContainer, range.endOffset);
+                      if (preCaretRange.toString().length === 0) {
+                        isAtStart = true;
+                      }
+                    }
+
+                    if (isAtStart && selectedSkill) {
+                      e.preventDefault();
+                      setSelectedSkill?.(null);
+                    }
+                  } else if (e.key === 'ArrowUp' && !slashMenuOpen && !mentionMenuOpen && !localInput.trim() && lastUserMessage) {
+                    e.preventDefault();
+                    if (textAreaRef.current) {
+                      textAreaRef.current.textContent = lastUserMessage;
+                      setLocalInput(lastUserMessage);
+                      const range = document.createRange();
+                      const sel = window.getSelection();
+                      range.selectNodeContents(textAreaRef.current);
+                      range.collapse(false);
+                      sel?.removeAllRanges();
+                      sel?.addRange(range);
+                    }
+                  }
+                }}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                onPaste={handlePaste}
+                onScroll={() => {
+                  if (ghostRef.current && textAreaRef.current) {
+                    ghostRef.current.scrollTop = textAreaRef.current.scrollTop;
+                  }
+                }}
+                className="w-full bg-transparent text-[15px] text-foreground outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none"
+              />
+              {!localInput && !selectedSkill && !ghostText && (
+                <div className="absolute left-0 top-0 pointer-events-none text-muted-foreground/80 text-[15px] leading-relaxed select-none">
+                  {isEmpty 
+                    ? t('chat.placeholder_new', 'Ask Ocean to perform a task...') 
+                    : t('chat.placeholder_reply', 'Write a message...')}
+                </div>
+              )}
+              {localInput === '/' && slashMenuOpen && (
+                <div className="absolute left-0 top-0 pointer-events-none text-muted-foreground/80 text-[15px] leading-relaxed select-none flex">
+                  <span className="opacity-0">/</span>
+                  <span className="ml-0.5">Choose a command...</span>
+                </div>
+              )}
             </div>
+
+            <AnimatePresence>
+              {ghostText && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute bottom-3 right-4 flex items-center gap-1.5 pointer-events-none z-10"
+                >
+                  <span className="text-[11px] font-medium text-muted-foreground/80">Press</span>
+                  <div className="flex items-center justify-center px-1.5 py-0.5 rounded-[4px] bg-muted border border-border border-b-[2px]">
+                    <span className="text-[10px] font-bold text-muted-foreground tracking-wider">TAB</span>
+                  </div>
+                  <span className="text-[11px] font-medium text-muted-foreground/80">to complete</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-<div className="flex items-center justify-between px-2 sm:px-4 pb-2 h-[52px]">
+
+          <div className="flex items-center justify-between px-2 sm:px-4 pb-2 h-[52px]">
             {isRecording ? (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -497,7 +892,7 @@ export const ChatInput = React.memo(({
                         {installedSkills.map(skill => (
                           <DropdownMenuItem
                             key={skill.id}
-                            onClick={() => setSelectedSkill?.({ name: skill.name, provider: 'ocean', desc: skill.description, icon: Wrench })}
+                            onClick={() => handleSlashSelect('tool', '/' + skill.name, skill.id, Wrench, skill.description)}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5"
                           >
                             <FileText className="w-4 h-4 text-muted-foreground shrink-0" />

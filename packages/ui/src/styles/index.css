@@ -207,3 +207,17 @@
     animation: none !important;
   }
 }
+
+/* TipTap Mentions */
+.ProseMirror .mention {
+  @apply bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-lg font-bold select-all inline-block;
+  line-height: 1.2;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground) / 0.8);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
