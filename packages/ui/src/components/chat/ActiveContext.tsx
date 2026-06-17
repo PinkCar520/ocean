@@ -59,7 +59,7 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
         </div>
 
         <div className={cn(
-          "bg-card rounded-[16px] p-5 border border-border/50 space-y-4 transition-all duration-300 relative overflow-hidden shadow-sm",
+          "bg-card rounded-[16px] p-5 border border-border/50 space-y-4 transition-all duration-300 relative overflow-hidden",
           !activeProject ? "border-dashed flex flex-col items-center justify-center py-8" : "hover:border-border"
         )}>
 
@@ -121,7 +121,7 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
           </div>
         </div>
 
-        <div className="bg-card rounded-[16px] flex flex-col border border-border/50 overflow-hidden divide-y divide-border/50 shadow-sm relative z-10">
+        <div className="bg-card rounded-[16px] flex flex-col border border-border/50 overflow-hidden divide-y divide-border/50 relative z-10">
           <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
             <FolderOpen className="w-5 h-5 text-orange-500 shrink-0" />
             <div className="min-w-0 flex flex-col justify-center">

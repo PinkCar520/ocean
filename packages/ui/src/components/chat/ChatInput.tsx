@@ -822,7 +822,7 @@ export const ChatInput = React.memo(({
             <div className="flex items-center gap-0.5 sm:gap-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="p-1.5 sm:p-2 rounded-lg text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground transition-all shrink-0">
+                  <button className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground transition-all shrink-0">
                     <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1007,7 +1007,7 @@ export const ChatInput = React.memo(({
                   };
                   input.click();
                 }}
-                className="p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all shrink-0"
+                className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all shrink-0"
               >
                 <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
@@ -1015,7 +1015,7 @@ export const ChatInput = React.memo(({
               <button
                 onClick={() => setIsSearchMode(!isSearchMode)}
                 className={cn(
-                  "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
+                  "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all transform active:scale-95 shrink-0",
                   isSearchMode
                     ? "text-primary bg-primary/5"
                     : "text-muted-foreground hover:bg-muted hover:text-primary"
@@ -1027,7 +1027,7 @@ export const ChatInput = React.memo(({
               <button
                 onClick={() => setIsKnowledgeMode(!isKnowledgeMode)}
                 className={cn(
-                  "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0",
+                  "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all transform active:scale-95 shrink-0",
                   isKnowledgeMode
                     ? "text-primary bg-primary/5"
                     : "text-muted-foreground hover:bg-muted hover:text-primary"

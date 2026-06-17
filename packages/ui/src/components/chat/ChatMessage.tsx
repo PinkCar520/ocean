@@ -127,7 +127,7 @@ export const ChatMessage = React.memo(({
           <div className={cn(
             "py-3 rounded-[24px] text-[15px] leading-relaxed",
             isUser
-              ? "bg-muted/80 backdrop-blur-sm border border-border/50 text-foreground max-w-[85%] px-5 shadow-sm"
+              ? "bg-muted/80 backdrop-blur-sm border border-border/50 text-foreground max-w-[85%] px-5"
               : "bg-transparent text-foreground flex-1 min-w-0"
           )}>
           {(m.experimental_attachments || m.attachments) && (m.experimental_attachments || m.attachments).length > 0 && (

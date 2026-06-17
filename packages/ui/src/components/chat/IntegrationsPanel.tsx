@@ -35,7 +35,7 @@ export function IntegrationsPanel({
           </button>
         </div>
         
-        <div className="bg-card rounded-[16px] flex flex-col border border-border/50 overflow-hidden divide-y divide-border/50 shadow-sm">
+        <div className="bg-card rounded-[16px] flex flex-col border border-border/50 overflow-hidden divide-y divide-border/50">
           {mcpMetrics.length > 0 ? (
             mcpMetrics.map((mcp) => {
               const Icon = ICON_MAP[mcp.iconType as keyof typeof ICON_MAP] || Database;
