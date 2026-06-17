@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FolderRoot, Search, ArrowUpDown, Plus,
-  Sparkles, X, Loader2, ArrowRight, Trash2
+  Sparkles, X, Loader2, ArrowRight, Trash2, Database, Clock
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -115,30 +115,30 @@ export function Projects() {
       <div className="max-w-7xl mx-auto space-y-10 w-full">
 
         {/* Header Section */}
-        <section className="flex flex-col md:flex-row justify-between items-center gap-6">
+        <section className="flex flex-col md:flex-row justify-between items-center gap-6 pb-6 border-b border-border/50">
           <div className="flex items-center gap-4">
             <div>
-              <h2 className="text-3xl font-display font-extrabold tracking-tight text-foreground">{t('projects.title')}</h2>
-              <p className="text-muted-foreground font-medium">{t('projects.subtitle')}</p>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">{t('projects.title', 'Projects')}</h2>
+              <p className="text-sm text-muted-foreground mt-1">{t('projects.subtitle', 'Manage and orchestrate your enterprise knowledge assets.')}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
             {/* Search */}
             <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
               <input
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder={t('projects.search_placeholder')}
-                className="w-full bg-card border border-border rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                placeholder={t('projects.search_placeholder', 'Search projects...')}
+                className="w-full bg-transparent border border-border/60 hover:border-border rounded-lg pl-9 pr-4 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/50"
               />
             </div>
 
             {/* Sort Toggle */}
             <button
               onClick={() => setSortBy(sortBy === 'newest' ? 'assets' : 'newest')}
-              className="p-2 bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 bg-transparent border border-border/60 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
               title={sortBy === 'newest' ? t('projects.sort.newest') : t('projects.sort.assets')}
             >
               <ArrowUpDown className="w-4 h-4" />
@@ -148,17 +148,17 @@ export function Projects() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setCreationMode('CLOUD'); setIsModalOpen(true); }}
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all"
+                className="bg-foreground text-background px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-foreground/90 transition-all shadow-sm"
               >
                 <Plus className="w-4 h-4" />
-                新建云端项目
+                {t('projects.new_cloud', 'New Cloud Project')}
               </button>
               <button
                 onClick={() => { setCreationMode('LOCAL'); setIsModalOpen(true); }}
-                className="bg-card border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-muted transition-all"
+                className="bg-transparent border border-border/60 text-foreground px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-muted/50 transition-all"
               >
-                <FolderRoot className="w-4 h-4 text-primary" />
-                导入本地项目
+                <FolderRoot className="w-4 h-4 text-muted-foreground" />
+                {t('projects.import_local', 'Import Local')}
               </button>
             </div>
           </div>
@@ -172,17 +172,20 @@ export function Projects() {
               <p className="text-muted-foreground font-medium">{t('common.syncing')}</p>
             </div>
           ) : filteredProjects.length === 0 ? (
-            <div className="col-span-full py-20 text-center bg-card rounded-2xl border border-dashed border-border">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <FolderRoot className="text-muted-foreground/80 w-8 h-8" />
+            <div className="col-span-full py-24 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-foreground/5 to-transparent border border-border/50 flex items-center justify-center mb-6 shadow-sm">
+                <FolderRoot className="w-8 h-8 text-muted-foreground/60" />
               </div>
-              <h3 className="text-xl font-bold mb-1">{t('projects.empty')}</h3>
-              <p className="text-muted-foreground mb-6">{t('projects.empty_desc')}</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t('projects.empty', 'No projects found')}</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mb-6 leading-relaxed">
+                {t('projects.empty_desc', 'Get started by creating a new cloud project or importing an existing local one.')}
+              </p>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="text-primary font-bold text-sm flex items-center gap-1 mx-auto hover:underline"
+                className="bg-foreground text-background px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-foreground/90 transition-all shadow-sm"
               >
-                {t('projects.create_first')} <ArrowRight className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
+                {t('projects.create_first', 'Create Project')}
               </button>
             </div>
           ) : (
@@ -190,10 +193,10 @@ export function Projects() {
               <motion.div
                 layoutId={project.id}
                 key={project.id}
-                className="bg-card flex flex-col rounded-[20px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-transparent hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(236,91,20,0.05)] transition-all overflow-hidden group cursor-pointer relative"
+                className="bg-card flex flex-col rounded-[16px] border border-border/50 hover:border-border hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-all overflow-hidden group cursor-pointer relative"
               >
                 {/* Delete Button Overlay */}
-                <div className="absolute top-4 left-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -207,59 +210,57 @@ export function Projects() {
                         }
                       }
                     }}
-                    className="bg-black/40 backdrop-blur-md text-white p-2 rounded-full border border-white/20 hover:bg-red-500 hover:border-red-500 shadow-sm transition-all active:scale-95"
+                    className="bg-background/80 backdrop-blur-md text-muted-foreground p-1.5 rounded-md border border-border/50 hover:bg-red-500 hover:text-white hover:border-red-500 shadow-sm transition-all"
                     title="删除项目"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted" onClick={() => setActiveProjectId(project.id)}>
+                <div className="relative h-48 w-full shrink-0 overflow-hidden bg-muted/30" onClick={() => setActiveProjectId(project.id)}>
+                  <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] z-10 pointer-events-none mix-blend-overlay"></div>
+                  <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent z-10 pointer-events-none"></div>
                   <img
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     src={project.iconUrl || "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&q=80&w=800"}
                     alt={project.name}
                   />
-                  {/* Tags overlaid on the image */}
-                  <div className="absolute top-4 right-4 flex items-center gap-2">
+                </div>
+                
+                <div className="p-4 flex flex-col flex-1">
+                  <div className="flex items-center gap-2 mb-3">
                     <span className={cn(
-                      "px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded-md backdrop-blur-md shadow-sm",
+                      "px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-md border",
                       project.description?.includes('(path:') 
-                        ? "bg-black/40 text-white border border-white/20" 
-                        : "bg-white/90 text-black border border-black/10 dark:bg-black/60 dark:text-white dark:border-white/20"
+                        ? "bg-muted text-muted-foreground border-border/50" 
+                        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
                     )}>
-                      {project.description?.includes('(path:') ? '本地 💻' : '云端 ☁️'}
+                      {project.description?.includes('(path:') ? 'Local' : 'Cloud'}
                     </span>
-                  </div>
-                  <div className="absolute bottom-4 left-4">
-                    <span className="px-2.5 py-1 bg-primary/90 backdrop-blur-md text-white border border-white/20 shadow-sm text-[10px] font-bold uppercase tracking-widest rounded-md">
+                    <span className="px-2 py-0.5 bg-muted/50 text-muted-foreground border border-border/50 text-[10px] font-semibold uppercase tracking-wider rounded-md">
                       {project.category}
                     </span>
                   </div>
-                </div>
-                
-                <div className="p-5 flex flex-col">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xl font-display font-bold group-hover:text-primary transition-colors truncate pr-4">{project.name}</h4>
-                    <span className="text-[10px] text-muted-foreground font-medium shrink-0">{new Date(project.updatedAt).toLocaleDateString()}</span>
-                  </div>
+                  
+                  <h4 className="text-lg font-bold group-hover:text-primary transition-colors truncate mb-1" title={project.name}>{project.name}</h4>
                   
                   {(() => {
                     const desc = project.description?.replace(/\[CLOUD\]|\(path:.*?\)/g, '').trim();
                     return desc ? (
-                      <p className="text-muted-foreground text-sm mb-4 line-clamp-2 leading-relaxed">{desc}</p>
+                      <p className="text-muted-foreground text-xs line-clamp-2 leading-relaxed mb-4 flex-1">{desc}</p>
                     ) : (
-                      <div className="mb-4"></div> /* Spacer if no description */
+                      <div className="mb-4 flex-1"></div>
                     );
                   })()}
                   
-                  <div className="flex items-center justify-between pt-4 border-t border-border/60">
-                    <div className="flex -space-x-2">
-                      <img className="w-7 h-7 rounded-full border-2 border-card object-cover shadow-sm" src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${project.id}`} alt="user" />
+                  <div className="flex items-center justify-between pt-3 mt-auto border-t border-border/40">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Database className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium">{project._count?.documents || 0} Assets</span>
                     </div>
-                    <div className="flex items-center gap-1.5 bg-muted/50 px-2.5 py-1 rounded-md border border-border/50">
-                      <span className="text-[11px] font-black text-foreground">{project._count?.documents || 0}</span>
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">{t('projects.stats.assets')}</span>
+                    <div className="flex items-center gap-1.5 text-muted-foreground/60">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-medium">{new Date(project.updatedAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>
