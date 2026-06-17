@@ -59,13 +59,9 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
         </div>
 
         <div className={cn(
-          "bg-card rounded-[24px] p-6 border border-border space-y-4 group transition-all duration-300 relative overflow-hidden",
-          !activeProject ? "border-dashed border-border bg-card flex flex-col items-center justify-center py-10" : "hover:border-primary/30"
+          "bg-card rounded-[16px] p-5 border border-border/50 space-y-4 transition-all duration-300 relative overflow-hidden shadow-sm",
+          !activeProject ? "border-dashed flex flex-col items-center justify-center py-8" : "hover:border-border"
         )}>
-          {/* Privacy Shield Background Watermark */}
-          {activeProject && (
-            <ShieldCheck className="absolute -right-4 -bottom-4 w-24 h-24 text-emerald-500/5 rotate-12" />
-          )}
 
           {!activeProject ? (
             <div className="flex flex-col items-center text-center">
@@ -125,31 +121,28 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
           </div>
         </div>
 
-        <div className="bg-card rounded-[24px] p-5 space-y-4 relative overflow-hidden group border border-border">
-          <div className="space-y-3 relative z-10">
-            <div className="flex items-start gap-3">
-              <FolderOpen className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{domain.pathLabel}</p>
-                <p className="text-[12px] font-medium truncate text-foreground">{displayPath}</p>
-              </div>
+        <div className="bg-card rounded-[16px] flex flex-col border border-border/50 overflow-hidden divide-y divide-border/50 shadow-sm relative z-10">
+          <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
+            <FolderOpen className="w-5 h-5 text-orange-500 shrink-0" />
+            <div className="min-w-0 flex flex-col justify-center">
+              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{domain.pathLabel}</p>
+              <p className="text-[13px] font-semibold truncate text-foreground">{displayPath}</p>
             </div>
-            <div className="flex items-start gap-3">
-              <Zap className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{domain.branchLabel}</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-[12px] font-bold text-foreground truncate">{node.currentBranch || '默认'}</p>
-                  {!node.isClean && (
-                    <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase tracking-tighter bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-100">有待处理变更</span>
-                  )}
-                </div>
+          </div>
+          <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
+            <Zap className="w-5 h-5 text-blue-500 shrink-0" />
+            <div className="min-w-0 flex flex-col justify-center">
+              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{domain.branchLabel}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[13px] font-semibold text-foreground truncate">{node.currentBranch || '默认'}</p>
+                {!node.isClean && (
+                  <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase tracking-tighter bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-100">有待处理变更</span>
+                )}
               </div>
             </div>
           </div>
-
           {node.isOnline && (
-            <div className="pt-4 border-t border-border relative z-10">
+            <div className="p-4 relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">系统工作负载</span>
                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-tighter flex items-center gap-1">

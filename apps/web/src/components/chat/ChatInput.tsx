@@ -1,7 +1,7 @@
 import React, { useState, useLayoutEffect } from 'react';
 import { 
   Plus, FileText, X as CloseIcon, 
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Mic
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -17,6 +17,7 @@ import {
 
 import type { SkillMeta } from '../../lib/skill-store';
 import { useSkillStore } from '../../lib/skill-store';
+import { useVoiceInput } from '../../lib/useVoiceInput';
 
 interface ChatInputProps {
   localInput: string;
@@ -95,6 +96,25 @@ export const ChatInput = React.memo(({
   const [mentionQuery, setMentionQuery] = useState("");
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
+
+  const preRecordTextRef = React.useRef(localInput);
+
+  const { isRecording, isSupported, toggle } = useVoiceInput({
+    onResult: (text, isFinal) => {
+      const prefix = preRecordTextRef.current ? preRecordTextRef.current + ' ' : '';
+      setLocalInput(prefix + text);
+      if (isFinal) {
+        preRecordTextRef.current = prefix + text;
+      }
+    }
+  });
+
+  const handleVoiceToggle = () => {
+    if (!isRecording) {
+      preRecordTextRef.current = localInput;
+    }
+    toggle();
+  };
 
   const { catalog, selectSkill } = useSkillStore();
 
@@ -554,6 +574,30 @@ export const ChatInput = React.memo(({
                 )}
               >
                 <Database className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!isSupported) {
+                    alert('您的浏览器不支持原生的语音识别 API，请使用 Chrome 或 Edge 浏览器体验语音听写功能。');
+                    return;
+                  }
+                  handleVoiceToggle();
+                }}
+                className={cn(
+                  "p-1.5 sm:p-2 rounded-lg transition-all transform active:scale-95 shrink-0 relative",
+                  !isSupported 
+                    ? "opacity-50 cursor-not-allowed text-muted-foreground" 
+                    : isRecording
+                      ? "text-red-500 bg-red-500/10"
+                      : "text-muted-foreground hover:bg-muted hover:text-primary"
+                )}
+                title={!isSupported ? "浏览器不支持语音输入" : "语音听写"}
+              >
+                <Mic className={cn("w-4 h-4 sm:w-5 sm:h-5", isRecording && "animate-pulse")} />
+                {isRecording && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                )}
               </button>
             </div>
             

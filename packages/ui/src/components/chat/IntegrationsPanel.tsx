@@ -35,22 +35,22 @@ export function IntegrationsPanel({
           </button>
         </div>
         
-        <div className="space-y-3">
+        <div className="bg-card rounded-[16px] flex flex-col border border-border/50 overflow-hidden divide-y divide-border/50 shadow-sm">
           {mcpMetrics.length > 0 ? (
             mcpMetrics.map((mcp) => {
-              const Icon = ICON_MAP[mcp.iconType] || Database;
+              const Icon = ICON_MAP[mcp.iconType as keyof typeof ICON_MAP] || Database;
               return (
-                <div key={mcp.id} className="p-4 bg-muted/30 rounded-xl border border-border/60 flex items-center justify-between group cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all shadow-sm">
+                <div key={mcp.id} className="p-3.5 flex items-center justify-between group cursor-pointer hover:bg-muted/50 transition-all">
                   <div className="flex items-center gap-3">
                     <div className={cn(
-                      "w-8 h-8 rounded-[8px] flex items-center justify-center text-white",
+                      "w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm",
                       mcp.id === 'gitlab' ? 'bg-[#1C1B1B] text-white dark:bg-white dark:text-[#1C1B1B]' : mcp.id === 'jenkins' ? 'bg-[#0E1529]' : 'bg-primary'
                     )}>
                       <Icon className="w-4 h-4" />
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{mcp.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{mcp.count} {mcp.label}</p>
+                    <div className="flex flex-col">
+                      <p className="text-[13px] font-semibold text-foreground">{mcp.name}</p>
+                      <p className="text-[11px] font-medium text-muted-foreground">{mcp.count} {mcp.label}</p>
                     </div>
                   </div>
                   <div className={cn(

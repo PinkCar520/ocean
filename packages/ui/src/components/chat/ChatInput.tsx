@@ -1,7 +1,7 @@
 import React, { useState, useLayoutEffect } from 'react';
 import {
   Plus, FileText, X as CloseIcon,
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -12,6 +12,7 @@ import { ProjectCreateModal } from '../ProjectCreateModal';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { globalToast } from '../GlobalToast';
 import { api } from '../../lib/api-client';
+import { useVoiceInput } from '../../lib/useVoiceInput';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -114,6 +115,25 @@ export const ChatInput = React.memo(({
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
   const [activeMentions, setActiveMentions] = useState<{ id: string; label: string; type: string; icon: any }[]>([]);
   const [isProjectCreateModalOpen, setIsProjectCreateModalOpen] = useState(false);
+
+  const preRecordTextRef = React.useRef(localInput);
+
+  const { isRecording, isSupported, audioVolumes, toggle, stop } = useVoiceInput({
+    onResult: (text, isFinal) => {
+      const prefix = preRecordTextRef.current ? preRecordTextRef.current + ' ' : '';
+      setLocalInput(prefix + text);
+      if (isFinal) {
+        preRecordTextRef.current = prefix + text;
+      }
+    }
+  });
+
+  const handleVoiceToggle = () => {
+    if (!isRecording) {
+      preRecordTextRef.current = localInput;
+    }
+    toggle();
+  };
 
   const { projects, fetchProjects } = useProjects();
   const { installedSkills } = useInstalledSkills();
@@ -757,7 +777,48 @@ export const ChatInput = React.memo(({
             </AnimatePresence>
           </div>
 
-          <div className="flex items-center justify-between px-2 sm:px-4 pb-2">
+          <div className="flex items-center justify-between px-2 sm:px-4 pb-2 h-[52px]">
+            {isRecording ? (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center w-full justify-between"
+              >
+                <div className="flex-1 flex items-center justify-center gap-1 opacity-70">
+                  {audioVolumes.map((vol, i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ height: Math.max(4, (vol / 255) * 24) }}
+                      transition={{ duration: 0.1, ease: "linear" }}
+                      className="w-1 bg-primary rounded-full"
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  <button
+                    onClick={() => {
+                      stop();
+                      setLocalInput(preRecordTextRef.current);
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-red-500 transition-colors"
+                    title="取消"
+                  >
+                    <CloseIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      stop();
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+                    title="完成"
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              <>
             <div className="flex items-center gap-0.5 sm:gap-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -974,43 +1035,87 @@ export const ChatInput = React.memo(({
               >
                 <Database className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
+
+
             </div>
 
-            <button
-              onClick={() => isLoading ? handleStop() : onFormSubmit()}
-              className={cn(
-                "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden",
-                isLoading
-                  ? "bg-foreground text-background shadow-sm"
-                  : ((!localInput.trim() && attachments.length === 0) ? "bg-muted text-muted-foreground/40 cursor-not-allowed" : "bg-gradient-to-br from-[#a33800] to-[#cc4900] text-white shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95")
-              )}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {isLoading ? (
-                  <motion.div
-                    key="stop"
-                    initial={{ opacity: 0, scale: 0.6 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.6 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-                    <Square className="w-4 h-4 fill-current" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="send"
-                    initial={{ opacity: 0, scale: 0.6 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.6 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-                    <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
-                  </motion.div>
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              <button
+                onClick={() => {
+                  if (!isSupported) {
+                    alert('您的浏览器不支持原生的语音识别 API，请使用 Chrome 或 Edge 浏览器体验语音听写功能。');
+                    return;
+                  }
+                  handleVoiceToggle();
+                }}
+                className={cn(
+                  "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative text-muted-foreground hover:bg-muted hover:text-foreground",
+                  !isSupported && "opacity-50 cursor-not-allowed"
                 )}
-              </AnimatePresence>
-            </button>
+                title={!isSupported ? "浏览器不支持语音输入" : "语音听写"}
+              >
+                <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
+              {(!localInput.trim() && attachments.length === 0 && !isLoading) ? (
+                <button
+                  onClick={() => alert("实时语音对话功能即将上线，敬请期待！")}
+                  className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative text-muted-foreground hover:bg-muted hover:text-foreground"
+                  title="开启实时语音对话"
+                >
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key="voice-chat"
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.6 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <AudioLines className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </motion.div>
+                  </AnimatePresence>
+                </button>
+              ) : (
+                <button
+                  onClick={() => isLoading ? handleStop() : onFormSubmit()}
+                  className={cn(
+                    "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden",
+                    isLoading
+                      ? "bg-foreground text-background shadow-sm"
+                      : "bg-[#cc4900] hover:bg-[#a33800] text-white shadow-sm"
+                  )}
+                >
+                <AnimatePresence mode="wait" initial={false}>
+                  {isLoading ? (
+                    <motion.div
+                      key="stop"
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.6 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <Square className="w-4 h-4 fill-current" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="send"
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.6 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
+            )}
+            </div>
+              </>
+            )}
           </div>
         </div>
       </div>

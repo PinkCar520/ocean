@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from routers import knowledge_projects
 from routers import skills
+from routers import audio
 
 app = FastAPI(
     title="Ocean FastAPI Backend",
@@ -10,6 +11,7 @@ app = FastAPI(
 
 app.include_router(knowledge_projects.router)
 app.include_router(skills.router)
+app.include_router(audio.router)
 
 @app.get("/")
 def read_root():

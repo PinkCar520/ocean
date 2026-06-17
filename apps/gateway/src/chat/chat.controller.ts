@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Req, Res, Headers, SetMetadata } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Res, Headers, SetMetadata, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
 import { SkillOrchestrator } from '../skill/skill.orchestrator';
 import { SkillLoader } from '../skill/skill.loader';
@@ -199,5 +200,53 @@ export class ChatController {
     
     const completion = await this.skillOrchestrator.autocomplete(prefix);
     return { completion };
+  }
+
+  /**
+   * POST /api/chat/audio/transcribe
+   * 接收前端切片传来的音频 Blob，调用 Whisper API 进行转录
+   */
+  @Public()
+  @Post('audio/transcribe')
+  @UseInterceptors(FileInterceptor('file'))
+  async transcribeAudio(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No audio file provided');
+    }
+
+    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY; // Fallback or proper logic
+    const openaiBaseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+
+    if (!openaiApiKey) {
+      throw new BadRequestException('OpenAI API key is not configured on the server');
+    }
+
+    try {
+      const formData = new FormData();
+      // Whisper requires a filename with an extension. Use .webm as default for web audio chunks
+      const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype || 'audio/webm' });
+      formData.append('file', blob, 'audio.webm');
+      formData.append('model', 'whisper-1');
+
+      const response = await fetch(`${openaiBaseUrl}/audio/transcriptions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('[Gateway] Audio transcription failed:', errorData);
+        throw new Error(`OpenAI API error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return { success: true, text: result.text || '' };
+    } catch (error: any) {
+      console.error('[Gateway] Audio transcription exception:', error);
+      throw new BadRequestException(error.message);
+    }
   }
 }

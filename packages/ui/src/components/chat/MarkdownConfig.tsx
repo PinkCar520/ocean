@@ -65,12 +65,12 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
 
   return (
     <div className={cn(
-      "relative group font-mono selection:bg-orange-500/30 not-prose",
-      minimal ? "h-full w-full" : "my-8 rounded-[24px] overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.3)]"
+      "relative group font-mono selection:bg-primary/30 not-prose",
+      minimal ? "h-full w-full" : "my-6 rounded-[16px] overflow-hidden border border-border/50 shadow-sm"
     )}>
       {/* Absolute Header - Card Style */}
       {!minimal && (
-        <div className="flex items-center justify-between px-6 py-3.5 bg-[#1a1b1e] border-b border-white/[0.05]">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[#252526] border-b border-black/20">
           <div className="flex items-center gap-3">
             <div className="p-1 rounded bg-card/5 text-slate-500">
               <Code2 className="w-3.5 h-3.5" />
@@ -103,7 +103,7 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
 
       {/* Shiki Render Output */}
       <div className={cn(
-        "shiki-container bg-[#0d0d0d]",
+        "shiki-container bg-[#1E1E1E]",
         !minimal && "min-h-[60px]"
       )}>
         {shikiHtml ? (
@@ -135,7 +135,7 @@ export const MarkdownComponents = (onExtract?: any) => ({
 
     if (!lang && !codeStr.includes('\n')) {
       return (
-        <code className="bg-[#F0EDE9] text-primary px-1.5 py-0.5 rounded text-[0.85em] font-mono" {...props}>
+        <code className="bg-muted text-foreground px-1.5 py-0.5 rounded-md text-[0.85em] font-mono border border-border/40" {...props}>
           {children}
         </code>
       );

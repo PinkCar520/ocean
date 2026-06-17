@@ -120,14 +120,14 @@ export const ChatMessage = React.memo(({
       <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
         <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
           {isAssistant && (
-            <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
+            <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-primary/90 to-primary/70 flex items-center justify-center shadow-sm text-white shrink-0 mt-1">
               <Sparkles className="w-4 h-4" />
             </div>
           )}
           <div className={cn(
-            "py-3 rounded-[20px] text-[15px] leading-relaxed",
+            "py-3 rounded-[24px] text-[15px] leading-relaxed",
             isUser
-              ? "bg-[#eeece9] text-foreground max-w-[85%] px-5"
+              ? "bg-muted/80 backdrop-blur-sm border border-border/50 text-foreground max-w-[85%] px-5 shadow-sm"
               : "bg-transparent text-foreground flex-1 min-w-0"
           )}>
           {(m.experimental_attachments || m.attachments) && (m.experimental_attachments || m.attachments).length > 0 && (
