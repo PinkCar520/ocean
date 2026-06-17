@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Database, Cloud, UploadCloud, ArrowRight,
   FileText, Sparkles, Trash2, RefreshCw, Loader2,
-  ChevronLeft
+  ArrowLeft
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api-client';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 interface KnowledgeBaseProps {
   projectId: string;
@@ -15,6 +16,7 @@ interface KnowledgeBaseProps {
 
 export function KnowledgeBase({ projectId, onBack }: KnowledgeBaseProps) {
   const { t } = useTranslation();
+  const { setActiveProjectId } = useWorkspace();
   
   // Logic State
   const [documents, setDocuments] = useState<any[]>([]);
@@ -135,16 +137,19 @@ export function KnowledgeBase({ projectId, onBack }: KnowledgeBaseProps) {
         {/* Breadcrumbs / Header Section */}
         <section className="flex flex-col md:flex-row justify-between items-end gap-6">
           <div className="max-w-2xl">
-            <button 
-              onClick={onBack}
-              className="flex items-center gap-2 text-muted-foreground font-bold text-sm mb-4 hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              {t('knowledge_base.back_link')}
-            </button>
-            <div className="flex items-center gap-4 mb-2">
-               <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest rounded-md">{project?.category}</span>
-               <h2 className="text-4xl font-display font-extrabold tracking-tight text-foreground">{project?.name}</h2>
+            <div className="flex items-center gap-4 mb-2 -ml-2">
+              <button 
+                onClick={() => {
+                  setActiveProjectId(null);
+                  onBack();
+                }}
+                className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title={t('knowledge_base.back_link')}
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h2 className="text-4xl font-display font-extrabold tracking-tight text-foreground">{project?.name}</h2>
+              <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest rounded-md">{project?.category}</span>
             </div>
             <p className="text-muted-foreground text-lg">{t('knowledge_base.subtitle')}</p>
           </div>

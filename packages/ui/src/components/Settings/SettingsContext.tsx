@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../../lib/api-client';
-import { UserProfile, SaveStatus, SettingsContextType, UserPreferences } from './types';
+import type { UserProfile, SaveStatus, SettingsContextType, UserPreferences } from './types';
 import { useTranslation } from 'react-i18next';
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

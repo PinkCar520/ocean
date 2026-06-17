@@ -8,7 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { SettingsProvider, useSettings } from './SettingsContext';
-import { SettingsDialogProps } from './types';
+import type { SettingsDialogProps } from './types';
 import { GeneralTab } from './tabs/GeneralTab';
 import { InstructionsTab } from './tabs/InstructionsTab';
 import { PermissionsTab } from './tabs/PermissionsTab';

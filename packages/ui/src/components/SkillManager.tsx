@@ -332,7 +332,7 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
                   onMainTabChange?.('library');
                 }
               }}
-              className="relative z-[9999] p-1 -ml-1 mr-1 hover:bg-muted rounded text-muted-foreground/80 hover:text-foreground transition-colors flex items-center justify-center group"
+              className="relative z-10 p-1 -ml-1 mr-1 hover:bg-muted rounded text-muted-foreground/80 hover:text-foreground transition-colors flex items-center justify-center group"
               style={{ WebkitAppRegion: 'no-drag' } as any}
               title="Return to Skill Library"
             >
@@ -343,7 +343,7 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
           <div className="flex items-center gap-1">
             <button 
               onClick={() => setIsAIGenerateOpen(true)}
-              className="relative z-[9999] p-1.5 hover:bg-emerald-500/10 rounded text-emerald-600 transition-colors flex items-center gap-1"
+              className="relative z-10 p-1.5 hover:bg-emerald-500/10 rounded text-emerald-600 transition-colors flex items-center gap-1"
               style={{ WebkitAppRegion: 'no-drag' } as any}
               title="Generate with AI"
             >
@@ -351,7 +351,7 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
             </button>
             <button 
               onClick={handleCreate}
-              className="relative z-[9999] p-1.5 hover:bg-foreground/5 rounded text-muted-foreground hover:text-foreground transition-colors"
+              className="relative z-10 p-1.5 hover:bg-foreground/5 rounded text-muted-foreground hover:text-foreground transition-colors"
               style={{ WebkitAppRegion: 'no-drag' } as any}
               title="Create New Skill"
             >
@@ -408,7 +408,7 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
               <div className="px-6 py-0 border-b border-border flex items-center justify-between shrink-0 h-[60px]">
                 <h3 className="font-sans text-[14px] font-bold text-foreground">Edit Skill</h3>
                 <div 
-                  className="flex items-center gap-2 relative z-[9999] titlebar-no-drag"
+                  className="flex items-center gap-2 relative z-10 titlebar-no-drag"
                   style={{ WebkitAppRegion: 'no-drag' } as any}
                 >
                   {isFormEditable && (

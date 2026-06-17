@@ -19,6 +19,7 @@ import { Projects } from '@ocean/ui/components/Projects';
 import { AllChatsManager } from '@ocean/ui/components/AllChatsManager';
 import { Sidebar } from '@ocean/ui/components/Sidebar';
 import { SettingsModal } from '@ocean/ui/components/SettingsModal';
+import { UpgradeModal } from '@ocean/ui/components/UpgradeModal';
 import { AuthPage } from '@ocean/ui/components/AuthPage';
 import { useConversations } from '@ocean/ui/lib/useConversations';
 import { cn } from '@ocean/ui/lib/utils';
@@ -69,6 +70,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Used for UserMenu Popover
   const [isMainSettingsOpen, setIsMainSettingsOpen] = useState(false); // Used for Settings Dialog Modal
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('ocean_sidebar_collapsed');
@@ -343,8 +345,16 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
           setIsMainSettingsOpen(true);
           setIsSettingsOpen(false);
         }}
+        onUpgradeClick={() => {
+          setIsUpgradeModalOpen(true);
+          setIsSettingsOpen(false);
+        }}
         onLogout={handleLogout}
         user={user}
+      />
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
       />
       <SettingsDialog
         isOpen={isMainSettingsOpen}

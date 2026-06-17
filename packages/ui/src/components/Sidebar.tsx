@@ -495,6 +495,7 @@ export function Sidebar({
   const { projects, fetchProjects: fetchProjectsData } = useProjects();
   const { activeProject, setActiveProjectId } = useWorkspace();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const isElectron = typeof window !== 'undefined' && !!(window as any).electron;
 
   useEffect(() => {
     let mounted = true;
@@ -609,7 +610,9 @@ export function Sidebar({
         Start it after the traffic lights and sidebar toggle so it doesn't cover controls.
         This ensures the OS doesn't apply its fallback 38px unclickable drag zone over our button when the sidebar is hidden.
       */}
-      <div className="hidden md:flex fixed top-0 left-[130px] right-0 h-14 z-[9998] titlebar-drag" />
+      {isElectron && (
+        <div className="hidden md:flex fixed top-0 left-[130px] right-0 h-14 z-[9998] titlebar-drag" />
+      )}
 
       {/* Fixed Toggle Button (Desktop Only) */}
       <div

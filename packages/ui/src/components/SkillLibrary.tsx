@@ -205,7 +205,7 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all",
                       activeSubTab === tab.id
-                        ? "bg-card text-primary shadow-sm"
+                        ? "bg-primary/15 text-primary shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -227,18 +227,18 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                 </div>
                 <input
                   type="text"
-                  placeholder={t('library.common.search') || 'Search extensions...'}
+                  placeholder={t('library.common.search', { defaultValue: '搜索插件、工具或应用...' }) as string}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-1.5 bg-card border border-border shadow-sm rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/30 transition-all text-foreground"
+                  className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/30 transition-all text-foreground"
                 />
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">
-                  {t('library.stats.total_skills', { count: stats.total })}
+                  {t('library.stats.total_skills', { count: stats.total, defaultValue: `共 ${stats.total} 个技能` })}
                 </span>
                 <span className="bg-muted text-muted-foreground px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">
-                  {t('library.stats.new_this_week', { count: stats.newThisWeek })}
+                  {t('library.stats.new_this_week', { count: stats.newThisWeek, defaultValue: `本周新增 ${stats.newThisWeek} 个` })}
                 </span>
                 <button
                   onClick={() => {
@@ -247,7 +247,7 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                   }}
                   className="bg-foreground text-background px-4 py-1.5 rounded-full text-xs font-bold hover:bg-foreground/80 transition-colors whitespace-nowrap shadow-sm"
                 >
-                  {t('library.common.create_skill') || 'Create Skill'}
+                  {t('library.common.create_skill', '新建扩展')}
                 </button>
               </div>
             </div>
@@ -322,7 +322,7 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                           </div>
                           <div className="flex-grow">
                             <h3 className="font-display font-bold text-lg mb-2 group-hover:text-primary transition-colors">{card.name}</h3>
-                            <p className="text-[13px] text-muted-foreground leading-relaxed mb-6 font-medium">
+                            <p className="text-[13px] text-muted-foreground leading-relaxed mb-6 font-medium line-clamp-3">
                               {card.description}
                             </p>
                           </div>
@@ -364,8 +364,9 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                     })}
 
                     {/* Featured Slot */}
-                    {activeFilter === 'all' && (
+                    {activeFilter === 'all' && !searchQuery.trim() && (
                       <motion.div
+                        key="featured-slot"
                         layout
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
