@@ -22,7 +22,13 @@ export const GhostTextExtension = Extension.create({
               return DecorationSet.empty;
             }
 
-            const dec = Decoration.widget(state.doc.content.size, () => {
+            // Only render if the cursor is at the end of the document
+            const isAtEnd = state.selection.to >= state.doc.content.size - 2;
+            if (!isAtEnd) {
+              return DecorationSet.empty;
+            }
+
+            const dec = Decoration.widget(state.selection.to, () => {
               const wrapper = document.createElement('span');
               wrapper.style.display = 'inline-flex';
               wrapper.style.alignItems = 'center';

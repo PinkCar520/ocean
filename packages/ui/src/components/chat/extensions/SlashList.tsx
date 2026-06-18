@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState, useRef } from 'react';
 import { cn } from '../../../lib/utils';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../ui/tooltip';
 
@@ -19,9 +19,19 @@ interface SlashListProps {
 export const SlashList = forwardRef((props: SlashListProps, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  const listRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setSelectedIndex(0);
   }, [props.items]);
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    const items = listRef.current.querySelectorAll<HTMLButtonElement>('[data-slash-item]');
+    if (items[selectedIndex]) {
+      items[selectedIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex]);
 
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }: { event: KeyboardEvent }) => {
@@ -58,7 +68,7 @@ export const SlashList = forwardRef((props: SlashListProps, ref) => {
             <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↵</kbd>
           </div>
         </div>
-        <div className="p-1.5 max-h-64 overflow-y-auto">
+        <div ref={listRef} className="p-1.5 max-h-64 overflow-y-auto">
           {props.items.length > 0 ? props.items.map((opt, idx) => {
             const isActive = idx === selectedIndex;
             const showSeparator = idx > 0 && props.items[idx - 1].type !== opt.type;
@@ -68,11 +78,12 @@ export const SlashList = forwardRef((props: SlashListProps, ref) => {
                 <Tooltip open={isActive && !!opt.desc}>
                   <TooltipTrigger asChild>
                     <button
+                      data-slash-item
                       onClick={() => selectItem(idx)}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={cn(
                         "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5 relative group",
-                        isActive ? "bg-primary/8 ring-1 ring-primary/20" : "hover:bg-muted"
+                        isActive ? "bg-primary/8 ring-1 ring-primary/20" : ""
                       )}
                     >
                       <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">

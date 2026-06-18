@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState, useRef } from 'react';
 import { cn } from '../../../lib/utils';
 
 export interface MentionItem {
@@ -17,9 +17,19 @@ interface MentionListProps {
 export const MentionList = forwardRef((props: MentionListProps, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  const listRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setSelectedIndex(0);
   }, [props.items]);
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    const items = listRef.current.querySelectorAll<HTMLButtonElement>('[data-mention-item]');
+    if (items[selectedIndex]) {
+      items[selectedIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex]);
 
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }: { event: KeyboardEvent }) => {
@@ -55,17 +65,18 @@ export const MentionList = forwardRef((props: MentionListProps, ref) => {
           <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[9px] text-muted-foreground">↵</kbd>
         </div>
       </div>
-      <div className="p-1.5 max-h-64 overflow-y-auto no-scrollbar">
+      <div ref={listRef} className="p-1.5 max-h-64 overflow-y-auto no-scrollbar">
         {props.items.length > 0 ? props.items.map((opt, idx) => {
           const isActive = idx === selectedIndex;
           return (
             <button
               key={opt.id}
+              data-mention-item
               onClick={() => selectItem(idx)}
               onMouseEnter={() => setSelectedIndex(idx)}
               className={cn(
                 "flex items-center gap-3 w-full px-3 py-2.5 text-left rounded-lg transition-all duration-100 mb-0.5",
-                isActive ? "bg-primary/8 ring-1 ring-primary/20" : "hover:bg-muted"
+                isActive ? "bg-primary/8 ring-1 ring-primary/20" : ""
               )}
             >
               <div className="w-5 h-5 flex items-center justify-center shrink-0 transition-all">

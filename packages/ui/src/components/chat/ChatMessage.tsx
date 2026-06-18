@@ -110,7 +110,7 @@ export const ChatMessage = React.memo(({
   const isAssistant = m.role === 'assistant';
   const isUser = m.role === 'user';
   const isStreaming = isLast && isLoading && isAssistant;
-  const hasContent = m.content || (Array.isArray(m.parts) && m.parts.some((p: any) => p.text || p.type === 'reasoning'));
+  const hasContent = m.content || m.reasoning || (Array.isArray(m.parts) && m.parts.some((p: any) => p.text || p.type === 'reasoning'));
 
   const messageAnimation = reducedMotion
     ? { initial: false, animate: { opacity: 1 } }
@@ -180,6 +180,11 @@ export const ChatMessage = React.memo(({
                   }
                 });
 
+                if (m.reasoning && !m.parts.some((p: any) => p.type === 'reasoning')) {
+                  const reasoningSteps = parseReasoningToSteps(m.reasoning, isStreaming, false);
+                  allThinkingSteps.unshift(...reasoningSteps);
+                }
+
                 if (isStreaming && allThinkingSteps.length > 0) {
                   const hasTextContent = textParts.some(p => p.type === 'text' && p.text?.trim());
                   if (!hasTextContent) {
@@ -199,7 +204,7 @@ export const ChatMessage = React.memo(({
                     {!hasAnySteps && isStreaming && (
                       <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
                     )}
-                    <div className="relative clear-both overflow-hidden flex flex-wrap items-baseline">
+                    <div className="relative clear-both overflow-hidden flex flex-col gap-1">
                       {textParts.map((part: any, i: number) => {
                         if (part.type === 'skill') {
                           const SYSTEM_SKILLS: Record<string, { name: string, description: string }> = {
@@ -235,7 +240,7 @@ export const ChatMessage = React.memo(({
                         
                         if (part.type === 'text') {
                           return (
-                            <div key={i} className="prose prose-slate prose-sm max-w-none flex-1 min-w-0 [&>p:first-child]:mt-0 [&>p:first-child]:mb-1">
+                            <div key={i} className="prose prose-slate prose-sm max-w-none [&>p:first-child]:mt-0 [&>p:first-child]:mb-1">
                               <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents(onExtract) as any}>
                                 {part.text}
                               </ReactMarkdown>
@@ -303,9 +308,14 @@ export const ChatMessage = React.memo(({
               </div>
             ) : (
               <div className="prose prose-slate prose-sm max-w-none relative">
+                {m.reasoning && (
+                  <div className="mb-3">
+                    <ThinkingList steps={parseReasoningToSteps(m.reasoning, isStreaming, false)} />
+                  </div>
+                )}
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents(onExtract) as any}>{m.content}</ReactMarkdown>
                 {isStreaming && <TypingCursor />}
-                {isStreaming && (
+                {isStreaming && !m.reasoning && (
                   <div className="mt-1">
                     <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
                   </div>
@@ -316,7 +326,7 @@ export const ChatMessage = React.memo(({
         </div>
       </div>
       <div className={cn(
-        "flex items-center gap-3 mt-2 transition-opacity duration-300",
+        "flex items-center gap-3 mt-2 transition-opacity duration-300 w-full",
         isUser ? "px-5 flex-row-reverse" : "px-12 flex-row",
         (isAssistant && isLoading && isLast) ? "opacity-0 pointer-events-none" : "opacity-100"
       )}>
@@ -353,14 +363,6 @@ export const ChatMessage = React.memo(({
             </Tooltip>
           )}
 
-          {/* Copy */}
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
-          </Tooltip>
-
           {/* Feedback (Assistant) */}
           {isAssistant && (
             <div className="flex items-center gap-0.5">
@@ -378,6 +380,8 @@ export const ChatMessage = React.memo(({
               </Tooltip>
             </div>
           )}
+
+
 
           {/* Branch Navigation Switcher */}
           {(totalBranches[m.id] || 0) > 1 && (
@@ -405,13 +409,22 @@ export const ChatMessage = React.memo(({
             </div>
           )}
         </div>
+        <div className={cn("flex items-center gap-1", isUser ? "mr-auto" : "ml-auto")}>
+          {/* Copy */}
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
+          </Tooltip>
 
-        {isAssistant && isStopped && isLast && (
-          <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 ml-auto">
-            <Square className="w-2.5 h-2.5 fill-current" />
-            {t('chat.stopped', '已停止')}
-          </span>
-        )}
+          {isAssistant && isStopped && isLast && (
+            <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 ml-2">
+              <Square className="w-2.5 h-2.5 fill-current" />
+              {t('chat.stopped', '已停止')}
+            </span>
+          )}
+        </div>
       </div>
     </motion.div>
   );

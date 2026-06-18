@@ -43,6 +43,7 @@ export function useChatInput({
   const [ghostText, setGhostText] = useState<string>('');
   const [isPredicting, setIsPredicting] = useState<boolean>(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const autocompleteLastReqRef = useRef<number>(0);
 
   useEffect(() => {
     const trySkill = localStorage.getItem('ocean_try_skill_name');
@@ -53,14 +54,37 @@ export function useChatInput({
   }, []);
 
   useEffect(() => {
-    if (!localInput.trim() || localInput.endsWith(' ')) {
+    const trimmed = localInput.trim();
+    if (!trimmed || localInput.endsWith(' ')) {
       setGhostText('');
       return;
     }
 
+    // 方案 C: 字数锁（防干扰模式）。超过 50 个字不再提供补全
+    if (trimmed.length > 50) {
+      setGhostText('');
+      return;
+    }
+
+    // 方案 A: 标点触发。如果字数超过 12 个字，只在遇到停顿标点时触发
+    if (trimmed.length > 12) {
+      const endsWithPunctuation = /[。？！.?!,，、；;:：]$/.test(trimmed);
+      if (!endsWithPunctuation) {
+        setGhostText('');
+        return;
+      }
+    }
+
     const handler = setTimeout(async () => {
+      // 方案 B: 强制冷却限制频率（5秒内最多触发1次）
+      const now = Date.now();
+      if (now - autocompleteLastReqRef.current < 5000) {
+        return;
+      }
+
       setIsPredicting(true);
       try {
+        autocompleteLastReqRef.current = Date.now();
         const res = await api.post<any>('/api/chat/autocomplete', { prefix: localInput });
         if (res && res.completion) {
           setGhostText(res.completion);
@@ -72,7 +96,7 @@ export function useChatInput({
       } finally {
         setIsPredicting(false);
       }
-    }, 250);
+    }, 800);
 
     return () => clearTimeout(handler);
   }, [localInput]);

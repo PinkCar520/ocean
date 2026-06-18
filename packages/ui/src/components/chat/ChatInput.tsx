@@ -216,6 +216,15 @@ export const ChatInput = React.memo(({
          // Intentionally left empty to prevent auto-clearing skill when backspacing content
       }
     },
+    onSelectionUpdate: ({ editor }) => {
+      // Clear ghost text if the user moves the cursor away from the end
+      if (ghostText && setGhostText) {
+        const isAtEnd = editor.state.selection.to >= editor.state.doc.content.size - 2;
+        if (!isAtEnd) {
+          setGhostText('');
+        }
+      }
+    },
     autofocus: 'end',
     onFocus: () => setIsFocused(true),
     onBlur: () => setIsFocused(false),
@@ -228,6 +237,7 @@ export const ChatInput = React.memo(({
            // Allow tippy events to process
         } else if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
+          if (setGhostText) setGhostText('');
           onFormSubmit();
           return true;
         }
@@ -683,7 +693,14 @@ export const ChatInput = React.memo(({
                 </button>
               ) : (
                 <button
-                  onClick={() => isLoading ? handleStop() : onFormSubmit()}
+                  onClick={() => {
+                    if (isLoading) {
+                      handleStop();
+                    } else {
+                      if (setGhostText) setGhostText('');
+                      onFormSubmit();
+                    }
+                  }}
                   className={cn(
                     "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden",
                     isLoading
