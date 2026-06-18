@@ -25,6 +25,8 @@ export interface SkillEntry {
   content?: string;
   /** Localized mapping overrides for the frontend UI (e.g. { zh: { displayName: "..." } }) */
   locales?: Record<string, { displayName?: string; description?: string }>;
+  /** Multi-step inquiry wizard definition from AGP manifest */
+  inquiries?: any[];
 }
 
 /**
@@ -225,6 +227,7 @@ export class SkillLoader {
       compatibility: fm['compatibility'] ? String(fm['compatibility']) : undefined,
       metadata: fm['metadata'] ? (fm['metadata'] as Record<string, string>) : undefined,
       locales: fm['locales'] ? (fm['locales'] as Record<string, { displayName?: string; description?: string }>) : undefined,
+      inquiries: fm['inquiries'] ? (fm['inquiries'] as any[]) : undefined,
     };
   }
 

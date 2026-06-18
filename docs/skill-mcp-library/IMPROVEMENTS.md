@@ -23,7 +23,7 @@
 
 **改进文件：**
 - `agents/skills/fix-bug/SKILL.md`
-- `agents/skills/write-prd/SKILL.md`
+- `agents/skills/prd-designer/SKILL.md`
 - `agents/skills/jenkins/SKILL.md`
 
 **变更内容：**
@@ -155,7 +155,7 @@
 | 文件 | 变更类型 |
 |------|----------|
 | `agents/skills/fix-bug/SKILL.md` | 格式标准化 |
-| `agents/skills/write-prd/SKILL.md` | 格式标准化 |
+| `agents/skills/prd-designer/SKILL.md` | 格式标准化 |
 | `agents/skills/jenkins/SKILL.md` | 补充 frontmatter |
 | `apps/gateway/src/skill/skill.loader.ts` | 增强 catalog XML |
 | `apps/gateway/src/skill/skill.orchestrator.ts` | 集成 PermissionService |

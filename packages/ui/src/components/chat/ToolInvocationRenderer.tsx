@@ -6,6 +6,7 @@ import { BugCard } from '../BugCard';
 import { PipelineCard } from '../PipelineCard';
 import { TaskPlan } from '../TaskPlan';
 import { DiffViewer } from '../DiffViewer';
+import { InquiryWizardCard } from '../InquiryWizardCard';
 
 interface ToolInvocationRendererProps {
   part: any;
@@ -28,8 +29,27 @@ export function ToolInvocationRenderer({
   const toolName = part.toolName || part.type?.replace('tool-', '') || '';
 
   // ── Gen 2: UI Protocol (ui 字段) → CapsuleAnchor handles this inline
-  if (result?.ui) {
+  if (result?.ui && result.ui.uiType !== 'inquiry_card') {
     return null; 
+  }
+
+  if (result?.ui?.uiType === 'inquiry_card') {
+    return (
+      <InquiryWizardCard
+        skillName={result.ui.props.skillName}
+        description={result.ui.props.description}
+        inquiries={result.ui.props.inquiries}
+        onComplete={(answers) => {
+          const formattedText = Object.entries(answers)
+            .map(([q, a]) => `Q: ${q}\nA: ${a}`)
+            .join('\n');
+          sendMessage({ content: formattedText, role: 'user' });
+        }}
+        onCancel={() => {
+          sendMessage({ content: '已取消操作', role: 'user' });
+        }}
+      />
+    );
   }
 
   // ── Gen 1: Backwards Compatibility ──

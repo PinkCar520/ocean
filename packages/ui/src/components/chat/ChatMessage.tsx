@@ -253,7 +253,7 @@ export const ChatMessage = React.memo(({
                     {isStreaming && <TypingCursor />}
                     {completedTools.map((part: any) => {
                       const result = part.output || part.result;
-                      if (result?.ui) {
+                      if (result?.ui && result.ui.uiType !== 'inquiry_card') {
                         return (
                           <CapsuleAnchor
                             key={part.toolCallId}
@@ -408,23 +408,35 @@ export const ChatMessage = React.memo(({
               </button>
             </div>
           )}
-        </div>
-        <div className={cn("flex items-center gap-1", isUser ? "mr-auto" : "ml-auto")}>
-          {/* Copy */}
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
-          </Tooltip>
 
-          {isAssistant && isStopped && isLast && (
-            <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 ml-2">
-              <Square className="w-2.5 h-2.5 fill-current" />
-              {t('chat.stopped', '已停止')}
-            </span>
+          {/* Copy (User) */}
+          {isUser && (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
+            </Tooltip>
           )}
         </div>
+        {/* Copy (Assistant, far right) */}
+        {isAssistant && (
+          <div className="flex items-center gap-1 ml-auto">
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
+            </Tooltip>
+
+            {isStopped && isLast && (
+              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 ml-2">
+                <Square className="w-2.5 h-2.5 fill-current" />
+                {t('chat.stopped', '已停止')}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   );

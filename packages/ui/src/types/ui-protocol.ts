@@ -15,7 +15,8 @@ export type UIComponentType =
   | 'zentao_task_card'
   | 'leave_request_form'
   | 'diff_viewer'
-  | 'print_console';
+  | 'print_console'
+  | 'inquiry_card';
 
 export interface UIBase {
   uiType: UIComponentType;
@@ -145,6 +146,24 @@ export interface UIText extends UIBase {
   props: UITextProps;
 }
 
+export interface UIInquiryStep {
+  id: string;
+  question: string;
+  type: 'enum' | 'text';
+  options?: string[];
+}
+
+export interface UIInquiryCardProps {
+  skillName: string;
+  description?: string;
+  inquiries: UIInquiryStep[];
+}
+
+export interface UIInquiryCard extends UIBase {
+  uiType: 'inquiry_card';
+  props: UIInquiryCardProps;
+}
+
 // ── Stitch Components ──
 
 export interface ZenTaoAssignee {
@@ -230,7 +249,8 @@ export type UIKit =
   | UIZenTaoTaskCard
   | UILeaveRequestForm
   | UIDiffViewer
-  | UIPrintConsole;
+  | UIPrintConsole
+  | UIInquiryCard;
 
 export interface ToolResult<T = unknown> {
   data: T;

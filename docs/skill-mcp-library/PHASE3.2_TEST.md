@@ -33,7 +33,7 @@ curl -X POST http://localhost:3000/api/skills/import \
 ```bash
 curl -X POST http://localhost:3000/api/skills/import \
   -H "Content-Type: application/json" \
-  -d '{"source":"claude-code","skillPath":"/Users/caomeifengli/workspace/uwork/ocean/agents/skills/write-prd"}' | jq
+  -d '{"source":"claude-code","skillPath":"/Users/caomeifengli/workspace/uwork/ocean/agents/skills/prd-designer"}' | jq
 ```
 
 ### 1.3 直接上传 SKILL.md 内容

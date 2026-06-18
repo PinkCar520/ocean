@@ -207,7 +207,7 @@ curl http://localhost:3000/api/mcp-servers
 1. 设置 Mode 为 `default`
 2. 在聊天中请求："帮我创建一个新的产品需求"
 3. 预期行为：
-   - AI 激活 `write-prd` skill
+   - AI 激活 `prd-designer` skill
    - 起草 PRD 并展示
    - 发布到禅道前弹出审批请求
    - 用户确认后执行

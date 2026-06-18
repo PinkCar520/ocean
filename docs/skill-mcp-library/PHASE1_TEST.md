@@ -25,7 +25,7 @@ npx ts-node --transpile-only src/skill-registry/seed-skills.ts
 ```
 🌱 Seeding built-in skills...
   ✅ Created fix-bug
-  ✅ Created write-prd
+  ✅ Created prd-designer
   ✅ Created jenkins
   ✅ Created gitlab
 🎉 Seed completed!

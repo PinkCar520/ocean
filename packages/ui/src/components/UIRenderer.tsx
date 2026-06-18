@@ -155,6 +155,7 @@ if (!(globalThis as Record<string, unknown>)[REGISTRATION_KEY]) {
     leave_request_form: LeaveRequestFormRenderer,
     diff_viewer: DiffViewerRenderer,
     print_console: PrintConsoleRenderer,
+    inquiry_card: () => null,
   };
 
   (Object.entries(renderers) as [UIComponentType, React.ComponentType<any>][]).forEach(([type, component]) => {

@@ -118,7 +118,83 @@ services:
       postgres:
         condition: service_healthy
 
+  # Jenkins CI/CD
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: ocean-jenkins
+    restart: always
+    ports:
+      - "8082:8080"
+      - "50000:50000"
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    volumes:
+      - ocean_jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # GitLab 代码托管
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: ocean-gitlab
+    restart: always
+    ports:
+      - "8083:80"
+      - "444:443"
+      - "2222:22"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8083'
+        gitlab_rails['initial_root_password'] = 'gitlab_admin_pass'
+    volumes:
+      - ocean_gitlab_data:/etc/gitlab
+      - ocean_gitlab_logs:/var/log/gitlab
+      - ocean_gitlab_data:/var/opt/gitlab
+    shm_size: '256m'
+
+  # 禅道 Web 服务
+  zentao:
+    image: easysoft/zentao:latest
+    container_name: ocean-zentao
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      - MYSQL_INTERNAL=false
+      - MYSQL_HOST=zentao-db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=zentao
+      - MYSQL_PASSWORD=zentao_pass
+      - MYSQL_DATABASE=zentao
+    volumes:
+      - ocean_zentao_data:/www/zentaopms
+    depends_on:
+      zentao-db:
+        condition: service_healthy
+
+  # 禅道专用数据库 (显式拉出来，确保稳定性)
+  zentao-db:
+    image: mariadb:10.6
+    container_name: ocean-zentao-db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_pass
+      - MYSQL_DATABASE=zentao
+      - MYSQL_USER=zentao
+      - MYSQL_PASSWORD=zentao_pass
+    volumes:
+      - ocean_zentao_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "zentao", "-pzentao_pass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   ocean_postgres_data:
   ocean_redis_data:
   ocean_gateway_uploads:
+  ocean_zentao_data:
+  ocean_zentao_mysql:
+  ocean_jenkins_data:
+  ocean_gitlab_data:
+  ocean_gitlab_logs:

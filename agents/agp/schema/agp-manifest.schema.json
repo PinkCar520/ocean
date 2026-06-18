@@ -46,6 +46,23 @@
       },
       "description": "AGP 拦截断点：列出的工具在调用前必须经过人工 Y/N 确认，网关层程序化强制拦截。"
     },
+    "inquiries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "question": { "type": "string" },
+          "type": { "type": "string", "enum": ["enum", "text"] },
+          "options": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "description": "多步意图澄清问卷定义。当触发此技能但缺少参数时，网关将向前端抛出表单供用户填写。"
+    },
     "metadata": {
       "type": "object",
       "properties": {

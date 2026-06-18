@@ -243,7 +243,7 @@ CREATE TABLE mcp_servers (
 - [ ] 创建 Skill 数据表
 - [ ] 实现 `GET /api/skills` 列表接口
 - [ ] 前端 SkillLibrary 对接真实数据
-- [ ] 内置技能（fix-bug, write-prd, jenkins）注册
+- [ ] 内置技能（fix-bug, prd-designer, jenkins）注册
 
 ### Phase 2：MCP Server 管理（2 天）
 - [ ] MCP Server CRUD API

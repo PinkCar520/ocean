@@ -230,6 +230,10 @@ export class SkillOrchestrator {
     if (ctx.skillIds && ctx.skillIds.length > 0) {
       let localInjected = '';
       for (const skillId of ctx.skillIds) {
+        const skill = this.skillLoader.getSkill(skillId);
+        if (skill?.inquiries && skill.inquiries.length > 0) {
+          prompt += `\n\n> [!IMPORTANT]\n> 此技能 [${skill.name}] 定义了意图澄清表单（Inquiries）。如果用户当前的话语中没有明确提供这些参数，请你**必须立刻调用 \`agp_intent_clarify\` 工具**，不要随意猜测或直接生成结果！`;
+        }
         const content = await this.skillLoader.activate(skillId);
         if (content) {
           localInjected += `\n${content}`;
@@ -447,6 +451,34 @@ export class SkillOrchestrator {
 
           return response;
         },
+      }),
+
+      agp_intent_clarify: tool({
+        description: '当用户意图模糊或缺失必填参数时，调用此工具向用户抛出多步表单进行提问。',
+        inputSchema: z.object({
+          skillName: z.string().describe('当前触发的技能名称'),
+          description: z.string().optional().describe('给用户的补充说明，比如为什么要问这些问题'),
+          inquiries: z.array(z.object({
+            id: z.string(),
+            question: z.string(),
+            type: z.enum(['enum', 'text']),
+            options: z.array(z.string()).optional()
+          })).describe('需要向用户提问的字段列表')
+        }),
+        execute: async ({ skillName, description, inquiries }) => {
+          return {
+            status: 'WaitingForUser',
+            message: '已向用户推送表单，等待用户填写。',
+            ui: {
+              uiType: 'inquiry_card',
+              props: {
+                skillName,
+                description,
+                inquiries
+              }
+            }
+          };
+        }
       }),
 
       local_bash: tool({

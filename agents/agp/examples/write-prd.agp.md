@@ -1,6 +1,6 @@
 ---
 protocol: AGP/1.0
-name: write-prd
+name: prd-designer
 description: "产品经理的智能需求助手：起草 PRD (产品需求文档) 并将其发布到禅道。当用户要求写需求、规划产品、创建 Story、写 PRD 时使用。"
 license: Proprietary
 compatibility: "需要 mcp-zentao MCP Server"
