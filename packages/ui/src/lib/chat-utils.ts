@@ -2,6 +2,7 @@ export interface ThinkingStep {
   label: string;
   status: 'done' | 'active' | 'pending';
   icon?: string;
+  onClick?: () => void;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   type ThinkingStep
 } from '../../lib/chat-utils';
 import { ThinkingList } from '../ThinkingList';
+import { ToolAccordion } from './ToolAccordion';
 import { CapsuleAnchor } from '../CapsuleAnchor';
 import { TypingCursor } from './ChatHelpers';
 import { MarkdownComponents } from './MarkdownConfig';
@@ -165,20 +166,14 @@ export const ChatMessage = React.memo(({
                   const isTool = part.type === 'tool-invocation' || part.toolName || part.type?.startsWith('tool-');
                   const isReasoning = part.type === 'reasoning';
 
-                  if (isTool) {
+                  if (isReasoning) {
+                    const reasoningSteps = parseReasoningToSteps(part.text, isStreaming, false);
+                    allThinkingSteps.push(...reasoningSteps);
+                  } else if (isTool) {
                     const isCompleted = !!(part.output || part.result);
-                    allThinkingSteps.push({
-                      label: getFriendlyToolName(part, t, getLocalizedName),
-                      status: isCompleted ? 'done' : 'active',
-                    });
                     if (isCompleted) {
                       completedTools.push(part);
                     }
-                  } else if (isReasoning) {
-                    const reasoningSteps = parseReasoningToSteps(part.text, isStreaming, false);
-                    allThinkingSteps.push(...reasoningSteps);
-                  } else {
-                    textParts.push(part);
                   }
                 });
 
@@ -188,7 +183,7 @@ export const ChatMessage = React.memo(({
                 }
 
                 if (isStreaming && allThinkingSteps.length > 0) {
-                  const hasTextContent = textParts.some(p => p.type === 'text' && p.text?.trim());
+                  const hasTextContent = m.parts.some((p: any) => p.type === 'text' && p.text?.trim());
                   if (!hasTextContent) {
                     allThinkingSteps[allThinkingSteps.length - 1].status = 'active';
                   }
@@ -207,7 +202,34 @@ export const ChatMessage = React.memo(({
                       <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
                     )}
                     <div className="relative clear-both overflow-hidden flex flex-col gap-1">
-                      {textParts.map((part: any, i: number) => {
+                      {m.parts.map((part: any, i: number) => {
+                        const isTool = part.type === 'tool-invocation' || part.toolName || part.type?.startsWith('tool-');
+                        const isReasoning = part.type === 'reasoning';
+
+                        if (isReasoning) {
+                          return null;
+                        }
+
+                        if (isTool) {
+                          return (
+                            <ToolAccordion
+                              key={i}
+                              part={part}
+                              t={t}
+                              getLocalizedName={getLocalizedName}
+                              isStreaming={isStreaming}
+                              onOpenSidebar={(content, fileName) => {
+                                const b64 = btoa(unescape(encodeURIComponent(content)));
+                                setPreviewAttachment({
+                                  name: fileName,
+                                  contentType: 'text/markdown',
+                                  url: `data:text/markdown;base64,${b64}`
+                                });
+                              }}
+                            />
+                          );
+                        }
+
                         if (part.type === 'skill') {
                           const SYSTEM_SKILLS: Record<string, { name: string, description: string }> = {
                             'clear': { name: 'clear', description: 'Clear conversation context' },
