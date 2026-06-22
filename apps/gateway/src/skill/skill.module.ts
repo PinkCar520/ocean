@@ -27,12 +27,13 @@ import { PermissionController } from './permission.controller';
 import { TracingModule } from '../tracing/tracing.module';
 import { RAGModule } from '../rag/rag.module';
 import { ZentaoModule } from '../zentao/zentao.module';
+import { InteractiveManager } from './interactive.manager';
 
 @Module({
   imports: [MCPModule, RpcModule, SessionModule, ApprovalModule, PermissionModule, TracingModule, RAGModule, ZentaoModule],
   controllers: [SkillController, PermissionController],
-  providers: [SkillOrchestrator, SkillLoader],
-  exports: [SkillOrchestrator, SkillLoader],
+  providers: [SkillOrchestrator, SkillLoader, InteractiveManager],
+  exports: [SkillOrchestrator, SkillLoader, InteractiveManager],
 })
 export class SkillModule {}
 

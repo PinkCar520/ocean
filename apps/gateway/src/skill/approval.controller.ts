@@ -22,13 +22,13 @@ export class ApprovalController {
   @Post(':requestId/respond')
   async respond(
     @Param('requestId') requestId: string,
-    @Body() body: { status: 'approved' | 'denied' },
+    @Body() body: { status: 'approved' | 'denied', result?: any },
     @Req() req: any,
   ) {
     const userId = req.user?.workId || req.user?.dbId || 'anonymous';
-    const { status } = body;
+    const { status, result } = body;
 
-    const success = await this.approvalService.respondToRequest(requestId, status, userId);
+    const success = await this.approvalService.respondToRequest(requestId, status, userId, result);
     return {
       success,
       message: success ? `Request ${status}` : 'Request not found or already resolved',

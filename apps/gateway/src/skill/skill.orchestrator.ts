@@ -8,7 +8,7 @@ import { SkillLoader } from './skill.loader';
 import { PermissionService } from './permission.service';
 import { RpcGateway } from '../chat/rpc.gateway';
 import { SessionService } from '../session/session.service';
-import { ApprovalService } from './approval.service';
+import { InteractiveManager } from './interactive.manager';
 import { TracingService } from '../tracing/tracing.service';
 import { RAGService } from '../rag/rag.service';
 import { ZentaoService } from '../zentao/zentao.service';
@@ -31,7 +31,7 @@ export class SkillOrchestrator {
     private permissionService: PermissionService,
     private rpcGateway: RpcGateway,
     private sessionService: SessionService,
-    private approvalService: ApprovalService,
+    private interactiveManager: InteractiveManager,
     private tracingService: TracingService,
     private ragService: RAGService,
     private zentaoService: ZentaoService,
@@ -453,33 +453,6 @@ export class SkillOrchestrator {
         },
       }),
 
-      agp_intent_clarify: tool({
-        description: '当用户意图模糊或缺失必填参数时，调用此工具向用户抛出多步表单进行提问。绝对不要在你的回复文本中把这些问题列出来，前端会渲染一个UI卡片来展示这些问题。',
-        inputSchema: z.object({
-          skillName: z.string().describe('当前触发的技能名称'),
-          description: z.string().optional().describe('给用户的补充说明，比如为什么要问这些问题'),
-          inquiries: z.array(z.object({
-            id: z.string(),
-            question: z.string(),
-            type: z.enum(['enum', 'text']),
-            options: z.array(z.string()).optional()
-          })).describe('需要向用户提问的字段列表')
-        }),
-        execute: async ({ skillName, description, inquiries }) => {
-          return {
-            status: 'WaitingForUser',
-            message: '已向用户推送表单，等待用户填写。',
-            ui: {
-              uiType: 'inquiry_card',
-              props: {
-                skillName,
-                description,
-                inquiries
-              }
-            }
-          };
-        }
-      }),
 
       local_bash: tool({
         description: '在开发者本地工作站执行 Shell 指令（编译、测试、安装依赖等）。',
@@ -524,14 +497,17 @@ export class SkillOrchestrator {
     };
 
     // Wrap high-risk tools with approval
-    const finalTools: Record<string, any> = { ...atomicTools };
+    const finalTools: Record<string, any> = { 
+      ...atomicTools,
+      ...this.interactiveManager.getClarifyTool()
+    };
     if (sessionId) {
-      finalTools.local_file_edit = this.wrapWithApproval('local_file_edit', atomicTools.local_file_edit, sessionId, currentUserId);
-      finalTools.local_bash = this.wrapWithApproval('local_bash', atomicTools.local_bash, sessionId, currentUserId);
+      finalTools.local_file_edit = this.interactiveManager.wrapHighRiskTool('local_file_edit', atomicTools.local_file_edit, sessionId, currentUserId);
+      finalTools.local_bash = this.interactiveManager.wrapHighRiskTool('local_bash', atomicTools.local_bash, sessionId, currentUserId);
 
       const mcpTools = await this.mcpManager.getAITools();
       for (const [name, toolDef] of Object.entries(mcpTools)) {
-        finalTools[name] = this.wrapWithApproval(name, toolDef, sessionId, currentUserId);
+        finalTools[name] = this.interactiveManager.wrapHighRiskTool(name, toolDef, sessionId, currentUserId);
       }
     } else {
       const mcpTools = await this.mcpManager.getAITools();
@@ -541,22 +517,7 @@ export class SkillOrchestrator {
     return finalTools;
   }
 
-  private wrapWithApproval(toolName: string, toolDef: any, sessionId: string, userId: string): any {
-    const originalExecute = toolDef.execute;
-    const approvalService = this.approvalService;
-    return tool({
-      ...toolDef,
-      execute: async (args: any) => {
-        if (this.permissionService.isAutoAllowed(toolName)) return originalExecute(args);
-        if (this.permissionService.isDenied(toolName)) throw new Error(`Permission Denied: ${toolName}`);
 
-        const requestId = await approvalService.createRequest({ sessionId, toolName, args });
-        const approved = await approvalService.waitForApproval(requestId, 5 * 60 * 1000);
-        if (!approved) return { status: 'denied', message: `Action "${toolName}" was denied by user.` };
-        return originalExecute(args);
-      },
-    } as any);
-  }
 
   async streamResponse(messages: any[], res: Response, ctx: SkillContext, modelId?: string, sessionId?: string): Promise<void> {
     const isSearchMode = (ctx as any).search === true;

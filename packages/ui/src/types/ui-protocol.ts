@@ -149,7 +149,8 @@ export interface UIText extends UIBase {
 export interface UIInquiryStep {
   id: string;
   question: string;
-  type: 'enum' | 'text';
+  header: string;
+  type: 'single_select' | 'multi_select' | 'text';
   options?: string[];
 }
 
@@ -157,6 +158,8 @@ export interface UIInquiryCardProps {
   skillName: string;
   description?: string;
   inquiries: UIInquiryStep[];
+  requestId?: string;
+  toolName?: string;
 }
 
 export interface UIInquiryCard extends UIBase {

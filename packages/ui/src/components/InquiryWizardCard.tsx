@@ -9,7 +9,9 @@ export interface InquiryWizardCardProps {
   skillName: string;
   description?: string;
   inquiries: UIInquiryStep[];
-  onComplete: (answers: Record<string, string>) => void;
+  requestId?: string;
+  toolName?: string;
+  onComplete: (answers: Record<string, any>) => void;
   onCancel: () => void;
 }
 
@@ -21,18 +23,23 @@ export function InquiryWizardCard({
   onCancel
 }: InquiryWizardCardProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>({});
   const [textValue, setTextValue] = useState('');
 
   useEffect(() => {
     if (inquiries && currentStep < inquiries.length) {
       const step = inquiries[currentStep];
       const answer = answers[step.question];
-      if (answer && step.options && step.options.includes(answer)) {
-        setTextValue('');
+      let nextTextValue = '';
+      if (Array.isArray(answer)) {
+        // multi_select answers are arrays — don't assign to text input
+        nextTextValue = '';
+      } else if (answer && step.options && step.options.includes(answer)) {
+        nextTextValue = '';
       } else {
-        setTextValue(answer || '');
+        nextTextValue = answer || '';
       }
+      setTextValue((prev) => (prev === nextTextValue ? prev : nextTextValue));
     }
   }, [currentStep, inquiries, answers]);
 
@@ -45,9 +52,21 @@ export function InquiryWizardCard({
 
   const handleSelectEnum = (option: string) => {
     if (!step) return;
-    const newAnswers = { ...answers, [step.question]: option };
-    setAnswers(newAnswers);
-    goToNext(newAnswers);
+    if (step.type === 'multi_select') {
+      const current = Array.isArray(answers[step.question]) ? answers[step.question] : [];
+      let nextSelected;
+      if (current.includes(option)) {
+        nextSelected = current.filter((o: string) => o !== option);
+      } else {
+        nextSelected = [...current, option];
+      }
+      setAnswers({ ...answers, [step.question]: nextSelected });
+      // For multi-select, we don't auto-advance
+    } else {
+      const newAnswers = { ...answers, [step.question]: option };
+      setAnswers(newAnswers);
+      goToNext(newAnswers);
+    }
   };
 
   const handleTextSubmit = () => {
@@ -63,7 +82,7 @@ export function InquiryWizardCard({
     }
   };
 
-  const goToNext = (currentAnswers: Record<string, string>) => {
+  const goToNext = (currentAnswers: Record<string, any> = answers) => {
     setCurrentStep(currentStep + 1);
   };
 
@@ -95,15 +114,17 @@ export function InquiryWizardCard({
         <div className="px-5 pb-5 flex flex-col gap-4">
           <div className="flex flex-col gap-3">
             {inquiries.map((inq, idx) => (
-              <div key={idx} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-muted/60 border border-border/50 relative group">
+              <div key={idx} className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/60 border border-border/50 relative group">
                 <div className="text-[13px] font-medium text-foreground flex items-center gap-2">
-                  <span className="text-muted-foreground font-mono text-[11px]">{idx + 1}.</span> 
-                  {inq.question}
+                  <span className="text-muted-foreground font-mono text-[11px]">{idx + 1}.</span>
+                  {inq.header || inq.question}
                 </div>
                 <div className="text-[14px] text-muted-foreground pl-5 break-words">
-                  {answers[inq.question] || <span className="italic opacity-50">Skipped</span>}
+                  {answers[inq.question] 
+                    ? (Array.isArray(answers[inq.question]) ? answers[inq.question].join(', ') : answers[inq.question])
+                    : <span className="italic opacity-50">Skipped</span>}
                 </div>
-                <button 
+                <button
                   onClick={() => setCurrentStep(idx)}
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-xs text-primary hover:underline transition-opacity"
                 >
@@ -113,7 +134,7 @@ export function InquiryWizardCard({
             ))}
           </div>
 
-          <div className="flex justify-between items-center pt-4">
+          <div className="flex justify-between items-center">
             <Button variant="ghost" onClick={goToPrev} size="icon" className="h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 shrink-0">
               <ChevronLeft className="w-5 h-5" />
             </Button>
@@ -136,10 +157,10 @@ export function InquiryWizardCard({
           <div className="flex items-center gap-2">
             <h4 className="text-[14px] font-bold text-foreground">{step.question}</h4>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 mr-4">
-              <button 
+              <button
                 onClick={goToPrev}
                 disabled={currentStep === 0}
                 className={cn(
@@ -152,12 +173,12 @@ export function InquiryWizardCard({
               <span className="text-[11px] text-muted-foreground font-mono px-1">
                 {currentStep + 1} of {inquiries.length}
               </span>
-              <button 
+              <button
                 onClick={() => goToNext(answers)}
-                disabled={!answers[step?.question || ''] || isReviewPage}
+                disabled={!answers[step?.question || ''] || (Array.isArray(answers[step?.question || '']) && answers[step?.question || ''].length === 0) || isReviewPage}
                 className={cn(
                   "flex items-center justify-center w-6 h-6 rounded-full text-muted-foreground transition-colors",
-                  (!answers[step?.question || ''] || isReviewPage) ? "opacity-30 cursor-not-allowed" : "hover:text-foreground hover:bg-foreground/5"
+                  (!answers[step?.question || ''] || (Array.isArray(answers[step?.question || '']) && answers[step?.question || ''].length === 0) || isReviewPage) ? "opacity-30 cursor-not-allowed" : "hover:text-foreground hover:bg-foreground/5"
                 )}
               >
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -168,52 +189,59 @@ export function InquiryWizardCard({
             </button>
           </div>
         </div>
-        
+
         {description && currentStep === 0 && (
           <p className="text-xs text-muted-foreground">{description}</p>
         )}
       </div>
 
       {/* Body */}
-      <div className="px-3 pb-3 flex flex-col gap-2">
-        {step.type === 'enum' && step.options && (
-          <div className="flex flex-col gap-1 mb-2 px-2">
-            {step.options.map((opt, i) => (
-              <button
-                key={i}
-                onClick={() => handleSelectEnum(opt)}
-                className={cn(
-                  "flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all text-[14px] font-medium text-left group",
-                  answers[step.question] === opt
-                    ? "bg-foreground/5 text-foreground"
-                    : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <span className={cn(
-                    "flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-mono transition-colors",
-                    answers[step.question] === opt
-                      ? "bg-foreground/10 text-foreground"
-                      : "bg-muted/50 text-muted-foreground/70 group-hover:bg-foreground/10 group-hover:text-foreground"
-                  )}>
-                    {i + 1}
-                  </span>
-                  {opt}
-                </div>
-                <div className={cn(
-                  "text-muted-foreground pr-1",
-                  answers[step.question] === opt ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                )}>
-                  <CornerDownLeft className="w-3.5 h-3.5" />
-                </div>
-              </button>
-            ))}
+      <div className="px-4 pb-3 flex flex-col gap-1">
+        {(step.type === 'single_select' || step.type === 'multi_select') && step.options && (
+          <div className="flex flex-col gap-1">
+            {step.options.map((opt, i) => {
+              const isSelected = step.type === 'multi_select'
+                ? Array.isArray(answers[step.question]) && answers[step.question].includes(opt)
+                : answers[step.question] === opt;
+              
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleSelectEnum(opt)}
+                  className={cn(
+                    "flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all text-[14px] font-medium text-left group",
+                    isSelected
+                      ? "bg-foreground/5 text-foreground"
+                      : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-mono transition-colors",
+                      isSelected
+                        ? "bg-foreground/10 text-foreground"
+                        : "bg-muted/50 text-muted-foreground/70 group-hover:bg-foreground/10 group-hover:text-foreground"
+                    )}>
+                      {step.type === 'multi_select' ? (
+                        isSelected ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-3.5 h-3.5 border border-muted-foreground/40 rounded-sm" />
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    {opt}
+                  </div>
+                  {isSelected && step.type === 'single_select' && (
+                    <CheckCircle2 className="w-4 h-4 text-primary animate-in zoom-in duration-200" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
         {/* Input Area */}
         <div className="bg-muted/70 rounded-xl p-1.5 flex items-center gap-2">
-          {step.type === 'enum' ? (
+          {(step.type === 'single_select' || step.type === 'multi_select') ? (
             <>
               <div className="pl-3 text-muted-foreground">
                 <Pen className="w-4 h-4" />
@@ -225,7 +253,7 @@ export function InquiryWizardCard({
                 onKeyDown={handleKeyDown}
                 className="flex-1 h-9 bg-transparent border-0 focus-visible:ring-0 px-2 text-[14px] shadow-none"
               />
-              {textValue.trim() || answers[step.question] ? (
+              {textValue.trim() || (answers[step.question] && !Array.isArray(answers[step.question])) || (Array.isArray(answers[step.question]) && answers[step.question].length > 0) ? (
                 <Button size="sm" onClick={() => textValue.trim() ? handleTextSubmit() : goToNext(answers)} disabled={!answers[step.question] && !textValue.trim()} className="h-7 px-4 rounded-full text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground ml-auto">
                   {currentStep === inquiries.length - 1 ? 'Review' : 'Next'}
                 </Button>
@@ -245,9 +273,9 @@ export function InquiryWizardCard({
                 onKeyDown={handleKeyDown}
                 className="flex-1 h-11 bg-transparent border-0 focus-visible:ring-0 px-2 text-[14px] shadow-none"
               />
-              <Button 
-                onClick={handleTextSubmit} 
-                size="icon" 
+              <Button
+                onClick={handleTextSubmit}
+                size="icon"
                 className="h-10 w-10 rounded-full bg-[#EC5B14] hover:bg-[#D44A0D] text-white shrink-0 mr-0.5"
                 disabled={!textValue.trim() && !answers[step.question]}
               >

@@ -91,6 +91,7 @@ export function ChatSession({
   const [isLocalThinking, setIsLocalThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
+  const handledAutoSubmitKeyRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -188,11 +189,14 @@ export function ChatSession({
 
   // ── Effects ──
   useEffect(() => {
-    if (sessionId && location.state?.autoSubmit) {
+    const autoSubmit = Boolean((location.state as any)?.autoSubmit);
+    const autoSubmitKey = sessionId && autoSubmit ? `${sessionId}:${location.key}` : null;
+    if (sessionId && autoSubmitKey && handledAutoSubmitKeyRef.current !== autoSubmitKey) {
+      handledAutoSubmitKeyRef.current = autoSubmitKey;
       navigate(location.pathname, { replace: true, state: {} });
-      setTimeout(() => onFormSubmit(), 0);
+      window.setTimeout(() => onFormSubmit(), 0);
     }
-  }, [sessionId, location.state, navigate, onFormSubmit]);
+  }, [sessionId, location.key, location.pathname, navigate, onFormSubmit]);
 
   useEffect(() => {
     if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
@@ -524,14 +528,41 @@ export function ChatSession({
                   skillName={activeInquiryPart.result?.ui?.props?.skillName || activeInquiryPart.output?.ui?.props?.skillName}
                   description={activeInquiryPart.result?.ui?.props?.description || activeInquiryPart.output?.ui?.props?.description}
                   inquiries={activeInquiryPart.result?.ui?.props?.inquiries || activeInquiryPart.output?.ui?.props?.inquiries}
-                  onComplete={(answers) => {
-                    const formattedText = Object.entries(answers)
-                      .map(([q, a]) => `Q: ${q}\nA: ${a}`)
-                      .join('\n');
-                    sendMessage({ content: formattedText, role: 'user' });
+                  onComplete={async (answers) => {
+                    const props = activeInquiryPart.result?.ui?.props || activeInquiryPart.output?.ui?.props || {};
+                    const inquiries = props.inquiries || [];
+                    const requestId = props.requestId;
+
+                    if (requestId) {
+                      try {
+                        await api.post(`/api/chat/approvals/${requestId}/respond`, { 
+                          status: 'approved', 
+                          result: answers 
+                        });
+                        // Remove activeInquiryPart after successful submit
+                        // Since this is a blocking MCP request, we don't inject a message
+                      } catch (err) {
+                        console.error('Failed to submit MCP intent clarify:', err);
+                      }
+                    } else {
+                      const formattedText = Object.entries(answers)
+                        .map(([q, a]) => {
+                          const inq = inquiries.find((i: any) => i.question === q);
+                          const label = inq?.header || q;
+                          const ansStr = Array.isArray(a) ? a.join(', ') : a;
+                          return `Q: ${label}\\\nA: ${ansStr}`;
+                        })
+                        .join('\\\n');
+                      sendMessage({ content: formattedText, role: 'user' });
+                    }
                   }}
-                  onCancel={() => {
-                    sendMessage({ content: '已取消操作', role: 'user' });
+                  onCancel={async () => {
+                    const props = activeInquiryPart.result?.ui?.props || activeInquiryPart.output?.ui?.props || {};
+                    if (props.requestId) {
+                      await api.post(`/api/chat/approvals/${props.requestId}/respond`, { status: 'denied' });
+                    } else {
+                      sendMessage({ content: '已取消操作', role: 'user' });
+                    }
                   }}
                 />
               </div>

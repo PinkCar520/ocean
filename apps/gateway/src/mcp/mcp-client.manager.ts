@@ -34,6 +34,8 @@ interface ManagedMCPClient {
   elicitationCallbacks?: Map<string, (response: MCPElicitationResponse) => void>;
 }
 
+import { ApprovalService } from '../skill/approval.service';
+
 /**
  * MCPClientManager
  *
@@ -56,6 +58,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     private moduleRef: ModuleRef,
     @Inject(forwardRef(() => RpcGateway))
     private rpcGateway: RpcGateway,
+    private approvalService: ApprovalService,
   ) { }
 
   private replaceVars(value: string): string {
@@ -150,64 +153,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
               (toolDef.inputSchema ?? { type: 'object', properties: {} }) as any,
             ),
             execute: async (params: any) => {
-              this.logger.debug(`[MCP:${serverId}] Calling tool: ${toolDef.name}`);
-              try {
-                const result = await managed.client.callTool({
-                  name: toolDef.name,
-                  arguments: params,
-                });
-
-                const content = result.content as Array<{ type: string; text?: string }>;
-                const textContent = content.find((c) => c.type === 'text');
-                const rawText = textContent?.text ?? JSON.stringify(content);
-
-                // ── UI Protocol 解析 ──
-                const uiMatch = rawText.match(/__UI__:([\s\S]*?)$/);
-                if (uiMatch) {
-                  try {
-                    const uiData = JSON.parse(uiMatch[1]);
-
-                    if (uiData.uiType === 'elicitation' || uiData.uiType === 'approval_card') {
-                      const requestId = uiData.props?.id || `req_${Math.random().toString(36).substring(7)}`;
-                      const toolName = uiData.props?.toolName || toolDef.name;
-
-                      this.logger.log(`[MCP:${serverId}] Registering approval callback for ${requestId}`);
-                      this.registerElicitationResponseCallback(requestId, (res) => {
-                        this.logger.log(`[MCP:${serverId}] Received user response for ${requestId}: ${res.action}`);
-                      });
-
-                      if (params.userId || params.sessionId) {
-                        this.rpcGateway.server.emit('mcp_approval', {
-                          serverId,
-                          requestId,
-                          toolName,
-                          message: uiData.props?.message || uiData.props?.description || `AI 请求执行工具: ${toolName}`,
-                          args: uiData.props?.args || params,
-                          userId: params.userId,
-                          sessionId: params.sessionId,
-                        });
-                      }
-
-                      // 强制转换为前端支持的 uiType
-                      uiData.uiType = 'approval_card';
-                      if (!uiData.props) uiData.props = {};
-                      uiData.props.requestId = requestId;
-                      uiData.props.toolName = toolName;
-                      uiData.props.status = 'pending';
-                    }
-
-                    const cleanText = rawText.replace(/__UI__:.*$/, '').trim();
-                    return { content: cleanText, ui: uiData };
-                  } catch (parseErr) {
-                    this.logger.warn(`[MCP:${serverId}] Failed to parse __UI__ marker: ${(parseErr as Error).message}`);
-                  }
-                }
-
-                return { content: rawText, ui: undefined };
-              } catch (err) {
-                this.logger.error(`[MCP:${serverId}] Tool call failed: ${(err as Error).message}`);
-                throw err;
-              }
+              return this.executeMcpToolWithRetry(serverId, toolDef, params, managed);
             },
           });
         }
@@ -219,6 +165,104 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     this.cachedAITools = aggregated;
     this.logger.log(`Tool registry built: [${Object.keys(aggregated).join(', ')}]`);
     return aggregated;
+  }
+
+  private async executeMcpToolWithRetry(serverId: string, toolDef: any, params: any, managed: ManagedMCPClient): Promise<any> {
+    this.logger.debug(`[MCP:${serverId}] Calling tool: ${toolDef.name}`);
+    try {
+      const result = await managed.client.callTool({
+        name: toolDef.name,
+        arguments: params,
+      });
+
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const textContent = content.find((c) => c.type === 'text');
+      const rawText = textContent?.text ?? JSON.stringify(content);
+
+      // ── UI Protocol 解析 ──
+      const uiMatch = rawText.match(/__UI__:([\s\S]*?)$/);
+      if (uiMatch) {
+        try {
+          const uiData = JSON.parse(uiMatch[1]);
+
+          if (uiData.uiType === 'elicitation' || uiData.uiType === 'approval_card') {
+            const requestId = uiData.props?.id || `req_${Math.random().toString(36).substring(7)}`;
+            const toolName = uiData.props?.toolName || toolDef.name;
+
+            this.logger.log(`[MCP:${serverId}] Registering approval callback for ${requestId}`);
+            this.registerElicitationResponseCallback(requestId, (res) => {
+              this.logger.log(`[MCP:${serverId}] Received user response for ${requestId}: ${res.action}`);
+            });
+
+            if (params.userId || params.sessionId) {
+              this.rpcGateway.server.emit('mcp_approval', {
+                serverId,
+                requestId,
+                toolName,
+                message: uiData.props?.message || uiData.props?.description || `AI 请求执行工具: ${toolName}`,
+                args: uiData.props?.args || params,
+                userId: params.userId,
+                sessionId: params.sessionId,
+              });
+            }
+
+            // 强制转换为前端支持的 uiType
+            uiData.uiType = 'approval_card';
+            if (!uiData.props) uiData.props = {};
+            uiData.props.requestId = requestId;
+            uiData.props.toolName = toolName;
+            uiData.props.status = 'pending';
+          }
+
+          const cleanText = rawText.replace(/__UI__:.*$/, '').trim();
+          return { content: cleanText, ui: uiData };
+        } catch (parseErr) {
+          this.logger.warn(`[MCP:${serverId}] Failed to parse __UI__ marker: ${(parseErr as Error).message}`);
+        }
+      }
+
+      return { content: rawText, ui: undefined };
+    } catch (err: any) {
+      if (err.code === 4099 || err?.data?.code === 4099 || err.message?.includes('4099')) {
+        this.logger.warn(`[MCP:${serverId}] Intercepted 4099 error for ${toolDef.name}. Suspending for user input...`);
+        const errorData = err.data || (err.message.includes('4099') ? JSON.parse(err.message.substring(err.message.indexOf('{'))) : {});
+        const inquiries = errorData.inquiries || [];
+        
+        const requestId = await this.approvalService.createRequest({
+          sessionId: params.sessionId || 'global',
+          toolName: toolDef.name,
+          args: { originalParams: params, inquiries }, 
+        });
+
+        if (params.userId || params.sessionId) {
+          this.rpcGateway.server.emit('mcp_inquiry', {
+            serverId,
+            requestId,
+            toolName: toolDef.name,
+            inquiries,
+            userId: params.userId,
+            sessionId: params.sessionId,
+          });
+        }
+
+        const approved = await this.approvalService.waitForApproval(requestId, 5 * 60 * 1000);
+        if (!approved) {
+          throw new Error('User cancelled or timed out during MCP intent clarify');
+        }
+        
+        const reqData = await this.approvalService.getRequest(requestId);
+        if (!reqData || !reqData.result) {
+          throw new Error('User approved but no result was saved');
+        }
+        
+        this.logger.log(`[MCP:${serverId}] User submitted clarification. Retrying tool execution...`);
+        const newParams = { ...params, ...reqData.result };
+        return this.executeMcpToolWithRetry(serverId, toolDef, newParams, managed);
+      }
+
+      this.logger.error(`[MCP:${serverId}] Tool call failed: ${(err as Error).message}`);
+      throw err;
+    }
   }
 
   // ──────────────────────────────────────────────

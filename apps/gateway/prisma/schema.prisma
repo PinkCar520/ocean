@@ -289,6 +289,7 @@ model ApprovalRequest {
   toolName    String                        // 需要审批的工具名称
   args        Json                          // 工具调用参数快照
   status      String   @default("pending")  // 'pending' | 'approved' | 'denied'
+  result      Json?                         // 用户提交的表单数据 (MCP 拦截重试用)
   responseBy  String?  @db.VarChar(20)     // 操作人工号（谁批准的）
   responseAt  DateTime?                     // 批准/拒绝时间
   expiresAt   DateTime                      // 超时自动过期（默认 30 分钟）

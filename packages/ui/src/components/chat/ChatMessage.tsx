@@ -116,6 +116,8 @@ export const ChatMessage = React.memo(({
     ? { initial: false, animate: { opacity: 1 } }
     : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
+  const memoizedComponents = React.useMemo(() => MarkdownComponents(onExtract) as any, [onExtract]);
+
   return (
       <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
         <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
@@ -240,8 +242,13 @@ export const ChatMessage = React.memo(({
                         
                         if (part.type === 'text') {
                           return (
-                            <div key={i} className="prose prose-slate prose-sm max-w-none [&>p:first-child]:mt-0 [&>p:first-child]:mb-1">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents(onExtract) as any}>
+                            <div key={i} className={cn(
+                              "max-w-none",
+                              isUser 
+                                ? "prose prose-slate prose-sm [&>p]:my-0 leading-snug text-[14px] font-medium" 
+                                : "prose prose-slate prose-sm [&>p:first-child]:mt-0 [&>p:first-child]:mb-1"
+                            )}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={memoizedComponents}>
                                 {part.text}
                               </ReactMarkdown>
                             </div>
@@ -313,7 +320,7 @@ export const ChatMessage = React.memo(({
                     <ThinkingList steps={parseReasoningToSteps(m.reasoning, isStreaming, false)} />
                   </div>
                 )}
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents(onExtract) as any}>{m.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={memoizedComponents}>{m.content}</ReactMarkdown>
                 {isStreaming && <TypingCursor />}
                 {isStreaming && !m.reasoning && (
                   <div className="mt-1">

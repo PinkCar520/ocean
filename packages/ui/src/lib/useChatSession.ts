@@ -71,25 +71,35 @@ export function useChatSession({
     return path;
   }, [fullTree, currentLeafId]);
 
+  const emptyMessages = useMemo(() => [], []);
+  const chatBody = useMemo(() => ({
+    modelId: selectedModelId,
+    search: isSearchMode,
+    knowledge: isKnowledgeMode,
+    sessionId: sessionId,
+  }), [selectedModelId, isSearchMode, isKnowledgeMode, sessionId]);
+
+  const onFinishRef = useRef<any>(null);
+  onFinishRef.current = async ({ message }: any) => {
+    const sid = sessionIdRef.current;
+    if (sid) {
+      await onStreamFinished(sid);
+      // 清空 SDK 内部的增量消息列表，因为此时它们已经通过 initialMessages -> fullTree -> activeMessages 同步到了 UI
+      setMessages([]); 
+    }
+  };
+
+  const handleFinish = useCallback((...args: any[]) => {
+    return onFinishRef.current?.(...args);
+  }, []);
+
   const { messages, sendMessage, status, setMessages, stop, error, data } = (useChat as any)({
     id: sessionId ?? 'new',
-    initialMessages: [], // 我们通过 setMessages 手动控制渲染列表
+    initialMessages: emptyMessages, // 我们通过 setMessages 手动控制渲染列表
     api: '/api/chat',
     fetch: authFetch,
-    body: {
-      modelId: selectedModelId,
-      search: isSearchMode,
-      knowledge: isKnowledgeMode,
-      sessionId: sessionId,
-    },
-    onFinish: async ({ message }: any) => {
-      const sid = sessionIdRef.current;
-      if (sid) {
-        await onStreamFinished(sid);
-        // 清空 SDK 内部的增量消息列表，因为此时它们已经通过 initialMessages -> fullTree -> activeMessages 同步到了 UI
-        setMessages([]); 
-      }
-    }
+    body: chatBody,
+    onFinish: handleFinish
   });
 
   // 当 SDK 的 messages 发生变化（流式过程中），同步更新到 UI 列表

@@ -7,6 +7,7 @@ export interface ApprovalRequest {
   toolName: string;
   args: any;
   status: 'pending' | 'approved' | 'denied';
+  result?: any;
   responseBy?: string;
   responseAt?: Date;
   expiresAt: Date;
@@ -100,6 +101,7 @@ export class ApprovalService {
     id: string,
     status: 'approved' | 'denied',
     userId?: string,
+    result?: any,
   ): Promise<boolean> {
     const updated = await this.prisma.approvalRequest.updateMany({
       where: {
@@ -109,6 +111,7 @@ export class ApprovalService {
       },
       data: {
         status,
+        result: result ?? null,
         responseBy: userId || null,
         responseAt: new Date(),
       },
@@ -189,6 +192,7 @@ export class ApprovalService {
       toolName: row.toolName,
       args: row.args,
       status: row.status as ApprovalRequest['status'],
+      result: row.result,
       responseBy: row.responseBy,
       responseAt: row.responseAt,
       expiresAt: row.expiresAt,

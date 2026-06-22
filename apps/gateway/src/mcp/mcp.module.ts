@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { MCPClientManager } from './mcp-client.manager';
 import { MCPConfigLoader } from './mcp-config.loader';
 import { RpcModule } from '../chat/rpc.module';
+import { ApprovalModule } from '../skill/approval.module';
 
 /**
  * MCPModule
@@ -11,7 +12,7 @@ import { RpcModule } from '../chat/rpc.module';
  * MCPConfigLoader 提供多层级配置加载能力。
  */
 @Module({
-  imports: [forwardRef(() => RpcModule)],
+  imports: [forwardRef(() => RpcModule), ApprovalModule],
   providers: [MCPClientManager, MCPConfigLoader],
   exports: [MCPClientManager, MCPConfigLoader],
 })
