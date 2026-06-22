@@ -454,7 +454,7 @@ export class SkillOrchestrator {
       }),
 
       agp_intent_clarify: tool({
-        description: '当用户意图模糊或缺失必填参数时，调用此工具向用户抛出多步表单进行提问。',
+        description: '当用户意图模糊或缺失必填参数时，调用此工具向用户抛出多步表单进行提问。绝对不要在你的回复文本中把这些问题列出来，前端会渲染一个UI卡片来展示这些问题。',
         inputSchema: z.object({
           skillName: z.string().describe('当前触发的技能名称'),
           description: z.string().optional().describe('给用户的补充说明，比如为什么要问这些问题'),

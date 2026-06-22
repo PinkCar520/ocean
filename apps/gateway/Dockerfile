@@ -36,7 +36,7 @@ RUN npx turbo run build --filter=gateway
 # 阶段 3：Runner (生产运行环境)
 FROM node:22-alpine AS runner
 WORKDIR /app
-ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
+# ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
 RUN corepack enable
 ENV NODE_ENV=production
 

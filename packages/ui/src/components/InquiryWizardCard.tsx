@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, X, Sparkles, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, X, Send, Pen, CheckCircle2, CornerDownLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { UIInquiryStep } from '../types/ui-protocol';
 import { Button } from './ui/button';
@@ -24,23 +24,36 @@ export function InquiryWizardCard({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [textValue, setTextValue] = useState('');
 
+  useEffect(() => {
+    if (inquiries && currentStep < inquiries.length) {
+      const step = inquiries[currentStep];
+      const answer = answers[step.question];
+      if (answer && step.options && step.options.includes(answer)) {
+        setTextValue('');
+      } else {
+        setTextValue(answer || '');
+      }
+    }
+  }, [currentStep, inquiries, answers]);
+
   if (!inquiries || inquiries.length === 0) {
     return null;
   }
 
-  const step = inquiries[currentStep];
+  const isReviewPage = currentStep === inquiries.length;
+  const step = isReviewPage ? null : inquiries[currentStep];
 
   const handleSelectEnum = (option: string) => {
+    if (!step) return;
     const newAnswers = { ...answers, [step.question]: option };
     setAnswers(newAnswers);
     goToNext(newAnswers);
   };
 
   const handleTextSubmit = () => {
-    if (!textValue.trim()) return;
+    if (!step || !textValue.trim()) return;
     const newAnswers = { ...answers, [step.question]: textValue.trim() };
     setAnswers(newAnswers);
-    setTextValue('');
     goToNext(newAnswers);
   };
 
@@ -51,11 +64,7 @@ export function InquiryWizardCard({
   };
 
   const goToNext = (currentAnswers: Record<string, string>) => {
-    if (currentStep < inquiries.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      onComplete(currentAnswers);
-    }
+    setCurrentStep(currentStep + 1);
   };
 
   const goToPrev = () => {
@@ -64,91 +73,189 @@ export function InquiryWizardCard({
     }
   };
 
+  const submitAll = () => {
+    onComplete(answers);
+  };
+
+  if (isReviewPage) {
+    return (
+      <div className="w-full bg-card border border-border/80 rounded-[20px] mt-0 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="px-5 py-3 flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[15px] font-bold text-foreground">Overview & Confirm</h4>
+            <div className="flex items-center gap-3">
+              <button onClick={onCancel} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Please review your answers before submitting.</p>
+        </div>
+
+        <div className="px-5 pb-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
+            {inquiries.map((inq, idx) => (
+              <div key={idx} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-muted/60 border border-border/50 relative group">
+                <div className="text-[13px] font-medium text-foreground flex items-center gap-2">
+                  <span className="text-muted-foreground font-mono text-[11px]">{idx + 1}.</span> 
+                  {inq.question}
+                </div>
+                <div className="text-[14px] text-muted-foreground pl-5 break-words">
+                  {answers[inq.question] || <span className="italic opacity-50">Skipped</span>}
+                </div>
+                <button 
+                  onClick={() => setCurrentStep(idx)}
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-xs text-primary hover:underline transition-opacity"
+                >
+                  Edit
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-between items-center pt-4">
+            <Button variant="ghost" onClick={goToPrev} size="icon" className="h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 shrink-0">
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <Button onClick={submitAll} size="icon" className="h-10 w-10 rounded-full bg-[#EC5B14] hover:bg-[#D44A0D] text-white shadow-sm shrink-0">
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!step) return null;
+
   return (
-    <div className="bg-card border border-border/80 rounded-[20px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] max-w-[600px] mt-4 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="w-full bg-card border border-border/80 rounded-[20px] mt-0 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border/50 flex flex-col gap-2">
+      <div className="px-5 py-3 flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-[#2b7fff]/10 p-1.5 rounded-lg">
-              <Sparkles className="w-4 h-4 text-[#2b7fff]" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">{step.question}</h4>
+            <h4 className="text-[14px] font-bold text-foreground">{step.question}</h4>
           </div>
           
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 text-[11px] font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
+            <div className="flex items-center gap-1 mr-4">
               <button 
                 onClick={goToPrev}
                 disabled={currentStep === 0}
-                className="hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground transition-colors"
+                className={cn(
+                  "flex items-center justify-center w-6 h-6 rounded-full text-muted-foreground transition-colors",
+                  currentStep === 0 ? "opacity-30 cursor-not-allowed" : "hover:text-foreground hover:bg-foreground/5"
+                )}
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <span className="min-w-[40px] text-center">
+              <span className="text-[11px] text-muted-foreground font-mono px-1">
                 {currentStep + 1} of {inquiries.length}
               </span>
               <button 
-                disabled={true}
-                className="opacity-30"
+                onClick={() => goToNext(answers)}
+                disabled={!answers[step?.question || ''] || isReviewPage}
+                className={cn(
+                  "flex items-center justify-center w-6 h-6 rounded-full text-muted-foreground transition-colors",
+                  (!answers[step?.question || ''] || isReviewPage) ? "opacity-30 cursor-not-allowed" : "hover:text-foreground hover:bg-foreground/5"
+                )}
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
-            <button onClick={onCancel} className="text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={onCancel} className="flex items-center justify-center w-6 h-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
         
         {description && currentStep === 0 && (
-          <p className="text-xs text-muted-foreground pl-9">{description}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
         )}
       </div>
 
       {/* Body */}
-      <div className="p-5 flex flex-col gap-3">
+      <div className="px-3 pb-3 flex flex-col gap-2">
         {step.type === 'enum' && step.options && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1 mb-2 px-2">
             {step.options.map((opt, i) => (
               <button
                 key={i}
                 onClick={() => handleSelectEnum(opt)}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all text-sm font-medium text-left text-foreground group"
+                className={cn(
+                  "flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all text-[14px] font-medium text-left group",
+                  answers[step.question] === opt
+                    ? "bg-foreground/5 text-foreground"
+                    : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground"
+                )}
               >
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-5 h-5 rounded-md bg-muted text-[10px] font-mono text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                  <span className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-mono transition-colors",
+                    answers[step.question] === opt
+                      ? "bg-foreground/10 text-foreground"
+                      : "bg-muted/50 text-muted-foreground/70 group-hover:bg-foreground/10 group-hover:text-foreground"
+                  )}>
                     {i + 1}
                   </span>
                   {opt}
+                </div>
+                <div className={cn(
+                  "text-muted-foreground pr-1",
+                  answers[step.question] === opt ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}>
+                  <CornerDownLeft className="w-3.5 h-3.5" />
                 </div>
               </button>
             ))}
           </div>
         )}
 
-        {step.type === 'text' && (
-          <div className="flex items-center gap-2">
-            <Input
-              autoFocus
-              placeholder="Enter your answer..."
-              value={textValue}
-              onChange={(e) => setTextValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex-1 rounded-xl h-11 bg-muted/20"
-            />
-            <Button onClick={handleTextSubmit} size="icon" className="h-11 w-11 rounded-xl">
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="px-5 py-3 border-t border-border/50 bg-muted/20 flex justify-end">
-        <Button variant="ghost" size="sm" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">
-          Skip
-        </Button>
+        {/* Input Area */}
+        <div className="bg-muted/70 rounded-xl p-1.5 flex items-center gap-2">
+          {step.type === 'enum' ? (
+            <>
+              <div className="pl-3 text-muted-foreground">
+                <Pen className="w-4 h-4" />
+              </div>
+              <Input
+                placeholder="Something else"
+                value={textValue}
+                onChange={(e) => setTextValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="flex-1 h-9 bg-transparent border-0 focus-visible:ring-0 px-2 text-[14px] shadow-none"
+              />
+              {textValue.trim() || answers[step.question] ? (
+                <Button size="sm" onClick={() => textValue.trim() ? handleTextSubmit() : goToNext(answers)} disabled={!answers[step.question] && !textValue.trim()} className="h-7 px-4 rounded-full text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground ml-auto">
+                  {currentStep === inquiries.length - 1 ? 'Review' : 'Next'}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => goToNext({ ...answers, [step.question]: 'Skipped' })} className="h-7 px-4 rounded-md text-xs font-semibold bg-background border border-border/80 shadow-none hover:bg-muted text-foreground ml-auto">
+                  Skip
+                </Button>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2 w-full pl-2">
+              <Input
+                autoFocus
+                placeholder="Enter your answer..."
+                value={textValue}
+                onChange={(e) => setTextValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="flex-1 h-11 bg-transparent border-0 focus-visible:ring-0 px-2 text-[14px] shadow-none"
+              />
+              <Button 
+                onClick={handleTextSubmit} 
+                size="icon" 
+                className="h-10 w-10 rounded-full bg-[#EC5B14] hover:bg-[#D44A0D] text-white shrink-0 mr-0.5"
+                disabled={!textValue.trim() && !answers[step.question]}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

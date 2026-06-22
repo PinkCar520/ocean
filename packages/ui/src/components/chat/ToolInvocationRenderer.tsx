@@ -34,22 +34,7 @@ export function ToolInvocationRenderer({
   }
 
   if (result?.ui?.uiType === 'inquiry_card') {
-    return (
-      <InquiryWizardCard
-        skillName={result.ui.props.skillName}
-        description={result.ui.props.description}
-        inquiries={result.ui.props.inquiries}
-        onComplete={(answers) => {
-          const formattedText = Object.entries(answers)
-            .map(([q, a]) => `Q: ${q}\nA: ${a}`)
-            .join('\n');
-          sendMessage({ content: formattedText, role: 'user' });
-        }}
-        onCancel={() => {
-          sendMessage({ content: '已取消操作', role: 'user' });
-        }}
-      />
-    );
+    return null; // 迁移至 ChatSession 中全局渲染在 ChatInput 上方
   }
 
   // ── Gen 1: Backwards Compatibility ──

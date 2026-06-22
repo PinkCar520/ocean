@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, SetMetadata } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, SetMetadata, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { SkillService, CreateSkillDto, UpdateSkillDto } from './skill.service';
 import { SkillImportService, ImportSkillDto } from './skill-import.service';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
@@ -184,6 +185,34 @@ export class SkillController {
         success: true,
         data: {
           message: `Successfully imported skill "${skill.name}" from ${body.source}`,
+          skill,
+        },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
+  }
+
+  /**
+   * POST /api/skills/upload
+   * 上传并安装 .skill (zip) 文件
+   */
+  @Post('upload')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadSkill(@UploadedFile() file: any) {
+    try {
+      if (!file) {
+        throw new Error('No file uploaded');
+      }
+      const skill = await this.skillImportService.importFromFile(file);
+      return {
+        success: true,
+        data: {
+          message: `Successfully imported skill "${skill.name}" from uploaded file`,
           skill,
         },
       };

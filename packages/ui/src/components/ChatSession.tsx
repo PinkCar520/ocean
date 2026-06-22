@@ -6,6 +6,7 @@ import { parseReasoningToSteps, getFriendlyToolName, beautifyModelName, type Thi
 import { useChatSession } from '../lib/useChatSession';
 import { useChatInput } from '../lib/useChatInput';
 import { ChatInput } from './chat/ChatInput';
+import { InquiryWizardCard } from './InquiryWizardCard';
 import { ToolInvocationRenderer, ToolInvocationBadge } from './chat/ToolInvocationRenderer';
 import { ChatMessage } from './chat/ChatMessage';
 import { IntegrationsPanel } from './chat/IntegrationsPanel';
@@ -346,6 +347,15 @@ export function ChatSession({
     }
   }, [addFiles]);
 
+  const lastMessage = messages[messages.length - 1];
+  const lastToolInvocations = lastMessage?.toolInvocations || lastMessage?.parts?.filter((p: any) => p.type === 'tool-invocation') || [];
+  const activeInquiryPart = lastMessage?.role === 'assistant' 
+    ? lastToolInvocations.find((p: any) => {
+        const result = p.output || p.result;
+        return result?.ui?.uiType === 'inquiry_card';
+      })
+    : null;
+
   return (
       <div
           className="flex-1 flex overflow-hidden h-full relative"
@@ -506,6 +516,27 @@ export function ChatSession({
               
             </div>
           </div>
+
+          {activeInquiryPart && (
+            <div className="w-full px-4 md:px-8 z-10">
+              <div className="max-w-[800px] mx-auto relative flex flex-col justify-end pb-1">
+                <InquiryWizardCard
+                  skillName={activeInquiryPart.result?.ui?.props?.skillName || activeInquiryPart.output?.ui?.props?.skillName}
+                  description={activeInquiryPart.result?.ui?.props?.description || activeInquiryPart.output?.ui?.props?.description}
+                  inquiries={activeInquiryPart.result?.ui?.props?.inquiries || activeInquiryPart.output?.ui?.props?.inquiries}
+                  onComplete={(answers) => {
+                    const formattedText = Object.entries(answers)
+                      .map(([q, a]) => `Q: ${q}\nA: ${a}`)
+                      .join('\n');
+                    sendMessage({ content: formattedText, role: 'user' });
+                  }}
+                  onCancel={() => {
+                    sendMessage({ content: '已取消操作', role: 'user' });
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           <ChatInput
           isEmpty={messages.length === 0 && !isLoadingHistory}

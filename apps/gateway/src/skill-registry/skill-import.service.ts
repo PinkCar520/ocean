@@ -179,6 +179,58 @@ export class SkillImportService {
   }
 
   /**
+   * Import from uploaded .skill file (.zip containing SKILL.md)
+   */
+  async importFromFile(file: any) {
+    if (!file) {
+      throw new Error('No file provided');
+    }
+
+    const tempDir = path.join(process.cwd(), 'temp_skills', `import_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+    const zipPath = `${tempDir}.zip`;
+
+    try {
+      // 1. Save buffer to temp zip file
+      fs.mkdirSync(path.dirname(zipPath), { recursive: true });
+      fs.writeFileSync(zipPath, file.buffer);
+
+      // 2. Extract zip
+      fs.mkdirSync(tempDir, { recursive: true });
+      execSync(`unzip -o "${zipPath}" -d "${tempDir}"`);
+
+      // 3. Find SKILL.md
+      const skillMdPath = this.findSkillMd(tempDir);
+      if (!skillMdPath) {
+        throw new Error('No SKILL.md found in the uploaded .skill package');
+      }
+
+      // 4. Parse content
+      const content = fs.readFileSync(skillMdPath, 'utf-8');
+      const parsed = this.parseSkillMd(content, 'local');
+      parsed.tags = parsed.tags || [];
+      parsed.tags.push('upload-import');
+
+      // 5. Save to local registry so SkillLoader can discover it
+      const targetDir = path.join(process.cwd(), 'agents/skills', parsed.name);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(targetDir, 'SKILL.md'), content);
+
+      // 6. Save to DB
+      return this.saveSkill(parsed);
+    } finally {
+      // Cleanup
+      if (fs.existsSync(zipPath)) {
+        fs.unlinkSync(zipPath);
+      }
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  }
+
+  /**
    * Parse SKILL.md content (YAML frontmatter + body)
    */
   private parseSkillMd(content: string, source: string): ParsedSkill {

@@ -1,18 +1,19 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   CheckCircle2, Rocket, GitPullRequest, MessageSquare,
-  Star, Box, Mail, Loader2, Sparkles, LayoutGrid, Server, Search
+  Star, Box, Mail, Loader2, Sparkles, LayoutGrid, Server, Search, AppWindow
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import * as Tabs from '@radix-ui/react-tabs';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api-client';
 import { MCPServerManager } from './MCPServerManager';
 import { useInstalledSkills } from '../lib/useInstalledSkills';
 
 type Category = 'all' | 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science';
-type SubTab = 'marketplace' | 'mcp';
+type SubTab = 'apps' | 'marketplace' | 'mcp';
 
 interface SkillCard {
   id: string;
@@ -170,6 +171,7 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
   ];
 
   const subTabs = [
+    { id: 'apps', label: 'Apps', icon: AppWindow },
     { id: 'marketplace', label: t('library.common.skillset'), icon: LayoutGrid },
     { id: 'mcp', label: 'MCP Servers', icon: Server },
   ];
@@ -189,37 +191,56 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
       <div className="max-w-[1400px] mx-auto w-full">
         
         {/* Hero Section */}
-        <section className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <section className="mb-12 flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div>
             <div className="flex items-center gap-4 mb-3">
               <h2 className="font-display text-4xl font-extrabold tracking-tight text-foreground">
-                {t('library.title')}
+                {activeSubTab === 'marketplace' ? '技能集' : activeSubTab === 'mcp' ? 'MCP Servers' : 'Apps'}
               </h2>
-              
-              {/* Tab Switcher integrated into title row */}
-              <div className="flex bg-muted p-1 rounded-xl gap-0.5 ml-2">
-                {subTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveSubTab(tab.id as SubTab)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all",
-                      activeSubTab === tab.id
-                        ? "bg-primary/15 text-primary shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <tab.icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
             </div>
             <p className="text-muted-foreground max-w-xl text-[17px] leading-relaxed">
-              {activeSubTab === 'marketplace' ? t('library.subtitle') : 'Configure and monitor your Model Context Protocol connectors.'}
+              {activeSubTab === 'marketplace' 
+                ? '通过专为您的企业生态系统定制的代理技能，扩展 Ocean 的智能工作流。' 
+                : activeSubTab === 'mcp'
+                ? '配置并管理模型上下文协议 (MCP) 连接器，无缝接入外部工具与数据源。'
+                : '整合 Skills、MCP 和 Plugins，构建解决特定业务场景的智能应用。'}
             </p>
           </div>
-          {activeSubTab === 'marketplace' && (
+
+          <div className="flex flex-col items-end gap-6">
+            {/* Tab Switcher at top right (Segmented Control via Radix Tabs) */}
+            <Tabs.Root 
+              value={activeSubTab} 
+              onValueChange={(val) => setActiveSubTab(val as SubTab)}
+            >
+              <Tabs.List className="flex bg-[#f5f5f5] dark:bg-neutral-800/50 p-1 rounded-xl gap-1">
+                {subTabs.map((tab) => {
+                  const isActive = activeSubTab === tab.id;
+                  return (
+                    <Tabs.Trigger
+                      key={tab.id}
+                      value={tab.id}
+                      className={cn(
+                        "relative flex items-center gap-2 px-4 py-1.5 rounded-lg text-[15px] font-medium transition-colors duration-200 z-10",
+                        isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
+                      )}
+                    >
+                      {isActive && (
+                        <motion.div
+                          layoutId="segmented-control-indicator"
+                          className="absolute inset-0 bg-white dark:bg-background shadow-sm ring-1 ring-black/5 dark:ring-white/10 rounded-lg -z-10"
+                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        />
+                      )}
+                      <tab.icon className="w-[18px] h-[18px]" />
+                      {tab.label}
+                    </Tabs.Trigger>
+                  );
+                })}
+              </Tabs.List>
+            </Tabs.Root>
+
+            {/* Search and Stats at bottom right */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="relative w-full sm:w-56 shrink-0">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -227,7 +248,13 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                 </div>
                 <input
                   type="text"
-                  placeholder={t('library.common.search', { defaultValue: '搜索插件、工具或应用...' }) as string}
+                  placeholder={
+                    activeSubTab === 'marketplace' 
+                      ? '搜索技能...' 
+                      : activeSubTab === 'mcp' 
+                      ? '搜索 MCP 连接器...' 
+                      : '搜索智能应用...'
+                  }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/30 transition-all text-foreground"
@@ -235,23 +262,20 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">
-                  {t('library.stats.total_skills', { count: stats.total, defaultValue: `共 ${stats.total} 个技能` })}
+                  {activeSubTab === 'marketplace' 
+                    ? t('library.stats.total_skills', { count: stats.total, defaultValue: `共 ${stats.total} 个技能` })
+                    : activeSubTab === 'mcp'
+                    ? `共 0 个连接器`
+                    : `共 0 个应用`}
                 </span>
                 <span className="bg-muted text-muted-foreground px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">
-                  {t('library.stats.new_this_week', { count: stats.newThisWeek, defaultValue: `本周新增 ${stats.newThisWeek} 个` })}
+                  {activeSubTab === 'marketplace' 
+                    ? t('library.stats.new_this_week', { count: stats.newThisWeek, defaultValue: `本周新增 ${stats.newThisWeek} 个` })
+                    : `本周新增 0 个`}
                 </span>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem('ocean_active_skill_name'); // Clear selection to enter creation mode
-                    onMainTabChange?.('skill_studio');
-                  }}
-                  className="bg-foreground text-background px-4 py-1.5 rounded-full text-xs font-bold hover:bg-foreground/80 transition-colors whitespace-nowrap shadow-sm"
-                >
-                  {t('library.common.create_skill', '新建扩展')}
-                </button>
               </div>
             </div>
-          )}
+          </div>
         </section>
 
         {activeSubTab === 'marketplace' ? (
@@ -301,8 +325,8 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                 <div key="cards" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                   <AnimatePresence mode="popLayout">
                     {filteredSkills.map((card) => {
-                      const iconEl = card.icon ? ICON_MAP[card.icon] : <Star className="w-6 h-6" />;
-                      const iconStyle = card.icon ? ICON_STYLE_MAP[card.icon] : { bg: 'bg-gray-50', color: 'text-gray-500' };
+                      const iconEl = (card.icon && ICON_MAP[card.icon]) ? ICON_MAP[card.icon] : <Star className="w-6 h-6" />;
+                      const iconStyle = (card.icon && ICON_STYLE_MAP[card.icon]) ? ICON_STYLE_MAP[card.icon] : { bg: 'bg-gray-50', color: 'text-gray-500' };
                       return (
                         <motion.div
                           layout
@@ -317,10 +341,25 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                           }}
                           className="group card-floating p-6 flex flex-col hover:shadow-2xl hover:shadow-[#EC5B14]/5 transition-all cursor-pointer"
                         >
-                          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-6", iconStyle.bg, iconStyle.color)}>
-                            {iconEl}
-                          </div>
-                          <div className="flex-grow">
+                          {(() => {
+                            const lowerName = card.name.toLowerCase();
+                            const brands = ['gitlab', 'jenkins', 'github', 'slack', 'jira', 'confluence', 'notion', 'figma', 'linear', 'trello'];
+                            const matchedBrand = brands.find(b => lowerName.includes(b));
+                            
+                            if (matchedBrand) {
+                              return (
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-6 bg-white dark:bg-[#2A2A2A] border border-black/5 dark:border-white/5">
+                                  <img src={`https://cdn.simpleicons.org/${matchedBrand}`} alt={matchedBrand} className="w-6 h-6 opacity-90" />
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-6 text-xl font-display font-bold uppercase", iconStyle.bg, iconStyle.color)}>
+                                {card.name.charAt(0)}
+                              </div>
+                            );
+                          })()}
+                          <div className="flex-grow pt-2">
                             <h3 className="font-display font-bold text-lg mb-2 group-hover:text-primary transition-colors">{card.name}</h3>
                             <p className="text-[13px] text-muted-foreground leading-relaxed mb-6 font-medium line-clamp-3">
                               {card.description}
@@ -333,15 +372,16 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                installedIds.has(card.id) ? handleUninstall(card.id) : handleInstall(card.id);
+                                const isInstalled = installedIds.has(card.id) || card.source === 'local' || card.source === 'internal';
+                                isInstalled ? handleUninstall(card.id) : handleInstall(card.id);
                               }}
-                              disabled={installingId === card.id}
+                              disabled={installingId === card.id || card.source === 'local' || card.source === 'internal'}
                               className={cn(
-                                "flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg transition-all text-xs font-bold disabled:opacity-60 disabled:cursor-not-allowed",
+                                "flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg transition-all text-xs font-bold",
                                 "w-28",
-                                installedIds.has(card.id)
-                                  ? "bg-primary/10 text-primary hover:bg-primary/20"
-                                  : "text-primary hover:bg-primary/10"
+                                (installedIds.has(card.id) || card.source === 'local' || card.source === 'internal')
+                                  ? "text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-not-allowed opacity-60"
+                                  : "bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
                               )}
                             >
                               {installingId === card.id ? (
@@ -349,7 +389,7 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
                                   <Loader2 className="w-3 h-3 animate-spin" />
                                   <span>Loading</span>
                                 </>
-                              ) : installedIds.has(card.id) ? (
+                              ) : (installedIds.has(card.id) || card.source === 'local' || card.source === 'internal') ? (
                                 <>
                                   <CheckCircle2 className="w-3 h-3" />
                                   <span>{t('library.actions.installed')}</span>
