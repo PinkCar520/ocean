@@ -13,6 +13,7 @@ import { IntegrationsPanel } from './chat/IntegrationsPanel';
 import { ActiveContextPanel } from './chat/ActiveContext';
 import { EmptyState } from './chat/EmptyState';
 import { CopyCodeButton, MarkdownComponents, CodeBlock } from './chat/MarkdownConfig';
+import { SkillPreviewPanel } from './chat/SkillPreviewPanel';
 import { api } from '../lib/api-client';
 
 import { useChat } from '@ai-sdk/react';
@@ -68,20 +69,20 @@ interface ChatSessionProps {
 }
 
 export function ChatSession({
-                              sessionId,
-                              initialMessages = [],
-                              models,
-                              selectedModelId,
-                              setSelectedModelId,
-                              token,
-                              user,
-                              createSession,
-                              onStreamFinished,
-                              onRenameConversation,
-                              isLoadingHistory,
-                              onMainTabChange,
-                              t
-                            }: ChatSessionProps) {
+  sessionId,
+  initialMessages = [],
+  models,
+  selectedModelId,
+  setSelectedModelId,
+  token,
+  user,
+  createSession,
+  onStreamFinished,
+  onRenameConversation,
+  isLoadingHistory,
+  onMainTabChange,
+  t
+}: ChatSessionProps) {
   const reducedMotion = useReducedMotion();
 
   // Custom Hook: globally fetches & caches dynamic skill names
@@ -114,12 +115,12 @@ export function ChatSession({
     if (!data || !Array.isArray(data)) return null;
     const contexts = (data as any[]).filter(d => d.type === 'active-context');
     if (contexts.length === 0) return null;
-    
+
     // 合并所有历史 Context 事件（最新的覆盖旧的）
     return contexts.reduce((acc, curr) => {
-      return { 
-        ...acc, 
-        payload: { ...(acc.payload || {}), ...(curr.payload || {}) } 
+      return {
+        ...acc,
+        payload: { ...(acc.payload || {}), ...(curr.payload || {}) }
       };
     }, { payload: {} });
   }, [data]);
@@ -140,9 +141,9 @@ export function ChatSession({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<any>(null);
-  const [activeCapsule, setActiveCapsule] = useState<{ 
-    toolCallId?: string; 
-    uiKit?: any; 
+  const [activeCapsule, setActiveCapsule] = useState<{
+    toolCallId?: string;
+    uiKit?: any;
     artifact?: {
       type: 'code' | 'web';
       title: string;
@@ -165,7 +166,7 @@ export function ChatSession({
       const siblings = fullTree
         .filter((node: any) => node.parentId === m.parentId)
         .sort((a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-      
+
       totalBranches[m.id] = siblings.length;
       branchIndex[m.id] = siblings.findIndex((s: any) => s.id === m.id);
     });
@@ -180,7 +181,7 @@ export function ChatSession({
     const siblings = fullTree
       .filter(node => node.parentId === currentMsg.parentId)
       .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-    
+
     const targetSibling = siblings[index];
     if (targetSibling) {
       switchBranch(targetSibling.id);
@@ -238,12 +239,12 @@ export function ChatSession({
   // ── Actions ──
   const copyToClipboard = useCallback((m: any) => {
     const text = Array.isArray(m.parts)
-        ? m.parts.map((p: any) => {
-            if (p.type === 'text') return p.text;
-            if (p.type === 'skill') return `/${p.name} `;
-            return '';
-          }).join('')
-        : m.content || '';
+      ? m.parts.map((p: any) => {
+        if (p.type === 'text') return p.text;
+        if (p.type === 'skill') return `/${p.name} `;
+        return '';
+      }).join('')
+      : m.content || '';
     navigator.clipboard.writeText(text);
     setCopiedId(m.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -266,7 +267,7 @@ export function ChatSession({
         role: 'user',
         experimental_attachments: userMsg.experimental_attachments
       } as any, {
-        body: { parentId: userMsg.parentId } 
+        body: { parentId: userMsg.parentId }
       });
     } catch (err) {
       console.error('Regenerate failed:', err);
@@ -353,223 +354,223 @@ export function ChatSession({
 
   const lastMessage = messages[messages.length - 1];
   const lastToolInvocations = lastMessage?.toolInvocations || lastMessage?.parts?.filter((p: any) => p.type === 'tool-invocation') || [];
-  const activeInquiryPart = lastMessage?.role === 'assistant' 
+  const activeInquiryPart = lastMessage?.role === 'assistant'
     ? lastToolInvocations.find((p: any) => {
-        const result = p.output || p.result;
-        return result?.ui?.uiType === 'inquiry_card';
-      })
+      const result = p.output || p.result;
+      return result?.ui?.uiType === 'inquiry_card';
+    })
     : null;
 
   return (
-      <div
-          className="flex-1 flex overflow-hidden h-full relative"
-          onDragOver={handleDragOver}
-      >
-        {/* Right Sidebar Toggle Button — 始终吸附于整个视图最右侧顶部 */}
-        {(!previewAttachment && !activeCapsule) && (
-          <div className="absolute top-[4px] right-3 z-[9999] titlebar-no-drag">
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsRightSidebarOpen(prev => !prev); }}
-              className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer titlebar-no-drag pointer-events-auto"
-              style={{ WebkitAppRegion: 'no-drag' } as any}
-              title={isRightSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
-            >
-              {isRightSidebarOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRight className="w-4 h-4" />}
-            </button>
-          </div>
-        )}
-        <div className={cn(
-          "flex-1 flex flex-col relative overflow-hidden bg-card/40 transition-all duration-300",
-          messages.length === 0 && !isLoadingHistory && "justify-center"
-        )}>
-          <AnimatePresence>
-            {isDragging && (
-                <motion.div
-                    {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } })}
-                    onDragLeave={handleDragLeave} onDrop={handleDrop}
-                    className="absolute inset-0 z-50 bg-primary/5 backdrop-blur-[2px] border-4 border-dashed border-primary/20 m-4 rounded-[40px] flex flex-col items-center justify-center text-primary"
-                >
-                  <Plus className="w-12 h-12 mb-4" />
-                  <p className="text-xl font-bold font-display">{t('common.drag_drop')}</p>
-                </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div
-              ref={scrollRef}
-              onScroll={handleScroll}
-              className={cn(
-                "overflow-y-auto px-4 md:px-8 scroll-smooth relative w-full",
-                messages.length === 0 && !isLoadingHistory ? "flex-none py-2" : "flex-1 py-4"
-              )}
+    <div
+      className="flex-1 flex overflow-hidden h-full relative"
+      onDragOver={handleDragOver}
+    >
+      {/* Right Sidebar Toggle Button — 始终吸附于整个视图最右侧顶部 */}
+      {(!previewAttachment && !activeCapsule) && (
+        <div className="absolute top-[4px] right-3 z-[9999] titlebar-no-drag">
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsRightSidebarOpen(prev => !prev); }}
+            className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer titlebar-no-drag pointer-events-auto"
+            style={{ WebkitAppRegion: 'no-drag' } as any}
+            title={isRightSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
           >
-            {/* 右侧栏关闭按钮 */}
-            {previewAttachment && (
-                <button
-                    onClick={() => setPreviewAttachment(null)}
-                    className="absolute right-4 top-4 z-30 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-border/60 text-muted-foreground hover:text-primary hover:bg-card hover:border-primary/30 transition-all shadow-sm"
-                    title="关闭预览"
-                >
-                  <CloseIcon className="w-4 h-4" />
-                </button>
-            )}
+            {isRightSidebarOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRight className="w-4 h-4" />}
+          </button>
+        </div>
+      )}
+      <div className={cn(
+        "flex-1 flex flex-col relative overflow-hidden bg-card/40 transition-all duration-300",
+        messages.length === 0 && !isLoadingHistory && "justify-center"
+      )}>
+        <AnimatePresence>
+          {isDragging && (
+            <motion.div
+              {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } })}
+              onDragLeave={handleDragLeave} onDrop={handleDrop}
+              className="absolute inset-0 z-50 bg-primary/5 backdrop-blur-[2px] border-4 border-dashed border-primary/20 m-4 rounded-[40px] flex flex-col items-center justify-center text-primary"
+            >
+              <Plus className="w-12 h-12 mb-4" />
+              <p className="text-xl font-bold font-display">{t('common.drag_drop')}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            <div className="max-w-[800px] mx-auto space-y-8">
-              
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {isLoadingHistory ? (
-                      <div className="flex flex-col mt-8 w-full gap-8 max-w-3xl mx-auto px-2">
-                        <div className="flex justify-end w-full opacity-60">
-                          <div className="bg-[#eeece9] w-2/3 h-14 rounded-[20px] animate-pulse rounded-tr-[4px]"></div>
-                        </div>
-                        <div className="flex justify-start w-full gap-4 mt-2 opacity-60">
-                          <div className="w-8 h-8 rounded-xl bg-border animate-pulse shrink-0"></div>
-                          <div className="flex-1 max-w-[80%] h-32 rounded-[20px] bg-[#fcfcfc] animate-pulse rounded-tl-[4px] border border-[#f0f0f0]"></div>
-                        </div>
-                      </div>
-                  ) : messages.length === 0 ? (
-                    /* 还原 EmptyState 在此处的渲染，但逻辑改为判断 messages */
-                    <EmptyState
-                      t={t}
-                      setLocalInput={setLocalInput}
-                      onFormSubmit={onFormSubmit}
-                    />
-                  ) : (
-                    <div key="chat-messages" className="flex flex-col w-full">
-                      {Array.from(new Map(messages.map((m: any) => [m.id || m.createdAt || Math.random(), m])).values())
-                          .filter((m: any) => m.role === 'user' || m.role === 'assistant')
-                          .map((m: any, idx: number, arr: any[]) => (
-                            <ChatMessage
-                              key={m.id || idx}
-                              message={m}
-                              idx={idx}
-                              isLast={idx === arr.length - 1}
-                              isLoading={isLoading}
-                              reducedMotion={reducedMotion}
-                              t={t}
-                              getLocalizedName={getLocalizedName}
-                              copyToClipboard={copyToClipboard}
-                              copiedId={copiedId}
-                              messageFeedback={messageFeedback}
-                              setMessageFeedback={setMessageFeedback}
-                              handleRegenerate={handleRegenerate}
-                              startEditing={startEditing}
-                              editingMessageId={editingMessageId}
-                              editText={editText}
-                              setEditText={setEditText}
-                              submitEdit={submitEdit}
-                              cancelEdit={cancelEdit}
-                              setPreviewAttachment={setPreviewAttachment}
-                              previewAttachment={previewAttachment}
-                              activeCapsule={activeCapsule}
-                              setActiveCapsule={setActiveCapsule}
-                              sendMessage={sendMessage}
-                              branchIndex={branchMetadata.branchIndex}
-                              totalBranches={branchMetadata.totalBranches}
-                              onBranchChange={onBranchChange}
-                              isStopped={isStopped}
-                              onExtract={onExtractArtifact}
-                            />
-                          ))}
-
-                      {/* Error Banner */}
-                      {error && (
-                          <motion.div
-                              {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })}
-                              className="flex w-full gap-4 items-start mb-8"
-                          >
-                            <div className="w-8 h-8 rounded-[10px] bg-red-50 flex items-center justify-center shrink-0 mt-1">
-                              <AlertCircle className="w-4 h-4 text-red-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="bg-red-50/80 border border-red-200 rounded-[20px] px-5 py-4">
-                                <p className="text-sm font-semibold text-red-700 mb-1">
-                                  {t('chat.error.title', 'Request failed')}
-                                </p>
-                                <p className="text-xs text-red-500/80 break-words">
-                                  {error.message || t('chat.error.message', 'Something went wrong while generating the response. Please try again.')}
-                                </p>
-                                <button
-                                    onClick={() => handleRetry()}
-                                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" />
-                                  {t('chat.error.retry', 'Retry')}
-                                </button>
-                              </div>
-                            </div>
-                          </motion.div>
-                      )}
-
-                      {/* 当正在提交但 messages 列表还没更新出 assistant 回复时的"先行占位" */}
-                      {(isLoading || isLocalThinking) && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
-                          <motion.div {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })} className="flex w-full gap-4 items-start mb-8">
-                            <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
-                              <Sparkles className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
-                            </div>
-                          </motion.div>
-                      )}
-                      <div className="h-px w-full mt-4" />
-                    </div>
-                  )}
-
-                </AnimatePresence>
-              
-            </div>
-          </div>
-
-          {activeInquiryPart && (
-            <div className="w-full px-4 md:px-8 z-10">
-              <div className="max-w-[800px] mx-auto relative flex flex-col justify-end pb-1">
-                <InquiryWizardCard
-                  skillName={activeInquiryPart.result?.ui?.props?.skillName || activeInquiryPart.output?.ui?.props?.skillName}
-                  description={activeInquiryPart.result?.ui?.props?.description || activeInquiryPart.output?.ui?.props?.description}
-                  inquiries={activeInquiryPart.result?.ui?.props?.inquiries || activeInquiryPart.output?.ui?.props?.inquiries}
-                  onComplete={async (answers) => {
-                    const props = activeInquiryPart.result?.ui?.props || activeInquiryPart.output?.ui?.props || {};
-                    const inquiries = props.inquiries || [];
-                    const requestId = props.requestId;
-
-                    if (requestId) {
-                      try {
-                        await api.post(`/api/chat/approvals/${requestId}/respond`, { 
-                          status: 'approved', 
-                          result: answers 
-                        });
-                        // Remove activeInquiryPart after successful submit
-                        // Since this is a blocking MCP request, we don't inject a message
-                      } catch (err) {
-                        console.error('Failed to submit MCP intent clarify:', err);
-                      }
-                    } else {
-                      const formattedText = Object.entries(answers)
-                        .map(([q, a]) => {
-                          const inq = inquiries.find((i: any) => i.question === q);
-                          const label = inq?.header || q;
-                          const ansStr = Array.isArray(a) ? a.join(', ') : a;
-                          return `Q: ${label}\\\nA: ${ansStr}`;
-                        })
-                        .join('\\\n');
-                      sendMessage({ content: formattedText, role: 'user' });
-                    }
-                  }}
-                  onCancel={async () => {
-                    const props = activeInquiryPart.result?.ui?.props || activeInquiryPart.output?.ui?.props || {};
-                    if (props.requestId) {
-                      await api.post(`/api/chat/approvals/${props.requestId}/respond`, { status: 'denied' });
-                    } else {
-                      sendMessage({ content: '已取消操作', role: 'user' });
-                    }
-                  }}
-                />
-              </div>
-            </div>
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className={cn(
+            "overflow-y-auto px-4 md:px-8 scroll-smooth relative w-full",
+            messages.length === 0 && !isLoadingHistory ? "flex-none py-2" : "flex-1 py-4"
+          )}
+        >
+          {/* 右侧栏关闭按钮 */}
+          {previewAttachment && (
+            <button
+              onClick={() => setPreviewAttachment(null)}
+              className="absolute right-4 top-4 z-30 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-border/60 text-muted-foreground hover:text-primary hover:bg-card hover:border-primary/30 transition-all shadow-sm"
+              title="关闭预览"
+            >
+              <CloseIcon className="w-4 h-4" />
+            </button>
           )}
 
-          <ChatInput
+          <div className="max-w-[800px] mx-auto space-y-8">
+
+            <AnimatePresence mode="popLayout" initial={false}>
+              {isLoadingHistory ? (
+                <div className="flex flex-col mt-8 w-full gap-8 max-w-3xl mx-auto px-2">
+                  <div className="flex justify-end w-full opacity-60">
+                    <div className="bg-[#eeece9] w-2/3 h-14 rounded-[20px] animate-pulse rounded-tr-[4px]"></div>
+                  </div>
+                  <div className="flex justify-start w-full gap-4 mt-2 opacity-60">
+                    <div className="w-8 h-8 rounded-xl bg-border animate-pulse shrink-0"></div>
+                    <div className="flex-1 max-w-[80%] h-32 rounded-[20px] bg-[#fcfcfc] animate-pulse rounded-tl-[4px] border border-[#f0f0f0]"></div>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
+                /* 还原 EmptyState 在此处的渲染，但逻辑改为判断 messages */
+                <EmptyState
+                  t={t}
+                  setLocalInput={setLocalInput}
+                  onFormSubmit={onFormSubmit}
+                />
+              ) : (
+                <div key="chat-messages" className="flex flex-col w-full">
+                  {Array.from(new Map(messages.map((m: any) => [m.id || m.createdAt || Math.random(), m])).values())
+                    .filter((m: any) => m.role === 'user' || m.role === 'assistant')
+                    .map((m: any, idx: number, arr: any[]) => (
+                      <ChatMessage
+                        key={m.id || idx}
+                        message={m}
+                        idx={idx}
+                        isLast={idx === arr.length - 1}
+                        isLoading={isLoading}
+                        reducedMotion={reducedMotion}
+                        t={t}
+                        getLocalizedName={getLocalizedName}
+                        copyToClipboard={copyToClipboard}
+                        copiedId={copiedId}
+                        messageFeedback={messageFeedback}
+                        setMessageFeedback={setMessageFeedback}
+                        handleRegenerate={handleRegenerate}
+                        startEditing={startEditing}
+                        editingMessageId={editingMessageId}
+                        editText={editText}
+                        setEditText={setEditText}
+                        submitEdit={submitEdit}
+                        cancelEdit={cancelEdit}
+                        setPreviewAttachment={setPreviewAttachment}
+                        previewAttachment={previewAttachment}
+                        activeCapsule={activeCapsule}
+                        setActiveCapsule={setActiveCapsule}
+                        sendMessage={sendMessage}
+                        branchIndex={branchMetadata.branchIndex}
+                        totalBranches={branchMetadata.totalBranches}
+                        onBranchChange={onBranchChange}
+                        isStopped={isStopped}
+                        onExtract={onExtractArtifact}
+                      />
+                    ))}
+
+                  {/* Error Banner */}
+                  {error && (
+                    <motion.div
+                      {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })}
+                      className="flex w-full gap-4 items-start mb-8"
+                    >
+                      <div className="w-8 h-8 rounded-[10px] bg-red-50 flex items-center justify-center shrink-0 mt-1">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-red-50/80 border border-red-200 rounded-[20px] px-5 py-4">
+                          <p className="text-sm font-semibold text-red-700 mb-1">
+                            {t('chat.error.title', 'Request failed')}
+                          </p>
+                          <p className="text-xs text-red-500/80 break-words">
+                            {error.message || t('chat.error.message', 'Something went wrong while generating the response. Please try again.')}
+                          </p>
+                          <button
+                            onClick={() => handleRetry()}
+                            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            {t('chat.error.retry', 'Retry')}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* 当正在提交但 messages 列表还没更新出 assistant 回复时的"先行占位" */}
+                  {(isLoading || isLocalThinking) && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
+                    <motion.div {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })} className="flex w-full gap-4 items-start mb-8">
+                      <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <ThinkingList steps={[{ label: t('chat.thinking'), status: 'active' }]} />
+                      </div>
+                    </motion.div>
+                  )}
+                  <div className="h-px w-full mt-4" />
+                </div>
+              )}
+
+            </AnimatePresence>
+
+          </div>
+        </div>
+
+        {activeInquiryPart && (
+          <div className="w-full px-4 md:px-8 z-10">
+            <div className="max-w-[800px] mx-auto relative flex flex-col justify-end pb-1">
+              <InquiryWizardCard
+                skillName={activeInquiryPart.result?.ui?.props?.skillName || activeInquiryPart.output?.ui?.props?.skillName}
+                description={activeInquiryPart.result?.ui?.props?.description || activeInquiryPart.output?.ui?.props?.description}
+                inquiries={activeInquiryPart.result?.ui?.props?.inquiries || activeInquiryPart.output?.ui?.props?.inquiries}
+                onComplete={async (answers) => {
+                  const props = activeInquiryPart.result?.ui?.props || activeInquiryPart.output?.ui?.props || {};
+                  const inquiries = props.inquiries || [];
+                  const requestId = props.requestId;
+
+                  if (requestId) {
+                    try {
+                      await api.post(`/api/chat/approvals/${requestId}/respond`, {
+                        status: 'approved',
+                        result: answers
+                      });
+                      // Remove activeInquiryPart after successful submit
+                      // Since this is a blocking MCP request, we don't inject a message
+                    } catch (err) {
+                      console.error('Failed to submit MCP intent clarify:', err);
+                    }
+                  } else {
+                    const formattedText = Object.entries(answers)
+                      .map(([q, a]) => {
+                        const inq = inquiries.find((i: any) => i.question === q);
+                        const label = inq?.header || q;
+                        const ansStr = Array.isArray(a) ? a.join(', ') : a;
+                        return `Q: ${label}\\\nA: ${ansStr}`;
+                      })
+                      .join('\\\n');
+                    sendMessage({ content: formattedText, role: 'user' });
+                  }
+                }}
+                onCancel={async () => {
+                  const props = activeInquiryPart.result?.ui?.props || activeInquiryPart.output?.ui?.props || {};
+                  if (props.requestId) {
+                    await api.post(`/api/chat/approvals/${props.requestId}/respond`, { status: 'denied' });
+                  } else {
+                    sendMessage({ content: '已取消操作', role: 'user' });
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        <ChatInput
           isEmpty={messages.length === 0 && !isLoadingHistory}
           localInput={localInput}
           setLocalInput={setLocalInput}
@@ -598,147 +599,113 @@ export function ChatSession({
           setGhostText={setGhostText}
           isPredicting={isPredicting}
           onMainTabChange={onMainTabChange}
-          />
-        </div>
-
-        {/* Approval Modal */}
-        <ApprovalModal
-            request={pendingApproval ? { id: pendingApproval.id, toolName: pendingApproval.toolName, args: pendingApproval.args } : null}
-            onRespond={handleApprovalResponse}
-            onClose={() => setPendingApproval(null)}
         />
+      </div>
 
-        {/* Sidebar Right (Capsule Panel + Preview + Meta) */}
-        <aside className={cn(
-            "absolute lg:relative right-0 top-0 bottom-0 z-40 border-l border-border bg-background lg:bg-background/80 backdrop-blur-md flex-col h-full overflow-hidden transition-all duration-300",
-            (previewAttachment || activeCapsule) 
-               ? "translate-x-0 flex w-full lg:w-[450px] lg:mr-0 opacity-100" 
-               : isRightSidebarOpen
-                 ? "translate-x-full lg:translate-x-0 hidden lg:flex w-80 lg:w-80 lg:mr-0 opacity-100"
-                 : "translate-x-full lg:translate-x-0 hidden lg:flex w-80 lg:w-80 lg:-mr-80 opacity-0 pointer-events-none"
-        )}>
-          {activeCapsule ? (
-              /* ── Capsule Panel ── */
-              <motion.div
-                  {...(reducedMotion
-                          ? { initial: false, animate: { x: 0, opacity: 1 } }
-                          : { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '100%', opacity: 0 }, transition: { type: 'spring', damping: 25, stiffness: 200 } }
-                  )}
-                  className="flex-1 flex flex-col h-full bg-card"
+      {/* Approval Modal */}
+      <ApprovalModal
+        request={pendingApproval ? { id: pendingApproval.id, toolName: pendingApproval.toolName, args: pendingApproval.args } : null}
+        onRespond={handleApprovalResponse}
+        onClose={() => setPendingApproval(null)}
+      />
+
+      {/* Sidebar Right (Capsule Panel + Preview + Meta) */}
+      <aside className={cn(
+        "absolute lg:relative right-0 top-0 bottom-0 z-40 border-l border-border bg-background lg:bg-background/80 backdrop-blur-md flex-col h-full overflow-hidden transition-all duration-300",
+        (previewAttachment || activeCapsule)
+          ? "translate-x-0 flex w-full lg:w-[560px] lg:mr-0 opacity-100"
+          : isRightSidebarOpen
+            ? "translate-x-full lg:translate-x-0 hidden lg:flex w-80 lg:w-80 lg:mr-0 opacity-100"
+            : "translate-x-full lg:translate-x-0 hidden lg:flex w-80 lg:w-80 lg:-mr-80 opacity-0 pointer-events-none"
+      )}>
+        {activeCapsule ? (
+          /* ── Capsule Panel ── */
+          <motion.div
+            {...(reducedMotion
+              ? { initial: false, animate: { x: 0, opacity: 1 } }
+              : { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '100%', opacity: 0 }, transition: { type: 'spring', damping: 25, stiffness: 200 } }
+            )}
+            className="flex-1 flex flex-col h-full bg-card"
+          >
+            <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between bg-muted/50">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-foreground">
+                  {activeCapsule.artifact ? '代码组件' : '交互胶囊'}
+                </span>
+                <span className="text-[10px] text-muted-foreground bg-border px-1.5 py-0.5 rounded-full">
+                  {activeCapsule.artifact ? activeCapsule.artifact.language : activeCapsule.uiKit?.uiType}
+                </span>
+              </div>
+              <button
+                onClick={() => setActiveCapsule(null)}
+                className="p-1.5 hover:bg-[#eeece9] rounded-lg transition-colors"
               >
-                <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-foreground">
-                      {activeCapsule.artifact ? '代码组件' : '交互胶囊'}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground bg-border px-1.5 py-0.5 rounded-full">
-                      {activeCapsule.artifact ? activeCapsule.artifact.language : activeCapsule.uiKit?.uiType}
-                    </span>
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto bg-card">
+              {activeCapsule.artifact ? (
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#F6F3F2]">
+                    <h3 className="text-[15px] font-bold text-foreground">{activeCapsule.artifact.title}</h3>
+                    <CopyCodeButton code={activeCapsule.artifact.content} />
                   </div>
-                  <button
-                      onClick={() => setActiveCapsule(null)}
-                      className="p-1.5 hover:bg-[#eeece9] rounded-lg transition-colors"
-                  >
-                    <CloseIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto bg-card">
-                  {activeCapsule.artifact ? (
-                    <div className="flex flex-col h-full">
-                      <div className="flex items-center justify-between px-6 py-4 border-b border-[#F6F3F2]">
-                        <h3 className="text-[15px] font-bold text-foreground">{activeCapsule.artifact.title}</h3>
-                        <CopyCodeButton code={activeCapsule.artifact.content} />
-                      </div>
-                      <div className="flex-1 bg-[#0d0d0d] overflow-auto">
-                        <CodeBlock 
-                          language={activeCapsule.artifact.language} 
-                          value={activeCapsule.artifact.content} 
-                          minimal={true}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4">
-                      <UIRenderer
-                          uiKit={activeCapsule.uiKit}
-                          onAction={(actionId, payload) => {
-                            if (actionId === 'approve_request') {
-                              sendMessage({ content: `APPROVE:${(payload as any).requestId}`, role: 'user' });
-                            } else if (actionId === 'reject_request') {
-                              sendMessage({ content: `REJECT:${(payload as any).requestId}`, role: 'user' });
-                            } else if (actionId === 'create_zentao_task') {
-                              const d = payload as any;
-                              sendMessage({ content: `Create ZenTao task for ${d.bugId}: assignee=${d.assignee}`, role: 'user' });
-                            } else if (actionId === 'open_bug_detail') {
-                              console.log('[Capsule] Open bug detail:', (payload as any).id);
-                            } else if (actionId === 'view_logs') {
-                              console.log('[Capsule] View pipeline logs:', (payload as any).pipelineId);
-                            } else if (actionId === 'retry_pipeline') {
-                              sendMessage({ content: `Retry pipeline ${(payload as any).pipelineId}`, role: 'user' });
-                            }
-                          }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-          ) : previewAttachment ? (
-              /* ── File Preview Overrides Aside (Claude/Deepseek style) ── */
-              <motion.div
-                  {...(reducedMotion
-                          ? { initial: false, animate: { x: 0, opacity: 1 } }
-                          : { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '100%', opacity: 0 }, transition: { type: 'spring', damping: 25, stiffness: 200 } }
-                  )}
-                  className="flex-1 flex flex-col h-full bg-card"
-              >
-                <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    {previewAttachment.contentType.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-primary" /> : <FileText className="w-4 h-4 text-primary" />}
-                    <span className="font-bold text-[12px] text-foreground truncate max-w-[150px]">{previewAttachment.name}</span>
+                  <div className="flex-1 bg-[#0d0d0d] overflow-auto">
+                    <CodeBlock
+                      language={activeCapsule.artifact.language}
+                      value={activeCapsule.artifact.content}
+                      minimal={true}
+                    />
                   </div>
-                  <button onClick={() => setPreviewAttachment(null)} className="p-1.5 hover:bg-[#eeece9] rounded-lg transition-colors"><CloseIcon className="w-4 h-4" /></button>
                 </div>
-                <div className="flex-1 overflow-y-auto">
-                  {previewAttachment.contentType.startsWith('image/') ? (
-                      <div className="p-4 flex items-center justify-center"><img src={previewAttachment.url} alt={previewAttachment.name} className="max-w-full rounded-xl border border-border/60" /></div>
-                  ) : (
-                      <div className="p-4">
-                        <div className="prose prose-slate prose-xs max-w-none text-[13px]">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents() as any}>
-                            {(() => {
-                              try {
-                                if (previewAttachment.url.startsWith('data:')) {
-                                  const b64 = previewAttachment.url.split(',')[1];
-                                  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-                                  return new TextDecoder('utf-8').decode(bytes);
-                                }
-                                return previewAttachment.url;
-                              } catch { return '无法解码文件内容'; }
-                            })()}
-                          </ReactMarkdown>
-                        </div>
-                      </div>
-                  )}
-                </div>
-              </motion.div>
-          ) : (
-              <div className="flex flex-col h-full overflow-y-auto custom-scrollbar relative">
-                <div className="h-14 border-b border-border/60 shrink-0 w-full" />
-                <ActiveContextPanel 
-                  onAction={(action) => {
-                    onFormSubmit({ content: action, role: 'user' });
-                  }}
-                />
-                <div className="border-t border-border/60 bg-muted/30">
-                  <IntegrationsPanel
-                    t={t}
-                    activeDisplayName={activeDisplayName}
-                    totalUsage={totalUsage}
+              ) : (
+                <div className="p-4">
+                  <UIRenderer
+                    uiKit={activeCapsule.uiKit}
+                    onAction={(actionId, payload) => {
+                      if (actionId === 'approve_request') {
+                        sendMessage({ content: `APPROVE:${(payload as any).requestId}`, role: 'user' });
+                      } else if (actionId === 'reject_request') {
+                        sendMessage({ content: `REJECT:${(payload as any).requestId}`, role: 'user' });
+                      } else if (actionId === 'create_zentao_task') {
+                        const d = payload as any;
+                        sendMessage({ content: `Create ZenTao task for ${d.bugId}: assignee=${d.assignee}`, role: 'user' });
+                      } else if (actionId === 'open_bug_detail') {
+                        console.log('[Capsule] Open bug detail:', (payload as any).id);
+                      } else if (actionId === 'view_logs') {
+                        console.log('[Capsule] View pipeline logs:', (payload as any).pipelineId);
+                      } else if (actionId === 'retry_pipeline') {
+                        sendMessage({ content: `Retry pipeline ${(payload as any).pipelineId}`, role: 'user' });
+                      }
+                    }}
                   />
                 </div>
-              </div>
-          )}
-        </aside>
-      </div>
+              )}
+            </div>
+          </motion.div>
+        ) : previewAttachment ? (
+          <SkillPreviewPanel
+            attachment={previewAttachment}
+            onClose={() => setPreviewAttachment(null)}
+          />
+        ) : (
+          <div className="flex flex-col h-full overflow-y-auto custom-scrollbar relative">
+            <div className="h-14 border-b border-border/60 shrink-0 w-full" />
+            <ActiveContextPanel
+              onAction={(action) => {
+                onFormSubmit({ content: action, role: 'user' });
+              }}
+            />
+            <div className="border-t border-border/60 bg-muted/30">
+              <IntegrationsPanel
+                t={t}
+                activeDisplayName={activeDisplayName}
+                totalUsage={totalUsage}
+              />
+            </div>
+          </div>
+        )}
+      </aside>
+    </div>
   );
 }

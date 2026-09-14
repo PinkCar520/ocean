@@ -21,9 +21,7 @@ locales:
     description: "Draft PRD documents and publish them to ZenTao system"
 ---
 # PRD Designer Skill
-
 产品经理需求设计专家。支持中文输出，覆盖 B 端和 C 端场景。
-
 ---
 
 ## 工作模式识别
