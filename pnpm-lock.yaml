@@ -299,6 +299,9 @@ importers:
       '@nestjs/websockets':
         specifier: ^11.1.17
         version: 11.1.26(@nestjs/common@11.1.26(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.26)(@nestjs/platform-socket.io@11.1.26)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@ocean/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@ocean/core':
         specifier: workspace:*
         version: link:../../packages/shared/core
@@ -806,6 +809,9 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/debug@4.1.13)(@types/node@25.9.2)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
 
 packages:
 

@@ -1,6 +1,7 @@
 import type { UIKit, UIComponentType } from '../types/ui-protocol';
 import type { ComponentType, ReactElement } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { parseUIKit } from './parseUIKit';
 
 // ──────────────────────────────────────────────
 // UI Registry — 运行时注册中心
@@ -29,15 +30,17 @@ export function getRegisteredTypes(): UIComponentType[] {
 }
 
 export function renderUIKit(
-  uiKit: UIKit,
+  input: unknown,
   onAction?: (actionId: string, payload: unknown) => void,
 ): ReactElement | null {
-  if (!uiKit || !uiKit.uiType) {
-    return null;
+  const parsed = parseUIKit(input);
+  if (parsed.status === 'unknown') {
+    return <UnknownUIFallback value={parsed.value} />;
   }
+  const uiKit = parsed.value;
   const Renderer = registry.get(uiKit.uiType);
   if (!Renderer) {
-    return <UnknownUIFallback uiKit={uiKit} />;
+    return <UnknownUIFallback value={uiKit} />;
   }
   return <Renderer uiKit={uiKit as any} onAction={onAction} />;
 }
@@ -46,15 +49,20 @@ export function renderUIKit(
 // 未知类型降级渲染
 // ──────────────────────────────────────────────
 
-function UnknownUIFallback({ uiKit }: { uiKit: UIKit }) {
+function UnknownUIFallback({ value }: { value: unknown }) {
+  const uiType =
+    typeof value === 'object' && value !== null && 'uiType' in value
+      ? String(value.uiType)
+      : 'invalid_payload';
+
   return (
     <div className="my-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-700">
       <div className="flex items-center gap-2 mb-1">
         <AlertTriangle className="w-4 h-4" />
-        <p className="font-bold">未知的 UI 组件类型: {uiKit.uiType}</p>
+        <p className="font-bold">未知的 UI 组件类型: {uiType}</p>
       </div>
       <pre className="text-[10px] font-mono overflow-auto max-h-32 mt-2 opacity-70">
-        {JSON.stringify(uiKit, null, 2)}
+        {JSON.stringify(value, null, 2)}
       </pre>
     </div>
   );

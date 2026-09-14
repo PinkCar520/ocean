@@ -13,34 +13,92 @@ datasource db {
 
 // 影子用户信息表（SSO 自动同步）
 model User {
-  id          String   @id @default(uuid())
-  workId      String   @unique // 工号，唯一标识
-  name        String?
-  email       String?
-  avatar      String?
-  department  String?
-  password    String? // Hashed password for local authentication
+  id         String  @id @default(uuid())
+  workId     String  @unique // 工号，唯一标识
+  name       String?
+  email      String?
+  avatar     String?
+  department String?
+  password   String? // Hashed password for local authentication
 
   // 关联信息
-  preferences     UserPreference?
-  credentials     UserCredential[]
-  sessions        Session[]
+  preferences        UserPreference?
+  credentials        UserCredential[]
+  sessions           Session[]
   skillInstallations SkillInstallation[]
-  apiKeys         ApiKey[]
-  skills          Skill[]
-  skillVersions   SkillVersion[]
+  apiKeys            ApiKey[]
+  skills             Skill[]
+  skillVersions      SkillVersion[]
+  agentRuns          AgentRun[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("users")
 }
 
+// Ocean v2 持久化执行实例。Space 外键将在 Phase 5 引入 Space 模型后补齐。
+model AgentRun {
+  id             String     @id @default(uuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId        String
+  spaceType      String
+  input          String     @db.Text
+  status         String     @default("queued")
+  idempotencyKey String?
+  metadata       Json?
+  events         RunEvent[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, status])
+  @@index([spaceId, createdAt])
+  @@map("agent_runs")
+}
+
+model RunEvent {
+  id         String   @id @default(uuid())
+  runId      String
+  run        AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sequence   Int
+  type       String
+  payload    Json
+  occurredAt DateTime @default(now())
+
+  @@unique([runId, sequence])
+  @@index([runId, occurredAt])
+  @@map("run_events")
+}
+
+// Transactional Outbox：业务状态与待处理消息原子提交，Worker 通过租约竞争消费。
+model OutboxEvent {
+  id            String    @id @default(uuid())
+  topic         String
+  aggregateType String
+  aggregateId   String
+  payload       Json
+  status        String    @default("pending")
+  availableAt   DateTime  @default(now())
+  lockedAt      DateTime?
+  lockedBy      String?
+  attempts      Int       @default(0)
+  lastError     String?   @db.Text
+  processedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([status, availableAt])
+  @@index([lockedAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_events")
+}
+
 // 用户 AI 个性化配置
 model UserPreference {
-  id           String @id @default(uuid())
-  userId       String @unique
-  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   defaultModel String @default("deepseek-v3")
   language     String @default("zh-CN")
@@ -48,26 +106,26 @@ model UserPreference {
 
   // 存储常用 Prompt、工作流偏好等
   customInstructions String? @db.Text
-  config       Json?
+  config             Json?
 
   @@map("user_preferences")
 }
 
 // API Key 管理（用于 CLI / 第三方应用认证）
 model ApiKey {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  key         String   @unique  // ocean_sk_ 前缀的 API Key
-  name        String   // Key 名称/备注，如 "CLI Daemon", "VSCode Extension"
-  permissions String[] @default(["read", "write", "execute"]) // 权限范围
+  key         String    @unique // ocean_sk_ 前缀的 API Key
+  name        String // Key 名称/备注，如 "CLI Daemon", "VSCode Extension"
+  permissions String[]  @default(["read", "write", "execute"]) // 权限范围
   lastUsedAt  DateTime? // 最后使用时间
   expiresAt   DateTime? // 过期时间（NULL = 永不过期）
-  revoked     Boolean  @default(false) // 是否已撤销
+  revoked     Boolean   @default(false) // 是否已撤销
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([key])
@@ -77,16 +135,16 @@ model ApiKey {
 
 // 外部系统凭证（如禅道、GitLab Token）
 model UserCredential {
-  id         String @id @default(uuid())
-  userId     String
-  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   systemType String // 'zentao', 'gitlab', 'jenkins'
   token      String // 加密后的 Token
   username   String?
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, systemType])
   @@map("user_credentials")
@@ -94,21 +152,21 @@ model UserCredential {
 
 // 跨端会话（支持 Web/CLI/IM 漫游）
 model Session {
-  id        String    @id @default(uuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  title     String    @default("New Chat") // 会话标题
-  channel   String    @default("web")      // 'web', 'cli', 'im'
-  status    String    @default("active")   // 'active' | 'archived'
+  title         String  @default("New Chat") // 会话标题
+  channel       String  @default("web") // 'web', 'cli', 'im'
+  status        String  @default("active") // 'active' | 'archived'
   activeSkillId String? // 当前会话锁定的技能 ID
-  
+
   activeJobId    String? // 当前处理该会话的队列 Job ID
   lastCheckpoint String? // 最近一次成功的 CapsuleSnapshot ID，用于断点恢复
-  
-  messages  Message[]
-  tasks     Task[]    // 编排任务列表
-  approvalRequests ApprovalRequest[]       // 该会话的审批请求
+
+  messages         Message[]
+  tasks            Task[] // 编排任务列表
+  approvalRequests ApprovalRequest[] // 该会话的审批请求
 
   expiresAt DateTime?
   createdAt DateTime  @default(now())
@@ -119,18 +177,18 @@ model Session {
 
 // 编排任务（Orchestration Task）
 model Task {
-  id          String   @id @default(uuid())
-  sessionId   String
-  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  subject     String   // 任务标题
-  status      String   @default("todo") // 'todo' | 'doing' | 'done' | 'failed'
-  order       Int      @default(0)      // 排序
-  parentId    String?  // 父任务 ID (用于级联)
-  metadata    Json?    // 任务元数据 (如 progress, error, toolCallId)
+  subject  String // 任务标题
+  status   String  @default("todo") // 'todo' | 'doing' | 'done' | 'failed'
+  order    Int     @default(0) // 排序
+  parentId String? // 父任务 ID (用于级联)
+  metadata Json? // 任务元数据 (如 progress, error, toolCallId)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([sessionId])
   @@map("tasks")
@@ -138,23 +196,23 @@ model Task {
 
 // 对话消息（每条消息独立存储，Server as Source of Truth）
 model Message {
-  id          String   @id @default(uuid())
-  sessionId   String
-  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  parentId    String?  // 父消息 ID，用于支持对话分支（Tree 结构）
-  role        String   // 'user' | 'assistant' | 'system'
-  content     String   @default("") // 消息文本内容
-  parts       Json?    // AI SDK UIMessage parts（含 tool-invocation 等）
-  attachments Json?    // 附件列表（url, name, contentType）
-  usage       Json?    // Token 用量 { inputTokens, outputTokens, totalTokens }
-  
+  parentId    String? // 父消息 ID，用于支持对话分支（Tree 结构）
+  role        String // 'user' | 'assistant' | 'system'
+  content     String  @default("") // 消息文本内容
+  parts       Json? // AI SDK UIMessage parts（含 tool-invocation 等）
+  attachments Json? // 附件列表（url, name, contentType）
+  usage       Json? // Token 用量 { inputTokens, outputTokens, totalTokens }
+
   // Tracing 关联
-  traceId     String?  // 关联的可观测性 Trace ID
+  traceId String? // 关联的可观测性 Trace ID
 
   capsuleSnapshots CapsuleSnapshot[]
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([sessionId])
   @@index([parentId])
@@ -164,58 +222,58 @@ model Message {
 
 // RAG 知识库文档
 model Document {
-  id          String   @id @default(uuid())
-  title       String
-  sourceUrl   String?  @map("sourceUrl")
-  sourceType  String   @default("file") @map("sourceType")
-  status      String   @default("processing") 
-  userId      String?  @map("userId")
-  
-  // 关联项目
-  projectId   String?  @map("projectId")
-  project     KnowledgeProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  id         String  @id @default(uuid())
+  title      String
+  sourceUrl  String? @map("sourceUrl")
+  sourceType String  @default("file") @map("sourceType")
+  status     String  @default("processing")
+  userId     String? @map("userId")
 
-  chunks      DocumentChunk[]
-  
-  metadata    Json?    
-  createdAt   DateTime @default(now()) @map("createdAt")
-  updatedAt   DateTime @updatedAt @map("updatedAt")
+  // 关联项目
+  projectId String?           @map("projectId")
+  project   KnowledgeProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  chunks DocumentChunk[]
+
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("createdAt")
+  updatedAt DateTime @updatedAt @map("updatedAt")
 
   @@map("documents")
 }
 
 // 知识库项目（用于分组管理文档）
 model KnowledgeProject {
-  id          String     @id @default(uuid())
-  name        String     
-  category    String     
-  description String?    @db.Text
-  iconUrl     String?    @map("iconUrl")
-  color       String?    
-  
-  documents   Document[] 
-  
-  userId      String?    @map("userId")
-  isPublic    Boolean    @default(true) @map("isPublic")
-  
-  createdAt   DateTime   @default(now()) @map("createdAt")
-  updatedAt   DateTime   @updatedAt @map("updatedAt")
+  id          String  @id @default(uuid())
+  name        String
+  category    String
+  description String? @db.Text
+  iconUrl     String? @map("iconUrl")
+  color       String?
+
+  documents Document[]
+
+  userId   String? @map("userId")
+  isPublic Boolean @default(true) @map("isPublic")
+
+  createdAt DateTime @default(now()) @map("createdAt")
+  updatedAt DateTime @updatedAt @map("updatedAt")
 
   @@map("knowledge_projects")
 }
 
 // RAG 文档切片
 model DocumentChunk {
-  id          String   @id @default(uuid())
-  documentId  String   @map("documentId")
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  
-  content     String   @db.Text
-  index       Int      
-  
-  embedding   Unsupported("vector(1536)")?
-  metadata    Json?    
-  tsv         Unsupported("tsvector")?
+  id         String   @id @default(uuid())
+  documentId String   @map("documentId")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  content String @db.Text
+  index   Int
+
+  embedding Unsupported("vector(1536)")?
+  metadata  Json?
+  tsv       Unsupported("tsvector")?
 
   @@index([documentId])
   @@map("document_chunks")
@@ -223,19 +281,19 @@ model DocumentChunk {
 
 // 链路追踪 (Tracing)
 model Trace {
-  id          String   @id @default(uuid())
-  traceId     String   @unique
-  name        String   // Trace 名称 (e.g., "Chat Request")
-  userId      String?
-  sessionId   String?
-  
-  spans       Span[]
-  
-  duration    Int?     // 耗时 (ms)
-  status      String   @default("ok") // 'ok', 'error'
-  metadata    Json?
-  
-  createdAt   DateTime @default(now())
+  id        String  @id @default(uuid())
+  traceId   String  @unique
+  name      String // Trace 名称 (e.g., "Chat Request")
+  userId    String?
+  sessionId String?
+
+  spans Span[]
+
+  duration Int? // 耗时 (ms)
+  status   String @default("ok") // 'ok', 'error'
+  metadata Json?
+
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([sessionId])
@@ -243,21 +301,21 @@ model Trace {
 }
 
 model Span {
-  id          String   @id @default(uuid())
-  traceId     String
-  trace       Trace    @relation(fields: [traceId], references: [traceId], onDelete: Cascade)
-  
-  spanId      String
+  id      String @id @default(uuid())
+  traceId String
+  trace   Trace  @relation(fields: [traceId], references: [traceId], onDelete: Cascade)
+
+  spanId       String
   parentSpanId String?
-  name        String   // Span 名称 (e.g., "Tool Call: zentao")
-  kind        String   @default("internal") // 'client', 'server', 'internal'
-  
-  startTime   DateTime
-  endTime     DateTime?
-  duration    Int?
-  
-  attributes  Json?    // 标签与属性
-  events      Json?    // 日志事件
+  name         String // Span 名称 (e.g., "Tool Call: zentao")
+  kind         String  @default("internal") // 'client', 'server', 'internal'
+
+  startTime DateTime
+  endTime   DateTime?
+  duration  Int?
+
+  attributes Json? // 标签与属性
+  events     Json? // 日志事件
 
   @@index([traceId])
   @@map("spans")
@@ -267,19 +325,19 @@ model Span {
 // 将工具返回的 UI 内容持久化为自包含快照，确保历史对话不依赖外部 API 也能准确还原
 // 设计原则：快照存储（非引用），离线可查看，跨设备一致
 model CapsuleSnapshot {
-  id          String   @id @default(uuid())
-  messageId   String
-  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
-  toolCallId  String   // 对应 tool invocation 的唯一标识
-  uiType      String   // 'bug_card' / 'pipeline_card' / 'approval_card' / ...
-  title       String   @default("")  // 快照标题，如 "缺陷 BUG-123"
-  content     Json     // 完整 UI props 快照（自包含，不依赖外部 API）
-  version     Int      @default(1)   // 同一 toolCall 的迭代版本号（未来支持 v1→v2 切换）
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  toolCallId String // 对应 tool invocation 的唯一标识
+  uiType     String // 'bug_card' / 'pipeline_card' / 'approval_card' / ...
+  title      String   @default("") // 快照标题，如 "缺陷 BUG-123"
+  content    Json // 完整 UI props 快照（自包含，不依赖外部 API）
+  version    Int      @default(1) // 同一 toolCall 的迭代版本号（未来支持 v1→v2 切换）
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@unique([messageId, toolCallId, version])  // 同一消息下同一工具调用的唯一快照
+  @@unique([messageId, toolCallId, version]) // 同一消息下同一工具调用的唯一快照
   @@index([messageId])
   @@map("capsule_snapshots")
 }
@@ -287,20 +345,20 @@ model CapsuleSnapshot {
 // 审批请求持久化表
 // 替代原有的内存 Map 存储，支持多实例部署、重启不丢失、超时自动过期
 model ApprovalRequest {
-  id          String   @id @default(uuid()) @db.VarChar(64)
-  sessionId   String
-  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid()) @db.VarChar(64)
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  toolName    String                        // 需要审批的工具名称
-  args        Json                          // 工具调用参数快照
-  status      String   @default("pending")  // 'pending' | 'approved' | 'denied'
-  result      Json?                         // 用户提交的表单数据 (MCP 拦截重试用)
-  responseBy  String?  @db.VarChar(20)     // 操作人工号（谁批准的）
-  responseAt  DateTime?                     // 批准/拒绝时间
-  expiresAt   DateTime                      // 超时自动过期（默认 30 分钟）
+  toolName   String // 需要审批的工具名称
+  args       Json // 工具调用参数快照
+  status     String    @default("pending") // 'pending' | 'approved' | 'denied'
+  result     Json? // 用户提交的表单数据 (MCP 拦截重试用)
+  responseBy String?   @db.VarChar(20) // 操作人工号（谁批准的）
+  responseAt DateTime? // 批准/拒绝时间
+  expiresAt  DateTime // 超时自动过期（默认 30 分钟）
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([sessionId, status])
   @@index([expiresAt])
@@ -309,31 +367,31 @@ model ApprovalRequest {
 
 // 技能注册表（兼容 Claude Code / OpenClaw Hub SKILL.md 标准）
 model Skill {
-  id            String   @id @default(uuid())
-  slug          String   @unique // URL 友好标识，如 "fix-bug"
-  name          String   // 显示名称
-  description   String?  @db.Text
-  category      String?  // 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science'
-  source        String   @default("internal") // 'openclaw-hub' | 'claude-code' | 'git' | 'local' | 'internal'
-  sourceUrl     String?  // 原始来源链接
-  version       String?  // 语义化版本
+  id            String                       @id @default(uuid())
+  slug          String                       @unique // URL 友好标识，如 "fix-bug"
+  name          String // 显示名称
+  description   String?                      @db.Text
+  category      String? // 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science'
+  source        String                       @default("internal") // 'openclaw-hub' | 'claude-code' | 'git' | 'local' | 'internal'
+  sourceUrl     String? // 原始来源链接
+  version       String? // 语义化版本
   author        String?
   userId        String?
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user          User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
   license       String?
-  compatibility String?  // 依赖声明
-  manifest      Json?    // SKILL.md frontmatter 原始 JSON
-  content       String?  @db.Text // SKILL.md body 内容
-  isFeatured    Boolean  @default(false)
-  isPublic      Boolean  @default(true)
-  icon          String?  // lucide icon 名称
+  compatibility String? // 依赖声明
+  manifest      Json? // SKILL.md frontmatter 原始 JSON
+  content       String?                      @db.Text // SKILL.md body 内容
+  isFeatured    Boolean                      @default(false)
+  isPublic      Boolean                      @default(true)
+  icon          String? // lucide icon 名称
   tags          String[] // 标签数组
   triggerKws    String[] // 触发关键词，用于感知上下文注入
   embedding     Unsupported("vector(1536)")?
   installations SkillInstallation[]
   versions      SkillVersion[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
 
   @@index([category])
   @@index([source])
@@ -343,15 +401,15 @@ model Skill {
 
 // 技能安装记录（工作空间/用户级别）
 model SkillInstallation {
-  id          String   @id @default(uuid())
-  skillId     String
-  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  userId      String?  // 安装用户（可选，为空表示工作空间级）
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status      String   @default("active") // 'active' | 'disabled' | 'pending'
-  config      Json?    // 用户自定义配置
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  skillId   String
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  userId    String? // 安装用户（可选，为空表示工作空间级）
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String   @default("active") // 'active' | 'disabled' | 'pending'
+  config    Json? // 用户自定义配置
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([skillId, userId])
   @@index([userId])
@@ -375,23 +433,23 @@ model SkillVersion {
 
 // MCP Server 注册表
 model MCPServer {
-  id          String   @id @default(uuid())
-  name        String
-  description String?  @db.Text
-  category    String?  // 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science'
-  transport   String   @default("stdio") // 'stdio' | 'sse' | 'http'
-  command     String?  // 启动命令（stdio 模式）
-  args        Json?    // 启动参数（stdio 模式）
-  env         Json?    // 环境变量（stdio 模式）
-  url         String?  // 远程 URL（sse/http 模式）
-  headers     Json?    // 自定义请求头（sse/http 模式）
-  approved    Boolean  @default(false) // 是否已审批
+  id             String    @id @default(uuid())
+  name           String
+  description    String?   @db.Text
+  category       String? // 'pm' | 'cicd' | 'vc' | 'communication' | 'data_science'
+  transport      String    @default("stdio") // 'stdio' | 'sse' | 'http'
+  command        String? // 启动命令（stdio 模式）
+  args           Json? // 启动参数（stdio 模式）
+  env            Json? // 环境变量（stdio 模式）
+  url            String? // 远程 URL（sse/http 模式）
+  headers        Json? // 自定义请求头（sse/http 模式）
+  approved       Boolean   @default(false) // 是否已审批
   approvalConfig Json? // 审批配置 JSON {mode, allowedTools, disallowedTools, patterns}
-  status      String   @default("unknown") // 'online' | 'degraded' | 'offline' | 'unknown'
-  lastCheck   DateTime?
-  enabled     Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status         String    @default("unknown") // 'online' | 'degraded' | 'offline' | 'unknown'
+  lastCheck      DateTime?
+  enabled        Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@map("mcp_servers")
 }
@@ -401,9 +459,9 @@ model MCPPrompt {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?  @db.Text
-  serverId    String?  // 关联的 MCP Server ID（NULL 表示内置提示词）
+  serverId    String? // 关联的 MCP Server ID（NULL 表示内置提示词）
   template    String   @db.Text
-  variables   Json?    // 变量定义 [{name, description, required}]
+  variables   Json? // 变量定义 [{name, description, required}]
   version     String   @default("1.0.0")
   enabled     Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -414,13 +472,13 @@ model MCPPrompt {
 
 // MCP 资源缓存
 model MCPResourceCache {
-  id          String   @id @default(uuid())
-  uri         String   @unique
-  serverId    String?  // 来源 MCP Server ID
-  content     String   @db.Text
-  mimeType    String?  // MIME 类型
-  expiresAt   DateTime // 过期时间
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  uri       String   @unique
+  serverId  String? // 来源 MCP Server ID
+  content   String   @db.Text
+  mimeType  String? // MIME 类型
+  expiresAt DateTime // 过期时间
+  createdAt DateTime @default(now())
 
   @@index([expiresAt])
   @@map("mcp_resource_cache")
@@ -428,13 +486,13 @@ model MCPResourceCache {
 
 // OAuth 授权码存储（支持多实例部署，5 分钟过期）
 model AuthCode {
-  id          String   @id @default(uuid())
-  code        String   @unique // 授权码
-  userId      String   // 用户 UUID
-  workId      String   // 工号
-  consumed    Boolean  @default(false) // 是否已被消费（一次性使用）
-  expiresAt   DateTime // 过期时间（5 分钟）
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  code      String   @unique // 授权码
+  userId    String // 用户 UUID
+  workId    String // 工号
+  consumed  Boolean  @default(false) // 是否已被消费（一次性使用）
+  expiresAt DateTime // 过期时间（5 分钟）
+  createdAt DateTime @default(now())
 
   @@index([code])
   @@index([expiresAt])
@@ -443,12 +501,12 @@ model AuthCode {
 
 // 技能触发日志
 model SkillTriggerLog {
-  id            String   @id @default(uuid())
-  sessionId     String?
-  messageId     String?
-  triggeredIds  String[] // 本次触发的 Skill ID 列表
+  id             String   @id @default(uuid())
+  sessionId      String?
+  messageId      String?
+  triggeredIds   String[] // 本次触发的 Skill ID 列表
   injectedTokens Int?
-  createdAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([sessionId])
   @@map("skill_trigger_logs")

@@ -15,6 +15,22 @@ export const runStatusSchema = z.enum([
 
 export type RunStatus = z.infer<typeof runStatusSchema>;
 
+export const agentRunSchema = z
+  .object({
+    id: z.string().min(1),
+    userId: z.string().min(1),
+    space: spaceRefSchema,
+    input: z.string().min(1),
+    status: runStatusSchema,
+    idempotencyKey: z.string().min(1).nullable(),
+    metadata: z.record(z.string(), z.unknown()).nullable(),
+    createdAt: z.string().datetime({ offset: true }),
+    updatedAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
+export type AgentRun = z.infer<typeof agentRunSchema>;
+
 export const toolCallSchema = z
   .object({
     id: z.string().min(1),
@@ -84,3 +100,34 @@ export const createRunRequestSchema = z
   .strict();
 
 export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
+
+export const runSnapshotSchema = z
+  .object({
+    run: agentRunSchema,
+    events: z.array(runEventSchema),
+  })
+  .strict();
+
+export type RunSnapshot = z.infer<typeof runSnapshotSchema>;
+
+export const runRequestedMessageSchema = z
+  .object({
+    version: z.literal(1),
+    runId: z.string().min(1),
+    userId: z.string().min(1),
+  })
+  .strict();
+
+export type RunRequestedMessage = z.infer<typeof runRequestedMessageSchema>;
+
+export const leasedRunJobSchema = z
+  .object({
+    id: z.string().min(1),
+    topic: z.literal('run.requested'),
+    payload: runRequestedMessageSchema,
+    attempts: z.number().int().positive(),
+    lockedAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
+export type LeasedRunJob = z.infer<typeof leasedRunJobSchema>;

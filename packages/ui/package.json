@@ -5,6 +5,9 @@
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run src/lib/parseUIKit.spec.ts"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./styles": "./src/styles/index.css",
@@ -55,6 +58,7 @@
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^3.0.0"
   }
 }

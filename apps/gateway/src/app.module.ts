@@ -16,6 +16,7 @@ import { TracingModule } from './tracing/tracing.module';
 import { RAGModule } from './rag/rag.module';
 import { ZentaoModule } from './zentao/zentao.module';
 import { SkillModule } from './skill/skill.module';
+import { RunModule } from './run/run.module';
 
 /**
  * AppModule
@@ -38,6 +39,7 @@ import { SkillModule } from './skill/skill.module';
     SkillModule,  // ← Agent Skills 编排核心
     MCPServerModule, // MCP Server 管理
     ApprovalModule, // AGP 审批治理
+    RunModule, // Ocean v2 持久化执行 API
     ProxyModule, // 图片代理
   ],
   controllers: [],

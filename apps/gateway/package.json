@@ -36,6 +36,7 @@
     "@nestjs/platform-socket.io": "^11.1.17",
     "@nestjs/websockets": "^11.1.17",
     "@ocean/core": "workspace:*",
+    "@ocean/contracts": "workspace:*",
     "@ocean/mcp-gitlab": "workspace:*",
     "@ocean/mcp-im": "workspace:*",
     "@ocean/mcp-jenkins": "workspace:*",
@@ -107,6 +108,10 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.ts$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@ocean/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts",
+      "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "collectCoverageFrom": [
       "**/*.ts",

@@ -8,6 +8,7 @@ import { RpcGateway } from './rpc.gateway';
 import { SessionService } from '../session/session.service';
 import { UpChatHandler } from '@ocean/mcp-im';
 import type { SkillContext } from '@ocean/core';
+import { autocompleteRequestSchema, chatRequestSchema, generateTitleRequestSchema } from '@ocean/contracts';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -83,13 +84,21 @@ export class ChatController {
    */
   @Post()
   async handleChatStream(
-    @Body() body: any,
+    @Body() rawBody: unknown,
     @Req() req: any,
     @Res() res: Response,
   ) {
+    const parsedBody = chatRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      throw new BadRequestException({
+        message: 'Invalid chat request',
+        issues: parsedBody.error.issues,
+      });
+    }
+    const body = parsedBody.data;
     const requestId = Math.random().toString(36).substring(7);
     const messages = body.messages || (body.text ? [{ role: 'user', content: body.text }] : []);
-    const sessionId: string | undefined = body.sessionId;
+    const sessionId: string | undefined = body.sessionId ?? undefined;
 
     // 提取最后一条用户消息文本，用于意图识别
     const userMessage: string =
@@ -220,9 +229,12 @@ export class ChatController {
    */
   @Public()
   @Post('generate-title')
-  async generateTitle(@Body() body: any) {
-    const { message, modelId } = body;
-    if (!message) return { success: false, error: 'Message is required' };
+  async generateTitle(@Body() rawBody: unknown) {
+    const parsedBody = generateTitleRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      throw new BadRequestException({ message: 'Invalid title request', issues: parsedBody.error.issues });
+    }
+    const { message, modelId } = parsedBody.data;
     
     const title = await this.skillOrchestrator.generateTitle(message, modelId);
     return { success: true, title };
@@ -234,8 +246,12 @@ export class ChatController {
    */
   @Public()
   @Post('autocomplete')
-  async autocomplete(@Body() body: any) {
-    const { prefix } = body;
+  async autocomplete(@Body() rawBody: unknown) {
+    const parsedBody = autocompleteRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      throw new BadRequestException({ message: 'Invalid autocomplete request', issues: parsedBody.error.issues });
+    }
+    const { prefix } = parsedBody.data;
     if (!prefix || prefix.length < 3) return { completion: '' };
     
     const completion = await this.skillOrchestrator.autocomplete(prefix);

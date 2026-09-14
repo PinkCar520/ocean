@@ -32,7 +32,7 @@
 - [x] 根命令 `pnpm check` 已统一执行 lint、build 和 test。
 - [x] 已建立 GitLab CI 最小验证流水线，并固定 Node 24 与仓库声明的 pnpm 版本。
 - [x] 当前 workspace build 通过。
-- [x] 当前自动化测试通过（Contracts、Gateway、GitLab、Jenkins 共 37 项）。
+- [x] 当前自动化测试通过（Contracts、UI、Gateway、GitLab、Jenkins 共 54 项）。
 - [x] 修复 Web、Desktop 和 Gateway 中阻断 lint 的代码问题。
 - [x] Web、Desktop、Gateway、CLI 与 contracts 已纳入统一 typecheck。
 - [x] Gateway 安装后自动生成 Prisma Client，不再依赖旧缓存。
@@ -73,7 +73,9 @@
 - [x] 定义首版 `SpaceType`、`RunStatus`、`RunEvent`、`ToolCall`、`Approval` 与 `Artifact` schema。
 - [x] Contract 严格边界校验和事件 round-trip 测试通过。
 - [x] Generative UI schema 已迁入 contracts，旧 core/UI 路径保留 type-only re-export 兼容层。
-- [ ] Gateway 接入 create-run 输入校验和 RunEvent 输出校验。
+- [x] 当前聊天、标题和自动补全 API 已接入 contracts 输入校验。
+- [x] Web/Desktop 共享 UI 层已对未知或非法 Generative UI 提供运行时安全降级。
+- [x] Gateway 已建立持久化 Run create/get/cancel API，并校验输入、快照及 RunEvent 输出。
 
 ### 工作项
 
@@ -146,6 +148,17 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 ## 7. Phase 4：引入持久化 Run Engine
 
 目标：执行生命周期脱离 HTTP/SSE 连接。
+
+### 当前进度（2026-09-14）
+
+- [x] 新增 `AgentRun` 与 `RunEvent` 持久化模型及扩展式数据库迁移。
+- [x] 建立 create/get/cancel API，包含用户隔离与幂等创建。
+- [x] Run 快照与事件在写入和返回前均通过 contracts 运行时校验。
+- [x] 已覆盖创建、重复请求、越权读取、取消和事件序列测试。
+- [x] Run 创建与 Outbox 消息已在同一数据库事务中提交。
+- [x] Worker 取件支持租约、`FOR UPDATE SKIP LOCKED`、确认和延迟重试。
+- [ ] 接入 Worker、Outbox、检查点以及 resume/retry 执行链路。
+- [ ] 将现有聊天模型调用迁入 Run，并支持断线后订阅恢复。
 
 ### 数据扩展
 
