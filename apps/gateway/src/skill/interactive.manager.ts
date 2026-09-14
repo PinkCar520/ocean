@@ -46,7 +46,7 @@ export class InteractiveManager {
             type: z.enum(['single_select', 'multi_select', 'text']).describe('必须尽可能使用 single_select 或 multi_select 并提供选项'),
             options: z.array(z.string()).optional().describe('提供 2-4 个互斥选项')
           })).describe('需要向用户提问的字段列表')
-        }),
+        }) as any,
         execute: async ({ skillName, description, inquiries }) => {
           this.logger.log(`Triggering agp_intent_clarify for skill: ${skillName}`);
           return {

@@ -19,17 +19,20 @@ export function SkillPreviewPanel({ attachment, onClose }: SkillPreviewPanelProp
   const reducedMotion = useReducedMotion();
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [liveContent, setLiveContent] = useState<string | null>(null);
 
   // Decode and process content
   const parsedData = useMemo(() => {
     let rawContent = '';
+    const sourceData = liveContent ?? attachment.url;
     try {
-      if (attachment.url.startsWith('data:')) {
-        const b64 = attachment.url.split(',')[1];
+      if (sourceData.startsWith('data:')) {
+        const b64 = sourceData.split(',')[1];
         const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
         rawContent = new TextDecoder('utf-8').decode(bytes);
       } else {
-        rawContent = attachment.url;
+        rawContent = sourceData;
       }
     } catch {
       rawContent = '无法解码文件内容';
@@ -43,6 +46,7 @@ export function SkillPreviewPanel({ attachment, onClose }: SkillPreviewPanelProp
       .replace(/Skill directory: .*?Relative paths in this skill are relative to the skill directory\.?/gi, '');
 
     let description = '';
+    let bodyForPreview = cleanContent;
     const yamlRegex = /^---\r?\n([\s\S]*?)\r?\n---/;
     const match = cleanContent.match(yamlRegex);
     
@@ -52,16 +56,36 @@ export function SkillPreviewPanel({ attachment, onClose }: SkillPreviewPanelProp
       if (descMatch) {
          description = descMatch[1] || descMatch[2] || descMatch[3] || '';
       }
-      cleanContent = cleanContent.replace(yamlRegex, '').trim();
+      bodyForPreview = cleanContent.replace(yamlRegex, '').trim();
     }
 
-    return { body: cleanContent, description };
-  }, [attachment.url]);
+    return { raw: cleanContent, bodyForPreview, description };
+  }, [attachment.url, liveContent]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(parsedData.body);
+    navigator.clipboard.writeText(parsedData.raw);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      const skillName = attachment.name?.replace(/\.md$/, '') || '';
+      if (!skillName) return;
+      
+      const res = await fetch(`/api/skills/content/${skillName}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.content) {
+          setLiveContent(data.content);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to refresh skill:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const isImage = attachment.contentType?.startsWith('image/');
@@ -115,14 +139,23 @@ export function SkillPreviewPanel({ attachment, onClose }: SkillPreviewPanelProp
                 <ChevronDown className="w-3 h-3 ml-0.5 opacity-60" />
               </button>
 
+              <div className="h-4 w-px bg-border/80 mx-1" />
+
               <button 
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className={cn(
+                  "p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-all",
+                  isRefreshing && "opacity-50 cursor-not-allowed"
+                )}
+                title="Refresh"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin")} />
               </button>
+              
+              <div className="h-4 w-px bg-border/80 mx-1" />
             </>
           )}
-          <div className="w-px h-4 bg-border mx-1" />
           <button 
             onClick={onClose} 
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
@@ -145,7 +178,7 @@ export function SkillPreviewPanel({ attachment, onClose }: SkillPreviewPanelProp
         ) : viewMode === 'code' ? (
           <div className="p-6 md:p-8">
             <pre className="font-mono text-[13px] text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
-              {parsedData.body}
+              {parsedData.raw}
             </pre>
           </div>
         ) : (
@@ -178,7 +211,7 @@ export function SkillPreviewPanel({ attachment, onClose }: SkillPreviewPanelProp
               transition-all"
             >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {parsedData.body}
+                {parsedData.bodyForPreview}
               </ReactMarkdown>
             </div>
           </div>

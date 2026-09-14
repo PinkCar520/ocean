@@ -4,6 +4,7 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { RpcModule } from './rpc.module';
 import { SkillModule } from '../skill/skill.module';
+import { SessionModule } from '../session/session.module';
 
 /**
  * ChatModule
@@ -12,7 +13,7 @@ import { SkillModule } from '../skill/skill.module';
  * 核心 AI 编排逻辑已迁移到 SkillModule。
  */
 @Module({
-  imports: [ConfigModule, RpcModule, SkillModule],
+  imports: [ConfigModule, RpcModule, SkillModule, SessionModule],
   controllers: [ChatController],
   providers: [ChatService],
   exports: [ChatService],

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -38,14 +39,14 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@ai-sdk/react": "3.0.163",
+    "@ai-sdk/react": "^4.0.2",
     "@eslint/js": "^9.39.4",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "ai": "6.0.161",
+    "ai": "^7.0.2",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",

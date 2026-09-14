@@ -26,6 +26,9 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // 记录在线的 CLI 客户端映射 (工号 -> SocketId)
   private clients = new Map<string, string>();
+  
+  // 记录在线的 Web 客户端映射 (sessionId -> SocketId)
+  private webClients = new Map<string, string>();
 
   // 记录等待中的请求 (requestId -> { resolve, reject, timeout })
   private pendingRequests = new Map<string, { 
@@ -36,11 +39,16 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;
+    const sessionId = client.handshake.query.sessionId as string;
+    
     if (userId) {
       this.clients.set(userId, client.id);
       console.log(`[RpcGateway] CLI connected: ${userId} (${client.id})`);
+    } else if (sessionId) {
+      this.webClients.set(sessionId, client.id);
+      console.log(`[RpcGateway] Web connected: Session ${sessionId} (${client.id})`);
     } else {
-      console.warn(`[RpcGateway] Connection attempt without userId. Disconnecting.`);
+      console.warn(`[RpcGateway] Connection attempt without userId or sessionId. Disconnecting.`);
       client.disconnect();
     }
   }
@@ -50,6 +58,13 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (socketId === client.id) {
         this.clients.delete(userId);
         console.log(`[RpcGateway] CLI disconnected: ${userId}`);
+        break;
+      }
+    }
+    for (const [sessionId, socketId] of this.webClients.entries()) {
+      if (socketId === client.id) {
+        this.webClients.delete(sessionId);
+        console.log(`[RpcGateway] Web disconnected: Session ${sessionId}`);
         break;
       }
     }
@@ -135,6 +150,16 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(socketId).emit('rpc_request', { id, method, params });
       console.log(`[RpcGateway] Command sent to ${userId}: ${method} (ID: ${id}), waiting for response...`);
     });
+  }
+
+  // 向指定的 Web Session 客户端推送 AI 流数据块
+  pushToWebClient(sessionId: string, eventName: string, payload: any) {
+    const socketId = this.webClients.get(sessionId);
+    if (socketId) {
+      this.server.to(socketId).emit(eventName, payload);
+    } else {
+      console.warn(`[RpcGateway] pushToWebClient: No web client for session ${sessionId}. Event "${eventName}" dropped. Connected sessions: [${Array.from(this.webClients.keys()).join(', ')}]`);
+    }
   }
 
   getOnlineUsers(): string[] {

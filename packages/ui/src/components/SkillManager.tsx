@@ -167,6 +167,39 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
     }
   };
 
+  const handleUploadSkill = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.skill,.zip';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await api.post<any>('/api/skills/upload', formData);
+        if (res.success) {
+          await fetchSkills();
+          if (res.data?.skill) {
+             setActiveSkill(res.data.skill);
+             setOriginalSkill(res.data.skill);
+             setIsEditing(true);
+             setIsFormEditable(false);
+          }
+        } else {
+          console.error('Upload failed', res.error);
+          alert('Failed to upload skill: ' + res.error);
+        }
+      } catch (err: any) {
+        console.error('Upload error', err);
+        alert('Failed to upload skill: ' + err.message);
+      }
+    };
+    input.click();
+  };
+
   const handleDiscardAndNavigate = () => {
     if (pendingNavigation === 'create') {
       const newSkill = {
@@ -348,6 +381,14 @@ export function SkillManager({ token, onMainTabChange, user }: { token?: string 
               title="Generate with AI"
             >
               <Sparkles className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={handleUploadSkill}
+              className="relative z-10 p-1.5 hover:bg-foreground/5 rounded text-muted-foreground hover:text-foreground transition-colors"
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+              title="Upload Skill (.skill or .zip)"
+            >
+              <UploadCloud className="w-4 h-4" />
             </button>
             <button 
               onClick={handleCreate}

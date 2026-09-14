@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
@@ -12,10 +12,10 @@ export interface SkillEntry {
   name: string;
   /** Skill description — used by LLM for discovery */
   description: string;
-  /** Absolute path to the SKILL.md file */
-  skillMdPath: string;
-  /** Skill directory (parent of SKILL.md) */
-  skillDir: string;
+  /** Absolute path to the SKILL.md file (optional for DB skills) */
+  skillMdPath?: string;
+  /** Skill directory (parent of SKILL.md) (optional for DB skills) */
+  skillDir?: string;
   /** Space-delimited list of pre-approved tools (experimental) */
   allowedTools?: string[];
   /** List of tools that require user approval before execution */
@@ -43,9 +43,13 @@ export interface SkillEntry {
  *
  * Spec: https://agentskills.io/client-implementation/adding-skills-support
  */
+import { PrismaClient } from '@prisma/client';
+
 @Injectable()
 export class SkillLoader {
   private readonly logger = new Logger(SkillLoader.name);
+
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   /** Cache: skillName → SkillEntry */
   private catalog = new Map<string, SkillEntry>();
@@ -94,9 +98,40 @@ export class SkillLoader {
     return [...this.catalog.values()];
   }
 
-  /** Get a single skill by name from cache. Returns null if not found. */
-  getSkill(name: string): SkillEntry | null {
-    return this.catalog.get(name) ?? null;
+  /** Get a single skill by name from cache or DB. Returns null if not found. */
+  async getSkill(name: string): Promise<SkillEntry | null> {
+    if (!this.discovered) {
+      await this.discover();
+    }
+    let entry = this.catalog.get(name);
+    if (entry) return entry;
+
+    try {
+      const dbSkill = await this.prisma.skill.findUnique({ where: { slug: name } });
+      if (dbSkill && dbSkill.content) {
+        entry = {
+          name: dbSkill.slug,
+          description: dbSkill.description || '',
+          content: dbSkill.content || '',
+          allowedTools: dbSkill.manifest && (dbSkill.manifest as any)['allowed-tools']
+            ? String((dbSkill.manifest as any)['allowed-tools']).split(' ').filter(Boolean)
+            : undefined,
+          requiresApproval: dbSkill.manifest && (dbSkill.manifest as any)['requires-approval']
+            ? String((dbSkill.manifest as any)['requires-approval']).split(' ').filter(Boolean)
+            : undefined,
+          compatibility: dbSkill.compatibility || undefined,
+          metadata: dbSkill.manifest && (dbSkill.manifest as any)['metadata'] ? (dbSkill.manifest as any)['metadata'] : undefined,
+          locales: dbSkill.manifest && (dbSkill.manifest as any)['locales'] ? (dbSkill.manifest as any)['locales'] : undefined,
+          inquiries: dbSkill.manifest && (dbSkill.manifest as any)['inquiries'] ? (dbSkill.manifest as any)['inquiries'] : undefined,
+        };
+        this.catalog.set(name, entry);
+        return entry;
+      }
+    } catch (e) {
+      this.logger.error(`Failed to fetch skill ${name} from DB: ${e}`);
+    }
+
+    return null;
   }
 
   private getDefaultScanDirs(): string[] {
@@ -290,25 +325,29 @@ export class SkillLoader {
       await this.discover();
     }
 
-    const entry = this.catalog.get(skillName);
+    const entry = await this.getSkill(skillName);
     if (!entry) {
       this.logger.warn(`activate_skill called for unknown skill: "${skillName}"`);
       return null;
     }
 
-    let raw: string;
-    try {
-      raw = fs.readFileSync(entry.skillMdPath, 'utf-8');
-    } catch {
-      this.logger.error(`Failed to read skill file: ${entry.skillMdPath}`);
-      return null;
+    let raw: string = '';
+    if (entry.skillMdPath) {
+      try {
+        raw = fs.readFileSync(entry.skillMdPath, 'utf-8');
+      } catch {
+        this.logger.error(`Failed to read skill file: ${entry.skillMdPath}`);
+        return null;
+      }
+    } else if (entry.content) {
+      raw = entry.content;
     }
 
     // Strip frontmatter, keep body content only
     const body = raw.replace(/^---[\s\S]*?---\r?\n/, '').trim();
 
     // List bundled resource files (references/, scripts/, assets/)
-    const resources = this.listResources(entry.skillDir);
+    const resources = entry.skillDir ? this.listResources(entry.skillDir) : [];
     const resourcesXml =
       resources.length > 0
         ? `\n<skill_resources>\n${resources.map((f) => `  <file>${f}</file>`).join('\n')}\n</skill_resources>`

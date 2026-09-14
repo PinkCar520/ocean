@@ -5,6 +5,7 @@
 # Dependencies
 node_modules/
 .pnpm-debug.log*
+.pnpm-store/
 
 # Build Outputs
 dist/

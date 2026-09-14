@@ -4,6 +4,9 @@
   "description": "Core TypeScript library and shared types for Ocean Monorepo",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "dependencies": {
+    "@ocean/contracts": "workspace:*"
+  },
   "scripts": {
     "build": "tsc"
   },

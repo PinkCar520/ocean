@@ -5,6 +5,7 @@ import { ChatService } from './chat.service';
 import { SkillOrchestrator } from '../skill/skill.orchestrator';
 import { SkillLoader } from '../skill/skill.loader';
 import { RpcGateway } from './rpc.gateway';
+import { SessionService } from '../session/session.service';
 import { UpChatHandler } from '@ocean/mcp-im';
 import type { SkillContext } from '@ocean/core';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
@@ -19,6 +20,7 @@ export class ChatController {
     private readonly skillOrchestrator: SkillOrchestrator,
     private readonly skillLoader: SkillLoader,
     private readonly rpcGateway: RpcGateway,
+    private readonly sessionService: SessionService,
   ) {}
 
   /**
@@ -77,8 +79,7 @@ export class ChatController {
 
   /**
    * POST /api/chat
-   * Web 端主聊天接口（SSE 流式）
-   * 🔄 已切换到 SkillOrchestrator（MCP + Skill 新链路）
+   * Web 端主聊天接口（SSE 直接流式）
    */
   @Post()
   async handleChatStream(
@@ -89,7 +90,7 @@ export class ChatController {
     const requestId = Math.random().toString(36).substring(7);
     const messages = body.messages || (body.text ? [{ role: 'user', content: body.text }] : []);
     const sessionId: string | undefined = body.sessionId;
-    
+
     // 提取最后一条用户消息文本，用于意图识别
     const userMessage: string =
       body.text ||
@@ -122,19 +123,58 @@ export class ChatController {
       ...skillIdsFromParts
     ];
 
+    // Session Binding Logic
+    let finalSkillIds = mergedSkillIds.length > 0 ? Array.from(new Set(mergedSkillIds)) : undefined;
+
+    if (sessionId) {
+      try {
+        const session = await this.sessionService.getSessionById(sessionId, req.user?.dbId);
+        if (session) {
+          if (finalSkillIds && finalSkillIds.length > 0) {
+            await this.sessionService.updateSession(sessionId, req.user?.dbId, { activeSkillId: finalSkillIds[0] });
+          } else if (session.activeSkillId) {
+            finalSkillIds = [session.activeSkillId];
+          }
+        }
+      } catch (err) {
+        console.warn(`[Gateway] Session binding failed for ${sessionId}:`, err);
+      }
+    }
+
     const ctx: SkillContext = {
       userId: req.user?.workId || 'Anonymous',
       source: 'web',
       userMessage,
       workspacePath: body.workspacePath,
-      skillIds: mergedSkillIds.length > 0 ? Array.from(new Set(mergedSkillIds)) : undefined,
+      skillIds: finalSkillIds,
       // @ts-ignore
       search: body.search,
       // @ts-ignore
       knowledge: body.knowledge,
     };
 
-    await this.skillOrchestrator.streamResponse(messages, res, ctx, modelId, sessionId);
+    // SSE 响应头
+    res.setHeader('Content-Type', 'text/x-vercel-ai-data-stream; charset=utf-8');
+    res.setHeader('X-Vercel-AI-Data-Stream', 'v1');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    try {
+      await this.skillOrchestrator.streamResponse(
+        messages,
+        ctx,
+        modelId,
+        sessionId,
+        (chunk: string) => {
+          res.write(chunk);
+        },
+      );
+    } catch (error: any) {
+      console.error(`[Gateway] [${requestId}] Stream error:`, error.message);
+    } finally {
+      res.end();
+    }
   }
 
   /**

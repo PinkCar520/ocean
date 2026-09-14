@@ -101,6 +101,11 @@ model Session {
   title     String    @default("New Chat") // 会话标题
   channel   String    @default("web")      // 'web', 'cli', 'im'
   status    String    @default("active")   // 'active' | 'archived'
+  activeSkillId String? // 当前会话锁定的技能 ID
+  
+  activeJobId    String? // 当前处理该会话的队列 Job ID
+  lastCheckpoint String? // 最近一次成功的 CapsuleSnapshot ID，用于断点恢复
+  
   messages  Message[]
   tasks     Task[]    // 编排任务列表
   approvalRequests ApprovalRequest[]       // 该会话的审批请求

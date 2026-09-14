@@ -1,4 +1,4 @@
-import { ZentaoService } from './zentao.service';
+import { ZentaoService } from '../zentao/zentao.service';
 import { ConfigService } from '@nestjs/config';
 
 describe('ZentaoService', () => {

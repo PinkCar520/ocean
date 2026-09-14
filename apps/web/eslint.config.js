@@ -19,5 +19,10 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Phase 0 baseline: legacy API payloads still use any. New contracts will
+      // replace these incrementally in Phase 1.
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
   },
 ])

@@ -7,12 +7,15 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/gateway/src/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -20,9 +23,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.81",
-    "@ai-sdk/google": "^3.0.80",
-    "@ai-sdk/openai": "^3.0.53",
+    "@ai-sdk/anthropic": "^4.0.0",
+    "@ai-sdk/google": "^4.0.0",
+    "@ai-sdk/openai": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
@@ -32,6 +35,12 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-socket.io": "^11.1.17",
     "@nestjs/websockets": "^11.1.17",
+    "@ocean/core": "workspace:*",
+    "@ocean/mcp-gitlab": "workspace:*",
+    "@ocean/mcp-im": "workspace:*",
+    "@ocean/mcp-jenkins": "workspace:*",
+    "@ocean/mcp-zentao": "workspace:*",
+    "@ocean/tools-zentao": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-trace-otlp-http": "^0.215.0",
     "@opentelemetry/instrumentation-express": "^0.63.0",
@@ -42,13 +51,7 @@
     "@opentelemetry/semantic-conventions": "^1.40.0",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "7.6.0",
-    "@ocean/core": "workspace:*",
-    "@ocean/mcp-im": "workspace:*",
-    "@ocean/mcp-zentao": "workspace:*",
-    "@ocean/mcp-jenkins": "workspace:*",
-    "@ocean/mcp-gitlab": "workspace:*",
-    "@ocean/tools-zentao": "workspace:*",
-    "ai": "6.0.161",
+    "ai": "^7.0.2",
     "axios": "^1.7.0",
     "bcrypt": "^6.0.0",
     "express": "^5.2.1",
@@ -61,7 +64,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
-    "zod": "^4.4.3"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -103,10 +106,11 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.ts$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.ts",
+      "!**/*.spec.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

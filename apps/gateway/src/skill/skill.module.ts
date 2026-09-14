@@ -7,9 +7,9 @@ import { RpcModule } from '../chat/rpc.module';
 import { SessionModule } from '../session/session.module';
 import { SkillController } from './skill.controller';
 import { ApprovalModule } from './approval.module';
+import { ApprovalService } from './approval.service';
 import { PermissionModule } from './permission.module';
 import { PermissionController } from './permission.controller';
-
 /**
  * SkillModule
  *
@@ -30,10 +30,29 @@ import { ZentaoModule } from '../zentao/zentao.module';
 import { InteractiveManager } from './interactive.manager';
 
 @Module({
-  imports: [MCPModule, RpcModule, SessionModule, ApprovalModule, PermissionModule, TracingModule, RAGModule, ZentaoModule],
+  imports: [
+    MCPModule, 
+    RpcModule, 
+    SessionModule, 
+    ApprovalModule, 
+    PermissionModule, 
+    TracingModule, 
+    RAGModule, 
+    ZentaoModule
+  ],
   controllers: [SkillController, PermissionController],
-  providers: [SkillOrchestrator, SkillLoader, InteractiveManager],
-  exports: [SkillOrchestrator, SkillLoader, InteractiveManager],
+  providers: [
+    SkillLoader,
+    SkillOrchestrator,
+    ApprovalService,
+    PermissionService,
+    InteractiveManager
+  ],
+  exports: [
+    SkillLoader, 
+    SkillOrchestrator, 
+    ApprovalService, 
+    PermissionService
+  ],
 })
 export class SkillModule {}
-

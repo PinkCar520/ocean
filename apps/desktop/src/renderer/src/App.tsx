@@ -1,6 +1,6 @@
 import { TooltipProvider } from "@ocean/ui/components/ui/tooltip";
 import { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import {
   Sparkles,
   Cloud,
@@ -9,11 +9,9 @@ import {
 } from 'lucide-react';
 import { ChatSession } from '@ocean/ui/components/ChatSession';
 import { useTranslation } from 'react-i18next';
-import { Dashboard } from '@ocean/ui/components/Dashboard';
 import { SettingsDialog } from '@ocean/ui/components/Settings/SettingsDialog';
 import { UIGallery } from '@ocean/ui/components/UIGallery';
 import { SkillLibrary } from '@ocean/ui/components/SkillLibrary';
-import { MCPServerManager } from '@ocean/ui/components/MCPServerManager';
 import { KnowledgeBase } from '@ocean/ui/components/KnowledgeBase';
 import { Projects } from '@ocean/ui/components/Projects';
 import { AllChatsManager } from '@ocean/ui/components/AllChatsManager';
@@ -29,9 +27,6 @@ import { SkillManager } from '@ocean/ui/components/SkillManager';
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 
 function AppContent() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
   const { id: sessionIdFromUrl } = useParams<{ id?: string }>();
   
   // ── Global Authentication & Identity State ──
@@ -74,6 +69,8 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     const saved = localStorage.getItem('ocean_sidebar_collapsed');
     return saved === 'true';
   });
+  const [models, setModels] = useState<any[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('ocean_selected_model') || '');
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed((current) => {
@@ -122,6 +119,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
 
   // Sync Global Settings from User Profile
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     if (user?.preferences) {
       // Sync Theme
       if (user.preferences.theme) {
@@ -141,7 +139,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
           const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
           const handler = () => applyTheme('system');
           mediaQuery.addEventListener('change', handler);
-          return () => mediaQuery.removeEventListener('change', handler);
+          cleanup = () => mediaQuery.removeEventListener('change', handler);
         }
       }
       
@@ -150,17 +148,9 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         i18n.changeLanguage(user.preferences.language);
       }
       
-      // Sync Default Model (Only on initial load or explicit update)
-      if (user.preferences.defaultModel) {
-        setSelectedModelId(prev => {
-          if (!prev || prev !== user.preferences.defaultModel) {
-            return user.preferences.defaultModel;
-          }
-          return prev;
-        });
-      }
     }
-  }, [user, i18n]);
+    return cleanup;
+  }, [user?.preferences, i18n]);
 
   useEffect(() => {
     if (activeTab === 'chat') return;
@@ -189,9 +179,6 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     setActiveTab('chat');
   };
 
-  const [models, setModels] = useState<any[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('ocean_selected_model') || '');
-
   useEffect(() => {
     if (selectedModelId) {
       localStorage.setItem('ocean_selected_model', selectedModelId);
@@ -219,19 +206,23 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         setModels(formattedModels);
 
         if (formattedModels.length > 0) {
-          const exists = formattedModels.some((m: any) => m.id === selectedModelId);
-          if (!selectedModelId || !exists) {
-            setSelectedModelId(formattedModels[0].id);
-          }
+          setSelectedModelId((currentModelId) => {
+            const currentExists = formattedModels.some((m: any) => m.id === currentModelId);
+            if (currentExists) return currentModelId;
+
+            const preferredModelId = user?.preferences?.defaultModel;
+            const preferredExists = formattedModels.some((m: any) => m.id === preferredModelId);
+            return preferredExists ? preferredModelId : formattedModels[0].id;
+          });
         }
       } catch (err) {
         console.error('Failed to fetch models:', err);
       }
     };
     if (token) fetchModels();
-  }, [token]);
+  }, [token, user?.preferences?.defaultModel]);
 
-  const [projects, setProjects] = useState<any[]>([]);
+  const [, setProjects] = useState<any[]>([]);
 
   // 动态获取项目列表（供全局命令菜单使用）
   useEffect(() => {

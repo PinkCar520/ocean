@@ -230,7 +230,7 @@ export class SkillOrchestrator {
     if (ctx.skillIds && ctx.skillIds.length > 0) {
       let localInjected = '';
       for (const skillId of ctx.skillIds) {
-        const skill = this.skillLoader.getSkill(skillId);
+        const skill = await this.skillLoader.getSkill(skillId);
         if (skill?.inquiries && skill.inquiries.length > 0) {
           prompt += `\n\n> [!IMPORTANT]\n> 此技能 [${skill.name}] 定义了意图澄清表单（Inquiries）。如果用户当前的话语中没有明确提供这些参数，请你**必须立刻调用 \`agp_intent_clarify\` 工具**，不要随意猜测或直接生成结果！`;
         }
@@ -419,8 +419,8 @@ export class SkillOrchestrator {
         description: '操作本地 Git 仓库（status, add, commit, push, log, diff, branch）。',
         inputSchema: z.object({
           action: z.enum(['status', 'add', 'commit', 'push', 'log', 'diff', 'branch']).describe('Git 动作'),
-          args: z.string().optional().describe('动作参数，如 "." 或 "-m \"message\""'),
-        }),
+          args: z.string().optional().describe('动作参数，如 "." 或 \'-m "message"\''),
+        }) as any,
         execute: async ({ action, args }) => {
           const result = await this.rpcGateway.sendToCli(currentUserId, 'local_git', { action, args, sessionId });
 
@@ -519,7 +519,7 @@ export class SkillOrchestrator {
 
 
 
-  async streamResponse(messages: any[], res: Response, ctx: SkillContext, modelId?: string, sessionId?: string): Promise<void> {
+  async streamResponse(messages: any[], ctx: SkillContext, modelId?: string, sessionId?: string, onChunk?: (chunk: string) => void): Promise<void> {
     const isSearchMode = (ctx as any).search === true;
     const isKnowledgeMode = (ctx as any).knowledge === true;
 
@@ -588,6 +588,11 @@ export class SkillOrchestrator {
 
         const allParts: any[] = [];
         let fullText = '';
+
+        let dbPromiseResolve: () => void;
+        const dbPromise = new Promise<void>((resolve) => {
+          dbPromiseResolve = resolve;
+        });
 
         const result = streamText({
           model: this.getModel(modelId),
@@ -667,15 +672,56 @@ export class SkillOrchestrator {
                 this.logger.error(`[Orchestrator] Failed to persist message: ${dbErr.message}`);
               }
             }
+            dbPromiseResolve();
           },
         });
 
-        result.pipeUIMessageStreamToResponse(res);
+        const consumeStream = async () => {
+          let isFirstReasoning = true;
+          let hasReasoning = false;
+          const fullStream = result.fullStream;
+          for await (const chunk of fullStream) {
+            let protocolStr = '';
+            if (chunk.type === 'text-delta') {
+              let text = chunk.text;
+              if (hasReasoning && isFirstReasoning === false) {
+                // Close the think tag before the first text chunk
+                text = '\n</think>\n\n' + text;
+                hasReasoning = false; // Prevents closing again
+              }
+              protocolStr = `0:${JSON.stringify(text)}\n`;
+            } else if (chunk.type === 'reasoning-delta') {
+              let text = chunk.text;
+              if (isFirstReasoning) {
+                text = '<think>\n' + text;
+                isFirstReasoning = false;
+                hasReasoning = true;
+              }
+              protocolStr = `0:${JSON.stringify(text)}\n`;
+            } else if (chunk.type === 'tool-call') {
+              // Include tool calls into the data stream (using standard data stream protocol if needed, though useChat natively handles some tool streaming)
+              protocolStr = `9:${JSON.stringify({ ...chunk })}\n`;
+            }
+            if (protocolStr && onChunk) onChunk(protocolStr);
+          }
+          
+          // If the stream ended but reasoning was never closed (shouldn't happen usually, but just in case)
+          if (hasReasoning && isFirstReasoning === false) {
+            if (onChunk) onChunk(`0:${JSON.stringify('\n</think>\n')}\n`);
+          }
+
+          // [Official Practice] Emit the finish event to properly terminate Vercel AI SDK stream
+          if (onChunk) {
+            onChunk(`d:${JSON.stringify({ finishReason: 'stop' })}\n`);
+          }
+        };
+
+        await Promise.all([consumeStream(), dbPromise]);
       } catch (err: any) {
         this.logger.error(`Stream error: ${err.message}`);
         span.recordException(err);
         if (err.stack) this.logger.error(err.stack);
-        if (!res.headersSent) res.status(500).send(err.message);
+        throw err;
       }
     });
   }

@@ -82,7 +82,7 @@ export class MCPConfigLoader {
     }
 
     // Merge layers (later overrides earlier)
-    let merged: MCPConfigFile = { mcpServers: [] };
+    const merged: MCPConfigFile = { mcpServers: [] };
     const serverMap = new Map<string, MCPServerConfig>();
 
     for (const layer of layers) {

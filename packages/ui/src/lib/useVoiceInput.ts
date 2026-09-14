@@ -39,7 +39,7 @@ export function useVoiceInput({ onResult, onError, lang = 'zh-CN' }: UseVoiceInp
       analyser.getByteFrequencyData(dataArray);
       // Sample a few points for the UI bars (e.g., 24 bars)
       const step = Math.floor(dataArray.length / 24);
-      const volumes = [];
+      const volumes: number[] = [];
       for (let i = 0; i < 24; i++) {
         volumes.push(dataArray[i * step]);
       }

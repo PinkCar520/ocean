@@ -20,12 +20,15 @@ COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 
 # 安装依赖
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm config set ignore-scripts true && pnpm install --no-frozen-lockfile
 
 # 拷贝源代码
 COPY --from=pruner /app/out/full/ .
 # turbo prune 不包含根 tsconfig.json，需手动补充（子包的 tsconfig 会 extends 它）
 COPY --from=pruner /app/tsconfig.json ./tsconfig.json
+
+# 执行完整安装（通过两次运行解决 pnpm 和 turbo 的并发冲突 bug）
+RUN pnpm config set ignore-scripts true && pnpm install --frozen-lockfile
 
 # Prisma 生成（需要源文件中的 schema）
 RUN cd apps/gateway && ./node_modules/.bin/prisma generate
@@ -47,7 +50,7 @@ COPY --from=builder /app ./
 # 1. 递归删除项目中所有的 node_modules 目录（此时只剩下被 prune 过的包）
 RUN find . -name "node_modules" -type d -prune -exec rm -rf '{}' +
 # 2. 仅安装生产依赖
-RUN pnpm install --prod --no-frozen-lockfile
+RUN pnpm config set ignore-scripts true && pnpm install --prod --no-frozen-lockfile
 # 3. 由于重建了依赖，需要重新生成一次 Prisma Client
 RUN cd apps/gateway && ./node_modules/.bin/prisma generate
 

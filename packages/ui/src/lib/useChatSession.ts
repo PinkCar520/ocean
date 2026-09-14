@@ -1,7 +1,6 @@
 import { useChat } from '@ai-sdk/react';
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { authFetch } from './api-client';
-
 interface UseChatSessionProps {
   sessionId: string | null;
   initialMessages: any[];
@@ -95,9 +94,9 @@ export function useChatSession({
 
   const { messages, sendMessage, status, setMessages, stop, error, data } = (useChat as any)({
     id: sessionId ?? 'new',
-    initialMessages: emptyMessages, // 我们通过 setMessages 手动控制渲染列表
+    initialMessages: emptyMessages,
     api: '/api/chat',
-    fetch: authFetch,
+    fetch: (url: RequestInfo | URL, options?: RequestInit) => authFetch(url, options),
     body: chatBody,
     onFinish: handleFinish
   });
@@ -111,25 +110,42 @@ export function useChatSession({
   // 2. 在 idle 且 messages 还有值时，说明正在等待/进行服务端刷新，此时继续展示合并列表。
   // 3. 但由于 ID 可能不同，我们需要在 ChatSession.tsx 中更稳健地去重，或者在这里去重。
   const displayMessages = useMemo(() => {
+    let base: any[] = [];
     // 1. 流式过程中，直接合并展示，此时 messages ID 是 chat-xxx 临时 ID，与历史不冲突
     if (status === 'streaming' || status === 'submitting') {
-      return [...activeMessages, ...messages];
-    }
-
-    // 2. 传输结束但 messages 还没来得及清空（等待 refresh 完成的瞬间）
-    if (messages.length > 0) {
-      // 此时 activeMessages 可能已经通过 refresh 拿到了最新数据。
-      // 我们过滤掉已经在 activeMessages 中存在的流式消息（通过内容匹配）以防重复
+      base = [...activeMessages, ...messages];
+    } else if (messages.length > 0) {
+      // 2. 传输结束但 messages 还没来得及清空（等待 refresh 完成的瞬间）
       const filtered = messages.filter((m: any) => {
         return !activeMessages.some(am => 
           am.role === m.role && am.content === m.content && m.content.length > 0
         );
       });
-      return [...activeMessages, ...filtered];
+      base = [...activeMessages, ...filtered];
+    } else {
+      // 3. 闲置状态，使用树路径
+      base = activeMessages;
     }
 
-    // 3. 闲置状态，使用树路径
-    return activeMessages;
+    // 动态解析 <think> 标签，还原 reasoning 属性，以便 ChatMessage 的 ThinkingList 组件渲染
+    return base.map(m => {
+      if (typeof m.content === 'string' && m.content.includes('<think>')) {
+        const startIdx = m.content.indexOf('<think>');
+        const endIdx = m.content.indexOf('</think>');
+        
+        if (endIdx !== -1) {
+          const reasoning = m.content.substring(startIdx + 7, endIdx).trim();
+          const content = (m.content.substring(0, startIdx) + m.content.substring(endIdx + 8)).trim();
+          return { ...m, reasoning, content };
+        } else {
+          // 流式过程中，标签还没闭合
+          const reasoning = m.content.substring(startIdx + 7).trim();
+          const content = m.content.substring(0, startIdx).trim();
+          return { ...m, reasoning, content };
+        }
+      }
+      return m;
+    });
   }, [status, messages, activeMessages]);
 
   const isLoading = status === 'streaming' || status === 'submitting';

@@ -208,7 +208,9 @@ export class ZentaoTool {
       const normalizedQuery = query.toLowerCase();
       return this.mockBugs.filter((bug) =>
         bug.title.toLowerCase().includes(normalizedQuery) ||
-        bug.id.toLowerCase().includes(normalizedQuery)
+        bug.id.toLowerCase().includes(normalizedQuery) ||
+        bug.status.toLowerCase().includes(normalizedQuery) ||
+        bug.severity.toLowerCase().includes(normalizedQuery)
       );
     }
 

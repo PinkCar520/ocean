@@ -24,6 +24,7 @@ export class SessionService {
         title: true,
         channel: true,
         status: true,
+        activeSkillId: true,
         updatedAt: true,
         createdAt: true,
         _count: { select: { messages: true } },
@@ -36,15 +37,16 @@ export class SessionService {
       title: s.title,
       channel: s.channel,
       status: s.status,
+      activeSkillId: s.activeSkillId,
       messageCount: s._count.messages,
       updatedAt: s.updatedAt,
       createdAt: s.createdAt,
     }));
   }
 
-  async createSession(userId: string, channel = 'web', title = 'New Chat') {
+  async createSession(userId: string, channel = 'web', title = 'New Chat', activeSkillId?: string) {
     return this.prisma.session.create({
-      data: { userId, channel, title, status: 'active' },
+      data: { userId, channel, title, status: 'active', activeSkillId },
     });
   }
 
@@ -56,7 +58,7 @@ export class SessionService {
     return session;
   }
 
-  async updateSession(id: string, userId: string, data: { title?: string; status?: string }) {
+  async updateSession(id: string, userId: string, data: { title?: string; status?: string; activeSkillId?: string }) {
     await this.assertOwnership(id, userId);
     return this.prisma.session.update({
       where: { id },
