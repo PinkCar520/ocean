@@ -176,3 +176,26 @@ Ocean 部署了 Redis，但尚未形成明确职责。将 Run 状态只保存在
 
 - 部署流程必须接入 Secret 管理。
 - 本地开发通过独立 compose/dev profile 保留低门槛体验。
+
+## ADR-009：Web 采用 Next.js App Router 与 Server Components
+
+状态：Accepted
+
+### 背景
+
+原 Web 是 Vite SPA，路由、首屏和数据获取全部落在浏览器端。Ocean 需要可组合的服务端页面边界、渐进式渲染和更明确的服务端/客户端职责，同时 Desktop 仍需复用交互 UI。
+
+### 决策
+
+- `apps/web` 使用 Next.js App Router，layout 与 page 默认保持 Server Component。
+- 浏览器状态、事件处理和交互式共享 UI 通过最小的 `use client` 入口接入。
+- `packages/ui` 保持跨 Web/Desktop 的客户端视图层，不引入 Next.js 专属 API。
+- Web 导航通过适配端口注入共享 UI；Desktop 可继续使用 React Router。
+- Gateway 仍是业务控制平面；Next.js 只承担 Web 渲染、路由和 BFF 转发，不复制领域规则。
+- 生产部署使用 Next.js standalone Node 运行时，不采用静态导出，以保留 Server Components 能力。
+
+### 后果
+
+- 页面可逐步把只读数据获取与静态内容迁到服务端，减少客户端 JavaScript。
+- Web 与 Desktop 的环境边界更清楚，但共享组件必须避免直接依赖任一端的路由实现。
+- 需要 Node Web 运行时替代原 Nginx 静态容器，并配置 `OCEAN_GATEWAY_URL`。

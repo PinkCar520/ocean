@@ -1,7 +1,9 @@
-import { Controller, Post, Get, Delete, Body, Param, UnauthorizedException, Req, Headers, UseGuards, SetMetadata } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, UnauthorizedException, Req, Res, SetMetadata } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { ApiKeyService, CreateApiKeyDto } from './api-key.service';
 import { IS_PUBLIC_KEY } from './sso.guard';
+import { OCEAN_SESSION_COOKIE, OCEAN_SESSION_MAX_AGE_MS } from './auth-cookie';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -18,12 +20,14 @@ export class AuthController {
    */
   @Public()
   @Post('register')
-  async register(@Body() body: any) {
+  async register(@Body() body: any, @Res({ passthrough: true }) response: Response) {
     const { email, password, name } = body;
     if (!email || !password) {
       throw new UnauthorizedException('Authentication Failed: Email and password are required.');
     }
-    return this.authService.register(email, password, name);
+    const result = await this.authService.register(email, password, name);
+    this.setSessionCookie(response, result.access_token);
+    return result;
   }
 
   /**
@@ -32,7 +36,7 @@ export class AuthController {
    */
   @Public()
   @Post('login')
-  async login(@Body() body: any) {
+  async login(@Body() body: any, @Res({ passthrough: true }) response: Response) {
     const { username, email, password } = body;
     const identifier = username || email;
 
@@ -45,7 +49,21 @@ export class AuthController {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
-    return this.authService.login(user);
+    const result = await this.authService.login(user);
+    this.setSessionCookie(response, result.access_token);
+    return result;
+  }
+
+  @Public()
+  @Post('logout')
+  logout(@Res({ passthrough: true }) response: Response) {
+    response.clearCookie(OCEAN_SESSION_COOKIE, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+    return { success: true };
   }
 
   /**
@@ -85,5 +103,15 @@ export class AuthController {
       throw new UnauthorizedException('Authentication required.');
     }
     return this.apiKeyService.revokeApiKey(userId, id);
+  }
+
+  private setSessionCookie(response: Response, token: string) {
+    response.cookie(OCEAN_SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: OCEAN_SESSION_MAX_AGE_MS,
+    });
   }
 }

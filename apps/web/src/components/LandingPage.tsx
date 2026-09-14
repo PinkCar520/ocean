@@ -1,31 +1,10 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { cn } from '@ocean/ui/lib/utils';
+import Link from 'next/link';
 
 export function LandingPage() {
-  const navigate = useNavigate();
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 20) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const handleGetStarted = () => {
-    navigate('/app');
-  };
-
   return (
     <div className="selection:bg-primary-fixed-dim selection:text-on-primary-fixed bg-surface text-on-surface font-sans min-h-screen">
       {/* TopNavBar */}
-      <nav className={cn("fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl transition-all duration-300", scrolled ? "shadow-sm py-3" : "py-4")}>
+      <nav className="fixed top-0 z-50 w-full bg-surface/80 py-4 shadow-sm backdrop-blur-xl">
         <div className="flex justify-between items-center px-8 max-w-7xl mx-auto">
           <div className="flex items-center gap-12">
             <a className="font-display text-xl font-bold tracking-tighter text-on-surface" href="#">Ocean</a>
@@ -37,8 +16,8 @@ export function LandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="px-5 py-2 font-display text-label-sm text-primary transition-transform active:scale-95" onClick={handleGetStarted}>Request Demo</button>
-            <button className="kinetic-gradient px-6 py-2.5 rounded-lg text-white font-display text-label-sm font-semibold transition-transform active:scale-95" onClick={handleGetStarted}>Get Started</button>
+            <Link className="px-5 py-2 font-display text-label-sm text-primary transition-transform active:scale-95" href="/app">Request Demo</Link>
+            <Link className="kinetic-gradient px-6 py-2.5 rounded-lg text-white font-display text-label-sm font-semibold transition-transform active:scale-95" href="/app">Get Started</Link>
           </div>
         </div>
       </nav>
@@ -55,7 +34,7 @@ export function LandingPage() {
                 The next-generation AI platform for enterprise workflow automation, knowledge management, and skill orchestration.
               </p>
               <div className="flex flex-wrap gap-4">
-                <button className="kinetic-gradient px-8 py-4 rounded-lg text-white font-display font-bold text-lg transition-all hover:shadow-xl hover:shadow-primary/20 active:scale-95" onClick={handleGetStarted}>Get Started</button>
+                <Link className="kinetic-gradient px-8 py-4 rounded-lg text-white font-display font-bold text-lg transition-all hover:shadow-xl hover:shadow-primary/20 active:scale-95" href="/app">Get Started</Link>
                 <button className="bg-surface-container-high px-8 py-4 rounded-lg text-on-surface font-display font-bold text-lg flex items-center gap-2 hover:bg-surface-container-highest transition-colors active:scale-95">
                   <span className="material-symbols-outlined text-[20px]">play_circle</span>
                   Watch Demo
@@ -228,7 +207,7 @@ export function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold mb-8 relative z-10 font-display tracking-tight text-white">Ready to Orchestrate?</h2>
             <p className="text-white/80 text-xl mb-12 max-w-2xl mx-auto relative z-10 font-sans">Join the leaders in AI-driven enterprise efficiency. Start your pilot program with Ocean today.</p>
             <div className="flex flex-wrap justify-center gap-6 relative z-10">
-              <button className="bg-card text-primary px-10 py-4 rounded-lg font-bold text-lg hover:bg-surface-bright transition-colors font-display" onClick={handleGetStarted}>Get Started for Free</button>
+              <Link className="bg-card text-primary px-10 py-4 rounded-lg font-bold text-lg hover:bg-surface-bright transition-colors font-display" href="/app">Get Started for Free</Link>
               <button className="border border-white/30 text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-card/10 transition-colors font-display">Book a Consultation</button>
             </div>
           </div>

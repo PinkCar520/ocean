@@ -27,6 +27,9 @@ interface UseConversationsArgs {
   onAuthExpired: () => void;
   onUserProfile: (user: any) => void;
   t: (key: string, options?: any) => string;
+  initialConversations?: ConversationSummary[];
+  initialMessages?: any[];
+  isServerBootstrapped?: boolean;
 }
 
 export function useConversations({
@@ -36,10 +39,13 @@ export function useConversations({
   onAuthExpired,
   onUserProfile,
   t,
+  initialConversations = [],
+  initialMessages = [],
+  isServerBootstrapped = false,
 }: UseConversationsArgs) {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [currentMessages, setCurrentMessages] = useState<any[]>([]);
+  const [isInitialized, setIsInitialized] = useState(isServerBootstrapped);
+  const [conversations, setConversations] = useState<ConversationSummary[]>(initialConversations);
+  const [currentMessages, setCurrentMessages] = useState<any[]>(initialMessages);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const onAuthExpiredRef = useRef(onAuthExpired);
   const onUserProfileRef = useRef(onUserProfile);
@@ -49,6 +55,7 @@ export function useConversations({
 
   // ── 初始化：拉取用户信息 + 会话列表 ─────────────────────────────
   useEffect(() => {
+    if (isServerBootstrapped) return;
     if (!token) {
       setIsInitialized(true);
       return;
@@ -72,9 +79,10 @@ export function useConversations({
 
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, isServerBootstrapped]);
 
   const justCreatedSessionIdRef = useRef<string | null>(null);
+  const hasConsumedServerMessagesRef = useRef(isServerBootstrapped && Boolean(sessionId));
 
   // ── 刷新会话列表 ──────────────────────────────────────────────
   const refreshConversations = useCallback(async () => {
@@ -92,6 +100,11 @@ export function useConversations({
   useEffect(() => {
     if (!sessionId || !token) {
       setCurrentMessages([]);
+      return;
+    }
+
+    if (hasConsumedServerMessagesRef.current) {
+      hasConsumedServerMessagesRef.current = false;
       return;
     }
 

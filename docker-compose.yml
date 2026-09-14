@@ -30,7 +30,7 @@ services:
       redis:
         condition: service_started
 
-  # Ocean AI 可视化面板 (React/Vite + Nginx)
+  # Ocean Web（Next.js App Router / Server Components）
   web:
     build:
       context: .
@@ -38,9 +38,11 @@ services:
     container_name: ocean-web
     restart: always
     ports:
-      - "8081:80"
+      - "8081:5173"
     env_file:
       - .env
+    environment:
+      - OCEAN_GATEWAY_URL=http://gateway:3000
     deploy:
       resources:
         limits:

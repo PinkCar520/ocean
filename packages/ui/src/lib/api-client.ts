@@ -13,6 +13,11 @@ export interface ApiError extends Error {
   data?: any;
 }
 
+function getDesktopAuthToken(): string | null {
+  if (typeof window === 'undefined' || window.location.protocol !== 'file:') return null;
+  return localStorage.getItem('ocean_auth_token');
+}
+
 /**
  * 核心请求函数
  */
@@ -20,7 +25,7 @@ export async function request<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem('ocean_auth_token');
+  const token = getDesktopAuthToken();
   const headers = new Headers(options.headers);
 
   // 1. 自动注入鉴权 Token
@@ -43,7 +48,7 @@ export async function request<T>(
   }
 
   try {
-    const response = await fetch(finalUrl, { ...options, headers });
+    const response = await fetch(finalUrl, { credentials: 'same-origin', ...options, headers });
 
     // 3. 处理成功但无内容的响应 (204 No Content)
     if (response.status === 204) return {} as T;
@@ -70,7 +75,9 @@ export async function request<T>(
       // 4.1 自动处理登录失效
       if (response.status === 401) {
         console.error('[API] Unauthorized, redirecting to login...');
-        localStorage.removeItem('ocean_auth_token');
+        if (window.location.protocol === 'file:') {
+          localStorage.removeItem('ocean_auth_token');
+        }
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
           window.location.href = '/auth';
         }
@@ -131,7 +138,7 @@ export const api = {
  * 解决 useChat 中的鉴权与 SSE 兼容问题
  */
 export const authFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-  const token = localStorage.getItem('ocean_auth_token');
+  const token = getDesktopAuthToken();
   const headers = new Headers(init?.headers);
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -143,5 +150,5 @@ export const authFetch = async (input: RequestInfo | URL, init?: RequestInit) =>
     finalInput = `${desktopApiBase}${finalInput}`;
   }
 
-  return fetch(finalInput, { ...init, headers });
+  return fetch(finalInput, { credentials: 'same-origin', ...init, headers });
 };

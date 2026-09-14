@@ -26,7 +26,7 @@ Ocean 借鉴并升维自 `OpenClaw` 的理念，打造一个**无缝流转的生
 
 ### 1. 全景组件拓扑
 - **Gateway (大脑中枢)**：基于 NestJS 构建，集成 MCP Client Manager 与 Skill Orchestrator。
-- **Web UI (交互舱)**：React 18 + Vite + shadcn/ui，提供 Generative UI 体验。
+- **Web UI (交互舱)**：Next.js App Router + React Server Components + shadcn/ui，提供 Generative UI 体验。
 - **CLI (终端助手)**：提供交互式指令入口，支持本地沙箱执行。
 - **MCP Servers (能力集群)**：独立隔离的进程，负责对接禅道 (ZenTao)、Jenkins、GitLab、RAG 文档库等。
 
@@ -52,7 +52,7 @@ ocean/
 ## 🛠️ 技术栈
 
 - **后端**: NestJS, Prisma 7, OpenTelemetry (Jaeger)
-- **前端**: React 18, Vite, Tailwind CSS, shadcn/ui, Vercel AI SDK
+- **前端**: React 19, Next.js App Router, React Server Components, Tailwind CSS, shadcn/ui, Vercel AI SDK
 - **数据库**: PostgreSQL (pgvector 向量检索), Redis (会话记忆)
 - **基础设施**: Docker, pnpm workspaces
 - **协议**: MCP (Model Context Protocol), AGP (Agent Governance Protocol)

@@ -59,14 +59,24 @@ const SOURCE_LABEL_KEYS: Record<string, string> = {
   'internal': 'library.source_labels.internal',
 };
 
-export function SkillLibrary({ token, onMainTabChange }: { token?: string | null, onMainTabChange?: (tab: string) => void }) {
+export function SkillLibrary({
+  token,
+  onMainTabChange,
+  initialSkills,
+  initialStats,
+}: {
+  token?: string | null;
+  onMainTabChange?: (tab: string) => void;
+  initialSkills?: SkillCard[];
+  initialStats?: { total: number; newThisWeek: number };
+}) {
   const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('marketplace');
   const [activeFilter, setActiveFilter] = useState<Category>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [skills, setSkills] = useState<SkillCard[]>([]);
-  const [stats, setStats] = useState({ total: 0, newThisWeek: 0 });
-  const [loading, setLoading] = useState(true);
+  const [skills, setSkills] = useState<SkillCard[]>(initialSkills ?? []);
+  const [stats, setStats] = useState(initialStats ?? { total: 0, newThisWeek: 0 });
+  const [loading, setLoading] = useState(initialSkills === undefined);
   const initialFetchRef = React.useRef(true);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [installedIds, setInstalledIds] = useState<Set<string>>(new Set());
@@ -75,8 +85,9 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
 
   useEffect(() => {
     if (activeSubTab !== 'marketplace') return;
+    const isInitialFetch = initialFetchRef.current;
     // 切换筛选时先显示骨架屏
-    if (!initialFetchRef.current) {
+    if (!isInitialFetch) {
       setLoading(true);
     }
     initialFetchRef.current = false;
@@ -84,10 +95,13 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
     const fetchData = async () => {
       const start = Date.now();
       try {
-        const [skillsData, statsData] = await Promise.all([
-          api.get<any>(`/api/skills${activeFilter !== 'all' ? `?category=${activeFilter}` : ''}`),
-          api.get<any>('/api/skills/stats'),
-        ]);
+        const useServerData = isInitialFetch && activeFilter === 'all' && initialSkills !== undefined;
+        const [skillsData, statsData] = useServerData
+          ? [{ data: initialSkills }, { data: initialStats }]
+          : await Promise.all([
+              api.get<any>(`/api/skills${activeFilter !== 'all' ? `?category=${activeFilter}` : ''}`),
+              api.get<any>('/api/skills/stats'),
+            ]);
         
         setSkills(skillsData.data || []);
         setStats(statsData.data || { total: 0, newThisWeek: 0 });
@@ -117,7 +131,7 @@ export function SkillLibrary({ token, onMainTabChange }: { token?: string | null
       }
     };
     fetchData();
-  }, [activeFilter, token, activeSubTab]);
+  }, [activeFilter, token, activeSubTab, initialSkills, initialStats]);
 
   const handleInstall = async (skillId: string) => {
     if (installingRef.current) return;

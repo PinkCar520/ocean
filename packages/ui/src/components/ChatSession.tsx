@@ -26,7 +26,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from '../lib/useReducedMotion';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../lib/utils';
@@ -66,6 +65,13 @@ interface ChatSessionProps {
   isLoadingHistory?: boolean;
   onMainTabChange?: (id: string) => void;
   t: (key: string, options?: any) => string;
+  navigation: {
+    navigate: (path: string, options?: any) => void;
+    pathname: string;
+    state?: unknown;
+    key?: string;
+    clearState?: () => void;
+  };
 }
 
 export function ChatSession({
@@ -81,7 +87,8 @@ export function ChatSession({
   onRenameConversation,
   isLoadingHistory,
   onMainTabChange,
-  t
+  t,
+  navigation,
 }: ChatSessionProps) {
   const reducedMotion = useReducedMotion();
 
@@ -93,8 +100,7 @@ export function ChatSession({
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
   const handledAutoSubmitKeyRef = useRef<string | null>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = navigation.navigate;
 
   // ── Session Configuration State ──
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -190,14 +196,14 @@ export function ChatSession({
 
   // ── Effects ──
   useEffect(() => {
-    const autoSubmit = Boolean((location.state as any)?.autoSubmit);
-    const autoSubmitKey = sessionId && autoSubmit ? `${sessionId}:${location.key}` : null;
+    const autoSubmit = Boolean((navigation.state as any)?.autoSubmit);
+    const autoSubmitKey = sessionId && autoSubmit ? `${sessionId}:${navigation.key ?? navigation.pathname}` : null;
     if (sessionId && autoSubmitKey && handledAutoSubmitKeyRef.current !== autoSubmitKey) {
       handledAutoSubmitKeyRef.current = autoSubmitKey;
-      navigate(location.pathname, { replace: true, state: {} });
+      navigation.clearState?.();
       window.setTimeout(() => onFormSubmit(), 0);
     }
-  }, [sessionId, location.key, location.pathname, navigate, onFormSubmit]);
+  }, [sessionId, navigation, onFormSubmit]);
 
   useEffect(() => {
     if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {

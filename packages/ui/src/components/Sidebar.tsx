@@ -60,6 +60,7 @@ interface SidebarProps {
   onFavoriteConversation?: (id: string, favorited: boolean) => void;
   user?: any;
   onLogout?: () => void;
+  token?: string | null;
 }
 
 
@@ -488,7 +489,8 @@ export function Sidebar({
   onDeleteConversation,
   onFavoriteConversation,
   user,
-  onLogout
+  onLogout,
+  token
 }: any) {
   const { t, i18n } = useTranslation();
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -538,9 +540,8 @@ export function Sidebar({
 
   // 动态获取项目列表（供全局命令菜单使用）
   useEffect(() => {
-    const token = localStorage.getItem('ocean_auth_token');
     if (token) fetchProjectsData();
-  }, [fetchProjectsData]);
+  }, [fetchProjectsData, token]);
 
 
   // Cmd+K / Ctrl+K 快捷键打开搜索
@@ -798,7 +799,7 @@ export function Sidebar({
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate">{user?.name || 'Alex Rivera'}</span>
-                  <NodeStatusIndicator token={localStorage.getItem('ocean_auth_token')} isCollapsed={false} />
+                  <NodeStatusIndicator token={token} isCollapsed={false} />
                 </div>
                 <span className="text-[10px] text-muted-foreground truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || t('sidebar.admin')}</span>
               </div>

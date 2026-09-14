@@ -171,7 +171,6 @@ export function useChatInput({
     setAttachments([]);
 
     try {
-      const activeToken = token || localStorage.getItem('ocean_auth_token');
       const preparedAttachments = filesToUpload.length > 0 ? filesToUpload.map(a => ({
         name: a.name,
         contentType: a.contentType,
@@ -192,10 +191,11 @@ export function useChatInput({
         parts: parts.length > 0 ? parts : undefined,
         experimental_attachments: preparedAttachments 
       };
+      const headers = token && token !== 'cookie'
+        ? { Authorization: `Bearer ${token}` }
+        : undefined;
       await sendMessage(userMessage as any, {
-        headers: {
-          'Authorization': `Bearer ${activeToken}`
-        },
+        headers,
         body: {
           modelId: selectedModelId,
           search: isSearchMode,
@@ -219,6 +219,7 @@ export function useChatInput({
     navigate, 
     userScrolledUpRef, 
     sendMessage, 
+    token,
     selectedModelId, 
     isSearchMode, 
     isKnowledgeMode

@@ -1,6 +1,9 @@
+"use client";
+
 import { TooltipProvider } from "@ocean/ui/components/ui/tooltip";
-import { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import '@ocean/ui/lib/i18n';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Sparkles,
   Cloud,
@@ -22,39 +25,132 @@ import { AuthPage } from '@ocean/ui/components/AuthPage';
 import { useConversations } from '@ocean/ui/lib/useConversations';
 import { cn } from '@ocean/ui/lib/utils';
 import { api } from '@ocean/ui/lib/api-client';
-import { LandingPage } from './components/LandingPage';
 import { SkillManager } from '@ocean/ui/components/SkillManager';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 
-function AppContent() {
-  const { id: sessionIdFromUrl } = useParams<{ id?: string }>();
+const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
+
+function formatModels(models: any[]) {
+  return models.map((model: any) => ({
+    ...model,
+    icon: MODEL_ICONS[model.icon] || Sparkles,
+  }));
+}
+
+interface AppProps {
+  sessionId?: string;
+  initialAuthenticated?: boolean;
+  initialUser?: Record<string, unknown> | null;
+  initialConversations?: any[];
+  initialMessages?: any[];
+  initialModels?: any[];
+  initialProjects?: any[];
+  initialSkills?: any[];
+  initialSkillStats?: any;
+  initialTab?: string;
+  initialActiveProject?: any;
+  initialKnowledgeDocuments?: any[];
+  initialKnowledgeStats?: any;
+}
+
+function AppContent({
+  sessionId: sessionIdFromUrl,
+  initialAuthenticated = false,
+  initialUser = null,
+  initialConversations = [],
+  initialMessages = [],
+  initialModels = [],
+  initialProjects = [],
+  initialSkills = [],
+  initialSkillStats = {},
+  initialTab,
+  initialActiveProject = null,
+  initialKnowledgeDocuments,
+  initialKnowledgeStats,
+}: AppProps) {
 
   // ── Global Authentication & Identity State ──
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('ocean_auth_token'));
-  const [user, setUser] = useState<any>(null);
+  const [token, setToken] = useState<string | null>(initialAuthenticated ? 'cookie' : null);
+  const [user, setUser] = useState<any>(initialUser);
 
   return (
     <TooltipProvider delayDuration={0}>
-      <WorkspaceProvider token={token}>
+      <WorkspaceProvider token={token} initialActiveProject={initialActiveProject}>
         <AppInternal
           token={token}
           setToken={setToken}
           user={user}
           setUser={setUser}
           sessionIdFromUrl={sessionIdFromUrl}
+          initialConversations={initialConversations}
+          initialMessages={initialMessages}
+          isServerBootstrapped={initialAuthenticated}
+          initialModels={initialModels}
+          initialProjects={initialProjects}
+          initialSkills={initialSkills}
+          initialSkillStats={initialSkillStats}
+          initialTab={initialTab}
+          initialActiveProject={initialActiveProject}
+          initialKnowledgeDocuments={initialKnowledgeDocuments}
+          initialKnowledgeStats={initialKnowledgeStats}
         />
       </WorkspaceProvider>
     </TooltipProvider>
   );
 }
 
-function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) {
+function AppInternal({
+  token,
+  setToken,
+  user,
+  setUser,
+  sessionIdFromUrl,
+  initialConversations,
+  initialMessages,
+  isServerBootstrapped,
+  initialModels,
+  initialProjects,
+  initialSkills,
+  initialSkillStats,
+  initialTab,
+  initialActiveProject,
+  initialKnowledgeDocuments,
+  initialKnowledgeStats,
+}: any) {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+  const router = useRouter();
+  const pathname = usePathname();
+  const navigationStateKey = `ocean_navigation_state:${pathname}`;
+  const [navigationState, setNavigationState] = useState<unknown>(() => {
+    if (typeof window === 'undefined') return undefined;
+    const value = sessionStorage.getItem(navigationStateKey);
+    if (!value) return undefined;
+    try { return JSON.parse(value); } catch { return undefined; }
+  });
+  const navigate = useCallback((path: string, options?: { replace?: boolean; state?: unknown }) => {
+    if (options?.state !== undefined) {
+      sessionStorage.setItem(`ocean_navigation_state:${path}`, JSON.stringify(options.state));
+    }
+    setNavigationState(options?.state);
+    if (options?.replace) router.replace(path);
+    else router.push(path);
+  }, [router]);
+  const navigation = useMemo(() => ({
+    navigate,
+    pathname,
+    state: navigationState,
+    key: `${pathname}:${sessionIdFromUrl ?? 'new'}`,
+    clearState: () => {
+      sessionStorage.removeItem(navigationStateKey);
+      setNavigationState(undefined);
+    },
+  }), [navigate, navigationState, navigationStateKey, pathname, sessionIdFromUrl]);
   const { activeProject, setActiveProjectId } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState(() => {
+    if (initialTab) return initialTab;
+    if (typeof window === 'undefined') return 'chat';
     const saved = localStorage.getItem('ocean_active_tab');
     return saved || 'chat';
   });
@@ -68,11 +164,20 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
     const saved = localStorage.getItem('ocean_sidebar_collapsed');
     return saved === 'true';
   });
-  const [models, setModels] = useState<any[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('ocean_selected_model') || '');
+  const [models, setModels] = useState<any[]>(() => formatModels(initialModels));
+  const [selectedModelId, setSelectedModelId] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const savedModelId = localStorage.getItem('ocean_selected_model') || '';
+    if (initialModels.some((model: any) => model.id === savedModelId)) return savedModelId;
+    const preferredModelId = user?.preferences?.defaultModel;
+    return initialModels.some((model: any) => model.id === preferredModelId)
+      ? preferredModelId
+      : initialModels[0]?.id || '';
+  });
 
   const toggleSidebar = () => {
     const newState = !isSidebarCollapsed;
@@ -80,19 +185,20 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     localStorage.setItem('ocean_sidebar_collapsed', String(newState));
   };
 
-  const handleLoginSuccess = (newToken: string, userData: any) => {
-    localStorage.setItem('ocean_auth_token', newToken);
-    localStorage.setItem('ocean_user_id', userData.workId);
-    setToken(newToken);
+  const handleLoginSuccess = (_newToken: string, userData: any) => {
+    setToken('cookie');
     setUser(userData);
+    const requestedPath = new URLSearchParams(window.location.search).get('next');
+    navigate(requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/app', {
+      replace: true,
+    });
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('ocean_auth_token');
-    localStorage.removeItem('ocean_user_id');
+  const handleLogout = async () => {
+    await api.post('/api/auth/logout').catch(() => undefined);
     setToken(null);
     setUser(null);
-    navigate('/');
+    navigate('/auth', { replace: true });
   };
 
   // ── Server-First 会话管理 ──
@@ -115,6 +221,9 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     onAuthExpired: handleLogout,
     onUserProfile: setUser,
     t,
+    initialConversations,
+    initialMessages,
+    isServerBootstrapped,
   });
 
   // Sync Global Settings from User Profile
@@ -192,50 +301,24 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         const json = await api.get<any>('/api/chat/models');
         const data = Array.isArray(json) ? json : (json.models || []);
 
-        const iconMap: Record<string, any> = {
-          'Sparkles': Sparkles,
-          'Cloud': Cloud,
-          'Cpu': Cpu,
-          'Zap': Sparkles, // fallback for Zap icon
-        };
-        const formattedModels = data.map((m: any) => ({
-          ...m,
-          icon: iconMap[m.icon] || Sparkles
-        }));
+        const formattedModels = formatModels(data);
 
         setModels(formattedModels);
-
         if (formattedModels.length > 0) {
-          setSelectedModelId((currentModelId) => {
-            const currentExists = formattedModels.some((m: any) => m.id === currentModelId);
-            if (currentExists) return currentModelId;
-
+          setSelectedModelId((currentModelId: string) => {
+            if (formattedModels.some((model: any) => model.id === currentModelId)) return currentModelId;
             const preferredModelId = user?.preferences?.defaultModel;
-            const preferredExists = formattedModels.some((m: any) => m.id === preferredModelId);
-            return preferredExists ? preferredModelId : formattedModels[0].id;
+            return formattedModels.some((model: any) => model.id === preferredModelId)
+              ? preferredModelId
+              : formattedModels[0].id;
           });
         }
       } catch (err) {
         console.error('Failed to fetch models:', err);
       }
     };
-    if (token) fetchModels();
-  }, [token, user?.preferences?.defaultModel]);
-
-  const [, setProjects] = useState<any[]>([]);
-
-  // 动态获取项目列表（供全局命令菜单使用）
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await api.get<any>('/api/knowledge-projects');
-        if (res.success) setProjects(res.data);
-      } catch (err) {
-        console.error('Failed to fetch projects for command menu:', err);
-      }
-    };
-    if (token) fetchProjects();
-  }, [token, activeTab]);
+    if (token && !isServerBootstrapped) fetchModels();
+  }, [token, isServerBootstrapped, user?.preferences?.defaultModel]);
 
   if (!token) {
     return <AuthPage onLoginSuccess={handleLoginSuccess} />;
@@ -265,6 +348,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         onFavoriteConversation={() => { }} // Favorite 功能可后续实现
         user={user}
         onLogout={handleLogout}
+        token={token}
       />
       {/* 2. 主区域 (Fluid Workspace) */}
       <main className={cn(
@@ -288,6 +372,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
           {activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession
+                navigation={navigation}
                 sessionId={sessionIdFromUrl ?? null}
                 initialMessages={currentMessages}
                 models={models}
@@ -309,17 +394,31 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
               onDeleteConversations={handleDeleteConversations}
             />
           ) : activeTab === 'library' ? (
-            <SkillLibrary token={token} onMainTabChange={setActiveTab} />
+            <SkillLibrary
+              token={token}
+              onMainTabChange={setActiveTab}
+              initialSkills={initialSkills}
+              initialStats={initialSkillStats}
+            />
           ) : activeTab === 'skill_studio' ? (
             <SkillManager token={token} onMainTabChange={setActiveTab} user={user} />
           ) : activeTab === 'projects' ? (
             activeProject?.id ? (
               <KnowledgeBase
                 projectId={activeProject.id}
-                onBack={() => setActiveProjectId(null)}
+                onBack={() => {
+                  setActiveProjectId(null);
+                  navigate('/app');
+                }}
+                initialProject={initialActiveProject ?? activeProject}
+                initialDocuments={initialKnowledgeDocuments}
+                initialStats={initialKnowledgeStats}
               />
             ) : (
-              <Projects />
+              <Projects
+                initialProjects={initialProjects}
+                onOpenProject={(project) => navigate(`/app/projects/${project.id}`)}
+              />
             )
           ) : (
             <UIGallery />
@@ -359,14 +458,37 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   );
 }
 
-function App() {
+function App({
+  sessionId,
+  initialAuthenticated,
+  initialUser,
+  initialConversations,
+  initialMessages,
+  initialModels,
+  initialProjects,
+  initialSkills,
+  initialSkillStats,
+  initialTab,
+  initialActiveProject,
+  initialKnowledgeDocuments,
+  initialKnowledgeStats,
+}: AppProps) {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/app" element={<AppContent />} />
-      <Route path="/chat/:id" element={<AppContent />} />
-      <Route path="/app/chat/:id" element={<AppContent />} />
-    </Routes>
+    <AppContent
+      sessionId={sessionId}
+      initialAuthenticated={initialAuthenticated}
+      initialUser={initialUser}
+      initialConversations={initialConversations}
+      initialMessages={initialMessages}
+      initialModels={initialModels}
+      initialProjects={initialProjects}
+      initialSkills={initialSkills}
+      initialSkillStats={initialSkillStats}
+      initialTab={initialTab}
+      initialActiveProject={initialActiveProject}
+      initialKnowledgeDocuments={initialKnowledgeDocuments}
+      initialKnowledgeStats={initialKnowledgeStats}
+    />
   );
 }
 

@@ -9,15 +9,21 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api-client';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 
-export function Projects() {
+export function Projects({
+  initialProjects,
+  onOpenProject,
+}: {
+  initialProjects?: any[];
+  onOpenProject?: (project: any) => void;
+}) {
   const { t } = useTranslation();
   const { setActiveProjectId } = useWorkspace();
 
   // State
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>(initialProjects ?? []);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'assets'>('newest');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(initialProjects === undefined);
 
   // New Project Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,8 +46,9 @@ export function Projects() {
   }, []);
 
   useEffect(() => {
+    if (initialProjects !== undefined) return;
     fetchProjects();
-  }, [fetchProjects]);
+  }, [fetchProjects, initialProjects]);
 
   const [isPickingPath, setIsPickingPath] = useState(false);
 
@@ -217,7 +224,10 @@ export function Projects() {
                   </button>
                 </div>
 
-                <div className="relative h-48 w-full shrink-0 overflow-hidden bg-muted/30" onClick={() => setActiveProjectId(project.id)}>
+                <div
+                  className="relative h-48 w-full shrink-0 overflow-hidden bg-muted/30"
+                  onClick={() => onOpenProject ? onOpenProject(project) : setActiveProjectId(project.id)}
+                >
                   <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] z-10 pointer-events-none mix-blend-overlay"></div>
                   <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent z-10 pointer-events-none"></div>
                   <img

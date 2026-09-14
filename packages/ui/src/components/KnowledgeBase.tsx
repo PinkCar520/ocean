@@ -12,17 +12,23 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 interface KnowledgeBaseProps {
   projectId: string;
   onBack: () => void;
+  initialProject?: any;
+  initialDocuments?: any[];
+  initialStats?: any;
 }
 
-export function KnowledgeBase({ projectId, onBack }: KnowledgeBaseProps) {
+export function KnowledgeBase({ projectId, onBack, initialProject, initialDocuments, initialStats }: KnowledgeBaseProps) {
   const { t } = useTranslation();
   const { setActiveProjectId } = useWorkspace();
   
   // Logic State
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [project, setProject] = useState<any>(null);
-  const [stats, setStats] = useState<any>({ activeSources: 0, orphanedCount: 0, categories: [], dataIndexedMb: '0.0' });
-  const [isLoading, setIsLoading] = useState(true);
+  const [documents, setDocuments] = useState<any[]>(initialDocuments ?? []);
+  const [project, setProject] = useState<any>(initialProject ?? null);
+  const [stats, setStats] = useState<any>(() => initialStats
+    ? { ...initialStats, activeSources: initialDocuments?.length ?? 0 }
+    : { activeSources: 0, orphanedCount: 0, categories: [], dataIndexedMb: '0.0' });
+  const [isLoading, setIsLoading] = useState(initialProject === undefined);
+  const hasServerDataRef = React.useRef(initialProject !== undefined);
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -54,6 +60,10 @@ export function KnowledgeBase({ projectId, onBack }: KnowledgeBaseProps) {
   }, [projectId]);
 
   useEffect(() => {
+    if (hasServerDataRef.current) {
+      hasServerDataRef.current = false;
+      return;
+    }
     fetchData();
   }, [fetchData]);
 

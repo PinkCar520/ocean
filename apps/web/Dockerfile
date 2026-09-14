@@ -27,18 +27,25 @@ COPY --from=pruner /app/out/full/ .
 # turbo prune 不包含根 tsconfig.json，需手动补充（子包的 tsconfig 会 extends 它）
 COPY --from=pruner /app/tsconfig.json ./tsconfig.json
 
+# Next rewrites 在构建阶段生成；容器网络内通过 gateway 服务名访问控制平面。
+ARG OCEAN_GATEWAY_URL=http://gateway:3000
+ENV OCEAN_GATEWAY_URL=$OCEAN_GATEWAY_URL
+
 # 使用 Turbo 进行构建（只会精准构建 web 及其涉及的依赖包，自动保证拓扑顺序）
 RUN npx turbo run build --filter=web
 
 # 阶段 3：Runner (生产运行环境)
-FROM nginx:stable-alpine AS runner
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=5173
+ENV HOSTNAME=0.0.0.0
+ENV OCEAN_GATEWAY_URL=http://gateway:3000
 
-# 拷贝 Nginx 配置
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
 
-# 从构建阶段拷贝产物 (Vite 默认输出到 dist)
-COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+EXPOSE 5173
 
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "apps/web/server.js"]

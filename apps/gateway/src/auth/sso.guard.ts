@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from './user.service';
 import { ApiKeyService } from './api-key.service';
+import { OCEAN_SESSION_COOKIE, readCookie } from './auth-cookie';
 
 export const IS_PUBLIC_KEY = 'isPublic';
 
@@ -32,9 +33,9 @@ export class SsoAuthGuard implements CanActivate {
     const xSsoToken = request.headers['x-sso-token'];
 
     // ── 1. API Key ──
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    if (token.startsWith('ocean_sk_')) {
-      const user = await this.apiKeyService.findUserByApiKey(token);
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    if (bearerToken.startsWith('ocean_sk_')) {
+      const user = await this.apiKeyService.findUserByApiKey(bearerToken);
       if (user) {
         const dbUser = await this.userService.getUserFullProfile(user.workId);
         request.user = {
@@ -52,10 +53,12 @@ export class SsoAuthGuard implements CanActivate {
     }
 
     // ── 2. JWT Bearer Token (with signature verification and expiry check) ──
-    if (token && token.split('.').length === 3) {
+    const cookieToken = readCookie(request.headers.cookie, OCEAN_SESSION_COOKIE);
+    const jwtToken = bearerToken || cookieToken || '';
+    if (jwtToken && jwtToken.split('.').length === 3) {
       try {
         // Use JwtService to verify signature and expiration
-        const payload = this.jwtService.verify(token);
+        const payload = this.jwtService.verify(jwtToken);
         const dbUser = await this.userService.getUserFullProfile(payload.workId);
         request.user = {
           workId: payload.workId,
@@ -63,7 +66,7 @@ export class SsoAuthGuard implements CanActivate {
           name: payload.name || payload.workId,
           preferences: dbUser?.preferences,
           role: 'developer',
-          authType: 'jwt',
+          authType: bearerToken ? 'jwt' : 'cookie',
         };
         return true;
       } catch (err: any) {
@@ -94,7 +97,6 @@ export class SsoAuthGuard implements CanActivate {
     }
 
     console.warn('[SsoAuthGuard] Authentication failed: No valid token or SSO headers found');
-    console.debug('[SsoAuthGuard] Headers:', JSON.stringify(request.headers));
     throw new UnauthorizedException('Authentication required.');
   }
 }

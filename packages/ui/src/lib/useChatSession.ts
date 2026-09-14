@@ -205,18 +205,18 @@ export function useChatSession({
 
   // 🛡️ 加固版发送函数：确保带上最新的 parentId
   const safeSendMessage = useCallback(async (message: any, options: any = {}) => {
-    const activeToken = localStorage.getItem('ocean_auth_token');
-    
     // 发送消息时，明确告知后端当前所在的父节点 ID
     // 如果是编辑，options.body 中通常会有专门的处理；如果是新消息，取当前叶子 ID
     const parentId = options.body?.parentId || currentLeafId;
 
+    const headers = new Headers(options.headers);
+    if (token && token !== 'cookie') {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
     return sendMessage(message, {
       ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${activeToken}`
-      },
+      headers: Object.fromEntries(headers.entries()),
       body: {
         ...options.body,
         modelId: selectedModelId,
@@ -226,7 +226,7 @@ export function useChatSession({
         parentId,
       }
     });
-  }, [sendMessage, selectedModelId, isSearchMode, isKnowledgeMode, sessionId, currentLeafId]);
+  }, [sendMessage, token, selectedModelId, isSearchMode, isKnowledgeMode, sessionId, currentLeafId]);
 
   // 切换分支
   const switchBranch = useCallback((nodeId: string) => {

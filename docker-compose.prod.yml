@@ -23,13 +23,15 @@ services:
       redis:
         condition: service_started
 
-  # Ocean AI 可视化面板 (React/Vite + Nginx)
+  # Ocean Web（Next.js App Router / Server Components）
   web:
     image: ${DOCKERHUB_USERNAME:-ocean}/ocean-web:latest
     container_name: ocean-web
     restart: always
     ports:
-      - "8081:80"
+      - "8081:5173"
+    environment:
+      - OCEAN_GATEWAY_URL=http://gateway:3000
     env_file:
       - .env
     deploy:

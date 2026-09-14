@@ -35,6 +35,18 @@
 - [x] 当前自动化测试通过（Contracts、UI、Gateway、GitLab、Jenkins 共 54 项）。
 - [x] 修复 Web、Desktop 和 Gateway 中阻断 lint 的代码问题。
 - [x] Web、Desktop、Gateway、CLI 与 contracts 已纳入统一 typecheck。
+- [x] Web 已迁移到 Next.js App Router，并建立 Server Component 页面与 Client Shell 边界。
+- [x] Web 导航已与共享 UI 解耦，Desktop 保持 React Router 适配。
+- [x] Compose 与生产容器已切换到 Next.js standalone 运行时及容器内 Gateway 地址。
+- [x] Gateway 已支持 HttpOnly 会话 Cookie，同时保留 Desktop/CLI Bearer Token 兼容。
+- [x] `/app` 与会话页面已在 Server Component 中验证 Cookie 并注入首屏用户资料。
+- [x] Web 已完全切换为 Cookie-only 登录，不再读取或保存 localStorage Token；登出显式清除服务端 Cookie。
+- [x] 会话列表与当前会话历史已进入 Server Component 首屏 Bootstrap，客户端跳过重复初始化请求。
+- [x] App Router 已增加 loading、error 与 not-found 边界。
+- [x] 模型与知识项目列表已加入服务端首屏 Bootstrap，项目视图跳过重复客户端请求。
+- [x] Skill 列表与统计已加入服务端首屏 Bootstrap，Landing Page 已恢复为纯 Server Component。
+- [x] 知识项目详情、文档和索引统计已迁入 `/app/projects/[id]` 动态 Server Component 路由。
+- [x] Next.js 16 `proxy.ts` 已对 `/app`、`/chat` 和 `/auth` 建立 Cookie 乐观路由拦截。
 - [x] Gateway 安装后自动生成 Prisma Client，不再依赖旧缓存。
 - [ ] Gateway 仍有 1820 条存量 lint 警告；按模块逐步清偿并恢复为 error。
 - [ ] 补齐缺少的 workspace `typecheck`、`test`、`lint` 脚本。

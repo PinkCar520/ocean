@@ -1,6 +1,6 @@
 import { TooltipProvider } from "@ocean/ui/components/ui/tooltip";
 import { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Sparkles,
   Cloud,
@@ -51,6 +51,7 @@ function AppContent() {
 function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeProject, setActiveProjectId } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -271,6 +272,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         onFavoriteConversation={() => {}} // Favorite 功能可后续实现
         user={user}
         onLogout={handleLogout}
+        token={token}
       />
       {/* 2. 主区域 (Fluid Workspace) */}
       <main className={cn(
@@ -294,6 +296,13 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
           {activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession
+                navigation={{
+                  navigate,
+                  pathname: location.pathname,
+                  state: location.state,
+                  key: location.key,
+                  clearState: () => navigate(location.pathname, { replace: true, state: {} }),
+                }}
                 sessionId={sessionIdFromUrl ?? null}
                 initialMessages={currentMessages}
                 models={models}

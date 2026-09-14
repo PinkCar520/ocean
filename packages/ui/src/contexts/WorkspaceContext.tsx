@@ -53,9 +53,18 @@ const DOMAIN_ACTIONS: Record<ProjectCategory, string[]> = {
 
 const WorkspaceContext = createContext<WorkspaceState | undefined>(undefined);
 
-export function WorkspaceProvider({ children, token }: { children: React.ReactNode; token: string | null }) {
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [activeProject, setActiveProject] = useState<ProjectInfo | null>(null);
+export function WorkspaceProvider({
+  children,
+  token,
+  initialActiveProject = null,
+}: {
+  children: React.ReactNode;
+  token: string | null;
+  initialActiveProject?: ProjectInfo | null;
+}) {
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(initialActiveProject?.id ?? null);
+  const [activeProject, setActiveProject] = useState<ProjectInfo | null>(initialActiveProject);
+  const hasInitialProjectRef = React.useRef(Boolean(initialActiveProject));
   const [isLoading, setIsLoading] = useState(false);
   const [mcpMetrics, setMcpMetrics] = useState<MCPMetric[]>([]);
   const [node, setNode] = useState<NodeTelemetry>({
@@ -128,6 +137,10 @@ export function WorkspaceProvider({ children, token }: { children: React.ReactNo
 
   // 监听项目 ID 变化并立即刷新
   useEffect(() => {
+    if (hasInitialProjectRef.current) {
+      hasInitialProjectRef.current = false;
+      return;
+    }
     if (activeProjectId) {
       fetchProjectDetails(activeProjectId);
     } else {
