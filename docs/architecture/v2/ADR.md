@@ -192,6 +192,8 @@ Ocean 部署了 Redis，但尚未形成明确职责。将 Run 状态只保存在
 - `packages/ui` 保持跨 Web/Desktop 的客户端视图层，不引入 Next.js 专属 API。
 - Web 导航通过适配端口注入共享 UI；Desktop 可继续使用 React Router。
 - Gateway 仍是业务控制平面；Next.js 只承担 Web 渲染、路由和 BFF 转发，不复制领域规则。
+- 登录、登出、会话 CRUD、项目 CRUD 和技能安装状态等普通 Web 写操作使用 Server Actions，并在成功后执行路径失效。
+- 聊天 SSE、语音、文件上传、本地节点 RPC 和高频自动补全保留 Client API；这些是流式、二进制、设备交互或高频请求边界，不以 Server Action 替代。
 - 生产部署使用 Next.js standalone Node 运行时，不采用静态导出，以保留 Server Components 能力。
 
 ### 后果

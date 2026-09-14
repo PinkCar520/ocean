@@ -30,6 +30,11 @@ interface UseConversationsArgs {
   initialConversations?: ConversationSummary[];
   initialMessages?: any[];
   isServerBootstrapped?: boolean;
+  sessionActions?: {
+    create: (title: string) => Promise<any>;
+    rename: (id: string, title: string) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+  };
 }
 
 export function useConversations({
@@ -42,6 +47,7 @@ export function useConversations({
   initialConversations = [],
   initialMessages = [],
   isServerBootstrapped = false,
+  sessionActions,
 }: UseConversationsArgs) {
   const [isInitialized, setIsInitialized] = useState(isServerBootstrapped);
   const [conversations, setConversations] = useState<ConversationSummary[]>(initialConversations);
@@ -150,7 +156,10 @@ export function useConversations({
    */
   const createSession = useCallback(async (): Promise<string | null> => {
     try {
-      const data = await api.post<any>('/api/sessions', { channel: 'web', title: t('sidebar.new_chat') });
+      const title = t('sidebar.new_chat');
+      const data = sessionActions
+        ? await sessionActions.create(title)
+        : await api.post<any>('/api/sessions', { channel: 'web', title });
       if (data.success && data.data?.id) {
         const newId = data.data.id;
         justCreatedSessionIdRef.current = newId; // 标记刚创建的会话
@@ -171,13 +180,13 @@ export function useConversations({
       console.error('[useConversations] Failed to create session:', err);
     }
     return null;
-  }, [t]);
+  }, [t, sessionActions]);
 
   /**
    * 导航到新对话（空白）
    */
   const handleNewChat = useCallback(() => {
-    navigate('/');
+    navigate('/app');
     setCurrentMessages([]);
   }, [navigate]);
 
@@ -195,12 +204,13 @@ export function useConversations({
     // 乐观更新
     setConversations(prev => prev.map(c => c.id === id ? { ...c, title: newTitle } : c));
     try {
-      await api.patch(`/api/sessions/${id}`, { title: newTitle });
+      if (sessionActions) await sessionActions.rename(id, newTitle);
+      else await api.patch(`/api/sessions/${id}`, { title: newTitle });
     } catch (err) {
       console.error('[useConversations] Rename failed, refreshing:', err);
       await refreshConversations();
     }
-  }, [refreshConversations]);
+  }, [refreshConversations, sessionActions]);
 
   /**
    * 删除会话（DELETE，乐观更新）
@@ -208,13 +218,13 @@ export function useConversations({
   const handleDeleteConversations = useCallback(async (ids: string[]) => {
     setConversations(prev => prev.filter(c => !ids.includes(c.id)));
     await Promise.allSettled(
-      ids.map(id => api.delete(`/api/sessions/${id}`))
+      ids.map(id => sessionActions ? sessionActions.delete(id) : api.delete(`/api/sessions/${id}`))
     );
     // 若当前打开的会话被删除，返回首页
     if (sessionId && ids.includes(sessionId)) {
-      navigate('/');
+      navigate('/app');
     }
-  }, [sessionId, navigate]);
+  }, [sessionId, navigate, sessionActions]);
 
   /**
    * 流完成后刷新侧边栏（获取服务端写入的最新标题/消息数）

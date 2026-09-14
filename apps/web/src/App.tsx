@@ -4,6 +4,7 @@ import { TooltipProvider } from "@ocean/ui/components/ui/tooltip";
 import '@ocean/ui/lib/i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import {
   Sparkles,
   Cloud,
@@ -12,24 +13,31 @@ import {
 } from 'lucide-react'
 import { ChatSession } from '@ocean/ui/components/ChatSession';
 import { useTranslation } from 'react-i18next';
-import { SettingsDialog } from '@ocean/ui/components/Settings/SettingsDialog';
-import { UIGallery } from '@ocean/ui/components/UIGallery';
-import { SkillLibrary } from '@ocean/ui/components/SkillLibrary';
-import { KnowledgeBase } from '@ocean/ui/components/KnowledgeBase';
-import { Projects } from '@ocean/ui/components/Projects';
-import { AllChatsManager } from '@ocean/ui/components/AllChatsManager';
 import { Sidebar } from '@ocean/ui/components/Sidebar';
-import { SettingsModal } from '@ocean/ui/components/SettingsModal';
-import { UpgradeModal } from '@ocean/ui/components/UpgradeModal';
-import { AuthPage } from '@ocean/ui/components/AuthPage';
 import { useConversations } from '@ocean/ui/lib/useConversations';
 import { cn } from '@ocean/ui/lib/utils';
 import { api } from '@ocean/ui/lib/api-client';
-import { SkillManager } from '@ocean/ui/components/SkillManager';
+import { logout } from './app/actions/auth';
+import { createSession, deleteSession, renameSession } from './app/actions/sessions';
+import { createProject, deleteProject } from './app/actions/projects';
+import { installSkill, uninstallSkill } from './app/actions/skills';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 
 const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
+const WEB_SESSION_ACTIONS = { create: createSession, rename: renameSession, delete: deleteSession };
+const WEB_PROJECT_ACTIONS = { create: createProject, delete: deleteProject };
+const WEB_SKILL_ACTIONS = { install: installSkill, uninstall: uninstallSkill };
+
+const AllChatsManager = dynamic(() => import('@ocean/ui/components/AllChatsManager').then(module => module.AllChatsManager));
+const KnowledgeBase = dynamic(() => import('@ocean/ui/components/KnowledgeBase').then(module => module.KnowledgeBase));
+const Projects = dynamic(() => import('@ocean/ui/components/Projects').then(module => module.Projects));
+const SkillLibrary = dynamic(() => import('@ocean/ui/components/SkillLibrary').then(module => module.SkillLibrary));
+const SkillManager = dynamic(() => import('@ocean/ui/components/SkillManager').then(module => module.SkillManager));
+const UIGallery = dynamic(() => import('@ocean/ui/components/UIGallery').then(module => module.UIGallery));
+const SettingsDialog = dynamic(() => import('@ocean/ui/components/Settings/SettingsDialog').then(module => module.SettingsDialog));
+const SettingsModal = dynamic(() => import('@ocean/ui/components/SettingsModal').then(module => module.SettingsModal));
+const UpgradeModal = dynamic(() => import('@ocean/ui/components/UpgradeModal').then(module => module.UpgradeModal));
 
 function formatModels(models: any[]) {
   return models.map((model: any) => ({
@@ -71,7 +79,7 @@ function AppContent({
 }: AppProps) {
 
   // ── Global Authentication & Identity State ──
-  const [token, setToken] = useState<string | null>(initialAuthenticated ? 'cookie' : null);
+  const token = initialAuthenticated ? 'cookie' : null;
   const [user, setUser] = useState<any>(initialUser);
 
   return (
@@ -79,7 +87,6 @@ function AppContent({
       <WorkspaceProvider token={token} initialActiveProject={initialActiveProject}>
         <AppInternal
           token={token}
-          setToken={setToken}
           user={user}
           setUser={setUser}
           sessionIdFromUrl={sessionIdFromUrl}
@@ -102,7 +109,6 @@ function AppContent({
 
 function AppInternal({
   token,
-  setToken,
   user,
   setUser,
   sessionIdFromUrl,
@@ -121,6 +127,14 @@ function AppInternal({
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
+  const activeTab = initialTab ?? (
+    pathname.startsWith('/app/chats') ? 'all_chats'
+      : pathname.startsWith('/app/skills/studio') ? 'skill_studio'
+        : pathname.startsWith('/app/skills') ? 'library'
+          : pathname.startsWith('/app/projects') ? 'projects'
+            : pathname.startsWith('/app/workflows') ? 'workflows'
+              : 'chat'
+  );
   const navigationStateKey = `ocean_navigation_state:${pathname}`;
   const [navigationState, setNavigationState] = useState<unknown>(() => {
     if (typeof window === 'undefined') return undefined;
@@ -129,12 +143,15 @@ function AppInternal({
     try { return JSON.parse(value); } catch { return undefined; }
   });
   const navigate = useCallback((path: string, options?: { replace?: boolean; state?: unknown }) => {
+    const nextPath = path === '/chat' || path.startsWith('/chat/')
+      ? `/app${path}`
+      : path;
     if (options?.state !== undefined) {
-      sessionStorage.setItem(`ocean_navigation_state:${path}`, JSON.stringify(options.state));
+      sessionStorage.setItem(`ocean_navigation_state:${nextPath}`, JSON.stringify(options.state));
     }
     setNavigationState(options?.state);
-    if (options?.replace) router.replace(path);
-    else router.push(path);
+    if (options?.replace) router.replace(nextPath);
+    else router.push(nextPath);
   }, [router]);
   const navigation = useMemo(() => ({
     navigate,
@@ -148,16 +165,17 @@ function AppInternal({
   }), [navigate, navigationState, navigationStateKey, pathname, sessionIdFromUrl]);
   const { activeProject, setActiveProjectId } = useWorkspace();
 
-  const [activeTab, setActiveTab] = useState(() => {
-    if (initialTab) return initialTab;
-    if (typeof window === 'undefined') return 'chat';
-    const saved = localStorage.getItem('ocean_active_tab');
-    return saved || 'chat';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('ocean_active_tab', activeTab);
-  }, [activeTab]);
+  const handleMainTabChange = useCallback((tab: string) => {
+    const routes: Record<string, string> = {
+      chat: '/app',
+      all_chats: '/app/chats',
+      library: '/app/skills',
+      skill_studio: '/app/skills/studio',
+      projects: '/app/projects',
+      workflows: '/app/workflows',
+    };
+    navigate(routes[tab] ?? '/app');
+  }, [navigate]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Used for UserMenu Popover
   const [isMainSettingsOpen, setIsMainSettingsOpen] = useState(false); // Used for Settings Dialog Modal
@@ -185,20 +203,8 @@ function AppInternal({
     localStorage.setItem('ocean_sidebar_collapsed', String(newState));
   };
 
-  const handleLoginSuccess = (_newToken: string, userData: any) => {
-    setToken('cookie');
-    setUser(userData);
-    const requestedPath = new URLSearchParams(window.location.search).get('next');
-    navigate(requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/app', {
-      replace: true,
-    });
-  };
-
   const handleLogout = async () => {
-    await api.post('/api/auth/logout').catch(() => undefined);
-    setToken(null);
-    setUser(null);
-    navigate('/auth', { replace: true });
+    await logout();
   };
 
   // ── Server-First 会话管理 ──
@@ -224,6 +230,7 @@ function AppInternal({
     initialConversations,
     initialMessages,
     isServerBootstrapped,
+    sessionActions: WEB_SESSION_ACTIONS,
   });
 
   // Sync Global Settings from User Profile
@@ -280,12 +287,10 @@ function AppInternal({
 
   const loadConversationAndActivate = (id: string) => {
     loadConversation(id);
-    setActiveTab('chat');
   };
 
   const handleNewChatAndActivate = () => {
     handleNewChat();
-    setActiveTab('chat');
   };
 
   useEffect(() => {
@@ -321,7 +326,7 @@ function AppInternal({
   }, [token, isServerBootstrapped, user?.preferences?.defaultModel]);
 
   if (!token) {
-    return <AuthPage onLoginSuccess={handleLoginSuccess} />;
+    return null;
   }
 
   if (!isInitialized) {
@@ -337,7 +342,8 @@ function AppInternal({
         isCollapsed={isSidebarCollapsed}
         onToggle={toggleSidebar}
         activeMainTab={activeTab}
-        onMainTabChange={(id: string) => { setActiveTab(id); }}
+        onMainTabChange={handleMainTabChange}
+        onOpenProject={(id: string) => navigate(`/app/projects/${id}`)}
         onOpenSettings={() => { setIsSettingsOpen(true); }}
         onNewChat={handleNewChatAndActivate}
         conversations={conversations}
@@ -396,12 +402,13 @@ function AppInternal({
           ) : activeTab === 'library' ? (
             <SkillLibrary
               token={token}
-              onMainTabChange={setActiveTab}
+              onMainTabChange={handleMainTabChange}
               initialSkills={initialSkills}
               initialStats={initialSkillStats}
+              skillActions={WEB_SKILL_ACTIONS}
             />
           ) : activeTab === 'skill_studio' ? (
-            <SkillManager token={token} onMainTabChange={setActiveTab} user={user} />
+            <SkillManager token={token} onMainTabChange={handleMainTabChange} user={user} />
           ) : activeTab === 'projects' ? (
             activeProject?.id ? (
               <KnowledgeBase
@@ -418,6 +425,7 @@ function AppInternal({
               <Projects
                 initialProjects={initialProjects}
                 onOpenProject={(project) => navigate(`/app/projects/${project.id}`)}
+                projectActions={WEB_PROJECT_ACTIONS}
               />
             )
           ) : (
@@ -426,7 +434,7 @@ function AppInternal({
         </div>
 
       </main>
-      <SettingsModal
+      {isSettingsOpen && <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onNavigateSettings={() => {
@@ -439,21 +447,21 @@ function AppInternal({
         }}
         onLogout={handleLogout}
         user={user}
-      />
-      <UpgradeModal
+      />}
+      {isUpgradeModalOpen && <UpgradeModal
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
-      />
-      <SettingsDialog
+      />}
+      {isMainSettingsOpen && <SettingsDialog
         isOpen={isMainSettingsOpen}
         onClose={() => setIsMainSettingsOpen(false)}
         token={token}
         onProfileUpdate={(updatedUser: any) => setUser(updatedUser)}
         onConversationsCleared={async () => {
           await refreshConversations();
-          navigate('/');
+          navigate('/app');
         }}
-      />
+      />}
     </div>
   );
 }

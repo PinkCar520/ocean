@@ -12,9 +12,14 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 export function Projects({
   initialProjects,
   onOpenProject,
+  projectActions,
 }: {
   initialProjects?: any[];
   onOpenProject?: (project: any) => void;
+  projectActions?: {
+    create: (input: { name: string; category: string; description: string }) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+  };
 }) {
   const { t } = useTranslation();
   const { setActiveProjectId } = useWorkspace();
@@ -92,10 +97,10 @@ export function Projects({
       // ...
 
       // 2. 将项目元数据存入云端数据库
-      const res = await api.post<any>('/api/knowledge-projects', {
-        ...newProject,
-        description: finalDescription
-      });
+      const input = { ...newProject, description: finalDescription };
+      const res = projectActions
+        ? await projectActions.create(input)
+        : await api.post<any>('/api/knowledge-projects', input);
 
       if (res.success) {
         setIsModalOpen(false);
@@ -209,7 +214,8 @@ export function Projects({
                       e.stopPropagation();
                       if (confirm(`确定要删除项目 "${project.name}" 吗？此操作不可恢复。`)) {
                         try {
-                          await api.delete(`/api/knowledge-projects/${project.id}`);
+                          if (projectActions) await projectActions.delete(project.id);
+                          else await api.delete(`/api/knowledge-projects/${project.id}`);
                           await fetchProjects();
                         } catch (err) {
                           console.error('Delete failed:', err);

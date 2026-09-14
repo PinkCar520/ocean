@@ -64,11 +64,16 @@ export function SkillLibrary({
   onMainTabChange,
   initialSkills,
   initialStats,
+  skillActions,
 }: {
   token?: string | null;
   onMainTabChange?: (tab: string) => void;
   initialSkills?: SkillCard[];
   initialStats?: { total: number; newThisWeek: number };
+  skillActions?: {
+    install: (id: string) => Promise<any>;
+    uninstall: (id: string) => Promise<any>;
+  };
 }) {
   const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('marketplace');
@@ -139,7 +144,9 @@ export function SkillLibrary({
     setInstallingId(skillId);
 
     try {
-      const data = await api.post<any>(`/api/skills/${skillId}/install`);
+      const data = skillActions
+        ? await skillActions.install(skillId)
+        : await api.post<any>(`/api/skills/${skillId}/install`);
       if (data.success) {
         setInstalledIds((prev) => new Set([...prev, skillId]));
         fetchInstalledSkills();
@@ -158,7 +165,9 @@ export function SkillLibrary({
     setInstallingId(skillId);
 
     try {
-      const data = await api.delete<any>(`/api/skills/${skillId}/install`);
+      const data = skillActions
+        ? await skillActions.uninstall(skillId)
+        : await api.delete<any>(`/api/skills/${skillId}/install`);
       if (data.success) {
         setInstalledIds((prev) => {
           const next = new Set(prev);

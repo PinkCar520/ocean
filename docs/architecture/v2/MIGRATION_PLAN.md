@@ -46,7 +46,18 @@
 - [x] 模型与知识项目列表已加入服务端首屏 Bootstrap，项目视图跳过重复客户端请求。
 - [x] Skill 列表与统计已加入服务端首屏 Bootstrap，Landing Page 已恢复为纯 Server Component。
 - [x] 知识项目详情、文档和索引统计已迁入 `/app/projects/[id]` 动态 Server Component 路由。
-- [x] Next.js 16 `proxy.ts` 已对 `/app`、`/chat` 和 `/auth` 建立 Cookie 乐观路由拦截。
+- [x] Web 功能导航已改为 `/app/chats`、`/app/projects`、`/app/skills`、`/app/skills/studio`、`/app/workflows` 真实子路由，不再依赖 localStorage Tab。
+- [x] 会话路由已统一为 `/app/chat/[id]`，旧 `/chat/[id]` 兼容路由已删除。
+- [x] Server Bootstrap 已按页面能力选择性加载模型、项目和技能数据，避免固定全量请求。
+- [x] Next.js 16 `proxy.ts` 已对 `/app/*` 和 `/auth` 建立 Cookie 乐观路由拦截。
+- [x] 共享 UI 已移除未使用的 Vite 资源、独立 npm lockfile 和 React Router 依赖；React Router 仅保留在 Desktop。
+- [x] `/auth` 已拆为独立 Client Island，不再加载主应用 Shell；受保护页面在 Server Component 层执行最终会话重定向。
+- [x] 项目、技能、工作流、历史会话与设置模块已从聊天首屏静态依赖中拆出，改为按路由和交互动态加载。
+- [x] App Layout 与登录页已使用轻量 Server Component 会话验证，并消除失效 Cookie 引发的重定向循环。
+- [x] Web 登出已迁为 Server Action，由服务器直接删除 HttpOnly 会话 Cookie。
+- [x] Web 登录与注册已迁为 Server Action，JWT 仅写入 HttpOnly Cookie，不再返回浏览器应用状态。
+- [x] 会话创建/重命名/删除、项目创建/删除、技能安装/卸载已迁为 Server Actions，并保留 Desktop API 适配。
+- [x] 聊天 SSE、上传、语音、本地节点 RPC 与自动补全已确认为 Client API 边界，不纳入 Server Action 迁移。
 - [x] Gateway 安装后自动生成 Prisma Client，不再依赖旧缓存。
 - [ ] Gateway 仍有 1820 条存量 lint 警告；按模块逐步清偿并恢复为 error。
 - [ ] 补齐缺少的 workspace `typecheck`、`test`、`lint` 脚本。

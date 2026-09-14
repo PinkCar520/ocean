@@ -50,6 +50,7 @@ interface SidebarProps {
   onToggle: () => void;
   activeMainTab: string;
   onMainTabChange: (id: string) => void;
+  onOpenProject?: (id: string) => void;
   onOpenSettings: () => void;
   onNewChat: () => void;
   conversations?: ConversationSummary[];
@@ -479,6 +480,7 @@ export function Sidebar({
   onToggle,
   activeMainTab,
   onMainTabChange,
+  onOpenProject,
   onOpenSettings,
   onOpenSearch, // 接收
   onNewChat,
@@ -720,7 +722,11 @@ export function Sidebar({
                           key={proj.id}
                           project={proj}
                           isActive={activeProject?.id === proj.id}
-                          onClick={() => { setActiveProjectId(proj.id); onMainTabChange('chat'); }}
+                          onClick={() => {
+                            setActiveProjectId(proj.id);
+                            if (onOpenProject) onOpenProject(proj.id);
+                            else onMainTabChange('chat');
+                          }}
                           onDeleted={fetchProjectsData}
                         />
                       ))}

@@ -11,9 +11,15 @@ import { api } from '../lib/api-client';
 
 interface AuthPageProps {
   onLoginSuccess: (token: string, user: any) => void;
+  authenticate?: (input: {
+    mode: 'login' | 'register';
+    email: string;
+    password: string;
+    name?: string;
+  }) => Promise<{ user?: any; error?: string }>;
 }
 
-export function AuthPage({ onLoginSuccess }: AuthPageProps) {
+export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +41,12 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
       : { email, password, name };
 
     try {
+      if (authenticate) {
+        const result = await authenticate({ mode, email, password, name });
+        if (result.error || !result.user) throw new Error(result.error || 'Authentication failed');
+        onLoginSuccess('', result.user);
+        return;
+      }
       const data = await api.post<any>(endpoint, body);
       onLoginSuccess(data.access_token, data.user);
     } catch (err: any) {
