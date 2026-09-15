@@ -4,6 +4,9 @@ import { ConfigModule } from '@nestjs/config';
 import { AiModule } from '../ai/ai.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RunModule } from '../run/run.module';
+import { SpaceModule } from '../space/space.module';
+import { MetricsModule } from '../obs/metrics.module';
+import { AuditModule } from '../audit/audit.module';
 import { ToolModule } from '../tool/tool.module';
 import { RunRunner } from './run-runner';
 import { ToolExecutor } from './tool-executor';
@@ -24,6 +27,9 @@ import { WorkerService } from './worker.service';
     }),
     PrismaModule,
     RunModule,
+    SpaceModule, // RunService 依赖 SpaceService（worker 独立模块树，需显式 import）
+    MetricsModule, // RunService 依赖 MetricsService
+    AuditModule, // ToolExecutor 审计
     AiModule,
     ToolModule,
   ],

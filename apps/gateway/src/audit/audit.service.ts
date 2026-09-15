@@ -3,7 +3,7 @@
  * 记录"谁、在哪个 Space、因何授权、用了什么输入"（工具写操作/审批/授权变更），
  * 查询侧强制：spaceId 必须调用者可访问；actorUserId 过滤仅限本人。
  */
-import { Injectable, Inject, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, Optional, ForbiddenException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { SpaceService } from '../space/space.service';
 
@@ -21,7 +21,7 @@ export interface AuditRecordInput {
 export class AuditService {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-    private readonly spaceService: SpaceService,
+    @Optional() private readonly spaceService?: SpaceService,
   ) {}
 
   async record(data: AuditRecordInput): Promise<{ id: string }> {
@@ -48,7 +48,9 @@ export class AuditService {
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
     let spaces: string[];
     if (opts.spaceId) {
-      await this.spaceService.requireAccessibleSpace(userId, opts.spaceId); // 404/403
+      if (this.spaceService) {
+        await this.spaceService.requireAccessibleSpace(userId, opts.spaceId); // 404/403
+      }
       spaces = [opts.spaceId];
     } else {
       const memberships = await this.prisma.membership.findMany({

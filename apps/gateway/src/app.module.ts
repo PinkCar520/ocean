@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { MetricsService } from './obs/metrics.service';
-import { AuditService } from './audit/audit.service';
+import { MetricsModule } from './obs/metrics.module';
+import { AuditModule } from './audit/audit.module';
 import { AuditController } from './audit/audit.controller';
 import { PrivacyService } from './privacy/privacy.service';
 import { PrivacyController } from './privacy/privacy.controller';
@@ -37,6 +37,7 @@ import { RunModule } from './run/run.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule, // ← 全局数据库模块
     SpaceModule, // ← 全局 Space 数据边界（Phase 5）
+    MetricsModule, // ← 全局运行指标（Phase 7）
     TracingModule, // ← 全局链路追踪模块
     RAGModule, // ← 全局知识库/向量检索模块
     ZentaoModule, // ← 禅道集成模块
@@ -45,6 +46,7 @@ import { RunModule } from './run/run.module';
     UserModule, // 对外暴露用户中心接口
     UploadModule, // 文件上传模块
     SessionModule, // 会话漫游数据接口模块
+    AuditModule, // Phase 7 7b：审计日志（全局）
     SkillRegistryModule, // 技能注册中心
     SkillModule, // ← Agent Skills 编排核心
     MCPServerModule, // MCP Server 管理
@@ -61,8 +63,6 @@ import { RunModule } from './run/run.module';
       provide: APP_GUARD,
       useClass: SsoAuthGuard, // 全局认证守卫
     },
-    MetricsService, // Phase 7：运行指标
-    AuditService, // Phase 7 7b：审计日志
     AuditController,
     PrivacyService, // Phase 7 7c：数据导出/账号删除
     PrivacyController,

@@ -1,6 +1,7 @@
 import {
   Injectable,
   Inject,
+  Optional,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -26,7 +27,7 @@ export class SpaceService {
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-    private readonly audit?: AuditService,
+    @Optional() private readonly audit?: AuditService,
   ) {}
 
   get defaultWorkSpaceId(): string {

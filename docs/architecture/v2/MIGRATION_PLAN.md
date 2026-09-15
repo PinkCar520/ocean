@@ -484,7 +484,16 @@ Phase 0 通过后，按以下顺序创建实现任务：
 - ✅ 冻结安装：`corepack pnpm install --frozen-lockfile` 幂等通过。
 - ✅ 旧文档债务：`docs/architecture/UClaw_PRD_and_Architecture.md`、`uclaw_architecture_mcp_skill.md`、`docs/PITCH_DECK.md`、`docs/UCLAW_VS_JD_MAPPING.md` 中 React 18 + Vite 表述更新为 Next.js App Router（React 19）。
 
+**已完成（2026-09-16 追加）：**
+
+- ✅ **端到端冒烟 `apps/gateway/scripts/smoke-e2e.cjs`（11 断言）**：真实 DB + 真实模型（DASHSCOPE qwen3.8-max）——创建测试 API key → `/api/spaces` → POST `/api/runs` → worker 消费 → 真实模型生成 → **succeeded**（6 events）→ Web 容器 8081 探活 → CLI dist + `--version` → Desktop out/ 产物存在；跑完自清数据。
+- ✅ **E2E 暴露并修复 3 处真实 DI 缺陷**（此前从未以最新代码真实启动过 gateway/worker）：
+  1. `AuditService` ↔ `SpaceService` 循环依赖——两处 `spaceService` 注入改 `@Optional()`（查询时缺省跳过空间校验）。
+  2. `MetricsService` 未全局提供——新建 `src/obs/metrics.module.ts`（@Global），AppModule 由 providers 改为 imports。
+  3. `WorkerModule` 独立模块树缺依赖——显式 import `SpaceModule`/`MetricsModule`/`AuditModule`；worker 由此可真实启动并消费 outbox（本地验证 3 个积压 run 全部 succeeded）。
+- ✅ 本地 gateway（PORT=3100）与 worker 真实启动验证通过（docker 3000 为旧镜像，其 worker 因同类 DI 崩溃重启，需 `docker compose up --build` 重建镜像后才消费新代码）。
+
 **待办（工程基线剩余）：**
 
-- [ ] Web/Desktop/Gateway/CLI 端到端冒烟（apps/desktop 测试脚本留待 e2e 阶段：Electron 壳逻辑在 web/gateway 覆盖）。
 - [ ] 共享包统一 lint 配置（contracts/ui 目前无 eslint；gateway 独有 flat config）。
+- [ ] docker 栈镜像重建（ocean-gateway/ocean-worker 为旧代码，worker 崩溃循环；重建后 e2e 可直连 3000）。
