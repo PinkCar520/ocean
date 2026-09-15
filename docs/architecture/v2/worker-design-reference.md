@@ -277,6 +277,20 @@ SecureSandbox 从占位实现升级为真实边界：
 - **踩坑**：Jest 无法解析 ESM-only 的 `ai` / `@ai-sdk/openai`（node_modules 默认不 transform）——涉及这些 import 链的 spec 通过 `jest.mock('ai')` / mock 上游 service 类绕过；`Test.createTestingModule` 需 `ConfigModule.forRoot({ isGlobal: true })` 且按 class token `get`。
 - **边界说明**：streamResponse 中的会话持久化、数据流协议转换、tracing 属于「Run Engine 编排」职责，待 Phase 4 尾项「Web 切换 Run API」时由 RunRunner/SSE 取代，本次不拆。
 
+### 7.2 Run API 全面接管（Phase 3 尾项，2026-09-15）
+
+按迁移顺序第 3 项落地「Run Engine 全面接管任务」的后端部分：
+
+| 尾项 | 落地 | 验证 |
+|---|---|---|
+| resume/retry 产品 API | `POST /api/runs/:id/retry`（failed/cancelled/paused→queued）、`POST /api/runs/:id/resume`（paused/waiting_for_input→queued）；`requeueRun` 事务：状态校验 + queued + run.status_changed 事件 + **幂等投递 run.requested**（已有 pending 不重复） | 单测 5 例 + 真实 DB 冒烟：failed→retry→worker 重跑→succeeded |
+| Web 聊天切换（后端） | `POST /api/chat` 增 Run 驱动分支（`CHAT_USE_RUN=true`）：ChatService.runChatStream 组装单 prompt（消息序列化 + 上下文 flags）→ create AgentRun（space=default/work，metadata 记 sessionId/modelId）→ 轮询 run events → 转译 AI SDK 协议（output_delta→`0:` 行、failed→`3:` 错误行）→ 前端 useChat 零改动 | 单测 4 例（转译/终态/幂等） |
+| 清除旧 Session 字段 | 删 `activeJobId`/`lastCheckpoint`（全仓零引用）+ 迁移 20260915000004 落库 | psql 验证 ALTER + migrate resolve |
+| 审批双轨合并 | 未删旧 ApprovalRequest：旧聊天链路仍在使用；**删除条件 = Web 全面切换后旧链路退役**（已在 MIGRATION_PLAN 记录） | — |
+| 重启恢复/重复投递/审批超时验证 | Run 引擎端到端冒烟 PASS（SIM worker）；崩溃恢复沿用 Phase 4 冒烟；审批超时/重复投递专项列入生产治理 | — |
+
+**关键事实**：Run 链路的模型调用由独立 Worker 进程消费 outbox（ADR-002/003），Web SSE 长连接轮询 DB 事件投影实现断点续读；`run-runner` 重投 run.requested 时新建 model_call 步骤完整重跑（失败步骤保留审计），这使 retry 语义天然成立。审批续跑仍由 `decide` 端点从 RunStep.checkpoint 重投 toolCall，与 retry 互不干扰。
+
 ## 8. 参考资料
 
 - 《AI产品Desktop技术架构调研报告.md》（本仓库根目录）：Claude/Codex/Kimi/豆包/DeepSeek 桌面架构、证据分级与来源索引。

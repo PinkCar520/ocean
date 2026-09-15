@@ -22,6 +22,7 @@ export class ChatController {
     private readonly skillLoader: SkillLoader,
     private readonly rpcGateway: RpcGateway,
     private readonly sessionService: SessionService,
+    private readonly chatService: ChatService,
   ) {}
 
   /**
@@ -170,6 +171,20 @@ export class ChatController {
     res.flushHeaders();
 
     try {
+      // 第 3 项：Run 驱动聊天（CHAT_USE_RUN=true 时创建 AgentRun 并订阅 run events 转译；
+      // 否则保留旧 SkillOrchestrator 直驱链路，作为回退）
+      if (this.chatService.isRunMode()) {
+        await this.chatService.runChatStream(
+          messages,
+          ctx,
+          modelId,
+          sessionId,
+          (chunk: string) => {
+            res.write(chunk);
+          },
+        );
+        return;
+      }
       await this.skillOrchestrator.streamResponse(
         messages,
         ctx,

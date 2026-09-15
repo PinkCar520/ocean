@@ -5,11 +5,12 @@ jest.mock('../skill/skill.orchestrator', () => ({ SkillOrchestrator: class {} })
 jest.mock('../skill/skill.loader', () => ({ SkillLoader: class {} }));
 jest.mock('./rpc.gateway', () => ({ RpcGateway: class {} }));
 jest.mock('../session/session.service', () => ({ SessionService: class {} }));
+jest.mock('./chat.service', () => ({ ChatService: class {} }));
 
 import { ChatController } from './chat.controller';
 
 describe('ChatController contract boundaries', () => {
-  const controller = new ChatController({} as never, {} as never, {} as never, {} as never);
+  const controller = new ChatController({} as never, {} as never, {} as never, {} as never, {} as never);
 
   it('rejects an empty streaming chat request before writing a response', async () => {
     await expect(

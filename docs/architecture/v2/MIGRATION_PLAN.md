@@ -193,11 +193,11 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 **剩余尾项（客户端切换与治理）**：
 
-- [ ] Web 聊天正式全面切换到 Run API（当前仍走旧聊天链路）。
-- [ ] Desktop、CLI、IM 统一接入 Run API。
-- [ ] 提供明确的 resume/retry 产品 API（当前续跑为 Worker 内部/审批重投，无公开 HTTP 入口）。
-- [ ] 清除旧 `Session.activeJobId`、`lastCheckpoint`，合并旧 ApprovalRequest 与新 RunApproval 双轨。
-- [ ] 补充重启恢复、重复投递、审批超时的系统级验证（崩溃恢复已有单场景冒烟）。
+- [~] Web 聊天正式全面切换到 Run API：后端 Run 驱动已就绪（`CHAT_USE_RUN=true` 时 POST /api/chat 创建 AgentRun 并订阅 run events 转译 AI SDK 协议，前端零改动），端到端 SIM 冒烟 PASS；生产默认切换待真实模型配置与 worker 部署齐备后开启 flag。
+- [ ] Desktop、CLI、IM 统一接入 Run API（复用 Web 切换契约：create → /events SSE → approve/decide → retry/resume）。
+- [x] 提供明确的 resume/retry 产品 API（`POST /api/runs/:id/retry`、`POST /api/runs/:id/resume`；requeueRun 事务：状态校验 + queued + run.status_changed 事件 + 幂等投递 run.requested）。
+- [~] 清除旧 `Session.activeJobId`、`lastCheckpoint`：字段已删除并落库（迁移 20260915000004，全仓零引用）；旧 ApprovalRequest 与新 RunApproval 双轨合并待 Web 全面切换、旧聊天链路退役后删除 ApprovalRequest 模型/表。
+- [~] 补充重启恢复、重复投递、审批超时的系统级验证：Run 引擎端到端冒烟（create→worker 消费→succeeded、failed→retry→重跑 succeeded、resume 非法状态拒绝）PASS；崩溃恢复沿用 Phase 4 单场景冒烟；审批超时/重复投递专项纳入「生产治理」章节待补。
 - [ ] 执行器按会话/用户 feature flag 切换。
 
 ### 数据扩展
