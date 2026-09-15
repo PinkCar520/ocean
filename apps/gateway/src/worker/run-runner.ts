@@ -4,11 +4,20 @@ import { randomUUID } from 'crypto';
 import {
   runEventSchema,
   runStepSchema,
+  toolRequestedMessageSchema,
   type LeasedRunJob,
   type RunEvent,
   type RunStep,
 } from '@ocean/contracts';
 import { MODEL_GATEWAY, type ModelGateway } from '../ai/model-gateway';
+import type {
+  ModelMessage,
+  ModelToolCall,
+  ModelToolSpec,
+} from '../ai/model-gateway';
+import { OutboxService } from '../run/outbox.service';
+import { ToolRegistry } from '../tool/tool.registry';
+import type { ToolCall } from '@ocean/contracts';
 
 /**
  * 可重试错误：瞬时失败（数据库连接、超时、锁冲突、模型调用网络错误）
@@ -32,29 +41,46 @@ export interface RunExecutionResult {
   cached?: boolean;
 }
 
+/** priority 字符串 → outbox priorityRank（0=critical 最先取件，2=background 最后）。 */
+function priorityRankOf(priority: string): number {
+  if (priority === 'critical') return 0;
+  if (priority === 'background') return 2;
+  return 1;
+}
+
 /** 流式输出攒批阈值：达到即落一条 run.output_delta 事件（避免事件爆炸）。 */
 const DELTA_FLUSH_CHARS = 64;
 
 /**
- * RunRunner —— 单个 Run 的执行器（Phase 4 第 2 项：纯文本模型调用迁入 Run）。
+ * RunRunner —— 单个 Run 的执行器（Phase 4 第 2 项：纯文本模型调用迁入 Run；
+ * 最小 Agent Loop：模型请求工具 → 提交 tool.requested → 工具完成后回喂续跑）。
  *
  * 职责边界（对应 docs/architecture/v2/worker-design-reference.md 5.2）：
  * - 接管 Run：queued → running，写入 RunEvent（与状态变更同一事务）。
  * - 执行 model_call 步骤：通过 ModelGateway 流式调用模型，把文本增量
  *   投影为 run.output_delta 事件；步骤状态（started/succeeded/failed）
  *   落 run_step 表，并发出 run.step_started / run.step_completed 事件。
+ * - 工具循环：模型返回 tool_use 时，把首个工具调用提交为 outbox
+ *   `tool.requested` 消息（幂等：同 toolCallId 已有步骤或 pending 消息则不重复
+ *   提交），Run → queued 等工具执行；工具完成后 ToolExecutor 重投
+ *   `run.requested`，本 Runner 从 run_step 重建 messages（含 tool_result）
+ *   继续下一轮模型调用，直到模型输出无 tool_use 的最终消息。
  * - 完成/失败：succeeded 或 failed（不可重试）/ queued（可重试，等 Worker 放回队列）。
  *
  * 崩溃语义：
  * - run 已是 running（上次崩溃遗留）→ 直接续跑，不重复写 running 事件。
  * - 已存在 status=started 的 model_call 步骤 → 复用该步骤续跑，
  *   不重复创建步骤与 step_started 事件（幂等）。
+ * - 已提交 tool.requested（步骤 succeeded + 消息 pending）后崩溃 → 续跑时
+ *   按 run_step / outbox 双重存在性检查，不重复提交同一工具。
  */
 @Injectable()
 export class RunRunner {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @Inject(MODEL_GATEWAY) private readonly modelGateway: ModelGateway,
+    private readonly outbox: OutboxService,
+    private readonly registry: ToolRegistry,
   ) {}
 
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
@@ -88,7 +114,7 @@ export class RunRunner {
             status: 'running',
           });
         }
-        return { ok: true as const, input: run.input };
+        return { ok: true as const, input: run.input, priority: run.priority };
       });
 
       if (!takeover.ok) {
@@ -101,21 +127,34 @@ export class RunRunner {
         };
       }
 
-      // 2) model_call 步骤：started（崩溃续跑复用 started 步骤，不重复写事件）
+      // 2) 重建对话上下文（历史 model_call / tool_result）+ 暴露给模型的工具定义；
+      //    同时检查轮次上限（防止模型无限循环调用工具）。
+      const { messages, tools } = await this.buildContext(
+        runId,
+        takeover.input,
+      );
+
+      // 3) model_call 步骤：started（崩溃续跑复用 started 步骤，不重复写事件）
       const step = await this.ensureStepStarted(runId, takeover.input);
 
-      // 3) 流式生成 → run.output_delta（每攒够 DELTA_FLUSH_CHARS 落一条）
+      // 4) 模型调用 → 文本增量投影 run.output_delta，同时收集 tool_use
       let buffer = '';
       let fullText = '';
+      let toolCalls: ModelToolCall[] = [];
       try {
-        for await (const chunk of this.modelGateway.stream(takeover.input)) {
-          fullText += chunk.text;
-          buffer += chunk.text;
-          if (buffer.length >= DELTA_FLUSH_CHARS) {
-            await this.flushDelta(runId, buffer);
-            buffer = '';
-          }
-        }
+        const result = await this.modelGateway.generate({
+          messages,
+          tools,
+          onDelta: async (delta) => {
+            buffer += delta;
+            if (buffer.length >= DELTA_FLUSH_CHARS) {
+              await this.flushDelta(runId, buffer);
+              buffer = '';
+            }
+          },
+        });
+        fullText = result.text;
+        toolCalls = result.toolCalls;
       } catch (error) {
         // 模型调用多为网络/上游瞬时问题，放回队列退避重试（第 4 项再细化失败分类）
         throw new RetryableError(
@@ -126,13 +165,35 @@ export class RunRunner {
         await this.flushDelta(runId, buffer);
       }
 
-      // 4) 完成：step succeeded + step_completed + run succeeded（同一事务）
+      // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
+      if (toolCalls.length > 0) {
+        const first = toolCalls[0];
+        const toolCall: ToolCall = {
+          id: first.id,
+          name: first.name,
+          input: first.input,
+          // 模型 toolCallId 跨轮唯一，兼作幂等键：重复投递不产生二次执行
+          idempotencyKey: first.id,
+        };
+        await this.submitToolCall(
+          runId,
+          userId,
+          takeover.priority,
+          step,
+          toolCall,
+          { text: fullText, toolCalls },
+        );
+        return { jobId: job.id, runId, status: 'succeeded' };
+      }
+
+      // 6) 无工具 → 完成：step succeeded + step_completed + run succeeded（同一事务）
       await this.prisma.$transaction(async (tx) => {
+        const output = { text: fullText, toolCalls: [] as ModelToolCall[] };
         await tx.runStep.update({
           where: { id: step.id },
           data: {
             status: 'succeeded',
-            output: { text: fullText },
+            output: JSON.parse(JSON.stringify(output)) as Prisma.InputJsonValue,
             completedAt: new Date(),
           },
         });
@@ -148,7 +209,7 @@ export class RunRunner {
             seq: step.seq,
             status: 'succeeded',
             input: { prompt: takeover.input },
-            output: { text: fullText },
+            output,
           }),
         });
         await tx.agentRun.update({
@@ -169,6 +230,162 @@ export class RunRunner {
     } catch (error) {
       return this.handleFailure(job, error);
     }
+  }
+
+  /** 重建对话上下文：历史 model_call / tool_result → 模型消息；并检查轮次上限。 */
+  private async buildContext(
+    runId: string,
+    runInput: string,
+  ): Promise<{ messages: ModelMessage[]; tools: ModelToolSpec[] }> {
+    const steps = await this.prisma.runStep.findMany({
+      where: { runId },
+      orderBy: { seq: 'asc' },
+    });
+
+    const messages: ModelMessage[] = [];
+    let modelTurns = 0;
+    let hasModelTurn = false;
+    for (const step of steps) {
+      if (step.kind === 'model_call' && step.status === 'succeeded') {
+        const out = (step.output ?? {}) as {
+          text?: string;
+          toolCalls?: ModelToolCall[];
+        };
+        messages.push({
+          role: 'assistant',
+          text: out.text ?? '',
+          toolCalls: out.toolCalls ?? [],
+        });
+        modelTurns += 1;
+        hasModelTurn = true;
+      } else if (step.kind === 'tool_call' && step.status === 'succeeded') {
+        const stepInput = (step.input ?? {}) as { toolCall?: { id?: string } };
+        messages.push({
+          role: 'tool',
+          toolCallId: stepInput.toolCall?.id ?? '',
+          result: step.output,
+        });
+      }
+    }
+    // 用户原始输入始终置于对话最前（首次执行 messages 为空，续跑以
+    // assistant/tool 历史开头时同样需要原始指令上下文）
+    const first = messages[0];
+    if (!first || first.role !== 'user') {
+      messages.unshift({ role: 'user', text: runInput });
+    }
+
+    const maxTurns = Number(process.env.WORKER_MAX_TURNS ?? '20');
+    if (modelTurns >= maxTurns) {
+      throw new Error(
+        `max_turns_exceeded: run ${runId} used ${modelTurns} model turns (limit ${maxTurns})`,
+      );
+    }
+
+    // 暴露给模型：仅注册了 inputSchema 的工具（无 schema 的工具仍可被显式 ToolCall 调用）
+    const tools: ModelToolSpec[] = this.registry
+      .list()
+      .filter((tool) => tool.inputSchema)
+      .map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      }));
+
+    return { messages, tools };
+  }
+
+  /**
+   * 提交工具调用（最小 Agent Loop）：model_call 步骤 succeeded + 事件，
+   * 幂等投递 outbox `tool.requested`（同 toolCallId 已有工具步骤或 pending 消息
+   * 则不重复提交），Run → queued 等待 ToolExecutor 执行后回喂续跑。
+   */
+  private async submitToolCall(
+    runId: string,
+    userId: string,
+    priority: string,
+    step: { id: string; seq: number },
+    toolCall: ToolCall,
+    output: { text: string; toolCalls: ModelToolCall[] },
+  ): Promise<void> {
+    const message = toolRequestedMessageSchema.parse({
+      version: 1,
+      runId,
+      userId,
+      toolCall,
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      // 幂等：同 toolCallId 已有工具步骤（任何状态）或 pending 消息 → 不重复投递
+      const steps = await tx.runStep.findMany({
+        where: { runId, kind: 'tool_call' },
+        select: { input: true },
+      });
+      const hasStep = steps.some((s) => {
+        const stepInput = (s.input ?? {}) as { toolCall?: { id?: string } };
+        return stepInput.toolCall?.id === toolCall.id;
+      });
+      let hasPending = false;
+      if (!hasStep) {
+        const msgs = await tx.outboxEvent.findMany({
+          where: { topic: 'tool.requested', aggregateId: runId, status: 'pending' },
+          select: { payload: true },
+        });
+        hasPending = msgs.some((m) => {
+          const payload = (m.payload ?? {}) as { toolCall?: { id?: string } };
+          return payload.toolCall?.id === toolCall.id;
+        });
+      }
+      if (hasStep || hasPending) return;
+
+      await tx.runStep.update({
+        where: { id: step.id },
+        data: {
+          status: 'succeeded',
+          output: JSON.parse(JSON.stringify(output)) as Prisma.InputJsonValue,
+          completedAt: new Date(),
+        },
+      });
+      await this.appendEvent(tx, runId, {
+        id: randomUUID(),
+        runId,
+        sequence: await this.nextSequence(tx, runId),
+        occurredAt: new Date().toISOString(),
+        type: 'run.step_completed',
+        step: this.toStepContract({
+          id: step.id,
+          runId,
+          seq: step.seq,
+          status: 'succeeded',
+          input: { prompt: undefined },
+          output,
+        }),
+      });
+      await this.outbox.enqueueToolRequested(
+        tx,
+        message,
+        priorityRankOf(priority),
+      );
+      await this.appendEvent(tx, runId, {
+        id: randomUUID(),
+        runId,
+        sequence: await this.nextSequence(tx, runId),
+        occurredAt: new Date().toISOString(),
+        type: 'tool.requested',
+        toolCall,
+      });
+      await tx.agentRun.update({
+        where: { id: runId },
+        data: { status: 'queued' },
+      });
+      await this.appendEvent(tx, runId, {
+        id: randomUUID(),
+        runId,
+        sequence: await this.nextSequence(tx, runId),
+        occurredAt: new Date().toISOString(),
+        type: 'run.status_changed',
+        status: 'queued',
+      });
+    });
   }
 
   /** 确保 model_call 步骤存在：新 Run 创建 started 步骤并写 step_started 事件；崩溃续跑复用。 */

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { ArtifactStore } from '../artifact/artifact.store';
 import { EgressPolicy } from '../sandbox/egress-policy';
 import { TerminalToolError, Tool } from './tool.types';
@@ -6,6 +7,7 @@ import { TerminalToolError, Tool } from './tool.types';
 const echoTool: Tool = {
   name: 'echo',
   description: 'Returns the input text unchanged.',
+  inputSchema: z.object({ text: z.string().describe('text to echo back') }),
   async execute(input: Record<string, unknown>) {
     return { text: typeof input.text === 'string' ? input.text : '' };
   },
@@ -22,6 +24,9 @@ const counterTool: Tool = {
   name: 'counter.increment',
   description:
     'Increments a named counter (external side effect). Callers MUST pass idempotencyKey to avoid double increments on redelivery.',
+  inputSchema: z.object({
+    key: z.string().optional().describe('counter key (default: "default")'),
+  }),
   async execute(input: Record<string, unknown>) {
     const key = typeof input.key === 'string' ? input.key : 'default';
     const next = (counterState.get(key) ?? 0) + 1;
@@ -40,6 +45,10 @@ const notifySendTool: Tool = {
   description:
     'Sends a notification to a recipient (external side effect). Requires user approval before execution.',
   requiresApproval: true,
+  inputSchema: z.object({
+    to: z.string().describe('recipient'),
+    message: z.string().describe('notification body'),
+  }),
   async execute(input: Record<string, unknown>) {
     return {
       sent: true,
@@ -59,6 +68,9 @@ function createWebGetTool(egress: EgressPolicy): Tool {
     name: 'web.get',
     description:
       'Fetches a URL over HTTP(S) subject to the egress allowlist (default deny: unlisted hosts are rejected and audited).',
+    inputSchema: z.object({
+      url: z.string().describe('http(s) URL to fetch'),
+    }),
     async execute(input: Record<string, unknown>) {
       const url = typeof input.url === 'string' ? input.url : '';
       const verdict = egress.checkUrl(url);
@@ -87,6 +99,10 @@ function createArtifactTools(store: ArtifactStore): Tool[] {
       name: 'artifact.save',
       description:
         'Stores a large artifact to the artifact store (object storage). Returns a reference; the payload itself is NOT persisted in the database.',
+      inputSchema: z.object({
+        name: z.string().optional().describe('artifact name (default: unnamed)'),
+        content: z.union([z.string(), z.record(z.string(), z.unknown())]).describe('artifact content'),
+      }),
       async execute(input: Record<string, unknown>, ctx) {
         if (!ctx) throw new TerminalToolError('artifact.save requires run context');
         const name = typeof input.name === 'string' ? input.name : 'unnamed';
@@ -107,6 +123,9 @@ function createArtifactTools(store: ArtifactStore): Tool[] {
       name: 'artifact.load',
       description:
         'Loads artifact content by artifactId (must belong to the same run).',
+      inputSchema: z.object({
+        artifactId: z.string().describe('artifact id returned by artifact.save'),
+      }),
       async execute(input: Record<string, unknown>, ctx) {
         if (!ctx) throw new TerminalToolError('artifact.load requires run context');
         const artifactId =

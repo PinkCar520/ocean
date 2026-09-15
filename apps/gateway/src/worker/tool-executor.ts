@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import {
   runEventSchema,
   runStepSchema,
+  runRequestedMessageSchema,
   type LeasedRunJob,
   type RunEvent,
   type RunStep,
@@ -11,6 +12,7 @@ import {
 } from '@ocean/contracts';
 
 import { RetryableError, type RunExecutionResult } from './run-runner';
+import { OutboxService } from '../run/outbox.service';
 import { ToolRegistry } from '../tool/tool.registry';
 import { TerminalToolError } from '../tool/tool.types';
 
@@ -34,6 +36,7 @@ export class ToolExecutor {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly registry: ToolRegistry,
+    private readonly outbox: OutboxService,
   ) {}
 
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
@@ -50,6 +53,21 @@ export class ToolExecutor {
           toolCall.idempotencyKey,
         );
         if (cached) {
+          // 缓存命中：工具此前已成功执行，不产生二次副作用。
+          // 若为 Agent Loop 驱动的 Run（存在 model_call 步骤）且尚未终结，
+          // 重投 run.requested 补偿回喂续跑（崩溃窗口内 run.requested 可能丢失）。
+          const run = await this.prisma.agentRun.findUnique({
+            where: { id: runId },
+            select: { priority: true },
+          });
+          await this.prisma.$transaction(async (tx) => {
+            await this.continueLoopIfModelDriven(
+              tx,
+              runId,
+              userId,
+              run?.priority ?? 'interactive',
+            );
+          });
           return {
             jobId: job.id,
             runId,
@@ -63,7 +81,7 @@ export class ToolExecutor {
       //    业务错误直接终态，不把 Run 置 running 后再失败
       const runCheck = await this.prisma.agentRun.findUnique({
         where: { id: runId },
-        select: { id: true, userId: true },
+        select: { id: true, userId: true, priority: true },
       });
       if (!runCheck) {
         return {
@@ -128,7 +146,9 @@ export class ToolExecutor {
       // 5) 执行工具
       const output = await tool.execute(toolCall.input, { runId, userId });
 
-      // 6) 完成：step succeeded + step_completed + tool.completed + run succeeded
+      // 6) 完成：step succeeded + step_completed + tool.completed；
+      //    Agent Loop 驱动的 Run（存在 model_call 步骤）→ Run queued + 重投
+      //    run.requested 回喂模型续跑；纯工具 Run → Run succeeded（现状）。
       const outputJson = output as Prisma.InputJsonValue;
       await this.prisma.$transaction(async (tx) => {
         await tx.runStep.update({
@@ -164,18 +184,40 @@ export class ToolExecutor {
           toolCallId: toolCall.id,
           result: output,
         });
-        await tx.agentRun.update({
-          where: { id: runId },
-          data: { status: 'succeeded' },
-        });
-        await this.appendEvent(tx, runId, {
-          id: randomUUID(),
+
+        const loop = await this.continueLoopIfModelDriven(
+          tx,
           runId,
-          sequence: await this.nextSequence(tx, runId),
-          occurredAt: new Date().toISOString(),
-          type: 'run.status_changed',
-          status: 'succeeded',
-        });
+          userId,
+          runCheck.priority,
+        );
+        if (loop) {
+          await tx.agentRun.update({
+            where: { id: runId },
+            data: { status: 'queued' },
+          });
+          await this.appendEvent(tx, runId, {
+            id: randomUUID(),
+            runId,
+            sequence: await this.nextSequence(tx, runId),
+            occurredAt: new Date().toISOString(),
+            type: 'run.status_changed',
+            status: 'queued',
+          });
+        } else {
+          await tx.agentRun.update({
+            where: { id: runId },
+            data: { status: 'succeeded' },
+          });
+          await this.appendEvent(tx, runId, {
+            id: randomUUID(),
+            runId,
+            sequence: await this.nextSequence(tx, runId),
+            occurredAt: new Date().toISOString(),
+            type: 'run.status_changed',
+            status: 'succeeded',
+          });
+        }
       });
 
       return { jobId: job.id, runId, status: 'succeeded' };
@@ -299,6 +341,38 @@ export class ToolExecutor {
       });
     });
     return { executable: false };
+  }
+
+  /**
+   * Agent Loop 续跑补偿：仅当 Run 由循环驱动（存在 model_call 步骤）且未终结
+   * （queued/running）时，重投 `run.requested` 让 RunRunner 回喂 tool_result
+   * 继续下一轮模型调用。纯工具 Run（无 model_call）保持原语义不动。
+   */
+  private async continueLoopIfModelDriven(
+    tx: Prisma.TransactionClient,
+    runId: string,
+    userId: string,
+    runPriority: string,
+  ): Promise<boolean> {
+    const run = await tx.agentRun.findUnique({
+      where: { id: runId },
+      select: { status: true },
+    });
+    if (!run || (run.status !== 'queued' && run.status !== 'running')) {
+      return false;
+    }
+    const modelStep = await tx.runStep.findFirst({
+      where: { runId, kind: 'model_call' },
+      select: { id: true },
+    });
+    if (!modelStep) return false;
+
+    await this.outbox.enqueueRunRequested(
+      tx,
+      runRequestedMessageSchema.parse({ version: 1, runId, userId }),
+      priorityRankOf(runPriority),
+    );
+    return true;
   }
 
   /** 确保 tool_call 步骤存在：新步骤创建 started + step_started 事件；崩溃续跑复用。 */
@@ -485,4 +559,11 @@ export class ToolExecutor {
       },
     });
   }
+}
+
+/** priority 字符串 → outbox priorityRank（0=critical 最先取件，2=background 最后）。 */
+function priorityRankOf(priority: string): number {
+  if (priority === 'critical') return 0;
+  if (priority === 'background') return 2;
+  return 1;
 }

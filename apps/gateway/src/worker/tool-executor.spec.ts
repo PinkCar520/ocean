@@ -106,7 +106,9 @@ function createExecutor(
     execute: toolExecute,
   });
 
-  const executor = new ToolExecutor(prisma as never, registry);
+  const executor = new ToolExecutor(prisma as never, registry, {
+    enqueueRunRequested: jest.fn().mockResolvedValue(undefined),
+  } as never);
   return { executor, tx, prisma, registry, toolExecute };
 }
 
@@ -381,7 +383,9 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
       runStep: { findMany: jest.fn().mockResolvedValue([]) },
       runApproval: { findFirst: jest.fn().mockResolvedValue(null) },
     };
-    const executor = new ToolExecutor(prisma as never, registry);
+    const executor = new ToolExecutor(prisma as never, registry, {
+      enqueueRunRequested: jest.fn().mockResolvedValue(undefined),
+    } as never);
 
     const result = await executor.execute(
       toolJob({

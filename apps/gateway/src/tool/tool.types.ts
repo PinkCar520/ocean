@@ -7,6 +7,8 @@
  *   检查保证「相同幂等键只执行一次外部写」；
  * - 未来 PlanLoop / MCP 适配器可动态注册更多工具，界面不变。
  */
+import type { z } from 'zod';
+
 export interface ToolContext {
   runId: string;
   userId: string;
@@ -15,6 +17,12 @@ export interface ToolContext {
 export interface Tool {
   name: string;
   description: string;
+  /**
+   * 工具入参 schema（zod）。供 Agent Loop 把工具定义暴露给模型
+   * （ModelGateway.tools），模型按 schema 生成 tool_use。
+   * 缺省时不暴露给模型（工具仍可被显式 ToolCall 调用）。
+   */
+  inputSchema?: z.ZodTypeAny;
   /**
    * 是否需要人工审批（Phase 4 第 5 项）。为 true 时 ToolExecutor 执行前
    * 先创建 pending 审批并将 Run 置 waiting_for_approval；审批通过后才执行。
