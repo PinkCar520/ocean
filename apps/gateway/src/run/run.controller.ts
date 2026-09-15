@@ -29,6 +29,24 @@ export class RunController {
   ) {}
 
   /**
+   * POST /api/runs/:id/retry
+   * 重新执行已失败/取消/暂停的 Run（产品级重试入口）。
+   */
+  @Post(':id/retry')
+  retry(@Param('id') id: string, @Req() request: any) {
+    return this.runService.retry(id, this.userId(request));
+  }
+
+  /**
+   * POST /api/runs/:id/resume
+   * 恢复暂停/等待输入的 Run（产品级续跑入口；审批续跑走 approve/decide）。
+   */
+  @Post(':id/resume')
+  resume(@Param('id') id: string, @Req() request: any) {
+    return this.runService.resume(id, this.userId(request));
+  }
+
+  /**
    * GET /api/runs/:id/artifacts/:artifactId
    * 读取 Run 产物内容（Phase 4 第 8 项：artifact 存储分离）。
    * 内容在 ArtifactStore（本地对象存储），DB 只存引用——此端点按引用流式返回。

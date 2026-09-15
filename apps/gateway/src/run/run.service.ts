@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -26,6 +27,12 @@ const CANCELLABLE_STATUSES = new Set([
   'waiting_for_input',
   'paused',
 ]);
+
+/** retry：终态/异常终止后重新执行整个模型步骤。 */
+const RETRYABLE_STATUSES = new Set(['failed', 'cancelled', 'paused']);
+
+/** resume：暂停/等待类状态恢复执行（waiting_for_approval 的续跑由审批决策端点处理）。 */
+const RESUMABLE_STATUSES = new Set(['paused', 'waiting_for_input']);
 
 @Injectable()
 export class RunService {
@@ -112,8 +119,83 @@ export class RunService {
     });
   }
 
-  async cancel(id: string, userId: string): Promise<RunSnapshot> {
+  /**
+   * retry：将 failed/cancelled/paused 的 Run 重新入队执行（Phase 3 尾项：resume/retry 产品 API）。
+   * 事务内置 queued + 追加 run.status_changed 事件 + 幂等投递 run.requested
+   * （run-runner 重跑时新建 model_call 步骤，失败步骤保留审计）。
+   */
+  async retry(id: string, userId: string): Promise<RunSnapshot> {
+    return this.requeueRun(id, userId, RETRYABLE_STATUSES, 'retry');
+  }
+
+  /**
+   * resume：将 paused/waiting_for_input 的 Run 恢复入队执行（同上语义）。
+   * waiting_for_approval 的续跑走 POST /api/runs/:id/approvals/:approvalId/decide。
+   */
+  async resume(id: string, userId: string): Promise<RunSnapshot> {
+    return this.requeueRun(id, userId, RESUMABLE_STATUSES, 'resume');
+  }
+
+  private async requeueRun(
+    id: string,
+    userId: string,
+    allowed: Set<string>,
+    action: 'retry' | 'resume',
+  ): Promise<RunSnapshot> {
     const snapshot = await this.get(id, userId);
+    if (!allowed.has(snapshot.run.status)) {
+      throw new BadRequestException(
+        `Cannot ${action} run in state '${snapshot.run.status}'`,
+      );
+    }
+
+    return this.prisma.$transaction(async (transaction) => {
+      const run = await transaction.agentRun.update({
+        where: { id },
+        data: { status: 'queued' },
+      });
+      const sequence = snapshot.events.at(-1)?.sequence ?? -1;
+      const event = runEventSchema.parse({
+        id: crypto.randomUUID(),
+        runId: run.id,
+        sequence: sequence + 1,
+        occurredAt: run.updatedAt.toISOString(),
+        type: 'run.status_changed',
+        status: 'queued',
+      });
+      await transaction.runEvent.create({
+        data: {
+          id: event.id,
+          runId: run.id,
+          sequence: event.sequence,
+          type: event.type,
+          payload: event as Prisma.InputJsonValue,
+          occurredAt: new Date(event.occurredAt),
+        },
+      });
+      // 幂等：同 run 已有 pending run.requested 则不重复投递
+      const pending = await transaction.outboxEvent.findFirst({
+        where: { topic: 'run.requested', aggregateId: run.id, status: 'pending' },
+      });
+      if (!pending) {
+        await this.outbox.enqueueRunRequested(
+          transaction,
+          {
+            version: 1,
+            runId: run.id,
+            userId,
+          },
+          priorityRankOf(run.priority),
+        );
+      }
+      return runSnapshotSchema.parse({
+        run: this.toContract(run),
+        events: [...snapshot.events, event],
+      });
+    });
+  }
+
+  async cancel(id: string, userId: string): Promise<RunSnapshot> {    const snapshot = await this.get(id, userId);
     if (!CANCELLABLE_STATUSES.has(snapshot.run.status)) return snapshot;
 
     return this.prisma.$transaction(async (transaction) => {
