@@ -23,6 +23,7 @@ import { createProject, deleteProject } from './app/actions/projects';
 import { installSkill, uninstallSkill } from './app/actions/skills';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
+import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
 
 const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
 const WEB_SESSION_ACTIONS = { create: createSession, rename: renameSession, delete: deleteSession };
@@ -207,6 +208,49 @@ function AppInternal({
     await logout();
   };
 
+  // ── Phase 6：Space 切换与当前身份 ──
+  const [activeSpaceId, setActiveSpaceId] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'work';
+    return localStorage.getItem('ocean_active_space') ?? 'work';
+  });
+  const [spaces, setSpaces] = useState<SpaceOption[]>([]);
+
+  useEffect(() => {
+    localStorage.setItem('ocean_active_space', activeSpaceId);
+  }, [activeSpaceId]);
+
+  // 加载可用 Space 列表；缺省 Work 兜底；当前 Space 不存在时创建 Life
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const json = await api.get<any>('/api/spaces');
+        let list: SpaceOption[] = Array.isArray(json?.data) ? json.data : [];
+        if (!cancelled) setSpaces(list);
+        const hasActive = list.some((sp) => sp.id === activeSpaceId);
+        if (!hasActive && activeSpaceId !== 'work') {
+          const life = await api.post<any>('/api/spaces/life', {});
+          if (!cancelled && life?.data?.id) {
+            setSpaces((prev) =>
+              prev.some((sp) => sp.id === life.data.id)
+                ? prev
+                : [...prev, { id: life.data.id, name: '生活空间', type: 'life', role: 'owner' }],
+            );
+          }
+        }
+      } catch (err) {
+        console.error('[Space] failed to load spaces:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSpaceId]);
+
+  const handleSpaceChange = (spaceId: string) => {
+    setActiveSpaceId(spaceId);
+    navigate('/app');
+  };
+
   // ── Server-First 会话管理 ──
   const {
     isInitialized,
@@ -231,7 +275,14 @@ function AppInternal({
     initialMessages,
     isServerBootstrapped,
     sessionActions: WEB_SESSION_ACTIONS,
+    spaceId: activeSpaceId,
   });
+
+  // 当前 Space 的会话（Work 无 spaceId 的历史会话视作 Work）
+  const spaceConversations = useMemo(
+    () => conversations.filter((c: any) => (c.spaceId ?? 'work') === activeSpaceId),
+    [conversations, activeSpaceId],
+  );
 
   // Sync Global Settings from User Profile
   useEffect(() => {
@@ -346,7 +397,7 @@ function AppInternal({
         onOpenProject={(id: string) => navigate(`/app/projects/${id}`)}
         onOpenSettings={() => { setIsSettingsOpen(true); }}
         onNewChat={handleNewChatAndActivate}
-        conversations={conversations}
+        conversations={spaceConversations}
         currentChatId={sessionIdFromUrl ?? null}
         onLoadConversation={loadConversationAndActivate}
         onRenameConversation={handleRenameChat}
@@ -373,6 +424,12 @@ function AppInternal({
           <div className="w-9" />
         </div>
 
+        {/* Space 切换条（Phase 6） */}
+        <div className="hidden md:flex items-center justify-between px-4 py-1.5 border-b border-border bg-card/50 shrink-0">
+          <SpaceSwitcher spaces={spaces.length ? spaces : [{ id: 'work', name: '工作空间', type: 'work' }]} activeSpaceId={activeSpaceId} onChange={handleSpaceChange} />
+          <span className="text-xs text-muted-foreground">当前身份：{spaces.find((sp) => sp.id === activeSpaceId)?.name ?? activeSpaceId}</span>
+        </div>
+
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {activeTab === 'chat' || !activeTab ? (
@@ -395,7 +452,7 @@ function AppInternal({
             </div>
           ) : activeTab === 'all_chats' ? (
             <AllChatsManager
-              conversations={conversations}
+              conversations={spaceConversations}
               onLoadConversation={loadConversationAndActivate}
               onDeleteConversations={handleDeleteConversations}
             />

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { SessionService } from './session.service';
 
 @Controller('api/sessions')
@@ -11,9 +11,9 @@ export class SessionController {
    * 前端侧边栏列表使用
    */
   @Get()
-  async getSessions(@Req() req: any) {
+  async getSessions(@Req() req: any, @Query('spaceId') spaceId?: string) {
     const userId = req.user?.dbId;
-    const sessions = await this.sessionService.getSessions(userId);
+    const sessions = await this.sessionService.getSessions(userId, spaceId);
     return { success: true, data: sessions };
   }
 
@@ -29,6 +29,8 @@ export class SessionController {
       userId,
       body.channel || 'web',
       body.title || 'New Chat',
+      undefined,
+      body.spaceId,
     );
     return { success: true, data: session };
   }

@@ -310,6 +310,26 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 目标：在底层边界稳定后呈现 Code、Work、Life 融合体验。
 
+### 进度（2026-09-15，6a 已交付）
+
+**已完成（6a：Space Switcher + 会话按 Space 投影）：**
+
+- ✅ 后端：`GET /api/sessions?spaceId=` / `POST /api/sessions {spaceId}` 透传；`getSessions` 返回 `spaceId` 字段（前端按 Space 过滤依据）。
+- ✅ `useConversations` 支持 `spaceId` 选项：新建会话归属当前 Space（服务端 + 乐观更新均带 spaceId）。
+- ✅ 新组件 `SpaceSwitcher`：当前 Space 徽标 + Code/Work/Life 切换菜单；`activeSpaceId` 持久化 localStorage。
+- ✅ App Shell：主区域顶部 Space 切换条 + 当前身份提示；侧边栏会话列表与 AllChats 按当前 Space 过滤（历史无 spaceId 会话视作 Work）；切换到不存在 Space 时自动创建 Life（`POST /api/spaces/life`）。
+- ✅ 验证：gateway 单测 121/121、隔离集成套件扩展至 15 项断言全过（含 getSessions 返回 spaceId、createSession 指定 Space 落库）；web typecheck + build 通过。
+
+**待办（6b+）：**
+
+- [ ] 聊天会话创建归属当前 Space（chat.service `runChatStream` 的 space 从请求上下文解析，当前仍硬编码 work）。
+- [ ] Code 投影：仓库、终端、Diff、Review。
+- [ ] Work 投影：项目、文件、流程、团队（知识库已按 Space 隔离，投影可叠加）。
+- [ ] Life 投影：个人记忆、日程、隐私控制。
+- [ ] 跨 Space 操作来源/目的地/授权确认界面（ContextGrant 已建模）。
+- [ ] 统一 Artifact Viewer。
+- [ ] 移动端 Space 切换入口（当前条桌面独占，移动走 Sidebar）。
+
 ### 工作项
 
 - 增加全局 Space Switcher 和清晰的当前身份提示。

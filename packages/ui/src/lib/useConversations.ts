@@ -31,10 +31,12 @@ interface UseConversationsArgs {
   initialMessages?: any[];
   isServerBootstrapped?: boolean;
   sessionActions?: {
-    create: (title: string) => Promise<any>;
+    create: (title: string, spaceId?: string) => Promise<any>;
     rename: (id: string, title: string) => Promise<any>;
     delete: (id: string) => Promise<any>;
   };
+  /** 当前 Space（Phase 6：新会话归属 Space） */
+  spaceId?: string;
 }
 
 export function useConversations({
@@ -48,6 +50,7 @@ export function useConversations({
   initialMessages = [],
   isServerBootstrapped = false,
   sessionActions,
+  spaceId,
 }: UseConversationsArgs) {
   const [isInitialized, setIsInitialized] = useState(isServerBootstrapped);
   const [conversations, setConversations] = useState<ConversationSummary[]>(initialConversations);
@@ -158,8 +161,8 @@ export function useConversations({
     try {
       const title = t('sidebar.new_chat');
       const data = sessionActions
-        ? await sessionActions.create(title)
-        : await api.post<any>('/api/sessions', { channel: 'web', title });
+        ? await sessionActions.create(title, spaceId)
+        : await api.post<any>('/api/sessions', { channel: 'web', title, spaceId });
       if (data.success && data.data?.id) {
         const newId = data.data.id;
         justCreatedSessionIdRef.current = newId; // 标记刚创建的会话
@@ -170,6 +173,7 @@ export function useConversations({
           title: t('sidebar.new_chat'),
           channel: 'web',
           status: 'active',
+          spaceId,
           messageCount: 0,
           updatedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
@@ -180,7 +184,7 @@ export function useConversations({
       console.error('[useConversations] Failed to create session:', err);
     }
     return null;
-  }, [t, sessionActions]);
+  }, [t, sessionActions, spaceId]);
 
   /**
    * 导航到新对话（空白）

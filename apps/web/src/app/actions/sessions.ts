@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { mutateGateway } from './gateway';
 
-export async function createSession(title: string) {
-  const result = await mutateGateway<any>('/api/sessions', 'POST', { channel: 'web', title });
+export async function createSession(title: string, spaceId = 'work') {
+  const result = await mutateGateway<any>('/api/sessions', 'POST', { channel: 'web', title, spaceId });
   revalidatePath('/app', 'layout');
   return result;
 }

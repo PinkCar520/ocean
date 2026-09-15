@@ -55,6 +55,14 @@ function check(name, ok, detail = '') {
     try { await sessionService.getSessions(outsider.id, 'work'); } catch (e) { sessDenied = e.status === 403; }
     check('outsider 列会话 → 403', sessDenied);
 
+    // 2b. Session 返回 spaceId 字段 + 指定 Space 创建
+    const sessList = await sessionService.getSessions(user.id, 'work');
+    const sessWithSpace = sessList.find((x) => x.id === sess.id);
+    check('getSessions 返回 spaceId 字段（work）', sessWithSpace?.spaceId === 'work');
+    await prisma.membership.create({ data: { spaceId: 'iso-life', userId: user.id, role: 'owner' } });
+    const lifeSess = await sessionService.createSession(user.id, 'web', 'iso-life-session', undefined, 'iso-life');
+    check('createSession 指定 Space 落库', lifeSess.spaceId === 'iso-life');
+
     // 3. MCP 跨 Space：业务查询读不到 life 记录、删不掉
     lifeMcp = await prisma.mCPServer.create({ data: { name: 'iso-life-mcp', transport: 'stdio', status: 'unknown', spaceId: 'iso-life' } });
     const viaBiz = await mcpService.getServerById(lifeMcp.id);
@@ -99,8 +107,10 @@ function check(name, ok, detail = '') {
     // cleanup（幂等）
     await prisma.agentRun.deleteMany({ where: { input: 'iso-run' } });
     await prisma.session.deleteMany({ where: { id: sess?.id } });
+    await prisma.session.deleteMany({ where: { title: 'iso-life-session' } });
     await prisma.document.deleteMany({ where: { id: lifeDoc?.id } });
     await prisma.mCPServer.deleteMany({ where: { id: lifeMcp?.id } });
+    await prisma.membership.deleteMany({ where: { spaceId: 'iso-life' } });
     await prisma.space.deleteMany({ where: { id: 'iso-life' } });
     await prisma.membership.deleteMany({ where: { spaceId: { startsWith: 'life-' } } });
     await prisma.space.deleteMany({ where: { id: { startsWith: 'life-' } } });
