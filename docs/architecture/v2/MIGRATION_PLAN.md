@@ -419,12 +419,23 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ `PrivacyService`：`GET /api/privacy/export`——本人数据 JSON 导出（profile/memberships/sessions/life memories/runs/audits/grants）；`POST /api/privacy/delete-account`（body `confirm='DELETE'` 防误触）——显式清理 Life Space（memory 挂在 space 上，非 user FK）+ 删 membership + 删 user（会话/Run/审计/授权级联清理），共享 Space 保留。
 - ✅ 验证：gateway 单测 168/168（privacy 3 例：全 Scope 导出、确认口令拒绝、级联删除顺序）、build；真实 DB 冒烟 `scripts/smoke-7c-privacy.cjs`（10 断言：导出 4 Scope、确认拒绝、user/sessions/memories/audits 级联删除、清理）。
 
-**待办（7c+）：**
+**已完成（7c 收官：备份恢复演练 + 故障手册）：**
 
-- [ ] 引入 Secret/KMS 适配器和凭证轮换。
-- [ ] 数据保留与归档策略（导出/删除已落地，TTL/归档未做）。
+- ✅ 备份脚本 `scripts/backup.sh`：pg_dump 自定义格式 + 保留 N 份；自动优先容器内 pg_dump（规避本地/容器版本不匹配）。
+- ✅ 恢复演练（2026-09-15 真实执行）：备份 → 临时库 `ocean_restore_test` pg_restore → 44 张表 / 4 用户 / 12 迁移记录与主库一致 → 清理。
+- ✅ 故障手册 `docs/architecture/v2/runbook.md`：故障分类响应表、生产配置校验、PG/对象存储/队列恢复流程、Gateway/Worker 重启与幂等恢复、备份恢复步骤（含演练记录）、监控与告警建议。
+
+**Phase 7 验收对照**：
+- 安全配置缺失时生产服务无法启动 → ✅ 7a `assertProductionConfig`（真实进程 exit 1 验证）。
+- 可回答某次工具写操作由谁/哪个 Space/因何授权/用了什么输入 → ✅ 7b `AuditLog`。
+- PostgreSQL/对象存储/队列故障均有经过验证的恢复流程 → ✅ 7c 备份恢复演练（PG 已验证）+ runbook（对象存储/队列恢复流程文档化；对象存储文件级备份与队列故障演练列为后续）。
+
+**待办（Phase 7 收尾可选）：**
+
+- [ ] Secret/KMS 适配器和凭证轮换。
+- [ ] 数据保留与归档策略（TTL/归档）。
 - [ ] 模型供应商和 MCP 连接数据等级策略。
-- [ ] PostgreSQL、对象存储、队列的备份恢复演练和故障手册。
+- [ ] 对象存储文件级备份 + 队列故障演练（手册已文档化，演练待补）。
 
 ### 验收标准
 
