@@ -186,6 +186,7 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - [x] **断线订阅恢复**：SSE 订阅 RunEvent，支持 `Last-Event-ID` / `after` 序列续读，终态 `done` 关闭。
 - [x] **幂等工具调用与失败分类**：同幂等键不重复执行；终态错误不重试，可重试错误退避回队列。
 - [x] **审批与交互续跑**：run_approvals 审批门（waiting_for_approval），approved 后从检查点重投同一 toolCall 续跑，rejected 终态不投递。
+- [x] **最小工具循环（Agent Loop）**：模型 tool_use → 提交 outbox `tool.requested`（幂等）→ 工具执行后重投 `run.requested` 续跑，多轮往返直到模型输出无工具；`WORKER_MAX_TURNS` 上限；SIM 冒烟 12/12 + 真实 qwen3.8-max 完整循环（含瞬时失败退避重试自愈）PASS。
 - [x] **优先级三档调度**：critical/interactive/background 按 priorityRank + createdAt 出队。
 - [x] **egress allowlist**：默认拒绝的出站白名单，未白名单域请求被拒绝并可审计。
 - [x] **artifact 存储分离**：大产物写 ArtifactStore（本地对象存储），数据库只存引用。
@@ -193,7 +194,7 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 **剩余尾项（客户端切换与治理）**：
 
-- [~] Web 聊天正式全面切换到 Run API：后端 Run 驱动已就绪（`CHAT_USE_RUN=true` 时 POST /api/chat 创建 AgentRun 并订阅 run events 转译 AI SDK 协议，前端零改动），端到端 SIM 冒烟 PASS；生产默认切换待真实模型配置与 worker 部署齐备后开启 flag。
+- [~] Web 聊天正式全面切换到 Run API：后端 Run 驱动已就绪（`CHAT_USE_RUN=true` 时 POST /api/chat 创建 AgentRun 并订阅 run events 转译 AI SDK 协议，前端零改动）；工具循环已落地（SIM 12/12 + 真实模型验证），但批量冒烟存在约 10–15% 偶发「工具完成未续跑」样本（Run 仍 succeeded，见 worker-design-reference §7.2 待查项），**生产默认切换前需先锁定该路径**；端到端 SIM 冒烟 PASS。
 - [ ] Desktop、CLI、IM 统一接入 Run API（复用 Web 切换契约：create → /events SSE → approve/decide → retry/resume）。
 - [x] 提供明确的 resume/retry 产品 API（`POST /api/runs/:id/retry`、`POST /api/runs/:id/resume`；requeueRun 事务：状态校验 + queued + run.status_changed 事件 + 幂等投递 run.requested）。
 - [~] 清除旧 `Session.activeJobId`、`lastCheckpoint`：字段已删除并落库（迁移 20260915000004，全仓零引用）；旧 ApprovalRequest 与新 RunApproval 双轨合并待 Web 全面切换、旧聊天链路退役后删除 ApprovalRequest 模型/表。

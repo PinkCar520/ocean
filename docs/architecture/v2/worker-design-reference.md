@@ -288,8 +288,11 @@ SecureSandbox 从占位实现升级为真实边界：
 | 清除旧 Session 字段 | 删 `activeJobId`/`lastCheckpoint`（全仓零引用）+ 迁移 20260915000004 落库 | psql 验证 ALTER + migrate resolve |
 | 审批双轨合并 | 未删旧 ApprovalRequest：旧聊天链路仍在使用；**删除条件 = Web 全面切换后旧链路退役**（已在 MIGRATION_PLAN 记录） | — |
 | 重启恢复/重复投递/审批超时验证 | Run 引擎端到端冒烟 PASS（SIM worker）；崩溃恢复沿用 Phase 4 冒烟；审批超时/重复投递专项列入生产治理 | — |
+| **最小工具循环（Agent Loop）** | `ModelGateway.generate({messages, tools, onDelta})→{text, toolCalls}`（替换旧 stream 接口）；`RunRunner.submitToolCall`：模型 tool_use 取首个提交 outbox `tool.requested`（幂等：同 toolCallId 步骤或 pending 消息不重复）、model_call 步骤记录 `{text, toolCalls}`、Run→queued；`ToolExecutor.continueLoopIfModelDriven`：工具完成事务内判定 Run∈{queued,running} 且存在 model_call → 重投 `run.requested` 续跑（缓存命中路径同样补偿），纯工具 Run 保持 succeeded 语义；`buildContext` 从历史 step 重建 messages（用户原始输入置首、`WORKER_MAX_TURNS=20` 上限） | SIM 冒烟 12/12 完整循环（model_call 带工具→tool_call→回投→最终 model_call，事件/outbox/探针全对）；真实 qwen3.8-max 完整循环 PASS（续跑遇瞬时失败自动退避重试后成功）；全量 107/107 |
 
 **关键事实**：Run 链路的模型调用由独立 Worker 进程消费 outbox（ADR-002/003），Web SSE 长连接轮询 DB 事件投影实现断点续读；`run-runner` 重投 run.requested 时新建 model_call 步骤完整重跑（失败步骤保留审计），这使 retry 语义天然成立。审批续跑仍由 `decide` 端点从 RunStep.checkpoint 重投 toolCall，与 retry 互不干扰。
+
+**已知待查项（生产治理前置）**：工具循环批量冒烟中出现约 10–15% 的偶发样本——工具完成事务执行、但 `continueLoopIfModelDriven` 未触发续跑（Run 仍 succeeded、无第二条 run.requested）；其余样本（SIM 12/12、真实模型含重试）均完整循环。当前判定该路径疑似消息租约/时序竞态（完成事务与 outbox 投递之间的窗口），代码逻辑本身已被探针验证正确（loop 判定读到 running→true）；`CHAT_USE_RUN` 默认开启前需复现并锁定根因（候选：重复投递后缓存命中分支的状态快照、claim 窗口内的消息状态判断）。
 
 ## 8. 参考资料
 
