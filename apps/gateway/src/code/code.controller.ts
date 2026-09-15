@@ -49,6 +49,49 @@ export class CodeController {
     return { success: true, data: await this.codeService.listDiffs(userId, id) };
   }
 
+  @Get('terminals')
+  async listTerminals(@Req() req: any) {
+    const userId = this.userId(req);
+    if (!userId) return { success: false, error: 'Unauthorized' };
+    return { success: true, data: await this.codeService.listTerminals(userId) };
+  }
+
+  @Post('terminals')
+  async createTerminal(@Body() body: any, @Req() req: any) {
+    const userId = this.userId(req);
+    if (!userId) return { success: false, error: 'Unauthorized' };
+    return {
+      success: true,
+      data: await this.codeService.createTerminal(userId, {
+        title: body.title,
+        cwd: body.cwd,
+        repositoryId: body.repositoryId,
+      }),
+    };
+  }
+
+  @Get('terminals/:id')
+  async getTerminal(@Param('id') id: string, @Req() req: any) {
+    const userId = this.userId(req);
+    if (!userId) return { success: false, error: 'Unauthorized' };
+    return { success: true, data: await this.codeService.getTerminal(userId, id) };
+  }
+
+  @Post('terminals/:id/commands')
+  async recordCommand(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    const userId = this.userId(req);
+    if (!userId) return { success: false, error: 'Unauthorized' };
+    return {
+      success: true,
+      data: await this.codeService.recordCommand(userId, id, {
+        input: body.input,
+        output: body.output,
+        exitCode: body.exitCode,
+        durationMs: body.durationMs,
+      }),
+    };
+  }
+
   @Post('diffs/:id/reviews')
   async decideReview(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     const userId = this.userId(req);

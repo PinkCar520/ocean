@@ -23,6 +23,14 @@ describe('CodeService (Phase 6 6c Code 投影)', () => {
         create: jest.fn().mockResolvedValue({ id: 'rv1', status: 'approved' }),
         update: jest.fn().mockResolvedValue({ id: 'rv1', status: 'changes_requested' }),
       },
+      terminalSession: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: 't1', title: 'shell', spaceId: 'code' }),
+        findFirst: jest.fn().mockResolvedValue({ id: 't1', status: 'open' }),
+      },
+      terminalCommand: {
+        create: jest.fn().mockResolvedValue({ id: 'c1', input: 'ls', spaceId: 'code' }),
+      },
       ...(overrides.prisma || {}),
     };
     const space = overrides.guard ?? guardOk;
@@ -69,5 +77,36 @@ describe('CodeService (Phase 6 6c Code 投影)', () => {
     expect(ov.repoCount).toBe(2);
     expect(ov.openDiffs).toBe(3);
     expect(ov.myPending).toBe(3);
+  });
+
+  // ── 终端投影 ──
+  it('createTerminal：归属 Code Space', async () => {
+    const svc = create();
+    const terminal = await svc.createTerminal('u1', { title: 'shell' });
+    expect((svc as any).prisma.terminalSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ spaceId: 'code' }) }),
+    );
+  });
+
+  it('recordCommand：命令落 Code Space + 关闭会话自动重开', async () => {
+    const updateMock = jest.fn().mockResolvedValue({ id: 't1', status: 'open' });
+    const svc = create({
+      prisma: {
+        terminalCommand: { create: jest.fn().mockResolvedValue({ id: 'c1', input: 'ls' }) },
+        terminalSession: {
+          findFirst: jest.fn().mockResolvedValue({ id: 't1', status: 'closed' }),
+          update: updateMock,
+        },
+      },
+    });
+    await svc.recordCommand('u1', 't1', { input: 'ls', output: 'src', exitCode: 0 });
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'open' } }));
+  });
+
+  it('终端不存在时 recordCommand 抛 NotFound', async () => {
+    const svc = create({
+      prisma: { terminalSession: { findFirst: jest.fn().mockResolvedValue(null) } },
+    });
+    await expect(svc.recordCommand('u1', 'nope', { input: 'ls' })).rejects.toBeInstanceOf(NotFoundException);
   });
 });

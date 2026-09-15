@@ -122,4 +122,80 @@ export class CodeService {
     ]);
     return { repoCount, openDiffs, myPending };
   }
+
+  // ── 终端投影（记录型）──────────────────────────────────────────
+
+  /** 终端会话列表（含命令数 + 最近命令）。 */
+  async listTerminals(userId: string) {
+    await this.guard(userId);
+    return this.prisma.terminalSession.findMany({
+      where: { spaceId: CodeService.CODE_SPACE_ID },
+      include: {
+        repository: { select: { id: true, name: true } },
+        _count: { select: { commands: true } },
+        commands: { orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, input: true, exitCode: true, createdAt: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  /** 创建终端会话。 */
+  async createTerminal(userId: string, data: { title?: string; cwd?: string; repositoryId?: string }) {
+    await this.guard(userId);
+    // repository 需属于 Code Space
+    if (data.repositoryId) {
+      const repo = await this.prisma.codeRepository.findFirst({
+        where: { id: data.repositoryId, spaceId: CodeService.CODE_SPACE_ID },
+        select: { id: true },
+      });
+      if (!repo) throw new NotFoundException(`Repository ${data.repositoryId} not found`);
+    }
+    return this.prisma.terminalSession.create({
+      data: {
+        title: data.title ?? '终端',
+        cwd: data.cwd,
+        repositoryId: data.repositoryId ?? null,
+        spaceId: CodeService.CODE_SPACE_ID,
+      },
+    });
+  }
+
+  /** 记录一条命令（真实执行留给 CLI/Desktop；此处持久化历史与产物）。 */
+  async recordCommand(userId: string, sessionId: string, data: { input: string; output?: string; exitCode?: number; durationMs?: number }) {
+    await this.guard(userId);
+    const session = await this.prisma.terminalSession.findFirst({
+      where: { id: sessionId, spaceId: CodeService.CODE_SPACE_ID },
+      select: { id: true, status: true },
+    });
+    if (!session) throw new NotFoundException(`Terminal ${sessionId} not found`);
+    const command = await this.prisma.terminalCommand.create({
+      data: {
+        sessionId,
+        input: data.input,
+        output: data.output,
+        exitCode: data.exitCode,
+        durationMs: data.durationMs,
+        spaceId: CodeService.CODE_SPACE_ID,
+      },
+    });
+    // 关闭的会话被再次执行时自动重开
+    if (session.status !== 'open') {
+      await this.prisma.terminalSession.update({ where: { id: sessionId }, data: { status: 'open' } });
+    }
+    return command;
+  }
+
+  /** 终端详情（含完整命令历史）。 */
+  async getTerminal(userId: string, sessionId: string) {
+    await this.guard(userId);
+    const session = await this.prisma.terminalSession.findFirst({
+      where: { id: sessionId, spaceId: CodeService.CODE_SPACE_ID },
+      include: {
+        repository: { select: { id: true, name: true } },
+        commands: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+    if (!session) throw new NotFoundException(`Terminal ${sessionId} not found`);
+    return session;
+  }
 }

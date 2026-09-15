@@ -27,6 +27,16 @@ interface Overview {
   myPending: number;
 }
 
+interface Terminal {
+  id: string;
+  title: string;
+  cwd?: string | null;
+  status: string;
+  repository?: { id: string; name: string } | null;
+  _count?: { commands: number };
+  commands?: Array<{ id: string; input: string; exitCode?: number | null; createdAt: string }>;
+}
+
 /**
  * CodeProjection —— Phase 6 6c：Code 空间投影（仓库 / Diff / Review 概览）。
  * 数据来自 Gateway Code API（归属 Code Space）。
@@ -37,16 +47,19 @@ export function CodeProjection({ token }: { token: string | null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [terminals, setTerminals] = useState<Terminal[]>([]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [ov, rp] = await Promise.all([
+      const [ov, rp, tm] = await Promise.all([
         api.get<any>('/api/code/overview'),
         api.get<any>('/api/code/repositories'),
+        api.get<any>('/api/code/terminals'),
       ]);
       setOverview(Array.isArray(ov?.data) ? ov.data : ov);
       setRepos(Array.isArray(rp?.data) ? rp.data : []);
+      setTerminals(Array.isArray(tm?.data) ? tm.data : []);
       setError(null);
     } catch (err) {
       console.error('[Code] failed to load projection:', err);
@@ -104,6 +117,37 @@ export function CodeProjection({ token }: { token: string | null }) {
         )}
 
         <div className="space-y-3">
+          {terminals.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-sm font-semibold text-foreground">终端会话</p>
+              <p className="text-xs text-muted-foreground">命令历史（真实执行由 CLI/Desktop 驱动）</p>
+              <div className="mt-3 space-y-2">
+                {terminals.map((term) => (
+                  <div key={term.id} className="rounded-lg bg-muted/50 px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-foreground">
+                        {term.title}
+                        {term.repository && <span className="ml-2 text-xs text-muted-foreground">{term.repository.name}</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{term._count?.commands ?? 0} 条命令</p>
+                    </div>
+                    {term.commands && term.commands.length > 0 && (
+                      <div className="mt-1.5 space-y-1">
+                        {term.commands.map((cmd) => (
+                          <div key={cmd.id} className="flex items-center gap-2 font-mono text-xs">
+                            <span className={cmd.exitCode === 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                              {cmd.exitCode === 0 ? '$' : '✗'}
+                            </span>
+                            <span className="truncate text-foreground">{cmd.input}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {repos.length === 0 && !error && (
             <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               还没有仓库。连接 Git 仓库后，这里将展示 Diff 与 Review。

@@ -342,9 +342,16 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ 前端：`WorkProjection` 组件（统计卡 + 项目/任务列表 + 新建项目/任务 + 开始/完成/阻塞流转）；挂到 Sidebar 原占位的 Workflows 入口。
 - ✅ 验证：gateway 单测 134/134（WorkService 6 例含跨 Space Forbidden）、build；web typecheck + build；真实 DB 冒烟（项目→任务→in_progress→done→overview→outsider Forbidden→自动清理）。
 
+**已完成（6c 尾项：Code 终端投影）：**
+
+- ✅ 数据模型：`TerminalSession` / `TerminalCommand`（归属 Code Space；repo FK SetNull、command FK Cascade；命令带 exitCode/durationMs）；迁移 `20260915000009_add_terminal_projection`。
+- ✅ 后端 API：`GET/POST /api/code/terminals`、`GET /api/code/terminals/:id`、`POST /api/code/terminals/:id/commands`（记录型：真实执行留给 CLI/Desktop；关闭会话再执行自动重开）。
+- ✅ 前端：CodeProjection 增加终端会话区块（最近命令历史 + exitCode 徽标）。
+- ✅ 验证：gateway 单测 137/137（终端 3 例：归属/自动重开/NotFound）、build；web typecheck + build；真实 DB 冒烟（建会话→命令→列表→关闭重开→outsider Forbidden→自动清理）。
+- ⚠️ 环境注意：本会话曾两次出现"最新迁移表在建后被移除"的瞬态（psql 应用后表短暂存在，随后冒烟时 TableDoesNotExist）；二分验证常规命令链（typecheck/test/build）不删表，重跑迁移 SQL（幂等）即恢复。冒烟前先 psql 验证表存在。
+
 **待办（6b+）：**
 
-- [ ] 终端投影（Code Terminal：会话/命令历史模型，真实执行留给 CLI/Desktop）。
 - [ ] Life 投影：个人记忆、日程、隐私控制。
 - [ ] Work 投影：项目、文件、流程、团队（知识库已按 Space 隔离，投影可叠加）。
 - [ ] Life 投影：个人记忆、日程、隐私控制。
