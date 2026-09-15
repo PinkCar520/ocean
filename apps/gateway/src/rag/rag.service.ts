@@ -200,7 +200,7 @@ export class RAGService {
       this.prisma.document.count(),
       this.prisma.documentChunk.count(),
       this.prisma.document.count({ where: { projectId: null } }),
-      this.prisma.knowledgeProject.findMany({ select: { category: true } }),
+      this.prisma.knowledgeProject.findMany({ where: { spaceId: 'work' }, select: { category: true } }),
     ]);
     const categories = Array.from(new Set(projects.map(p => p.category).filter(Boolean)));
     const estimatedSizeMb = (chunkCount * 2) / 1024; 

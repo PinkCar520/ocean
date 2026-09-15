@@ -2,13 +2,14 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { SkillService } from './src/skill-registry/skill.service';
+import { SpaceService } from './src/space/space.service';
 import { ForbiddenException } from '@nestjs/common';
 
 const pool = new Pool({ connectionString: 'postgresql://postgres:postgres@localhost:5432/ocean?schema=public' });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-const service = new SkillService(prisma);
+const service = new SkillService(prisma, new SpaceService(prisma));
 
 async function runTests() {
   console.log('--- Starting SkillService Tests ---');

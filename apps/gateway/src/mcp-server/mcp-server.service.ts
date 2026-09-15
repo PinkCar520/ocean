@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { SpaceService } from '../space/space.service';
 import { ConfigService } from '@nestjs/config';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
@@ -33,10 +34,13 @@ export class MCPServerService {
   constructor(
     @Inject('PRISMA_CLIENT') private prisma: PrismaClient,
     private configService: ConfigService,
+    private readonly spaceService: SpaceService,
   ) {}
 
+  // Phase 5：MCP Server 归属默认 Work Space；按 id 读写前校验归属空间。
+
   async getServers(params?: { category?: string; enabled?: boolean }) {
-    const where: any = {};
+    const where: any = { spaceId: SpaceService.DEFAULT_WORK_SPACE_ID };
     if (params?.category) {
       where.category = params.category;
     }
@@ -51,7 +55,9 @@ export class MCPServerService {
   }
 
   async getServerById(id: string) {
-    return this.prisma.mCPServer.findUnique({ where: { id } });
+    return this.prisma.mCPServer.findFirst({
+      where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+    });
   }
 
   async createServer(data: CreateMCPServerDto) {
@@ -61,11 +67,17 @@ export class MCPServerService {
         transport: data.transport || 'stdio',
         enabled: data.enabled ?? true,
         status: 'unknown',
+        spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
       },
     });
   }
 
   async updateServer(id: string, data: UpdateMCPServerDto) {
+    const existing = await this.prisma.mCPServer.findFirst({
+      where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException(`MCP Server ${id} not found`);
     return this.prisma.mCPServer.update({
       where: { id },
       data,
@@ -73,7 +85,12 @@ export class MCPServerService {
   }
 
   async deleteServer(id: string) {
-    return this.prisma.mCPServer.delete({ where: { id } });
+    // deleteMany 带 spaceId：跨 Space 删除静默不生效（防越权）
+    const result = await this.prisma.mCPServer.deleteMany({
+      where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+    });
+    if (result.count === 0) throw new NotFoundException(`MCP Server ${id} not found`);
+    return { success: true };
   }
 
   /**
@@ -81,7 +98,9 @@ export class MCPServerService {
    * For stdio transport, we spawn the process briefly and check if it starts.
    */
   async checkHealth(id: string): Promise<{ status: string; latency?: number }> {
-    const server = await this.prisma.mCPServer.findUnique({ where: { id } });
+    const server = await this.prisma.mCPServer.findFirst({
+      where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+    });
     if (!server) {
       throw new Error('MCP Server not found');
     }
@@ -187,6 +206,7 @@ export class MCPServerService {
    * Check health of all servers and update their status
    */
   async checkAllServers() {
+    // 运维健康检查：跨 Space 全扫（不涉及用户数据读取）
     const servers = await this.prisma.mCPServer.findMany();
     const results = await Promise.allSettled(
       servers.map((server) => this.checkHealth(server.id)),
@@ -233,7 +253,7 @@ export class MCPServerService {
     let synced = 0;
     for (const srv of servers) {
       const existing = await this.prisma.mCPServer.findFirst({
-        where: { name: srv.name },
+        where: { name: srv.name, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
       });
 
       if (existing) {

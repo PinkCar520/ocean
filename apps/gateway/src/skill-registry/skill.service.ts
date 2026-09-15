@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { SpaceService } from '../space/space.service';
 
 export interface CreateSkillDto {
   slug: string;
@@ -42,7 +43,10 @@ export interface InstallSkillDto {
 
 @Injectable()
 export class SkillService {
-  constructor(@Inject('PRISMA_CLIENT') private prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private prisma: PrismaClient,
+    private readonly spaceService: SpaceService,
+  ) {}
 
   async getSkills(params?: { category?: string; source?: string; q?: string; isFeatured?: boolean }) {
     const where: any = { isPublic: true };
@@ -183,10 +187,12 @@ export class SkillService {
   }
 
   // ─── Skill Installation ─────────────────────────────────────────────
+  // Phase 5：安装归属默认 Work Space（客户端当前无 Space 概念）。
 
   async installSkill(skillId: string, userId?: string, config?: any) {
+    const spaceId = SpaceService.DEFAULT_WORK_SPACE_ID;
     const existing = await this.prisma.skillInstallation.findFirst({
-      where: { skillId, userId: userId || null },
+      where: { skillId, userId: userId || null, spaceId },
     });
     if (existing) {
       // Re-enable if disabled
@@ -201,19 +207,20 @@ export class SkillService {
         userId: userId || null,
         config: config || {},
         status: 'active',
+        spaceId,
       },
     });
   }
 
   async uninstallSkill(skillId: string, userId?: string) {
     return this.prisma.skillInstallation.deleteMany({
-      where: { skillId, userId: userId || null },
+      where: { skillId, userId: userId || null, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
     });
   }
 
   async getInstallationStatus(skillId: string, userId?: string) {
     const installation = await this.prisma.skillInstallation.findFirst({
-      where: { skillId, userId: userId || null },
+      where: { skillId, userId: userId || null, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
     });
     return {
       installed: !!installation,
@@ -224,7 +231,7 @@ export class SkillService {
 
   async getUserInstallations(userId: string) {
     return this.prisma.skillInstallation.findMany({
-      where: { userId },
+      where: { userId, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
       include: { skill: true },
     });
   }

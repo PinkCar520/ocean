@@ -35,7 +35,7 @@ async function main() {
   };
 
   for (const srv of servers) {
-    const existing = await prisma.mCPServer.findFirst({ where: { name: srv.name } });
+    const existing = await prisma.mCPServer.findFirst({ where: { name: srv.name, spaceId: 'work' } });
     const category = categoryMap[srv.name.split(' ')[0]] || null;
 
     if (existing) {
@@ -63,6 +63,7 @@ async function main() {
           status: 'unknown',
           transport: 'stdio',
           category,
+          spaceId: 'work',
         },
       });
       console.log(`  ✓ Created ${srv.name}`);
