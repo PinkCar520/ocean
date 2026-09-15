@@ -115,7 +115,10 @@ describe('RunService', () => {
     enqueueRunRequested: jest.fn(async () => undefined),
     enqueueToolRequested: jest.fn(async () => undefined),
   };
-  const service = new RunService(prisma as never, outbox as never);
+  const spaceService = {
+    requireAccessibleSpace: jest.fn().mockResolvedValue({ id: 'work', type: 'work' }),
+  };
+  const service = new RunService(prisma as never, outbox as never, spaceService as never);
 
   beforeEach(() => {
     runs.clear();
@@ -421,7 +424,10 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
     $transaction: jest.fn(async (operation: (t: any) => unknown) => operation(prisma)),
   };
   const outbox = { enqueueRunRequested: jest.fn(), enqueueToolRequested: jest.fn() };
-  const service = new RunService(prisma as never, outbox as never);
+  const spaceService = {
+    requireAccessibleSpace: jest.fn().mockResolvedValue({ id: 'work', type: 'work' }),
+  };
+  const service = new RunService(prisma as never, outbox as never, spaceService as never);
 
   function seedRun(status: string, priority = 'interactive') {
     const id = `run_${nextRun++}`;

@@ -251,6 +251,27 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 目标：为统一品牌下的 Code、Work、Life 提供真正的数据和治理隔离。
 
+### 进度（2026-09-15）
+
+**已完成（迁移 `20260915000005_add_space_boundary`，代码未含于提交 `ef44130` 之后的下一次提交中）：**
+
+1. ✅ 新增 `Space`、`Membership`、`Identity`、`PolicySet`、`ContextGrant` 五个域模型。
+2. ✅ 种子默认 Work Space（id=`work`，人工可读）；现有用户自动获得 owner Membership。
+3. ✅ `sessions` / `knowledge_projects` / `skill_installations` / `mcp_servers` 增加可空 `spaceId` + FK（onDelete SetNull）+ 索引；`agent_runs` 增加 `space` FK（onDelete RESTRICT）。
+4. ✅ 现有业务数据回填到默认 Work Space（sessions=1、knowledge_projects=1、skill_installations=3、mcp_servers=0）并验证。
+5. ✅ 新增 `SpaceService`（`requireSpace`→404 / `assertAccess`→403 / `requireAccessibleSpace`）+ `@Global` SpaceModule。
+6. ✅ 应用层强制：SessionService（列表/创建按 spaceId 过滤 + 访问校验）、KnowledgeProjectController（CRUD 全部限定 Work Space，删除用 `deleteMany` 防跨 Space 越权）、RunService.create（创建前校验 Space 存在且用户可访问）、chat.service 默认 space `'default'`→`'work'`。
+7. ✅ 验证：全量单测 117/117 PASS（含 SpaceService 7 项新测试）；真实 DB 冒烟——成员访问通过、无 Membership 用户 403、未知 Space 404、Session 创建落库 `spaceId='work'`、Run 越权创建被拒。
+8. ✅ `spaceId` 当前仍为可空（迁移计划要求回填验证后再转非空）。
+
+**待办（下一轮）：**
+
+- [ ] SkillInstallation / MCPServer / 记忆等其余查库层统一强制 Space 过滤。
+- [ ] `AgentRun.spaceType` 与 `Space.type` 冗余一致性处理（对齐策略待定：以 Space 表为准或保留快照）。
+- [ ] `spaceId` 由可空转非空 + 组合索引（全部层强制后执行）。
+- [ ] 跨 Space 越权测试扩展：ID 猜测、附件 URL、事件订阅、工具凭证。
+- [ ] Life Space 创建流程与默认本人 Membership。
+
 ### 数据迁移顺序
 
 1. 新增 `Space`、`Membership`、`Identity`、`PolicySet`、`ContextGrant`。

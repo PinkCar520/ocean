@@ -64,7 +64,7 @@ export class ChatService {
   ): Promise<void> {
     const input = buildRunPrompt(messages, ctx, modelId);
     const snapshot = await this.runService.create(ctx.userId, {
-      space: { id: 'default', type: 'work' },
+      space: { id: 'work', type: 'work' },
       input,
       priority: 'interactive',
       metadata: { sessionId, modelId } as any,

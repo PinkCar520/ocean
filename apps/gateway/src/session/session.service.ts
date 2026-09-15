@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { SpaceService } from '../space/space.service';
 
 export interface CreateMessageDto {
   role: 'user' | 'assistant' | 'system';
@@ -12,13 +13,19 @@ export interface CreateMessageDto {
 
 @Injectable()
 export class SessionService {
-  constructor(@Inject('PRISMA_CLIENT') private prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private prisma: PrismaClient,
+    private readonly spaceService: SpaceService,
+  ) {}
 
   // ── Session CRUD ──────────────────────────────────────────────
+  // Phase 5：会话归属 Space。所有查询强制 spaceId 范围；
+  // 客户端当前无 Space 概念，默认解析到 Work Space。
 
-  async getSessions(userId: string) {
+  async getSessions(userId: string, spaceId = SpaceService.DEFAULT_WORK_SPACE_ID) {
+    await this.spaceService.assertAccess(userId, spaceId);
     const sessions = await this.prisma.session.findMany({
-      where: { userId, status: 'active' },
+      where: { userId, status: 'active', spaceId },
       select: {
         id: true,
         title: true,
@@ -44,15 +51,22 @@ export class SessionService {
     }));
   }
 
-  async createSession(userId: string, channel = 'web', title = 'New Chat', activeSkillId?: string) {
+  async createSession(
+    userId: string,
+    channel = 'web',
+    title = 'New Chat',
+    activeSkillId?: string,
+    spaceId = SpaceService.DEFAULT_WORK_SPACE_ID,
+  ) {
+    await this.spaceService.requireAccessibleSpace(userId, spaceId);
     return this.prisma.session.create({
-      data: { userId, channel, title, status: 'active', activeSkillId },
+      data: { userId, channel, title, status: 'active', activeSkillId, spaceId },
     });
   }
 
-  async getSessionById(id: string, userId: string) {
+  async getSessionById(id: string, userId: string, spaceId?: string) {
     const session = await this.prisma.session.findFirst({
-      where: { id, userId },
+      where: { id, userId, ...(spaceId ? { spaceId } : {}) },
     });
     if (!session) throw new NotFoundException(`Session ${id} not found`);
     return session;

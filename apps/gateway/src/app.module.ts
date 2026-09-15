@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SpaceModule } from './space/space.module';
 import { UserModule } from './user/user.module';
 import { UploadModule } from './upload/upload.module';
 import { SessionModule } from './session/session.module';
@@ -27,6 +28,7 @@ import { RunModule } from './run/run.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule, // ← 全局数据库模块
+    SpaceModule,  // ← 全局 Space 数据边界（Phase 5）
     TracingModule, // ← 全局链路追踪模块
     RAGModule,     // ← 全局知识库/向量检索模块
     ZentaoModule,  // ← 禅道集成模块

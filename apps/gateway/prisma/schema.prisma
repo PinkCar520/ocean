@@ -30,6 +30,9 @@ model User {
   skills             Skill[]
   skillVersions      SkillVersion[]
   agentRuns          AgentRun[]
+  memberships        Membership[]
+  identities         Identity[]
+  contextGrants      ContextGrant[] // 作为授权人发起的跨 Space 授权
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -37,24 +40,114 @@ model User {
   @@map("users")
 }
 
+// ─────────────────────────────────────────────
+// Phase 5：Space 数据边界（ADR-001）
+// Code / Work / Life 建模为一级 Space；会话、记忆、连接、
+// Skill 安装、知识库与 Run 必须归属 Space；跨 Space 访问
+// 默认拒绝，只能通过显式 ContextGrant 开放。
+// ─────────────────────────────────────────────
+model Space {
+  id          String  @id // 人工可读 ID（'work' / 'code' / 'life'），避免 UUID 谜语
+  slug        String  @unique // 唯一别名
+  name        String
+  type        String // 'code' | 'work' | 'life'
+  icon        String?
+  description String? @db.Text
+
+  memberships        Membership[]
+  policySets         PolicySet[]
+  sessions           Session[]
+  knowledgeProjects  KnowledgeProject[]
+  skillInstallations SkillInstallation[]
+  mcpServers         MCPServer[]
+  agentRuns          AgentRun[]
+  grantsFrom         ContextGrant[]      @relation("GrantFrom")
+  grantsTo           ContextGrant[]      @relation("GrantTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("spaces")
+}
+
+model Membership {
+  id        String   @id @default(uuid())
+  spaceId   String
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("member") // 'owner' | 'admin' | 'member'
+  createdAt DateTime @default(now())
+
+  @@unique([spaceId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model Identity {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       String   @default("personal") // 'personal' | 'organization' | 'device' | 'api'
+  name       String?
+  attributes Json? // 身份附加属性（组织域、设备指纹等）
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@map("identities")
+}
+
+model PolicySet {
+  id        String   @id @default(uuid())
+  spaceId   String
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  key       String // 'tools' | 'memory' | 'connections' | 'model' | 'dataRetention'
+  rules     Json? // 策略规则 JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([spaceId, key])
+  @@map("policy_sets")
+}
+
+model ContextGrant {
+  id              String    @id @default(uuid())
+  fromSpaceId     String // 来源 Space（数据所在方）
+  fromSpace       Space     @relation("GrantFrom", fields: [fromSpaceId], references: [id], onDelete: Cascade)
+  toSpaceId       String // 目标 Space（使用方）
+  toSpace         Space     @relation("GrantTo", fields: [toSpaceId], references: [id], onDelete: Cascade)
+  scope           Json? // 授权范围，如 { sessions: [...], tools: [...], projects: [...] }
+  purpose         String? // 授权用途（用户可见）
+  grantedByUserId String?
+  grantedBy       User?     @relation(fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  expiresAt       DateTime? // 限时授权
+  revokedAt       DateTime? // 撤销时间（非空=已撤销）
+  createdAt       DateTime  @default(now())
+
+  @@index([fromSpaceId])
+  @@index([toSpaceId])
+  @@map("context_grants")
+}
+
 // Ocean v2 持久化执行实例。Space 外键将在 Phase 5 引入 Space 模型后补齐。
 model AgentRun {
-  id             String     @id @default(uuid())
+  id             String        @id @default(uuid())
   userId         String
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   spaceId        String
+  space          Space         @relation(fields: [spaceId], references: [id])
   spaceType      String
-  input          String     @db.Text
-  status         String     @default("queued")
-  priority       String     @default("interactive") // critical | interactive | background（Phase 4 第 6 项）
+  input          String        @db.Text
+  status         String        @default("queued")
+  priority       String        @default("interactive") // critical | interactive | background（Phase 4 第 6 项）
   idempotencyKey String?
   metadata       Json?
   events         RunEvent[]
   steps          RunStep[]
   approvals      RunApproval[]
   artifacts      RunArtifact[]
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@unique([userId, idempotencyKey])
   @@index([userId, status])
@@ -102,18 +195,18 @@ model RunEvent {
 // Run 进入 waiting_for_approval；决策后 approved → 重新投递续跑（从检查点继续），
 // rejected/expired → Run 终态 cancelled。
 model RunApproval {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   runId      String
-  run        AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run        AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
   toolCallId String
   toolName   String
   args       Json
-  status     String   @default("pending") // pending | approved | rejected | expired
+  status     String    @default("pending") // pending | approved | rejected | expired
   decidedBy  String?
   decidedAt  DateTime?
   expiresAt  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([runId, status])
   @@map("run_approvals")
@@ -220,6 +313,9 @@ model Session {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  spaceId String? // Phase 5：会话归属 Space（可空迁移期，回填后转非空）
+  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+
   title         String  @default("New Chat") // 会话标题
   channel       String  @default("web") // 'web', 'cli', 'im'
   status        String  @default("active") // 'active' | 'archived'
@@ -233,6 +329,7 @@ model Session {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  @@index([spaceId])
   @@map("sessions")
 }
 
@@ -317,9 +414,13 @@ model KnowledgeProject {
   userId   String? @map("userId")
   isPublic Boolean @default(true) @map("isPublic")
 
+  spaceId String? // Phase 5：知识项目归属 Space
+  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now()) @map("createdAt")
   updatedAt DateTime @updatedAt @map("updatedAt")
 
+  @@index([spaceId])
   @@map("knowledge_projects")
 }
 
@@ -462,18 +563,23 @@ model Skill {
 
 // 技能安装记录（工作空间/用户级别）
 model SkillInstallation {
-  id        String   @id @default(uuid())
-  skillId   String
-  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  userId    String? // 安装用户（可选，为空表示工作空间级）
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status    String   @default("active") // 'active' | 'disabled' | 'pending'
-  config    Json? // 用户自定义配置
+  id      String  @id @default(uuid())
+  skillId String
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  userId  String? // 安装用户（可选，为空表示工作空间级）
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status  String  @default("active") // 'active' | 'disabled' | 'pending'
+  config  Json? // 用户自定义配置
+
+  spaceId String? // Phase 5：安装归属 Space
+  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([skillId, userId])
   @@index([userId])
+  @@index([spaceId])
   @@map("skill_installations")
 }
 
@@ -509,9 +615,14 @@ model MCPServer {
   status         String    @default("unknown") // 'online' | 'degraded' | 'offline' | 'unknown'
   lastCheck      DateTime?
   enabled        Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
 
+  spaceId String? // Phase 5：连接归属 Space
+  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spaceId])
   @@map("mcp_servers")
 }
 

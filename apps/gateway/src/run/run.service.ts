@@ -19,6 +19,7 @@ import {
   type ToolCall,
 } from '@ocean/contracts';
 import { OutboxService } from './outbox.service';
+import { SpaceService } from '../space/space.service';
 
 const CANCELLABLE_STATUSES = new Set([
   'queued',
@@ -39,6 +40,7 @@ export class RunService {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly outbox: OutboxService,
+    private readonly spaceService: SpaceService,
   ) {}
 
   async create(
@@ -56,6 +58,9 @@ export class RunService {
       });
       if (existing) return this.get(existing.id, userId);
     }
+
+    // Phase 5：Run 必须归属存在的 Space，且用户可访问（隔离边界）。
+    await this.spaceService.requireAccessibleSpace(userId, request.space.id);
 
     return this.prisma.$transaction(async (transaction) => {
       const run = await transaction.agentRun.create({

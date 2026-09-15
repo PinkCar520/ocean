@@ -58,7 +58,7 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     await promise;
 
     expect(run.create).toHaveBeenCalledWith('u1', expect.objectContaining({
-      space: { id: 'default', type: 'work' },
+      space: { id: 'work', type: 'work' },
       priority: 'interactive',
       metadata: { sessionId: 'session_1', modelId: 'model-x' },
     }));
