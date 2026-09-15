@@ -61,6 +61,7 @@ model Space {
   skillInstallations SkillInstallation[]
   mcpServers         MCPServer[]
   documents          Document[]
+  codeRepositories   CodeRepository[]
   agentRuns          AgentRun[]
   grantsFrom         ContextGrant[]      @relation("GrantFrom")
   grantsTo           ContextGrant[]      @relation("GrantTo")
@@ -697,4 +698,67 @@ model SystemConfig {
   updatedAt   DateTime @updatedAt
 
   @@map("system_configs")
+}
+
+// ── Phase 6 6c：Code 投影数据模型 ────────────────────────────────
+
+// 代码仓库（归属 Code Space；组织共享，用户经 Space Membership 访问）
+model CodeRepository {
+  id            String  @id @default(uuid())
+  name          String
+  url           String?  @map("url")
+  path          String?  // 本地/远端路径
+  defaultBranch String  @default("main") @map("defaultBranch")
+  description   String? @db.Text
+  provider      String  @default("git") // git / gitlab / github / zentao
+  lastSyncedAt  DateTime? @map("lastSyncedAt")
+
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+
+  diffs CodeDiff[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spaceId])
+  @@map("code_repositories")
+}
+
+// 代码 Diff（一对 base/head 引用的变更集，随 Review 流转）
+model CodeDiff {
+  id           String  @id @default(uuid())
+  repositoryId String  @map("repositoryId")
+  repository   CodeRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  baseRef      String  @default("main") @map("baseRef")
+  headRef      String  @map("headRef")
+  title        String?
+  status       String  @default("open") // open / merged / closed
+  filesChanged Int     @default(0) @map("filesChanged")
+  additions    Int     @default(0)
+  deletions    Int     @default(0)
+
+  reviews CodeReview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([repositoryId])
+  @@map("code_diffs")
+}
+
+// Code Review（挂在 Diff 上：审批流状态 + 结论）
+model CodeReview {
+  id         String  @id @default(uuid())
+  diffId     String  @map("diffId")
+  diff       CodeDiff @relation(fields: [diffId], references: [id], onDelete: Cascade)
+  status     String  @default("pending") // pending / approved / changes_requested / rejected
+  reviewerId String? @map("reviewerId")
+  comment    String? @db.Text
+  decidedAt  DateTime? @map("decidedAt")
+
+  createdAt DateTime @default(now())
+
+  @@index([diffId])
+  @@map("code_reviews")
 }

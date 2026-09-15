@@ -24,6 +24,7 @@ import { installSkill, uninstallSkill } from './app/actions/skills';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
+import { CodeProjection } from './components/CodeProjection';
 
 const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
 const WEB_SESSION_ACTIONS = { create: createSession, rename: renameSession, delete: deleteSession };
@@ -432,7 +433,9 @@ function AppInternal({
 
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
-          {activeTab === 'chat' || !activeTab ? (
+          {activeSpaceId === 'code' ? (
+            <CodeProjection token={token} />
+          ) : activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession
                 navigation={navigation}

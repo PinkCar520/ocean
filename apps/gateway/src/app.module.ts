@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SpaceModule } from './space/space.module';
+import { CodeModule } from './code/code.module';
 import { UserModule } from './user/user.module';
 import { UploadModule } from './upload/upload.module';
 import { SessionModule } from './session/session.module';
@@ -42,6 +43,7 @@ import { RunModule } from './run/run.module';
     MCPServerModule, // MCP Server 管理
     ApprovalModule, // AGP 审批治理
     RunModule, // Ocean v2 持久化执行 API
+    CodeModule, // Phase 6 6c：Code 投影（仓库/Diff/Review）
     ProxyModule, // 图片代理
   ],
   controllers: [],

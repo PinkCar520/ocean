@@ -327,9 +327,19 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ 前端链路：`useChatSession`/`ChatSession` 增加 `spaceId` 选项，`/api/chat` 请求体携带当前 Space；App Shell 传入 `activeSpaceId`。
 - ✅ 验证：gateway 单测 123/123（新增 spaceId 透传用例）、build；web typecheck + build 通过。
 
+**已完成（6c：Code 投影——仓库 / Diff / Review）：**
+
+- ✅ 数据模型：`CodeRepository` / `CodeDiff` / `CodeReview`（归属 Code Space，FK Restrict/Cascade）；迁移 `20260915000007_add_code_projection` 建 3 表 + 种子 `code` space + 全部现有用户 owner membership。
+- ✅ 后端 API：`CodeService`（guard 强制 Code Space 访问）+ `CodeController`——`GET /api/code/overview`、`GET/POST /api/code/repositories`、`GET /api/code/repositories/:id/diffs`、`POST /api/code/diffs/:id/reviews`（幂等：同 reviewer 重复决策更新而非新建）。
+- ✅ 前端：`CodeProjection` 组件（统计卡 + 仓库/Diff/Review 列表 + 通过/需修改决策按钮）；App Shell 在 Code Space 下主区域切换为 Code 投影。
+- ✅ 验证：gateway 单测 128/128（CodeService 6 例含跨 Space Forbidden）、build；web typecheck + build；真实 DB 冒烟（建仓库→Diff→Review 幂等→列表→overview→outsider Forbidden→自动清理）。
+- ⚠️ 注意：迁移种子 `INSERT ... SELECT FROM users` 会给**当时存在的所有用户**加 Code membership；冒烟越权用例的 outsider 必须在此之后创建，否则会被回填污染。
+
 **待办（6b+）：**
 
-- [ ] Code 投影：仓库、终端、Diff、Review。
+- [ ] 终端投影（Code Terminal：会话/命令历史模型，真实执行留给 CLI/Desktop）。
+- [ ] Work 投影：项目、文件、流程、团队。
+- [ ] Life 投影：个人记忆、日程、隐私控制。
 - [ ] Work 投影：项目、文件、流程、团队（知识库已按 Space 隔离，投影可叠加）。
 - [ ] Life 投影：个人记忆、日程、隐私控制。
 - [ ] 跨 Space 操作来源/目的地/授权确认界面（ContextGrant 已建模）。
