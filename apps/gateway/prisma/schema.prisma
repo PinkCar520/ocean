@@ -33,6 +33,7 @@ model User {
   memberships        Membership[]
   identities         Identity[]
   contextGrants      ContextGrant[] // 作为授权人发起的跨 Space 授权
+  auditLogs          AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -70,6 +71,7 @@ model Space {
   agentRuns          AgentRun[]
   grantsFrom         ContextGrant[]      @relation("GrantFrom")
   grantsTo           ContextGrant[]      @relation("GrantTo")
+  auditLogs          AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -872,4 +874,23 @@ model LifeMemory {
 
   @@index([spaceId])
   @@map("life_memories")
+}
+
+model AuditLog {
+  id             String    @id @default(uuid())
+  actorUserId    String // 操作者
+  actor          User      @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  action         String // tool.execute / approval.requested / approval.resolved / grant.created / grant.revoked
+  spaceId        String // 操作发生的 Space
+  space          Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  runId          String?
+  toolName       String?
+  inputJson      Json? // 工具输入快照（"用了什么输入"）
+  authorization  String? // auto / approval / grant:<grantId>
+  createdAt      DateTime  @default(now())
+
+  @@index([actorUserId])
+  @@index([spaceId])
+  @@index([action])
+  @@map("audit_logs")
 }

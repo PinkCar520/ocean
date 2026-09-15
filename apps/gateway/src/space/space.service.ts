@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 
 export interface SpaceRef {
   id: string;
@@ -23,7 +24,10 @@ export class SpaceService {
   /** 默认 Work Space（与迁移种子 20260915000005_add_space_boundary 对齐）。 */
   static readonly DEFAULT_WORK_SPACE_ID = 'work';
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly audit?: AuditService,
+  ) {}
 
   get defaultWorkSpaceId(): string {
     return SpaceService.DEFAULT_WORK_SPACE_ID;
@@ -116,7 +120,15 @@ export class SpaceService {
         data: { purpose: data.purpose, scope: data.scope ?? undefined, expiresAt: data.expiresAt, revokedAt: null },
       });
     }
-    return this.prisma.contextGrant.create({ data });
+    const created = await this.prisma.contextGrant.create({ data });
+    await this.audit?.record({
+      actorUserId: userId,
+      action: 'grant.created',
+      spaceId: fromSpaceId,
+      inputJson: { toSpaceId: dto.toSpaceId, purpose: data.purpose },
+      authorization: `grant:${created.id}`,
+    });
+    return created;
   }
 
   /** 撤销授权（软删：revokedAt=now）。 */
@@ -128,10 +140,18 @@ export class SpaceService {
     if (!grant) throw new NotFoundException(`Grant ${grantId} not found`);
     // 仅授权方空间成员可撤销
     await this.requireAccessibleSpace(userId, grant.fromSpaceId);
-    return this.prisma.contextGrant.update({
+    const revoked = await this.prisma.contextGrant.update({
       where: { id: grantId },
       data: { revokedAt: new Date() },
     });
+    await this.audit?.record({
+      actorUserId: userId,
+      action: 'grant.revoked',
+      spaceId: grant.fromSpaceId,
+      inputJson: { grantId },
+      authorization: `grant:${grantId}`,
+    });
+    return revoked;
   }
 
   /** Life Space id：每用户一个，人工可读。 */

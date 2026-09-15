@@ -407,10 +407,17 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ SSO 可信代理边界：`src/auth/sso-trust.ts`——CIDR/IP 匹配（精确 IP、/8、/32、/0）；sso.guard 的 SSO 头分支仅在来源命中 `SSO_TRUSTED_PROXY` 时接受，**默认关闭**（未配置则忽略 x-sso-token/x-user-id，防任意客户端伪造身份）；main.ts 设置 `trust proxy`（默认 loopback，反代需显式 `TRUST_PROXY`）。单测 7 例。
 - ✅ 运行指标：`src/obs/metrics.service.ts`——OTel Meter（push 到 collector）+ 进程内快照；计数器：`run.created{spaceId}`、`run.terminal{status}`、`tool.executed{tool}`、`approval.requested{toolName}`、`outbox.enqueued{topic}`、`http.requests{method,status}`；注入 RunService/RunRunner/ToolExecutor/ApprovalService/OutboxService + main.ts 全局 HTTP 中间件；`GET /api/metrics` 输出 Prometheus 文本。单测 4 例（计数/标签/Prometheus 格式/引号转义）。
 
-**待办（7b+）：**
+**已完成（7b：审计日志——可回答"谁/哪个 Space/因何授权/什么输入"）：**
+
+- ✅ 数据模型：`AuditLog`（actorUserId/action/spaceId/runId?/toolName?/inputJson?/authorization?/createdAt + 三索引）；迁移 `20260915000011_add_audit_logs`（表已应用+resolve+generate）。
+- ✅ `AuditService.record/list`：工具执行前记录 `tool.execute`（含 input 快照 + authorization 依据：approval/auto）；`SpaceService` grant 创建/撤销记录 `grant.created/grant.revoked`（authorization=`grant:<id>`）。查询强制：spaceId 必须调用者可访问（404/403），actorUserId 恒为本人（他人日志不可见），limit 截断 1–200。
+- ✅ `GET /api/audit?spaceId=&limit=`（AuditController）。
+- ✅ 验证：gateway 单测 165/165（audit 4 例：来源全量、本人可见性、越权拒绝、limit 截断）、build；真实 DB 冒烟 `scripts/smoke-7b-audit.cjs`（10 断言：工具执行落库+来源字段+输入快照+授权依据、grant 双向审计、本人可见/他人不可见、未知 space 拒绝、清理）。
+
+**待办（7c+）：**
 
 - [ ] 引入 Secret/KMS 适配器和凭证轮换。
-- [ ] 数据删除、导出、保留和审计策略（可回答"某次工具写操作由谁、哪个 Space、因何授权、用了什么输入"）。
+- [ ] 数据删除、导出、保留策略（审计已落地，导出/保留/删除治理未做）。
 - [ ] 模型供应商和 MCP 连接数据等级策略。
 - [ ] PostgreSQL、对象存储、队列的备份恢复演练和故障手册。
 

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { MetricsService } from './obs/metrics.service';
+import { AuditService } from './audit/audit.service';
+import { AuditController } from './audit/audit.controller';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
@@ -58,6 +60,8 @@ import { RunModule } from './run/run.module';
       useClass: SsoAuthGuard, // 全局认证守卫
     },
     MetricsService, // Phase 7：运行指标
+    AuditService, // Phase 7 7b：审计日志
+    AuditController,
   ],
 })
 export class AppModule {}

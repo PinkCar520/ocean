@@ -14,6 +14,7 @@ import {
 import { RetryableError, type RunExecutionResult } from './run-runner';
 import { OutboxService } from '../run/outbox.service';
 import { MetricsService } from '../obs/metrics.service';
+import { AuditService } from '../audit/audit.service';
 import { ToolRegistry } from '../tool/tool.registry';
 import { TerminalToolError } from '../tool/tool.types';
 
@@ -39,6 +40,7 @@ export class ToolExecutor {
     private readonly registry: ToolRegistry,
     private readonly outbox: OutboxService,
     private readonly metrics: MetricsService,
+    private readonly audit: AuditService,
   ) {}
 
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
@@ -83,7 +85,7 @@ export class ToolExecutor {
       //    业务错误直接终态，不把 Run 置 running 后再失败
       const runCheck = await this.prisma.agentRun.findUnique({
         where: { id: runId },
-        select: { id: true, userId: true, priority: true },
+        select: { id: true, userId: true, priority: true, spaceId: true },
       });
       if (!runCheck) {
         return {
@@ -145,7 +147,16 @@ export class ToolExecutor {
       // 4) 步骤 started（崩溃续跑复用 started 步骤，不重复写 step_started）
       const step = await this.ensureStepStarted(runId, toolCall);
 
-      // 5) 执行工具
+      // 5) 执行工具（先审计：谁/哪个 Space/因何授权/什么输入）
+      await this.audit.record({
+        actorUserId: userId,
+        action: 'tool.execute',
+        spaceId: runCheck.spaceId,
+        runId,
+        toolName: toolCall.name,
+        inputJson: toolCall.input,
+        authorization: tool.requiresApproval ? 'approval' : 'auto',
+      });
       const output = await tool.execute(toolCall.input, { runId, userId });
 
       // 6) 完成：step succeeded + step_completed + tool.completed；
