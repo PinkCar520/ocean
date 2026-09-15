@@ -172,16 +172,33 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 目标：执行生命周期脱离 HTTP/SSE 连接。
 
-### 当前进度（2026-09-14）
+### 当前进度（2026-09-15）
 
-- [x] 新增 `AgentRun` 与 `RunEvent` 持久化模型及扩展式数据库迁移。
+**底层引擎已落地（Phase 4 工作项 1–8，见 `worker-design-reference.md` §6）**：
+
+- [x] 新增 `AgentRun`、`RunEvent`、`RunStep`、`RunApproval`、`RunArtifact`、`OutboxEvent` 持久化模型及扩展式数据库迁移。
 - [x] 建立 create/get/cancel API，包含用户隔离与幂等创建。
 - [x] Run 快照与事件在写入和返回前均通过 contracts 运行时校验。
 - [x] 已覆盖创建、重复请求、越权读取、取消和事件序列测试。
 - [x] Run 创建与 Outbox 消息已在同一数据库事务中提交。
-- [x] Worker 取件支持租约、`FOR UPDATE SKIP LOCKED`、确认和延迟重试。
-- [ ] 接入 Worker、Outbox、检查点以及 resume/retry 执行链路。
-- [ ] 将现有聊天模型调用迁入 Run，并支持断线后订阅恢复。
+- [x] Worker 独立进程（Nest 子应用）+ 租约心跳、`FOR UPDATE SKIP LOCKED`、确认和延迟重试。
+- [x] **模型调用迁入 Run**：run_steps 表（model_call/tool_call/approval/artifact 四类），模型网关（AI SDK / Sim），崩溃后续跑复用 started 步骤。
+- [x] **断线订阅恢复**：SSE 订阅 RunEvent，支持 `Last-Event-ID` / `after` 序列续读，终态 `done` 关闭。
+- [x] **幂等工具调用与失败分类**：同幂等键不重复执行；终态错误不重试，可重试错误退避回队列。
+- [x] **审批与交互续跑**：run_approvals 审批门（waiting_for_approval），approved 后从检查点重投同一 toolCall 续跑，rejected 终态不投递。
+- [x] **优先级三档调度**：critical/interactive/background 按 priorityRank + createdAt 出队。
+- [x] **egress allowlist**：默认拒绝的出站白名单，未白名单域请求被拒绝并可审计。
+- [x] **artifact 存储分离**：大产物写 ArtifactStore（本地对象存储），数据库只存引用。
+- [x] 崩溃恢复冒烟 PASS（Worker 处理中断后重启续跑）；优先级、审批、egress、artifact 四组真实 DB 冒烟 PASS；全量 72 单测通过。
+
+**剩余尾项（客户端切换与治理）**：
+
+- [ ] Web 聊天正式全面切换到 Run API（当前仍走旧聊天链路）。
+- [ ] Desktop、CLI、IM 统一接入 Run API。
+- [ ] 提供明确的 resume/retry 产品 API（当前续跑为 Worker 内部/审批重投，无公开 HTTP 入口）。
+- [ ] 清除旧 `Session.activeJobId`、`lastCheckpoint`，合并旧 ApprovalRequest 与新 RunApproval 双轨。
+- [ ] 补充重启恢复、重复投递、审批超时的系统级验证（崩溃恢复已有单场景冒烟）。
+- [ ] 执行器按会话/用户 feature flag 切换。
 
 ### 数据扩展
 
