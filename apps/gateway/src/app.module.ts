@@ -36,17 +36,17 @@ import { RunModule } from './run/run.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule, // ← 全局数据库模块
-    SpaceModule,  // ← 全局 Space 数据边界（Phase 5）
+    SpaceModule, // ← 全局 Space 数据边界（Phase 5）
     TracingModule, // ← 全局链路追踪模块
-    RAGModule,     // ← 全局知识库/向量检索模块
-    ZentaoModule,  // ← 禅道集成模块
-    AuthModule,   // 内部包含 UserService
+    RAGModule, // ← 全局知识库/向量检索模块
+    ZentaoModule, // ← 禅道集成模块
+    AuthModule, // 内部包含 UserService
     ChatModule,
-    UserModule,   // 对外暴露用户中心接口
+    UserModule, // 对外暴露用户中心接口
     UploadModule, // 文件上传模块
     SessionModule, // 会话漫游数据接口模块
     SkillRegistryModule, // 技能注册中心
-    SkillModule,  // ← Agent Skills 编排核心
+    SkillModule, // ← Agent Skills 编排核心
     MCPServerModule, // MCP Server 管理
     ApprovalModule, // AGP 审批治理
     RunModule, // Ocean v2 持久化执行 API

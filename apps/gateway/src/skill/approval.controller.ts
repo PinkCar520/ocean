@@ -11,7 +11,8 @@ export class ApprovalController {
    */
   @Get(':sessionId')
   async getPending(@Param('sessionId') sessionId: string) {
-    const requests = await this.approvalService.getSessionPendingRequests(sessionId);
+    const requests =
+      await this.approvalService.getSessionPendingRequests(sessionId);
     return { success: true, data: requests };
   }
 
@@ -22,16 +23,23 @@ export class ApprovalController {
   @Post(':requestId/respond')
   async respond(
     @Param('requestId') requestId: string,
-    @Body() body: { status: 'approved' | 'denied', result?: any },
+    @Body() body: { status: 'approved' | 'denied'; result?: any },
     @Req() req: any,
   ) {
     const userId = req.user?.workId || req.user?.dbId || 'anonymous';
     const { status, result } = body;
 
-    const success = await this.approvalService.respondToRequest(requestId, status, userId, result);
+    const success = await this.approvalService.respondToRequest(
+      requestId,
+      status,
+      userId,
+      result,
+    );
     return {
       success,
-      message: success ? `Request ${status}` : 'Request not found or already resolved',
+      message: success
+        ? `Request ${status}`
+        : 'Request not found or already resolved',
     };
   }
 

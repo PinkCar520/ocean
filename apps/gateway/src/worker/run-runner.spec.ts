@@ -54,8 +54,12 @@ function createRunner(
     }>;
   } = {},
 ) {
-  const { startedStep = null, generateResult, generateError, historySteps = [] } =
-    opts;
+  const {
+    startedStep = null,
+    generateResult,
+    generateError,
+    historySteps = [],
+  } = opts;
   const tx = createTxMock(run, startedStep);
   const prisma = {
     $transaction: jest.fn(async (cb: (t: typeof tx) => Promise<unknown>) =>
@@ -64,15 +68,17 @@ function createRunner(
     runStep: { findMany: jest.fn().mockResolvedValue(historySteps) },
   };
   const gateway: ModelGateway & { generate: jest.Mock } = {
-    generate: jest.fn(async (req?: { onDelta?: (t: string) => void }) => {
-      if (generateError) throw generateError;
-      const result = generateResult ?? {
-        text: 'hello world from the model',
-        toolCalls: [],
-      };
-      if (req?.onDelta) await req.onDelta(result.text);
-      return result;
-    }),
+    generate: jest.fn(
+      async (req?: { onDelta?: (t: string) => void | Promise<void> }) => {
+        if (generateError) throw generateError;
+        const result = generateResult ?? {
+          text: 'hello world from the model',
+          toolCalls: [],
+        };
+        if (req?.onDelta) await req.onDelta(result.text);
+        return result;
+      },
+    ),
   };
   const outbox = {
     enqueueToolRequested: jest.fn().mockResolvedValue(undefined),
@@ -81,7 +87,7 @@ function createRunner(
   const registry = { list: jest.fn().mockReturnValue([]) };
   const runner = new RunRunner(
     prisma as never,
-    gateway as never,
+    gateway,
     outbox as never,
     registry as never,
     { inc: jest.fn() } as never,
@@ -182,7 +188,7 @@ describe('RunRunner', () => {
     );
     // 让 onDelta 分块回调
     gateway.generate.mockImplementation(
-      async (req: { onDelta?: (t: string) => void }) => {
+      async (req: { onDelta?: (t: string) => void | Promise<void> }) => {
         for (let i = 0; i < longText.length; i += 16) {
           if (req.onDelta) await req.onDelta(longText.slice(i, i + 16));
         }
@@ -234,9 +240,7 @@ describe('RunRunner', () => {
       {
         generateResult: {
           text: '我来查：',
-          toolCalls: [
-            { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
-          ],
+          toolCalls: [{ id: 'tc_1', name: 'echo', input: { text: '查一下' } }],
         },
       },
     );
@@ -266,7 +270,9 @@ describe('RunRunner', () => {
     expect(eventTypes(tx)).toContain('tool.requested');
     // 不置 succeeded
     expect(tx.agentRun.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'queued' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'queued' }),
+      }),
     );
     // model_call 步骤已 succeeded 且带 toolCalls（供回喂重建）
     const stepUpdate = tx.runStep.update.mock.calls.find(
@@ -308,7 +314,9 @@ describe('RunRunner', () => {
     expect(eventTypes(tx)).not.toContain('tool.requested');
     // Run 保持 running（幂等命中时不再改状态）
     expect(tx.agentRun.update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'queued' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'queued' }),
+      }),
     );
   });
 
@@ -324,7 +332,9 @@ describe('RunRunner', () => {
             input: { prompt: '查一下' },
             output: {
               text: '我来查：',
-              toolCalls: [{ id: 'tc_1', name: 'echo', input: { text: '查一下' } }],
+              toolCalls: [
+                { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
+              ],
             },
           },
           {
@@ -348,7 +358,9 @@ describe('RunRunner', () => {
           {
             role: 'assistant',
             text: '我来查：',
-            toolCalls: [{ id: 'tc_1', name: 'echo', input: { text: '查一下' } }],
+            toolCalls: [
+              { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
+            ],
           },
           { role: 'tool', toolCallId: 'tc_1', result: { text: '查一下' } },
         ],
@@ -376,7 +388,9 @@ describe('RunRunner', () => {
     expect(result.retryable).toBe(false);
     expect(result.error).toContain('max_turns_exceeded');
     expect(tx.agentRun.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'failed' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'failed' }),
+      }),
     );
   });
 

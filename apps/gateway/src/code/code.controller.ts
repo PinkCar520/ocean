@@ -24,7 +24,10 @@ export class CodeController {
   async listRepositories(@Req() req: any) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
-    return { success: true, data: await this.codeService.listRepositories(userId) };
+    return {
+      success: true,
+      data: await this.codeService.listRepositories(userId),
+    };
   }
 
   @Post('repositories')
@@ -46,14 +49,20 @@ export class CodeController {
   async listDiffs(@Param('id') id: string, @Req() req: any) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
-    return { success: true, data: await this.codeService.listDiffs(userId, id) };
+    return {
+      success: true,
+      data: await this.codeService.listDiffs(userId, id),
+    };
   }
 
   @Get('terminals')
   async listTerminals(@Req() req: any) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
-    return { success: true, data: await this.codeService.listTerminals(userId) };
+    return {
+      success: true,
+      data: await this.codeService.listTerminals(userId),
+    };
   }
 
   @Post('terminals')
@@ -74,11 +83,18 @@ export class CodeController {
   async getTerminal(@Param('id') id: string, @Req() req: any) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
-    return { success: true, data: await this.codeService.getTerminal(userId, id) };
+    return {
+      success: true,
+      data: await this.codeService.getTerminal(userId, id),
+    };
   }
 
   @Post('terminals/:id/commands')
-  async recordCommand(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async recordCommand(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
     return {
@@ -93,7 +109,11 @@ export class CodeController {
   }
 
   @Post('diffs/:id/reviews')
-  async decideReview(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async decideReview(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
     const review = await this.codeService.decideReview(userId, id, {

@@ -37,14 +37,14 @@ import { SkillResolver } from '../runtime/skill.resolver';
 
 @Module({
   imports: [
-    MCPModule, 
-    RpcModule, 
-    SessionModule, 
-    ApprovalModule, 
-    PermissionModule, 
-    TracingModule, 
-    RAGModule, 
-    ZentaoModule
+    MCPModule,
+    RpcModule,
+    SessionModule,
+    ApprovalModule,
+    PermissionModule,
+    TracingModule,
+    RAGModule,
+    ZentaoModule,
   ],
   controllers: [SkillController, PermissionController],
   providers: [
@@ -62,9 +62,9 @@ import { SkillResolver } from '../runtime/skill.resolver';
     SkillResolver,
   ],
   exports: [
-    SkillLoader, 
-    SkillOrchestrator, 
-    ApprovalService, 
+    SkillLoader,
+    SkillOrchestrator,
+    ApprovalService,
     PermissionService,
     ModelRegistry,
     PromptComposer,

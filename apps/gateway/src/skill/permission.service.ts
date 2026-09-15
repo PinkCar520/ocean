@@ -56,7 +56,9 @@ export class PermissionService {
     // Layer 1: User-level (~/.ocean/settings.json) - lowest priority
     const userHome = process.env.HOME || process.env.USERPROFILE || '';
     if (userHome) {
-      const userSettings = this.tryLoadJson(path.join(userHome, '.ocean', 'settings.json'));
+      const userSettings = this.tryLoadJson(
+        path.join(userHome, '.ocean', 'settings.json'),
+      );
       if (userSettings) {
         this.logger.debug(`Loaded user settings from: ~/.ocean/settings.json`);
         layers.unshift(userSettings);
@@ -65,8 +67,11 @@ export class PermissionService {
 
     // Layer 2: Project-level (.claude/settings.json or .ocean/settings.json in workspace)
     if (workspacePath) {
-      const projectSettings = this.tryLoadJson(path.join(workspacePath, '.claude', 'settings.json'))
-        || this.tryLoadJson(path.join(workspacePath, '.ocean', 'settings.json'));
+      const projectSettings =
+        this.tryLoadJson(
+          path.join(workspacePath, '.claude', 'settings.json'),
+        ) ||
+        this.tryLoadJson(path.join(workspacePath, '.ocean', 'settings.json'));
       if (projectSettings) {
         this.logger.debug(`Loaded project settings from workspace`);
         layers.unshift(projectSettings);
@@ -74,8 +79,9 @@ export class PermissionService {
     }
 
     // Layer 3: Local-level (cwd/.claude/settings.json) - highest priority
-    const localSettings = this.tryLoadJson(path.join(process.cwd(), '.claude', 'settings.json'))
-      || this.tryLoadJson(path.join(process.cwd(), '.ocean', 'settings.json'));
+    const localSettings =
+      this.tryLoadJson(path.join(process.cwd(), '.claude', 'settings.json')) ||
+      this.tryLoadJson(path.join(process.cwd(), '.ocean', 'settings.json'));
     if (localSettings) {
       this.logger.debug(`Loaded local settings from cwd`);
       layers.unshift(localSettings);
@@ -132,7 +138,11 @@ export class PermissionService {
   /**
    * Check if a tool requires user approval.
    */
-  requiresApproval(toolName: string, workspacePath?: string, args?: any): boolean {
+  requiresApproval(
+    toolName: string,
+    workspacePath?: string,
+    args?: any,
+  ): boolean {
     const action = this.evaluateTool(toolName, workspacePath, args);
     return action === 'ask';
   }

@@ -228,7 +228,7 @@ function AppInternal({
     (async () => {
       try {
         const json = await api.get<any>('/api/spaces');
-        let list: SpaceOption[] = Array.isArray(json?.data) ? json.data : [];
+        const list: SpaceOption[] = Array.isArray(json?.data) ? json.data : [];
         if (!cancelled) setSpaces(list);
         const hasActive = list.some((sp) => sp.id === activeSpaceId);
         if (!hasActive && activeSpaceId !== 'work') {
@@ -246,7 +246,6 @@ function AppInternal({
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSpaceId]);
 
   const handleSpaceChange = (spaceId: string) => {

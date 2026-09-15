@@ -9,7 +9,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ocean?schema=public',
+  connectionString:
+    process.env.DATABASE_URL ||
+    'postgresql://postgres:postgres@localhost:5432/ocean?schema=public',
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -28,14 +30,16 @@ async function main() {
   const servers = config.mcpServers || [];
 
   const categoryMap: Record<string, string> = {
-    'ZenTao': 'pm',
-    'Jenkins': 'cicd',
-    'GitLab': 'vc',
-    'Local': 'data_science',
+    ZenTao: 'pm',
+    Jenkins: 'cicd',
+    GitLab: 'vc',
+    Local: 'data_science',
   };
 
   for (const srv of servers) {
-    const existing = await prisma.mCPServer.findFirst({ where: { name: srv.name, spaceId: 'work' } });
+    const existing = await prisma.mCPServer.findFirst({
+      where: { name: srv.name, spaceId: 'work' },
+    });
     const category = categoryMap[srv.name.split(' ')[0]] || null;
 
     if (existing) {

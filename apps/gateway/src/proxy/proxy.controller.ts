@@ -34,11 +34,14 @@ export class ProxyController {
       const response = await fetch(fileUrl, { headers });
 
       if (!response.ok) {
-        return res.status(response.status).json({ error: `Failed to fetch: ${response.statusText}` });
+        return res
+          .status(response.status)
+          .json({ error: `Failed to fetch: ${response.statusText}` });
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
-      let contentType = response.headers.get('content-type') || 'application/octet-stream';
+      let contentType =
+        response.headers.get('content-type') || 'application/octet-stream';
 
       // 根据文件扩展名推断 Content-Type（禅道有时不返回正确的类型）
       const urlPath = new URL(fileUrl, 'http://dummy').pathname;
@@ -53,11 +56,14 @@ export class ProxyController {
         '.svg': 'image/svg+xml',
         '.pdf': 'application/pdf',
         '.doc': 'application/msword',
-        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         '.xls': 'application/vnd.ms-excel',
-        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.xlsx':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         '.ppt': 'application/vnd.ms-powerpoint',
-        '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        '.pptx':
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         '.txt': 'text/plain',
         '.zip': 'application/zip',
         '.rar': 'application/x-rar-compressed',
@@ -72,7 +78,10 @@ export class ProxyController {
 
       // 设置 Content-Disposition 让浏览器下载/预览
       const displayName = filename || urlPath.split('/').pop() || 'file';
-      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(displayName)}"`);
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${encodeURIComponent(displayName)}"`,
+      );
 
       return res.send(buffer);
     } catch (error: any) {

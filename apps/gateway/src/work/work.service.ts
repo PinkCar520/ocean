@@ -34,19 +34,31 @@ export class WorkService {
   ) {}
 
   private async guard(userId: string) {
-    await this.spaceService.requireAccessibleSpace(userId, WorkService.WORK_SPACE_ID);
+    await this.spaceService.requireAccessibleSpace(
+      userId,
+      WorkService.WORK_SPACE_ID,
+    );
   }
 
   /** 总览：项目数、进行中任务、我的任务。 */
   async overview(userId: string) {
     await this.guard(userId);
     const [projectCount, inFlightTasks, myTasks] = await Promise.all([
-      this.prisma.workProject.count({ where: { spaceId: WorkService.WORK_SPACE_ID } }),
-      this.prisma.workTask.count({
-        where: { spaceId: WorkService.WORK_SPACE_ID, status: { in: ['todo', 'in_progress', 'blocked'] } },
+      this.prisma.workProject.count({
+        where: { spaceId: WorkService.WORK_SPACE_ID },
       }),
       this.prisma.workTask.count({
-        where: { spaceId: WorkService.WORK_SPACE_ID, assigneeId: userId, status: { not: 'done' } },
+        where: {
+          spaceId: WorkService.WORK_SPACE_ID,
+          status: { in: ['todo', 'in_progress', 'blocked'] },
+        },
+      }),
+      this.prisma.workTask.count({
+        where: {
+          spaceId: WorkService.WORK_SPACE_ID,
+          assigneeId: userId,
+          status: { not: 'done' },
+        },
       }),
     ]);
     return { projectCount, inFlightTasks, myTasks };
@@ -59,7 +71,11 @@ export class WorkService {
       where: { spaceId: WorkService.WORK_SPACE_ID },
       include: {
         _count: { select: { tasks: true } },
-        tasks: { select: { id: true, title: true, status: true, assigneeId: true }, orderBy: { updatedAt: 'desc' }, take: 6 },
+        tasks: {
+          select: { id: true, title: true, status: true, assigneeId: true },
+          orderBy: { updatedAt: 'desc' },
+          take: 6,
+        },
       },
       orderBy: { updatedAt: 'desc' },
     });

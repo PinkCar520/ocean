@@ -14,14 +14,19 @@ import {
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { MCPConfigWatcher } from '../mcp/mcp-config.watcher';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
-import type { MCPPrompt, MCPResource, MCPResourceContents, MCPElicitationResponse } from '../mcp/mcp.types';
+import type {
+  MCPPrompt,
+  MCPResource,
+  MCPResourceContents,
+  MCPElicitationResponse,
+} from '../mcp/mcp.types';
 import type { GetPromptResult } from '@modelcontextprotocol/sdk/types.js';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 /**
  * MCP Resources & Prompts 控制器
- * 
+ *
  * 提供 MCP 协议核心能力的 REST API：
  * - Resources: 只读数据资源管理
  * - Prompts: 预定义提示词模板
@@ -101,8 +106,16 @@ export class MCPResourcesController {
   async getPrompt(
     @Param('name') name: string,
     @Body() body: { args?: Record<string, string>; serverId?: string },
-  ): Promise<{ success: boolean; data: GetPromptResult | null; error?: string }> {
-    const prompt = await this.mcpManager.getPrompt(name, body.args, body.serverId);
+  ): Promise<{
+    success: boolean;
+    data: GetPromptResult | null;
+    error?: string;
+  }> {
+    const prompt = await this.mcpManager.getPrompt(
+      name,
+      body.args,
+      body.serverId,
+    );
     if (!prompt) {
       return { success: false, data: null, error: `Prompt not found: ${name}` };
     }
@@ -152,7 +165,9 @@ export class MCPResourcesController {
    */
   @Post('servers/:id/reconnect')
   @HttpCode(HttpStatus.OK)
-  async reconnectServer(@Param('id') id: string): Promise<{ success: boolean }> {
+  async reconnectServer(
+    @Param('id') id: string,
+  ): Promise<{ success: boolean }> {
     await this.mcpManager.reconnectServer(id);
     return { success: true };
   }
@@ -163,7 +178,9 @@ export class MCPResourcesController {
    */
   @Post('servers/:id/disconnect')
   @HttpCode(HttpStatus.OK)
-  async disconnectServer(@Param('id') id: string): Promise<{ success: boolean }> {
+  async disconnectServer(
+    @Param('id') id: string,
+  ): Promise<{ success: boolean }> {
     await this.mcpManager.disconnectServer(id);
     return { success: true };
   }
@@ -174,7 +191,10 @@ export class MCPResourcesController {
    */
   @Post('config/reload')
   @HttpCode(HttpStatus.OK)
-  async reloadConfig(): Promise<{ success: boolean; data: { added: number; removed: number } }> {
+  async reloadConfig(): Promise<{
+    success: boolean;
+    data: { added: number; removed: number };
+  }> {
     const result = await this.configWatcher.reloadConfigManually();
     return { success: true, data: result };
   }

@@ -26,29 +26,36 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // 记录在线的 CLI 客户端映射 (工号 -> SocketId)
   private clients = new Map<string, string>();
-  
+
   // 记录在线的 Web 客户端映射 (sessionId -> SocketId)
   private webClients = new Map<string, string>();
 
   // 记录等待中的请求 (requestId -> { resolve, reject, timeout })
-  private pendingRequests = new Map<string, { 
-    resolve: (val: any) => void; 
-    reject: (err: any) => void;
-    timeout: NodeJS.Timeout;
-  }>();
+  private pendingRequests = new Map<
+    string,
+    {
+      resolve: (val: any) => void;
+      reject: (err: any) => void;
+      timeout: NodeJS.Timeout;
+    }
+  >();
 
   handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;
     const sessionId = client.handshake.query.sessionId as string;
-    
+
     if (userId) {
       this.clients.set(userId, client.id);
       console.log(`[RpcGateway] CLI connected: ${userId} (${client.id})`);
     } else if (sessionId) {
       this.webClients.set(sessionId, client.id);
-      console.log(`[RpcGateway] Web connected: Session ${sessionId} (${client.id})`);
+      console.log(
+        `[RpcGateway] Web connected: Session ${sessionId} (${client.id})`,
+      );
     } else {
-      console.warn(`[RpcGateway] Connection attempt without userId or sessionId. Disconnecting.`);
+      console.warn(
+        `[RpcGateway] Connection attempt without userId or sessionId. Disconnecting.`,
+      );
       client.disconnect();
     }
   }
@@ -86,25 +93,50 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('plan_sync')
-  async handlePlanSync(client: Socket, payload: { sessionId: string; mode: string; tasks: any[] }) {
-    console.log(`[RpcGateway] Plan Sync received from ${client.id} for session ${payload.sessionId}. Tasks: ${payload.tasks.length}`);
-    
+  async handlePlanSync(
+    client: Socket,
+    payload: { sessionId: string; mode: string; tasks: any[] },
+  ) {
+    console.log(
+      `[RpcGateway] Plan Sync received from ${client.id} for session ${payload.sessionId}. Tasks: ${payload.tasks.length}`,
+    );
+
     // Persist to DB and Broadcast to Web UI
     await this.orchestratorService.syncPlan(payload.sessionId, payload.tasks);
   }
 
   @SubscribeMessage('task_progress')
-  async handleTaskProgress(client: Socket, payload: { sessionId: string; taskId: string; status: string; metadata?: any }) {
-    console.log(`[RpcGateway] Task Progress: Task #${payload.taskId} is now ${payload.status}`);
-    
+  async handleTaskProgress(
+    client: Socket,
+    payload: {
+      sessionId: string;
+      taskId: string;
+      status: string;
+      metadata?: any;
+    },
+  ) {
+    console.log(
+      `[RpcGateway] Task Progress: Task #${payload.taskId} is now ${payload.status}`,
+    );
+
     // Update in DB and Broadcast to Web UI
-    await this.orchestratorService.updateTaskProgress(payload.sessionId, payload.taskId, payload.status, payload.metadata);
+    await this.orchestratorService.updateTaskProgress(
+      payload.sessionId,
+      payload.taskId,
+      payload.status,
+      payload.metadata,
+    );
   }
 
   @SubscribeMessage('request_approval')
-  async handleRequestApproval(client: Socket, payload: { sessionId: string; toolName: string; args: any }) {
-    console.log(`[RpcGateway] Received approval request from CLI: ${payload.toolName} (Session: ${payload.sessionId})`);
-    
+  async handleRequestApproval(
+    client: Socket,
+    payload: { sessionId: string; toolName: string; args: any },
+  ) {
+    console.log(
+      `[RpcGateway] Received approval request from CLI: ${payload.toolName} (Session: ${payload.sessionId})`,
+    );
+
     try {
       const requestId = await this.approvalService.createRequest({
         sessionId: payload.sessionId,
@@ -113,18 +145,26 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       // Poll for status or wait
-      const approved = await this.approvalService.waitForApproval(requestId, 5 * 60 * 1000); // 5 min timeout
-      
+      const approved = await this.approvalService.waitForApproval(
+        requestId,
+        5 * 60 * 1000,
+      ); // 5 min timeout
+
       client.emit('approval_resolved', {
         requestId,
         approved,
       });
-      console.log(`[RpcGateway] Approval ${requestId} resolved: ${approved ? 'APPROVED' : 'DENIED'}`);
+      console.log(
+        `[RpcGateway] Approval ${requestId} resolved: ${approved ? 'APPROVED' : 'DENIED'}`,
+      );
     } catch (err: any) {
-      console.error(`[RpcGateway] Error handling approval request:`, err.message);
+      console.error(
+        `[RpcGateway] Error handling approval request:`,
+        err.message,
+      );
       client.emit('approval_resolved', {
         approved: false,
-        error: err.message
+        error: err.message,
       });
     }
   }
@@ -137,7 +177,7 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const id = Math.random().toString(36).substring(7);
-    
+
     return new Promise((resolve, reject) => {
       // 设置 15 秒超时
       const timeout = setTimeout(() => {
@@ -148,7 +188,9 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.pendingRequests.set(id, { resolve, reject, timeout });
 
       this.server.to(socketId).emit('rpc_request', { id, method, params });
-      console.log(`[RpcGateway] Command sent to ${userId}: ${method} (ID: ${id}), waiting for response...`);
+      console.log(
+        `[RpcGateway] Command sent to ${userId}: ${method} (ID: ${id}), waiting for response...`,
+      );
     });
   }
 
@@ -158,7 +200,9 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (socketId) {
       this.server.to(socketId).emit(eventName, payload);
     } else {
-      console.warn(`[RpcGateway] pushToWebClient: No web client for session ${sessionId}. Event "${eventName}" dropped. Connected sessions: [${Array.from(this.webClients.keys()).join(', ')}]`);
+      console.warn(
+        `[RpcGateway] pushToWebClient: No web client for session ${sessionId}. Event "${eventName}" dropped. Connected sessions: [${Array.from(this.webClients.keys()).join(', ')}]`,
+      );
     }
   }
 

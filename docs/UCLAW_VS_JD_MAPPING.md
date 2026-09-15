@@ -12,7 +12,7 @@
 | :--- | :--- | :--- | :--- |
 | **Agent 架构** | LangChain, LangGraph, Dify | **MCP (Model Context Protocol)**, Vercel AI SDK | **领先半步**。抛弃笨重的 LangChain，直接使用最新的 MCP 协议解耦工具调用，架构更适合金融级内网私有化。 |
 | **工具调用** | Function Calling, Tool Use | **mcp-servers 集群** (Gitlab/Jenkins/禅道) | **极致贴合**。大模型直接驱动 DevOps 基建，这是行动导向型 Agent 的最高阶形态。 |
-| **全栈并发** | FastAPI, 并发处理, 微服务 | **NestJS**, React 18, Monorepo, Docker | **全栈闭环**。纯 TypeScript 打造的微服务大脑，兼顾了高并发 SSE 流式响应与前后端同构。 |
+| **全栈并发** | FastAPI, 并发处理, 微服务 | **NestJS**, Next.js, Monorepo, Docker | **全栈闭环**。纯 TypeScript 打造的微服务大脑，兼顾了高并发 SSE 流式响应与前后端同构。 |
 | **安全治理** | 权限控制, 数据沙箱 | **AGP (Agent Governance Protocol), HITL** | **绝对亮点**。首创动态沙盒白名单与人工介入断点（Y/N），解决了大厂最头疼的 AI 越权灾难。 |
 
 ---

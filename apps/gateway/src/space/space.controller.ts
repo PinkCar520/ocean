@@ -54,6 +54,9 @@ export class SpaceController {
   async revokeGrant(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.dbId ?? req.user?.id;
     if (!userId) return { success: false, error: 'Unauthorized' };
-    return { success: true, data: await this.spaceService.revokeGrant(userId, id) };
+    return {
+      success: true,
+      data: await this.spaceService.revokeGrant(userId, id),
+    };
   }
 }

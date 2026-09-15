@@ -32,7 +32,10 @@ export class SkillSyncService implements OnModuleInit {
           compatibility: skill.compatibility,
         };
 
-        const category = this.inferCategory(skill.name, skill.compatibility || '');
+        const category = this.inferCategory(
+          skill.name,
+          skill.compatibility || '',
+        );
         const icon = this.inferIcon(skill.name);
         const tags = this.inferTags(skill.compatibility || '');
 
@@ -66,7 +69,9 @@ export class SkillSyncService implements OnModuleInit {
           this.logger.log(`  ↻ Updated existing skill: ${skill.name}`);
         }
       }
-      this.logger.log(`Skill auto-sync completed: ${createdCount} created, ${updatedCount} updated.`);
+      this.logger.log(
+        `Skill auto-sync completed: ${createdCount} created, ${updatedCount} updated.`,
+      );
     } catch (e: any) {
       this.logger.error(`Failed to auto-sync skills: ${e.message}`, e.stack);
     }
@@ -74,10 +79,30 @@ export class SkillSyncService implements OnModuleInit {
 
   private inferCategory(name: string, comp: string): string {
     const combined = `${name} ${comp}`.toLowerCase();
-    if (combined.includes('zentao') || combined.includes('bug') || combined.includes('prd')) return 'pm';
-    if (combined.includes('jenkins') || combined.includes('ci') || combined.includes('docker')) return 'cicd';
-    if (combined.includes('git') || combined.includes('merge') || combined.includes('pr')) return 'vc';
-    if (combined.includes('slack') || combined.includes('mail') || combined.includes('chat')) return 'communication';
+    if (
+      combined.includes('zentao') ||
+      combined.includes('bug') ||
+      combined.includes('prd')
+    )
+      return 'pm';
+    if (
+      combined.includes('jenkins') ||
+      combined.includes('ci') ||
+      combined.includes('docker')
+    )
+      return 'cicd';
+    if (
+      combined.includes('git') ||
+      combined.includes('merge') ||
+      combined.includes('pr')
+    )
+      return 'vc';
+    if (
+      combined.includes('slack') ||
+      combined.includes('mail') ||
+      combined.includes('chat')
+    )
+      return 'communication';
     return 'other';
   }
 
@@ -86,7 +111,8 @@ export class SkillSyncService implements OnModuleInit {
     if (lower.includes('bug') || lower.includes('fix')) return 'CheckCircle2';
     if (lower.includes('jenkins') || lower.includes('build')) return 'Rocket';
     if (lower.includes('git') || lower.includes('pr')) return 'GitPullRequest';
-    if (lower.includes('chat') || lower.includes('message')) return 'MessageSquare';
+    if (lower.includes('chat') || lower.includes('message'))
+      return 'MessageSquare';
     if (lower.includes('docker')) return 'Box';
     if (lower.includes('mail') || lower.includes('email')) return 'Mail';
     return 'Star';

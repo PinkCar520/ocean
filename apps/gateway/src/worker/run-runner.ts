@@ -331,7 +331,11 @@ export class RunRunner {
       let hasPending = false;
       if (!hasStep) {
         const msgs = await tx.outboxEvent.findMany({
-          where: { topic: 'tool.requested', aggregateId: runId, status: 'pending' },
+          where: {
+            topic: 'tool.requested',
+            aggregateId: runId,
+            status: 'pending',
+          },
           select: { payload: true },
         });
         hasPending = msgs.some((m) => {

@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { SessionService } from './session.service';
 
 @Controller('api/sessions')
@@ -62,7 +74,11 @@ export class SessionController {
    * 更新会话元数据（重命名、归档）
    */
   @Patch(':id')
-  async updateSession(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async updateSession(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     const userId = req.user?.dbId;
     const session = await this.sessionService.updateSession(id, userId, {
       title: body.title,

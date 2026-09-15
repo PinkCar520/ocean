@@ -100,11 +100,17 @@ function createArtifactTools(store: ArtifactStore): Tool[] {
       description:
         'Stores a large artifact to the artifact store (object storage). Returns a reference; the payload itself is NOT persisted in the database.',
       inputSchema: z.object({
-        name: z.string().optional().describe('artifact name (default: unnamed)'),
-        content: z.union([z.string(), z.record(z.string(), z.unknown())]).describe('artifact content'),
+        name: z
+          .string()
+          .optional()
+          .describe('artifact name (default: unnamed)'),
+        content: z
+          .union([z.string(), z.record(z.string(), z.unknown())])
+          .describe('artifact content'),
       }),
       async execute(input: Record<string, unknown>, ctx) {
-        if (!ctx) throw new TerminalToolError('artifact.save requires run context');
+        if (!ctx)
+          throw new TerminalToolError('artifact.save requires run context');
         const name = typeof input.name === 'string' ? input.name : 'unnamed';
         const content =
           typeof input.content === 'string'
@@ -124,13 +130,17 @@ function createArtifactTools(store: ArtifactStore): Tool[] {
       description:
         'Loads artifact content by artifactId (must belong to the same run).',
       inputSchema: z.object({
-        artifactId: z.string().describe('artifact id returned by artifact.save'),
+        artifactId: z
+          .string()
+          .describe('artifact id returned by artifact.save'),
       }),
       async execute(input: Record<string, unknown>, ctx) {
-        if (!ctx) throw new TerminalToolError('artifact.load requires run context');
+        if (!ctx)
+          throw new TerminalToolError('artifact.load requires run context');
         const artifactId =
           typeof input.artifactId === 'string' ? input.artifactId : '';
-        if (!artifactId) throw new TerminalToolError('artifact.load requires artifactId');
+        if (!artifactId)
+          throw new TerminalToolError('artifact.load requires artifactId');
         try {
           const content = await store.load(ctx.runId, artifactId);
           return { artifactId, content };
@@ -146,8 +156,16 @@ function createArtifactTools(store: ArtifactStore): Tool[] {
 }
 
 /** 内置工具集工厂（egress policy / artifact store 由 ToolModule 注入，按 name 注册进 ToolRegistry）。 */
-export function createBuiltinTools(egress: EgressPolicy, artifactStore?: ArtifactStore): Tool[] {
-  const tools: Tool[] = [echoTool, counterTool, notifySendTool, createWebGetTool(egress)];
+export function createBuiltinTools(
+  egress: EgressPolicy,
+  artifactStore?: ArtifactStore,
+): Tool[] {
+  const tools: Tool[] = [
+    echoTool,
+    counterTool,
+    notifySendTool,
+    createWebGetTool(egress),
+  ];
   if (artifactStore) tools.push(...createArtifactTools(artifactStore));
   return tools;
 }

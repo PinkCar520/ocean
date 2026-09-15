@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Patch, Body, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { UserService } from '../auth/user.service';
 import { SsoAuthGuard } from '../auth/sso.guard';
 import { PrismaClient } from '@prisma/client';
@@ -35,18 +43,22 @@ export class UserController {
   async createLocalProject(@Req() req: any, @Body() body: any) {
     const { projectName, category } = body;
     try {
-      const result = await this.rpcGateway.sendToCli(req.user.workId, 'create_local_project', {
-        name: projectName,
-        category
-      });
+      const result = await this.rpcGateway.sendToCli(
+        req.user.workId,
+        'create_local_project',
+        {
+          name: projectName,
+          category,
+        },
+      );
       return {
         success: true,
-        path: result.path
+        path: result.path,
       };
     } catch (err: any) {
       return {
         success: false,
-        error: err.message
+        error: err.message,
       };
     }
   }
@@ -58,15 +70,15 @@ export class UserController {
   @Get('profile')
   async getProfile(@Req() req: any) {
     const profile = await this.userService.getUserFullProfile(req.user.workId);
-    
+
     // 动态计算统计信息
     const [sessionCount, messageCount] = await Promise.all([
       this.prisma.session.count({ where: { userId: req.user.dbId } }),
-      this.prisma.message.count({ 
-        where: { 
+      this.prisma.message.count({
+        where: {
           session: { userId: req.user.dbId },
-          role: 'user'
-        } 
+          role: 'user',
+        },
       }),
     ]);
 
@@ -78,7 +90,7 @@ export class UserController {
           sessionCount,
           messageCount,
           storageUsed: '1.2 GB', // 暂存占位
-        }
+        },
       },
     };
   }
@@ -116,7 +128,10 @@ export class UserController {
         defaultModel: body.defaultModel || undefined,
         language: body.language || undefined,
         theme: body.theme || undefined,
-        customInstructions: body.customInstructions !== undefined ? body.customInstructions : undefined,
+        customInstructions:
+          body.customInstructions !== undefined
+            ? body.customInstructions
+            : undefined,
         config: body.config || undefined,
       },
     });
@@ -134,7 +149,7 @@ export class UserController {
   @Post('credentials')
   async updateCredentials(@Req() req: any, @Body() body: any) {
     const { systemType, token, username } = body;
-    
+
     const updated = await this.prisma.userCredential.upsert({
       where: {
         userId_systemType: {

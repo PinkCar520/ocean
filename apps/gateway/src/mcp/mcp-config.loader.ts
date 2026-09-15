@@ -48,7 +48,9 @@ export class MCPConfigLoader {
     // Layer 1: User-level (~/.ocean/mcp.json) - lowest priority
     const userHome = process.env.HOME || process.env.USERPROFILE || '';
     if (userHome) {
-      const userConfig = this.tryLoadJson(path.join(userHome, '.ocean', 'mcp.json'));
+      const userConfig = this.tryLoadJson(
+        path.join(userHome, '.ocean', 'mcp.json'),
+      );
       if (userConfig) {
         this.logger.debug(`Loaded user MCP config from: ~/.ocean/mcp.json`);
         layers.unshift(userConfig);
@@ -57,8 +59,9 @@ export class MCPConfigLoader {
 
     // Layer 2: Project-level (.mcp.json or .claude/mcp.json in workspace)
     if (workspacePath) {
-      const projectConfig = this.tryLoadJson(path.join(workspacePath, '.mcp.json'))
-        || this.tryLoadJson(path.join(workspacePath, '.claude', 'mcp.json'));
+      const projectConfig =
+        this.tryLoadJson(path.join(workspacePath, '.mcp.json')) ||
+        this.tryLoadJson(path.join(workspacePath, '.claude', 'mcp.json'));
       if (projectConfig) {
         this.logger.debug(`Loaded project MCP config from workspace`);
         layers.unshift(projectConfig);
@@ -66,8 +69,9 @@ export class MCPConfigLoader {
     }
 
     // Layer 3: Local-level (cwd/.mcp.json or cwd/.claude/mcp.json) - highest priority
-    const localConfig = this.tryLoadJson(path.join(process.cwd(), '.mcp.json'))
-      || this.tryLoadJson(path.join(process.cwd(), '.claude', 'mcp.json'));
+    const localConfig =
+      this.tryLoadJson(path.join(process.cwd(), '.mcp.json')) ||
+      this.tryLoadJson(path.join(process.cwd(), '.claude', 'mcp.json'));
     if (localConfig) {
       this.logger.debug(`Loaded local MCP config from cwd`);
       layers.unshift(localConfig);
@@ -75,7 +79,9 @@ export class MCPConfigLoader {
 
     // Layer 4: Built-in config (mcp.config.json in gateway) - fallback
     const gatewayRoot = process.env.GATEWAY_ROOT || process.cwd();
-    const builtinConfig = this.tryLoadJson(path.join(gatewayRoot, 'mcp.config.json'));
+    const builtinConfig = this.tryLoadJson(
+      path.join(gatewayRoot, 'mcp.config.json'),
+    );
     if (builtinConfig) {
       this.logger.debug(`Loaded built-in MCP config from gateway`);
       layers.unshift(builtinConfig);
@@ -132,7 +138,9 @@ export class MCPConfigLoader {
       ...config,
       args: (config.args || []).map(expand),
       env: config.env
-        ? Object.fromEntries(Object.entries(config.env).map(([k, v]) => [k, expand(v)]))
+        ? Object.fromEntries(
+            Object.entries(config.env).map(([k, v]) => [k, expand(v)]),
+          )
         : {},
     };
   }

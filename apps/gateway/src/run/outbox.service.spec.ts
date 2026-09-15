@@ -34,19 +34,29 @@ describe('OutboxService', () => {
   it('only acknowledges a message held by the worker', async () => {
     prisma.outboxEvent.updateMany.mockResolvedValue({ count: 1 });
 
-    await expect(service.markProcessed('outbox_1', 'worker_1')).resolves.toBe(true);
+    await expect(service.markProcessed('outbox_1', 'worker_1')).resolves.toBe(
+      true,
+    );
     expect(prisma.outboxEvent.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'outbox_1', status: 'pending', lockedBy: 'worker_1' } }),
+      expect.objectContaining({
+        where: { id: 'outbox_1', status: 'pending', lockedBy: 'worker_1' },
+      }),
     );
   });
 
   it('releases failed messages for a delayed retry', async () => {
     prisma.outboxEvent.updateMany.mockResolvedValue({ count: 1 });
 
-    await expect(service.markFailed('outbox_1', 'worker_1', 'temporary failure', 5_000)).resolves.toBe(true);
+    await expect(
+      service.markFailed('outbox_1', 'worker_1', 'temporary failure', 5_000),
+    ).resolves.toBe(true);
     expect(prisma.outboxEvent.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ lastError: 'temporary failure', lockedAt: null, lockedBy: null }),
+        data: expect.objectContaining({
+          lastError: 'temporary failure',
+          lockedAt: null,
+          lockedBy: null,
+        }),
       }),
     );
   });

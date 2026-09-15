@@ -85,7 +85,9 @@ export class ApprovalService {
   /**
    * Get all pending (non-expired) requests for a session.
    */
-  async getSessionPendingRequests(sessionId: string): Promise<ApprovalRequest[]> {
+  async getSessionPendingRequests(
+    sessionId: string,
+  ): Promise<ApprovalRequest[]> {
     const rows = await this.prisma.approvalRequest.findMany({
       where: {
         sessionId,
@@ -129,7 +131,9 @@ export class ApprovalService {
    * Check approval status (used by tool execution to poll for results).
    * @returns 'approved' | 'denied' | 'pending' | null (not found)
    */
-  async getStatus(id: string): Promise<'approved' | 'denied' | 'pending' | null> {
+  async getStatus(
+    id: string,
+  ): Promise<'approved' | 'denied' | 'pending' | null> {
     const req = await this.prisma.approvalRequest.findUnique({
       where: { id },
       select: { status: true, expiresAt: true },
@@ -158,7 +162,10 @@ export class ApprovalService {
    *
    * @returns true if approved, false if denied or timed out.
    */
-  async waitForApproval(requestId: string, timeoutMs: number): Promise<boolean> {
+  async waitForApproval(
+    requestId: string,
+    timeoutMs: number,
+  ): Promise<boolean> {
     const start = Date.now();
 
     while (Date.now() - start < timeoutMs) {

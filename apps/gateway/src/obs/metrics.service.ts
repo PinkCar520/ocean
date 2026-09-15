@@ -20,17 +20,33 @@ export class MetricsService {
   private readonly counters = new Map<string, number>();
 
   // OTel 基础计数器（无维度，维度保留在 /api/metrics 快照）
-  private readonly otelCounters: Record<string, ReturnType<typeof this.meter.createCounter>> = {};
+  private readonly otelCounters: Record<
+    string,
+    ReturnType<typeof this.meter.createCounter>
+  > = {};
 
   constructor() {
-    for (const name of ['run.created', 'run.terminal', 'tool.executed', 'approval.requested', 'approval.resolved', 'outbox.enqueued', 'http.requests']) {
-      this.otelCounters[name] = this.meter.createCounter(`ocean.${name}`, { description: `ocean ${name}` });
+    for (const name of [
+      'run.created',
+      'run.terminal',
+      'tool.executed',
+      'approval.requested',
+      'approval.resolved',
+      'outbox.enqueued',
+      'http.requests',
+    ]) {
+      this.otelCounters[name] = this.meter.createCounter(`ocean.${name}`, {
+        description: `ocean ${name}`,
+      });
     }
   }
 
   inc(key: string, labels: Record<string, string> = {}, delta = 1): void {
     const labelKey = Object.keys(labels).length
-      ? `${key}|${Object.entries(labels).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => `${k}=${v}`).join(',')}`
+      ? `${key}|${Object.entries(labels)
+          .sort(([a], [b]) => (a < b ? -1 : 1))
+          .map(([k, v]) => `${k}=${v}`)
+          .join(',')}`
       : key;
     this.counters.set(labelKey, (this.counters.get(labelKey) ?? 0) + delta);
     // OTel 侧取基础计数（去掉 label 维度）
@@ -54,12 +70,17 @@ export class MetricsService {
 
   /** Prometheus 文本格式（供 GET /api/metrics）。 */
   prometheusText(): string {
-    const lines: string[] = ['# HELP ocean_metrics gateway runtime counters', '# TYPE ocean_metrics counter'];
+    const lines: string[] = [
+      '# HELP ocean_metrics gateway runtime counters',
+      '# TYPE ocean_metrics counter',
+    ];
     for (const point of this.snapshot()) {
       const labels = Object.entries(point.labels)
         .map(([k, v]) => `${k}="${v.replace(/"/g, '\\"')}"`)
         .join(',');
-      lines.push(`ocean_${point.key.replace(/\./g, '_')}${labels ? `{${labels}}` : ''} ${point.value}`);
+      lines.push(
+        `ocean_${point.key.replace(/\./g, '_')}${labels ? `{${labels}}` : ''} ${point.value}`,
+      );
     }
     return lines.join('\n') + '\n';
   }

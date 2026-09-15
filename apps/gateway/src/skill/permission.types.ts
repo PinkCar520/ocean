@@ -6,9 +6,9 @@
 export const IS_PUBLIC_KEY = 'isPublic';
 
 export type PermissionMode =
-  | 'default'       // prompt on first use
-  | 'acceptEdits'   // auto-approve file edits, prompt bash
-  | 'plan'          // read-only mode
+  | 'default' // prompt on first use
+  | 'acceptEdits' // auto-approve file edits, prompt bash
+  | 'plan' // read-only mode
   | 'bypassPermissions'; // CI/CD mode, no prompts
 
 export type PermissionAction = 'allow' | 'deny' | 'ask';
@@ -44,10 +44,13 @@ export interface PermissionSettings {
   ask?: string[];
   /** MCP-specific permissions */
   mcp?: {
-    servers?: Record<string, {
-      enabled?: boolean;
-      permissions?: PermissionAction;
-    }>;
+    servers?: Record<
+      string,
+      {
+        enabled?: boolean;
+        permissions?: PermissionAction;
+      }
+    >;
   };
   /** Max tokens for MCP tool responses (prevent context overflow) */
   maxMcpOutputTokens?: number;

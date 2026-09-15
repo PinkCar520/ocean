@@ -42,11 +42,18 @@ export class WorkController {
   async listTasks(@Param('id') id: string, @Req() req: any) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
-    return { success: true, data: await this.workService.listTasks(userId, id) };
+    return {
+      success: true,
+      data: await this.workService.listTasks(userId, id),
+    };
   }
 
   @Post('projects/:id/tasks')
-  async createTask(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async createTask(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
     return {
@@ -60,7 +67,11 @@ export class WorkController {
   }
 
   @Patch('tasks/:id')
-  async updateTask(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async updateTask(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     const userId = this.userId(req);
     if (!userId) return { success: false, error: 'Unauthorized' };
     return {

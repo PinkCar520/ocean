@@ -3,9 +3,7 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @Inject('PRISMA_CLIENT') private prisma: PrismaClient,
-  ) {}
+  constructor(@Inject('PRISMA_CLIENT') private prisma: PrismaClient) {}
 
   /**
    * 影子用户同步 (Shadow User Sync)
@@ -33,7 +31,7 @@ export class UserService {
       },
       include: {
         preferences: true,
-      }
+      },
     });
   }
 

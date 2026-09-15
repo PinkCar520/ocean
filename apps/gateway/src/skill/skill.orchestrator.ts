@@ -68,7 +68,7 @@ export class SkillOrchestrator {
     private policyEvaluator: PolicyEvaluator,
     private skillResolver: SkillResolver,
     @Inject('PRISMA_CLIENT') private prisma: any,
-  ) { }
+  ) {}
 
   /** 获取当前网关配置的模型列表（委托 ModelRegistry）。 */
   getAvailableModels() {
@@ -78,7 +78,10 @@ export class SkillOrchestrator {
   // ──────────────────────────────────────────────
   // Step 2 + 3: System Prompt（委托 PromptComposer / SkillResolver）
   // ──────────────────────────────────────────────
-  private buildSystemPrompt(ctx: SkillContext, sessionId?: string): Promise<string> {
+  private buildSystemPrompt(
+    ctx: SkillContext,
+    sessionId?: string,
+  ): Promise<string> {
     return this.promptComposer.buildSystemPrompt(ctx, sessionId);
   }
 
@@ -96,7 +99,8 @@ export class SkillOrchestrator {
         data: {
           key: 'skill_creator_prompt',
           value: DEFAULT_SKILL_CREATOR_PROMPT,
-          description: 'Default system prompt for the AI Skill Creator feature.',
+          description:
+            'Default system prompt for the AI Skill Creator feature.',
         },
       });
     }
@@ -171,202 +175,253 @@ export class SkillOrchestrator {
   // ──────────────────────────────────────────────
   // Tools: Atomic Local Tools + MCP + activate_skill（委托 ToolRuntime / PolicyEvaluator）
   // ──────────────────────────────────────────────
-  private buildTools(ctx: SkillContext, sessionId?: string): Promise<Record<string, any>> {
+  private buildTools(
+    ctx: SkillContext,
+    sessionId?: string,
+  ): Promise<Record<string, any>> {
     return this.toolRuntime.buildTools(ctx, sessionId);
   }
 
-
-
-  async streamResponse(messages: any[], ctx: SkillContext, modelId?: string, sessionId?: string, onChunk?: (chunk: string) => void): Promise<void> {
+  async streamResponse(
+    messages: any[],
+    ctx: SkillContext,
+    modelId?: string,
+    sessionId?: string,
+    onChunk?: (chunk: string) => void,
+  ): Promise<void> {
     const isSearchMode = (ctx as any).search === true;
     const isKnowledgeMode = (ctx as any).knowledge === true;
 
-    return await this.tracingService.traceCall('streamResponse', {
-      sessionId,
-      userId: ctx.userId,
-      isSearch: isSearchMode,
-      isKnowledge: isKnowledgeMode
-    }, async (span) => {
-      try {
-        this.logger.log(`[Orchestrator] streamResponse session=${sessionId} messages=${messages?.length}`);
-
-        let newUserMsgId: string | undefined;
-
-        if (sessionId && Array.isArray(messages)) {
-          const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-          if (lastUserMsg) {
-            const userContent = typeof lastUserMsg.content === 'string' ? lastUserMsg.content : '';
-            newUserMsgId = await this.sessionService.addMessage(sessionId, {
-              role: 'user',
-              content: userContent,
-              parentId: (lastUserMsg as any).parentId,
-              parts: lastUserMsg.parts,
-              attachments: lastUserMsg.experimental_attachments,
-            });
-          }
-        }
-
-        // Robustly ensure messages have parts for the SDK（委托 ContextAssembler）
-        const sanitizedMessages = this.contextAssembler.sanitizeMessages(messages || []);
-
-        // --- RAG Context Injection（委托 ContextAssembler）---
-        if (isSearchMode || isKnowledgeMode) {
-          const { injected } = await this.contextAssembler.injectRagContext(
-            sanitizedMessages,
-            ctx,
-            isSearchMode ? 'search' : 'knowledge',
+    return await this.tracingService.traceCall(
+      'streamResponse',
+      {
+        sessionId,
+        userId: ctx.userId,
+        isSearch: isSearchMode,
+        isKnowledge: isKnowledgeMode,
+      },
+      async (span) => {
+        try {
+          this.logger.log(
+            `[Orchestrator] streamResponse session=${sessionId} messages=${messages?.length}`,
           );
-          span.setAttribute('rag_context_injected', injected);
-        }
 
-        const modelMessages = await this.contextAssembler.toModelMessages(sanitizedMessages);
-        const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx, sessionId), this.buildTools(ctx, sessionId)]);
+          let newUserMsgId: string | undefined;
 
-        const allParts: any[] = [];
-        let fullText = '';
-
-        let dbPromiseResolve: () => void;
-        const dbPromise = new Promise<void>((resolve) => {
-          dbPromiseResolve = resolve;
-        });
-
-        const result = streamText({
-          model: this.modelRegistry.getModel(modelId),
-          messages: modelMessages,
-          toolChoice: 'auto',
-          stopWhen: stepCountIs(10),
-          system: systemPrompt,
-          tools,
-          onStepFinish: (event) => {
-            const { text, toolCalls, toolResults } = event;
-
-            // 1. 记录文本
-            if (text) {
-              fullText += text;
-              allParts.push({ type: 'text', text });
+          if (sessionId && Array.isArray(messages)) {
+            const lastUserMsg = [...messages]
+              .reverse()
+              .find((m) => m.role === 'user');
+            if (lastUserMsg) {
+              const userContent =
+                typeof lastUserMsg.content === 'string'
+                  ? lastUserMsg.content
+                  : '';
+              newUserMsgId = await this.sessionService.addMessage(sessionId, {
+                role: 'user',
+                content: userContent,
+                parentId: lastUserMsg.parentId,
+                parts: lastUserMsg.parts,
+                attachments: lastUserMsg.experimental_attachments,
+              });
             }
+          }
 
-            // 2. 闭环审计逻辑：确保每一个 toolCall 都有对应的结果进入 allParts
-            const handledCallIds = new Set<string>();
+          // Robustly ensure messages have parts for the SDK（委托 ContextAssembler）
+          const sanitizedMessages = this.contextAssembler.sanitizeMessages(
+            messages || [],
+          );
 
-            // 先处理已经有真实结果的调用
-            if (toolResults && Array.isArray(toolResults)) {
-              for (const tr of toolResults) {
-                const part = {
-                  type: 'tool-invocation',
-                  toolCallId: tr.toolCallId,
-                  toolName: tr.toolName,
-                  args: tr.input,
-                  result: tr.output
-                };
-                allParts.push(part);
-                handledCallIds.add(tr.toolCallId);
+          // --- RAG Context Injection（委托 ContextAssembler）---
+          if (isSearchMode || isKnowledgeMode) {
+            const { injected } = await this.contextAssembler.injectRagContext(
+              sanitizedMessages,
+              ctx,
+              isSearchMode ? 'search' : 'knowledge',
+            );
+            span.setAttribute('rag_context_injected', injected);
+          }
+
+          const modelMessages =
+            await this.contextAssembler.toModelMessages(sanitizedMessages);
+          const [systemPrompt, tools] = await Promise.all([
+            this.buildSystemPrompt(ctx, sessionId),
+            this.buildTools(ctx, sessionId),
+          ]);
+
+          const allParts: any[] = [];
+          let fullText = '';
+
+          let dbPromiseResolve: () => void;
+          const dbPromise = new Promise<void>((resolve) => {
+            dbPromiseResolve = resolve;
+          });
+
+          const result = streamText({
+            model: this.modelRegistry.getModel(modelId),
+            messages: modelMessages,
+            toolChoice: 'auto',
+            stopWhen: stepCountIs(10),
+            system: systemPrompt,
+            tools,
+            onStepFinish: (event) => {
+              const { text, toolCalls, toolResults } = event;
+
+              // 1. 记录文本
+              if (text) {
+                fullText += text;
+                allParts.push({ type: 'text', text });
               }
-            }
 
-            // 补全审计：如果某些 toolCalls 丢失了结果（如异常中断），补全占位符防止 SDK 报错
-            if (toolCalls && Array.isArray(toolCalls)) {
-              for (const tc of toolCalls) {
-                if (!handledCallIds.has(tc.toolCallId)) {
-                  this.logger.warn(`[Orchestrator] Missing result for tool call ${tc.toolCallId} (${tc.toolName}). Injecting placeholder.`);
-                  allParts.push({
+              // 2. 闭环审计逻辑：确保每一个 toolCall 都有对应的结果进入 allParts
+              const handledCallIds = new Set<string>();
+
+              // 先处理已经有真实结果的调用
+              if (toolResults && Array.isArray(toolResults)) {
+                for (const tr of toolResults) {
+                  const part = {
                     type: 'tool-invocation',
-                    toolCallId: tc.toolCallId,
-                    toolName: tc.toolName,
-                    args: (tc as any).args,
-                    result: { error: 'Execution was interrupted or failed to return a valid result.' }
-                  });
+                    toolCallId: tr.toolCallId,
+                    toolName: tr.toolName,
+                    args: tr.input,
+                    result: tr.output,
+                  };
+                  allParts.push(part);
+                  handledCallIds.add(tr.toolCallId);
                 }
               }
-            }
-          },
-          onFinish: async ({ totalUsage }: any) => {
-            if (totalUsage) {
-              span.setAttribute('total_tokens', totalUsage.totalTokens || 0);
-              span.setAttribute('prompt_tokens', totalUsage.inputTokens || 0);
-              span.setAttribute('completion_tokens', totalUsage.outputTokens || 0);
-            }
 
-            // 修改持久化逻辑：只要有文本或者有工具调用记录 (allParts)，就必须保存
-            if (sessionId && (fullText || allParts.length > 0)) {
-              try {
-                const usage = totalUsage ? {
-                  inputTokens: totalUsage.inputTokens ?? 0,
-                  outputTokens: totalUsage.outputTokens ?? 0,
-                  totalTokens: totalUsage.totalTokens ?? 0
-                } : undefined;
-
-                await this.sessionService.addMessage(sessionId, {
-                  role: 'assistant',
-                  content: fullText || '', // 允许内容为空，只要 parts 有数据
-                  parentId: newUserMsgId, // 指向刚创建的 User 消息
-                  parts: allParts,
-                  usage
-                });
-                this.logger.log(`[Orchestrator] Persisted assistant reply. Parts count: ${allParts.length}`);
-              } catch (dbErr: any) {
-                this.logger.error(`[Orchestrator] Failed to persist message: ${dbErr.message}`);
+              // 补全审计：如果某些 toolCalls 丢失了结果（如异常中断），补全占位符防止 SDK 报错
+              if (toolCalls && Array.isArray(toolCalls)) {
+                for (const tc of toolCalls) {
+                  if (!handledCallIds.has(tc.toolCallId)) {
+                    this.logger.warn(
+                      `[Orchestrator] Missing result for tool call ${tc.toolCallId} (${tc.toolName}). Injecting placeholder.`,
+                    );
+                    allParts.push({
+                      type: 'tool-invocation',
+                      toolCallId: tc.toolCallId,
+                      toolName: tc.toolName,
+                      args: (tc as any).args,
+                      result: {
+                        error:
+                          'Execution was interrupted or failed to return a valid result.',
+                      },
+                    });
+                  }
+                }
               }
-            }
-            dbPromiseResolve();
-          },
-        });
-
-        const consumeStream = async () => {
-          let isFirstReasoning = true;
-          let hasReasoning = false;
-          const fullStream = result.fullStream;
-          for await (const chunk of fullStream) {
-            let protocolStr = '';
-            if (chunk.type === 'text-delta') {
-              let text = chunk.text;
-              if (hasReasoning && isFirstReasoning === false) {
-                // Close the think tag before the first text chunk
-                text = '\n</think>\n\n' + text;
-                hasReasoning = false; // Prevents closing again
+            },
+            onFinish: async ({ totalUsage }: any) => {
+              if (totalUsage) {
+                span.setAttribute('total_tokens', totalUsage.totalTokens || 0);
+                span.setAttribute('prompt_tokens', totalUsage.inputTokens || 0);
+                span.setAttribute(
+                  'completion_tokens',
+                  totalUsage.outputTokens || 0,
+                );
               }
-              protocolStr = `0:${JSON.stringify(text)}\n`;
-            } else if (chunk.type === 'reasoning-delta') {
-              let text = chunk.text;
-              if (isFirstReasoning) {
-                text = '<think>\n' + text;
-                isFirstReasoning = false;
-                hasReasoning = true;
+
+              // 修改持久化逻辑：只要有文本或者有工具调用记录 (allParts)，就必须保存
+              if (sessionId && (fullText || allParts.length > 0)) {
+                try {
+                  const usage = totalUsage
+                    ? {
+                        inputTokens: totalUsage.inputTokens ?? 0,
+                        outputTokens: totalUsage.outputTokens ?? 0,
+                        totalTokens: totalUsage.totalTokens ?? 0,
+                      }
+                    : undefined;
+
+                  await this.sessionService.addMessage(sessionId, {
+                    role: 'assistant',
+                    content: fullText || '', // 允许内容为空，只要 parts 有数据
+                    parentId: newUserMsgId, // 指向刚创建的 User 消息
+                    parts: allParts,
+                    usage,
+                  });
+                  this.logger.log(
+                    `[Orchestrator] Persisted assistant reply. Parts count: ${allParts.length}`,
+                  );
+                } catch (dbErr: any) {
+                  this.logger.error(
+                    `[Orchestrator] Failed to persist message: ${dbErr.message}`,
+                  );
+                }
               }
-              protocolStr = `0:${JSON.stringify(text)}\n`;
-            } else if (chunk.type === 'tool-call') {
-              // Include tool calls into the data stream (using standard data stream protocol if needed, though useChat natively handles some tool streaming)
-              protocolStr = `9:${JSON.stringify({ ...chunk })}\n`;
+              dbPromiseResolve();
+            },
+          });
+
+          const consumeStream = async () => {
+            let isFirstReasoning = true;
+            let hasReasoning = false;
+            const fullStream = result.fullStream;
+            for await (const chunk of fullStream) {
+              let protocolStr = '';
+              if (chunk.type === 'text-delta') {
+                let text = chunk.text;
+                if (hasReasoning && isFirstReasoning === false) {
+                  // Close the think tag before the first text chunk
+                  text = '\n</think>\n\n' + text;
+                  hasReasoning = false; // Prevents closing again
+                }
+                protocolStr = `0:${JSON.stringify(text)}\n`;
+              } else if (chunk.type === 'reasoning-delta') {
+                let text = chunk.text;
+                if (isFirstReasoning) {
+                  text = '<think>\n' + text;
+                  isFirstReasoning = false;
+                  hasReasoning = true;
+                }
+                protocolStr = `0:${JSON.stringify(text)}\n`;
+              } else if (chunk.type === 'tool-call') {
+                // Include tool calls into the data stream (using standard data stream protocol if needed, though useChat natively handles some tool streaming)
+                protocolStr = `9:${JSON.stringify({ ...chunk })}\n`;
+              }
+              if (protocolStr && onChunk) onChunk(protocolStr);
             }
-            if (protocolStr && onChunk) onChunk(protocolStr);
-          }
-          
-          // If the stream ended but reasoning was never closed (shouldn't happen usually, but just in case)
-          if (hasReasoning && isFirstReasoning === false) {
-            if (onChunk) onChunk(`0:${JSON.stringify('\n</think>\n')}\n`);
-          }
 
-          // [Official Practice] Emit the finish event to properly terminate Vercel AI SDK stream
-          if (onChunk) {
-            onChunk(`d:${JSON.stringify({ finishReason: 'stop' })}\n`);
-          }
-        };
+            // If the stream ended but reasoning was never closed (shouldn't happen usually, but just in case)
+            if (hasReasoning && isFirstReasoning === false) {
+              if (onChunk) onChunk(`0:${JSON.stringify('\n</think>\n')}\n`);
+            }
 
-        await Promise.all([consumeStream(), dbPromise]);
-      } catch (err: any) {
-        this.logger.error(`Stream error: ${err.message}`);
-        span.recordException(err);
-        if (err.stack) this.logger.error(err.stack);
-        throw err;
-      }
-    });
+            // [Official Practice] Emit the finish event to properly terminate Vercel AI SDK stream
+            if (onChunk) {
+              onChunk(`d:${JSON.stringify({ finishReason: 'stop' })}\n`);
+            }
+          };
+
+          await Promise.all([consumeStream(), dbPromise]);
+        } catch (err: any) {
+          this.logger.error(`Stream error: ${err.message}`);
+          span.recordException(err);
+          if (err.stack) this.logger.error(err.stack);
+          throw err;
+        }
+      },
+    );
   }
 
-  async textResponse(userId: string, content: string, source: 'im' | 'cli' = 'im'): Promise<string> {
+  async textResponse(
+    userId: string,
+    content: string,
+    source: 'im' | 'cli' = 'im',
+  ): Promise<string> {
     try {
       const ctx: SkillContext = { userId, source, userMessage: content };
-      const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx), this.buildTools(ctx)]);
-      const { text } = await generateText({ model: this.modelRegistry.getModel(), messages: [{ role: 'user', content }], system: systemPrompt, tools, stopWhen: stepCountIs(10) });
+      const [systemPrompt, tools] = await Promise.all([
+        this.buildSystemPrompt(ctx),
+        this.buildTools(ctx),
+      ]);
+      const { text } = await generateText({
+        model: this.modelRegistry.getModel(),
+        messages: [{ role: 'user', content }],
+        system: systemPrompt,
+        tools,
+        stopWhen: stepCountIs(10),
+      });
       return text;
     } catch (err: any) {
       return `Error: ${err.message}`;
@@ -380,7 +435,8 @@ export class SkillOrchestrator {
     try {
       const { text } = await generateText({
         model: this.modelRegistry.getModel(modelId),
-        system: '你是一个标题生成助手。总结一个 5 字以内的中文标题，不要标点符号。直接返回文字。',
+        system:
+          '你是一个标题生成助手。总结一个 5 字以内的中文标题，不要标点符号。直接返回文字。',
         messages: [{ role: 'user', content: userContent }],
       });
       return text.trim().replace(/[。？！，、]/g, '');
@@ -399,12 +455,14 @@ export class SkillOrchestrator {
       const models = this.getAvailableModels();
       if (models.length === 0) return '';
 
-      const fastModelId = models.find(m =>
-        m.name.toLowerCase().includes('llama') ||
-        m.name.toLowerCase().includes('3b') ||
-        m.name.toLowerCase().includes('flash') ||
-        m.name.toLowerCase().includes('coder')
-      )?.id || models[0].id;
+      const fastModelId =
+        models.find(
+          (m) =>
+            m.name.toLowerCase().includes('llama') ||
+            m.name.toLowerCase().includes('3b') ||
+            m.name.toLowerCase().includes('flash') ||
+            m.name.toLowerCase().includes('coder'),
+        )?.id || models[0].id;
 
       const { text } = await generateText({
         model: this.modelRegistry.getModel(fastModelId),
@@ -442,7 +500,7 @@ EXAMPLES:
     variables?: Record<string, string>,
   ) {
     const startTime = Date.now();
-    
+
     // 1. 构建环境感知 Context
     const ctx: SkillContext = {
       userId: 'Sandbox-User',
@@ -458,7 +516,8 @@ EXAMPLES:
     let injectedPrompt = '';
     const resolved = await this.skillResolver.resolve(ctx);
     if (resolved.injectedPrompt) injectedPrompt = resolved.injectedPrompt;
-    if (resolved.matchedSkills.length > 0) matchedSkills = resolved.matchedSkills;
+    if (resolved.matchedSkills.length > 0)
+      matchedSkills = resolved.matchedSkills;
 
     // 4. 强制注入当前正在编辑且未保存的 activeSkill
     let activeSkillInjected = '';
@@ -469,7 +528,7 @@ EXAMPLES:
       activeSkillInjected += `${activeSkill.content}\n`;
       activeSkillInjected += `</skill>\n`;
       activeSkillInjected += `</injected_skills>\n`;
-      
+
       systemPrompt += `\n\n${activeSkillInjected}`;
     }
 
@@ -489,7 +548,7 @@ EXAMPLES:
 
     // 6. 运行大模型调用
     const model = this.modelRegistry.getModel();
-    
+
     const { text, usage } = await generateText({
       model: model,
       system: systemPrompt,
@@ -508,7 +567,15 @@ EXAMPLES:
         total_tokens: usage?.totalTokens || 0,
       },
       matched_skills: [
-        ...(activeSkill ? [{ id: activeSkill.name || 'TestSkill', name: activeSkill.name || 'TestSkill', match_type: 'forced' }] : []),
+        ...(activeSkill
+          ? [
+              {
+                id: activeSkill.name || 'TestSkill',
+                name: activeSkill.name || 'TestSkill',
+                match_type: 'forced',
+              },
+            ]
+          : []),
         ...matchedSkills,
       ],
     };

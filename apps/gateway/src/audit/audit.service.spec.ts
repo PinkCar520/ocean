@@ -8,21 +8,28 @@ describe('AuditService (Phase 7 7b audit log)', () => {
         logs.push({ id: `a${logs.length + 1}`, ...args.data });
         return { id: `a${logs.length}` };
       }),
-      findMany: jest.fn(async (args: any) => logs.filter((l) => {
-        const spaceOk = args.where.spaceId.in.includes(l.spaceId);
-        const actorOk = l.actorUserId === args.where.actorUserId;
-        return spaceOk && actorOk;
-      })),
+      findMany: jest.fn(async (args: any) =>
+        logs.filter((l) => {
+          const spaceOk = args.where.spaceId.in.includes(l.spaceId);
+          const actorOk = l.actorUserId === args.where.actorUserId;
+          return spaceOk && actorOk;
+        }),
+      ),
     },
     membership: { findMany: jest.fn() },
   } as any;
 
   const space = {
-    requireAccessibleSpace: jest.fn().mockResolvedValue({ id: 'work', type: 'work' }),
+    requireAccessibleSpace: jest
+      .fn()
+      .mockResolvedValue({ id: 'work', type: 'work' }),
   } as any;
   const service = new AuditService(prisma, space);
 
-  beforeEach(() => { logs.length = 0; jest.clearAllMocks(); });
+  beforeEach(() => {
+    logs.length = 0;
+    jest.clearAllMocks();
+  });
 
   it('records a tool execution with full provenance', async () => {
     await service.record({
@@ -42,11 +49,19 @@ describe('AuditService (Phase 7 7b audit log)', () => {
   });
 
   it('lists only the caller own actor and accessible spaces', async () => {
-    prisma.membership.findMany.mockResolvedValue([{ spaceId: 'work' }, { spaceId: 'code' }]);
+    prisma.membership.findMany.mockResolvedValue([
+      { spaceId: 'work' },
+      { spaceId: 'code' },
+    ]);
     logs.push(
       { id: 'a1', actorUserId: 'u1', spaceId: 'work', action: 'tool.execute' },
       { id: 'a2', actorUserId: 'u2', spaceId: 'work', action: 'tool.execute' },
-      { id: 'a3', actorUserId: 'u1', spaceId: 'life-other', action: 'tool.execute' },
+      {
+        id: 'a3',
+        actorUserId: 'u1',
+        spaceId: 'life-other',
+        action: 'tool.execute',
+      },
     );
     const result = await service.list('u1');
     expect(result).toHaveLength(1);
@@ -55,15 +70,21 @@ describe('AuditService (Phase 7 7b audit log)', () => {
 
   it('enforces accessible space for explicit spaceId filter', async () => {
     space.requireAccessibleSpace.mockRejectedValueOnce(new Error('403'));
-    await expect(service.list('u1', { spaceId: 'secret' })).rejects.toThrow('403');
+    await expect(service.list('u1', { spaceId: 'secret' })).rejects.toThrow(
+      '403',
+    );
     expect(space.requireAccessibleSpace).toHaveBeenCalledWith('u1', 'secret');
   });
 
   it('caps limit between 1 and 200', async () => {
     prisma.membership.findMany.mockResolvedValue([]);
     await service.list('u1', { limit: 9999 });
-    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 200 }));
+    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 200 }),
+    );
     await service.list('u1', { limit: -5 });
-    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 1 }));
+    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 1 }),
+    );
   });
 });

@@ -89,7 +89,8 @@ export class MCPServerService {
     const result = await this.prisma.mCPServer.deleteMany({
       where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
     });
-    if (result.count === 0) throw new NotFoundException(`MCP Server ${id} not found`);
+    if (result.count === 0)
+      throw new NotFoundException(`MCP Server ${id} not found`);
     return { success: true };
   }
 
@@ -117,7 +118,9 @@ export class MCPServerService {
     return { status: server.status };
   }
 
-  private async checkStdioHealth(server: any): Promise<{ status: string; latency?: number }> {
+  private async checkStdioHealth(
+    server: any,
+  ): Promise<{ status: string; latency?: number }> {
     const start = Date.now();
     return new Promise((resolve) => {
       // Resolve env variables (${VAR} -> actual value)
@@ -125,7 +128,10 @@ export class MCPServerService {
 
       let child: ChildProcess;
       try {
-        const resolvedPath = this.resolveCommandPath(server.command, server.args);
+        const resolvedPath = this.resolveCommandPath(
+          server.command,
+          server.args,
+        );
         child = spawn(resolvedPath, server.args || [], {
           env: { ...process.env, ...env },
           timeout: 3000,
@@ -229,8 +235,8 @@ export class MCPServerService {
     // Try multiple possible locations for mcp.config.json to support dev, build, and docker
     const possiblePaths = [
       path.join(__dirname, '../../mcp.config.json'), // dist/mcp-server/../../ (compiled)
-      path.join(__dirname, '../mcp.config.json'),    // dist/../ (alternative build)
-      path.join(process.cwd(), 'mcp.config.json'),   // from cwd
+      path.join(__dirname, '../mcp.config.json'), // dist/../ (alternative build)
+      path.join(process.cwd(), 'mcp.config.json'), // from cwd
       path.join(process.cwd(), 'apps/gateway/mcp.config.json'), // from workspace root
     ];
 
@@ -243,7 +249,10 @@ export class MCPServerService {
     }
 
     if (!configPath) {
-      return { synced: 0, message: 'No mcp.config.json found in expected locations' };
+      return {
+        synced: 0,
+        message: 'No mcp.config.json found in expected locations',
+      };
     }
 
     const raw = fs.readFileSync(configPath, 'utf-8');

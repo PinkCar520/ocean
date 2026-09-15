@@ -1,6 +1,6 @@
 /**
  * MCP 传输层抽象
- * 
+ *
  * 支持多种传输协议：
  * - Stdio: 本地子进程通信
  * - SSE: Server-Sent Events（远程服务器）
@@ -42,7 +42,7 @@ export async function createStdioTransport(
 
 /**
  * 创建 SSE 传输
- * 
+ *
  * 使用示例：
  * ```typescript
  * const transport = await createSSETransport({
@@ -62,9 +62,8 @@ export async function createSSETransport(
   }
 
   // 动态导入 SSE 客户端（避免在非 SSE 场景下加载）
-  const { SSEClientTransport } = await import(
-    '@modelcontextprotocol/sdk/client/sse.js'
-  );
+  const { SSEClientTransport } =
+    await import('@modelcontextprotocol/sdk/client/sse.js');
 
   const resolvedHeaders: Record<string, string> = {};
   for (const [key, val] of Object.entries(config.headers || {})) {
@@ -73,19 +72,16 @@ export async function createSSETransport(
     });
   }
 
-  return new SSEClientTransport(
-    new URL(config.url),
-    {
-      requestInit: {
-        headers: resolvedHeaders,
-      },
+  return new SSEClientTransport(new URL(config.url), {
+    requestInit: {
+      headers: resolvedHeaders,
     },
-  );
+  });
 }
 
 /**
  * 创建 Streamable HTTP 传输
- * 
+ *
  * 使用示例：
  * ```typescript
  * const transport = await createHTTPTransport({
@@ -105,9 +101,8 @@ export async function createHTTPTransport(
   }
 
   // 动态导入 HTTP 客户端
-  const { StreamableHTTPClientTransport } = await import(
-    '@modelcontextprotocol/sdk/client/streamableHttp.js'
-  );
+  const { StreamableHTTPClientTransport } =
+    await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
 
   const resolvedHeaders: Record<string, string> = {};
   for (const [key, val] of Object.entries(config.headers || {})) {
@@ -116,22 +111,17 @@ export async function createHTTPTransport(
     });
   }
 
-  return new StreamableHTTPClientTransport(
-    new URL(config.url),
-    {
-      requestInit: {
-        headers: resolvedHeaders,
-      },
+  return new StreamableHTTPClientTransport(new URL(config.url), {
+    requestInit: {
+      headers: resolvedHeaders,
     },
-  );
+  });
 }
 
 /**
  * 工厂方法：根据配置创建对应类型的传输
  */
-export async function createTransport(
-  config: MCPServerConfig,
-): Promise<any> {
+export async function createTransport(config: MCPServerConfig): Promise<any> {
   const transportType = config.transport || 'stdio';
 
   switch (transportType) {

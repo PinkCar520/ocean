@@ -53,7 +53,6 @@ export function WorkProjection({ token }: { token: string | null }) {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     try {
       const [ov, rp] = await Promise.all([
         api.get<any>('/api/work/overview'),
@@ -71,8 +70,7 @@ export function WorkProjection({ token }: { token: string | null }) {
   };
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void load(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [token]);
 
   const createProject = async () => {
@@ -81,6 +79,8 @@ export function WorkProjection({ token }: { token: string | null }) {
     try {
       await api.post<any>('/api/work/projects', { name: newProject.trim() });
       setNewProject('');
+      setLoading(true);
+
       await load();
     } catch (err) {
       console.error('[Work] create project failed:', err);
@@ -93,6 +93,8 @@ export function WorkProjection({ token }: { token: string | null }) {
     setBusy(true);
     try {
       await api.post<any>(`/api/work/projects/${projectId}/tasks`, { title });
+      setLoading(true);
+
       await load();
     } catch (err) {
       console.error('[Work] create task failed:', err);
@@ -105,6 +107,8 @@ export function WorkProjection({ token }: { token: string | null }) {
     setBusy(true);
     try {
       await api.patch<any>(`/api/work/tasks/${taskId}`, { status });
+      setLoading(true);
+
       await load();
     } catch (err) {
       console.error('[Work] move task failed:', err);

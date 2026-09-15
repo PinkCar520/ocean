@@ -34,7 +34,9 @@ export class SsoAuthGuard implements CanActivate {
     const xSsoToken = request.headers['x-sso-token'];
 
     // ── 1. API Key ──
-    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const bearerToken = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : authHeader;
     if (bearerToken.startsWith('ocean_sk_')) {
       const user = await this.apiKeyService.findUserByApiKey(bearerToken);
       if (user) {
@@ -54,13 +56,18 @@ export class SsoAuthGuard implements CanActivate {
     }
 
     // ── 2. JWT Bearer Token (with signature verification and expiry check) ──
-    const cookieToken = readCookie(request.headers.cookie, OCEAN_SESSION_COOKIE);
+    const cookieToken = readCookie(
+      request.headers.cookie,
+      OCEAN_SESSION_COOKIE,
+    );
     const jwtToken = bearerToken || cookieToken || '';
     if (jwtToken && jwtToken.split('.').length === 3) {
       try {
         // Use JwtService to verify signature and expiration
         const payload = this.jwtService.verify(jwtToken);
-        const dbUser = await this.userService.getUserFullProfile(payload.workId);
+        const dbUser = await this.userService.getUserFullProfile(
+          payload.workId,
+        );
         request.user = {
           workId: payload.workId,
           dbId: payload.sub,
@@ -82,8 +89,12 @@ export class SsoAuthGuard implements CanActivate {
       // 默认关闭：未配置 SSO_TRUSTED_PROXY 时忽略 SSO 头，防止任意客户端伪造身份
       const ssoTrust = process.env.SSO_TRUSTED_PROXY ?? '';
       if (!isSsoRequestTrusted(request.ip, ssoTrust)) {
-        console.warn('[SsoAuthGuard] SSO headers ignored: request source not trusted');
-        throw new UnauthorizedException('SSO headers not trusted from this source.');
+        console.warn(
+          '[SsoAuthGuard] SSO headers ignored: request source not trusted',
+        );
+        throw new UnauthorizedException(
+          'SSO headers not trusted from this source.',
+        );
       }
       const workId = request.headers['x-user-id'] as string;
       if (!workId) {
@@ -103,7 +114,9 @@ export class SsoAuthGuard implements CanActivate {
       return true;
     }
 
-    console.warn('[SsoAuthGuard] Authentication failed: No valid token or SSO headers found');
+    console.warn(
+      '[SsoAuthGuard] Authentication failed: No valid token or SSO headers found',
+    );
     throw new UnauthorizedException('Authentication required.');
   }
 }

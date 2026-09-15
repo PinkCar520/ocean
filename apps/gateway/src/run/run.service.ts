@@ -65,7 +65,10 @@ export class RunService {
 
     // Phase 5：Run 必须归属存在的 Space，且用户可访问（隔离边界）；
     // spaceType 以 Space 表为准（不信任客户端传入的 type，避免与 Space.type 不一致）。
-    const spaceRef = await this.spaceService.requireAccessibleSpace(userId, request.space.id);
+    const spaceRef = await this.spaceService.requireAccessibleSpace(
+      userId,
+      request.space.id,
+    );
 
     return this.prisma.$transaction(async (transaction) => {
       const run = await transaction.agentRun.create({
@@ -187,7 +190,11 @@ export class RunService {
       });
       // 幂等：同 run 已有 pending run.requested 则不重复投递
       const pending = await transaction.outboxEvent.findFirst({
-        where: { topic: 'run.requested', aggregateId: run.id, status: 'pending' },
+        where: {
+          topic: 'run.requested',
+          aggregateId: run.id,
+          status: 'pending',
+        },
       });
       if (!pending) {
         await this.outbox.enqueueRunRequested(
@@ -212,7 +219,12 @@ export class RunService {
    * 归属校验后写入 ArtifactStore，并追加 run.artifact_created 事件
    * （chat 转译为 AI SDK data 事件，前端统一 ArtifactViewer 渲染）。
    */
-  async saveArtifact(runId: string, userId: string, name: string, content: string) {
+  async saveArtifact(
+    runId: string,
+    userId: string,
+    name: string,
+    content: string,
+  ) {
     await this.get(runId, userId); // 404/403 归属校验
     const record = await this.artifactStore.save(runId, name, content);
     // 追加事件（事务内 sequence 续接；事件失败不影响产物已保存）
@@ -249,7 +261,8 @@ export class RunService {
     return record;
   }
 
-  async cancel(id: string, userId: string): Promise<RunSnapshot> {    const snapshot = await this.get(id, userId);
+  async cancel(id: string, userId: string): Promise<RunSnapshot> {
+    const snapshot = await this.get(id, userId);
     if (!CANCELLABLE_STATUSES.has(snapshot.run.status)) return snapshot;
 
     return this.prisma.$transaction(async (transaction) => {
@@ -404,13 +417,17 @@ export class RunService {
     });
     if (!run) throw new NotFoundException(`Run ${runId} not found`);
     if (run.userId !== userId)
-      throw new ForbiddenException(`Run ${runId} does not belong to current user`);
+      throw new ForbiddenException(
+        `Run ${runId} does not belong to current user`,
+      );
 
     const approval = await this.prisma.runApproval.findUnique({
       where: { id: approvalId },
     });
     if (!approval || approval.runId !== runId)
-      throw new NotFoundException(`Approval ${approvalId} not found for run ${runId}`);
+      throw new NotFoundException(
+        `Approval ${approvalId} not found for run ${runId}`,
+      );
     if (approval.status !== 'pending') {
       return this.get(runId, userId); // 幂等：已决策
     }
@@ -475,7 +492,9 @@ export class RunService {
         // 续跑：Run → queued + 重新投递 tool.requested（同一 toolCall，含 idempotencyKey）
         const toolCall = stepRow.input as ToolCall | null;
         if (!toolCall) {
-          throw new Error(`Approval ${approvalId} has no toolCall input to resume`);
+          throw new Error(
+            `Approval ${approvalId} has no toolCall input to resume`,
+          );
         }
         await transaction.agentRun.update({
           where: { id: runId },

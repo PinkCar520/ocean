@@ -33,7 +33,9 @@ export class OAuthService {
    * Step 2: Validate and consume an auth code.
    * Returns user info or null if invalid/expired/already consumed.
    */
-  async consumeAuthCode(code: string): Promise<{ userId: string; workId: string } | null> {
+  async consumeAuthCode(
+    code: string,
+  ): Promise<{ userId: string; workId: string } | null> {
     // Find the code in database
     const record = await this.prisma.authCode.findUnique({
       where: { code },
@@ -45,14 +47,18 @@ export class OAuthService {
     // Check if already consumed (one-time use)
     if (record.consumed) {
       // Delete to prevent reuse
-      await this.prisma.authCode.delete({ where: { id: record.id } }).catch(() => {});
+      await this.prisma.authCode
+        .delete({ where: { id: record.id } })
+        .catch(() => {});
       return null;
     }
 
     // Check expiry
     if (new Date() > record.expiresAt) {
       // Delete expired code
-      await this.prisma.authCode.delete({ where: { id: record.id } }).catch(() => {});
+      await this.prisma.authCode
+        .delete({ where: { id: record.id } })
+        .catch(() => {});
       return null;
     }
 
@@ -68,7 +74,10 @@ export class OAuthService {
   /**
    * Step 3: Generate an API key for the user identified by the auth code.
    */
-  async exchangeCodeForApiKey(code: string, keyName: string): Promise<{ key: string; workId: string } | null> {
+  async exchangeCodeForApiKey(
+    code: string,
+    keyName: string,
+  ): Promise<{ key: string; workId: string } | null> {
     const user = await this.consumeAuthCode(code);
     if (!user) return null;
 

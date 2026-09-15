@@ -1,4 +1,9 @@
-import { ipv4ToUint, parseTrustedProxyList, isIpInTrustList, isSsoRequestTrusted } from './sso-trust';
+import {
+  ipv4ToUint,
+  parseTrustedProxyList,
+  isIpInTrustList,
+  isSsoRequestTrusted,
+} from './sso-trust';
 
 describe('sso-trust (Phase 7 SSO trusted proxy boundary)', () => {
   it('ipv4ToUint converts and rejects invalid input', () => {
@@ -8,7 +13,10 @@ describe('sso-trust (Phase 7 SSO trusted proxy boundary)', () => {
   });
 
   it('parses exact IPs and CIDRs', () => {
-    expect(parseTrustedProxyList('10.0.0.0/8, 192.168.1.5')).toEqual(['10.0.0.0/8', '192.168.1.5']);
+    expect(parseTrustedProxyList('10.0.0.0/8, 192.168.1.5')).toEqual([
+      '10.0.0.0/8',
+      '192.168.1.5',
+    ]);
     expect(parseTrustedProxyList(undefined)).toEqual([]);
   });
 
@@ -33,7 +41,11 @@ describe('sso-trust (Phase 7 SSO trusted proxy boundary)', () => {
   });
 
   it('SSO request trusted only when ip in list', () => {
-    expect(isSsoRequestTrusted('127.0.0.1', '127.0.0.1, 10.0.0.0/8')).toBe(true);
-    expect(isSsoRequestTrusted('203.0.113.9', '127.0.0.1, 10.0.0.0/8')).toBe(false);
+    expect(isSsoRequestTrusted('127.0.0.1', '127.0.0.1, 10.0.0.0/8')).toBe(
+      true,
+    );
+    expect(isSsoRequestTrusted('203.0.113.9', '127.0.0.1, 10.0.0.0/8')).toBe(
+      false,
+    );
   });
 });

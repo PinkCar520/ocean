@@ -33,12 +33,19 @@ export class PermissionController {
    * Query params: toolName (required), workspacePath (optional)
    */
   @Get('evaluate')
-  evaluateTool(@Query('toolName') toolName: string, @Query('workspacePath') workspacePath?: string) {
+  evaluateTool(
+    @Query('toolName') toolName: string,
+    @Query('workspacePath') workspacePath?: string,
+  ) {
     if (!toolName) {
       return { error: 'toolName query parameter is required' };
     }
 
-    const action = this.permissionService.evaluateTool(toolName, workspacePath, null);
+    const action = this.permissionService.evaluateTool(
+      toolName,
+      workspacePath,
+      null,
+    );
     return {
       toolName,
       action,

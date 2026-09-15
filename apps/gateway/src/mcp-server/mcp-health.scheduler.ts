@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { MCPServerService } from './mcp-server.service';
 
 /**
@@ -14,11 +19,16 @@ export class MCPHealthScheduler implements OnModuleInit, OnModuleDestroy {
   constructor(private mcpServerService: MCPServerService) {}
 
   onModuleInit() {
-    this.logger.log('Starting MCP Server health check scheduler (every 5 min)...');
+    this.logger.log(
+      'Starting MCP Server health check scheduler (every 5 min)...',
+    );
     // Run once after 10 seconds on startup
     setTimeout(() => this.runHealthCheck(), 10000);
     // Then every 5 minutes
-    this.intervalId = setInterval(() => this.runHealthCheck(), this.CHECK_INTERVAL);
+    this.intervalId = setInterval(
+      () => this.runHealthCheck(),
+      this.CHECK_INTERVAL,
+    );
   }
 
   onModuleDestroy() {
@@ -32,9 +42,13 @@ export class MCPHealthScheduler implements OnModuleInit, OnModuleDestroy {
     this.logger.debug('Running MCP Server health check...');
     try {
       const statuses = await this.mcpServerService.checkAllServers();
-      const online = Object.values(statuses).filter((s) => s === 'online').length;
+      const online = Object.values(statuses).filter(
+        (s) => s === 'online',
+      ).length;
       const total = Object.keys(statuses).length;
-      this.logger.log(`Health check complete: ${online}/${total} servers online`);
+      this.logger.log(
+        `Health check complete: ${online}/${total} servers online`,
+      );
     } catch (err) {
       this.logger.error(`Health check failed: ${(err as Error).message}`);
     }

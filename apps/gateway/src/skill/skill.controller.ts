@@ -8,9 +8,9 @@ export class SkillController {
   @Get('catalog')
   async getCatalog() {
     const catalog = await this.skillLoader.getAllSkills();
-    
+
     // Map internal paths to a safe public payload
-    return catalog.map(c => ({
+    return catalog.map((c) => ({
       id: c.name,
       name: c.name,
       description: c.description,

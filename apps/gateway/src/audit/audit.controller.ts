@@ -16,7 +16,10 @@ export class AuditController {
     const limit = query.limit ? Number(query.limit) : undefined;
     return {
       success: true,
-      data: await this.auditService.list(userId, { spaceId: query.spaceId, limit }),
+      data: await this.auditService.list(userId, {
+        spaceId: query.spaceId,
+        limit,
+      }),
     };
   }
 }

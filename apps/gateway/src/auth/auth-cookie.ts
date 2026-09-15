@@ -1,7 +1,10 @@
 export const OCEAN_SESSION_COOKIE = 'ocean_session';
 export const OCEAN_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function readCookie(cookieHeader: string | undefined, name: string): string | undefined {
+export function readCookie(
+  cookieHeader: string | undefined,
+  name: string,
+): string | undefined {
   if (!cookieHeader) return undefined;
 
   for (const entry of cookieHeader.split(';')) {

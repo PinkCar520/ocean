@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { SpaceService } from '../space/space.service';
@@ -48,7 +52,12 @@ export class SkillService {
     private readonly spaceService: SpaceService,
   ) {}
 
-  async getSkills(params?: { category?: string; source?: string; q?: string; isFeatured?: boolean }) {
+  async getSkills(params?: {
+    category?: string;
+    source?: string;
+    q?: string;
+    isFeatured?: boolean;
+  }) {
     const where: any = { isPublic: true };
 
     if (params?.category && params.category !== 'all') {
@@ -72,8 +81,8 @@ export class SkillService {
       where,
       orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
       include: {
-        user: { select: { id: true, name: true, avatar: true } }
-      }
+        user: { select: { id: true, name: true, avatar: true } },
+      },
     });
 
     return skills;
@@ -83,8 +92,8 @@ export class SkillService {
     return this.prisma.skill.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, name: true, avatar: true } }
-      }
+        user: { select: { id: true, name: true, avatar: true } },
+      },
     });
   }
 
@@ -105,8 +114,8 @@ export class SkillService {
         source: prismaData.source || 'internal',
       },
       include: {
-        user: { select: { id: true, name: true, avatar: true } }
-      }
+        user: { select: { id: true, name: true, avatar: true } },
+      },
     });
 
     await this.prisma.skillVersion.create({
@@ -115,7 +124,7 @@ export class SkillService {
         userId: userId || null,
         name: skill.name,
         content: skill.content,
-      }
+      },
     });
 
     return skill;
@@ -126,16 +135,25 @@ export class SkillService {
     if (!skill) throw new NotFoundException('Skill not found');
 
     if (skill.userId && skill.userId !== userId) {
-      throw new ForbiddenException('You do not have permission to update this skill');
+      throw new ForbiddenException(
+        'You do not have permission to update this skill',
+      );
     }
 
-    const { scope, user, id: _id, createdAt, updatedAt, ...prismaData } = data as any;
+    const {
+      scope,
+      user,
+      id: _id,
+      createdAt,
+      updatedAt,
+      ...prismaData
+    } = data as any;
     const updatedSkill = await this.prisma.skill.update({
       where: { id },
       data: prismaData,
       include: {
-        user: { select: { id: true, name: true, avatar: true } }
-      }
+        user: { select: { id: true, name: true, avatar: true } },
+      },
     });
 
     await this.prisma.skillVersion.create({
@@ -144,7 +162,7 @@ export class SkillService {
         userId: userId || null,
         name: updatedSkill.name,
         content: updatedSkill.content,
-      }
+      },
     });
 
     return updatedSkill;
@@ -155,7 +173,9 @@ export class SkillService {
     if (!skill) throw new NotFoundException('Skill not found');
 
     if (skill.userId && skill.userId !== userId) {
-      throw new ForbiddenException('You do not have permission to delete this skill');
+      throw new ForbiddenException(
+        'You do not have permission to delete this skill',
+      );
     }
 
     return this.prisma.skill.delete({ where: { id } });
@@ -167,9 +187,9 @@ export class SkillService {
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
-          select: { id: true, name: true, avatar: true }
-        }
-      }
+          select: { id: true, name: true, avatar: true },
+        },
+      },
     });
   }
 
@@ -214,13 +234,21 @@ export class SkillService {
 
   async uninstallSkill(skillId: string, userId?: string) {
     return this.prisma.skillInstallation.deleteMany({
-      where: { skillId, userId: userId || null, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+      where: {
+        skillId,
+        userId: userId || null,
+        spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
+      },
     });
   }
 
   async getInstallationStatus(skillId: string, userId?: string) {
     const installation = await this.prisma.skillInstallation.findFirst({
-      where: { skillId, userId: userId || null, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+      where: {
+        skillId,
+        userId: userId || null,
+        spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
+      },
     });
     return {
       installed: !!installation,

@@ -60,7 +60,11 @@ describe('ArtifactStore (Phase 4.8 artifact storage separation)', () => {
 
   it('rejects path traversal storage keys', () => {
     store = new ArtifactStore(prisma as never, root);
-    expect(() => store.resolvePath('../escape.txt')).toThrow(/Illegal artifact path/);
-    expect(() => store.resolvePath('run_1/../../etc/passwd')).toThrow(/Illegal artifact path/);
+    expect(() => store.resolvePath('../escape.txt')).toThrow(
+      /Illegal artifact path/,
+    );
+    expect(() => store.resolvePath('run_1/../../etc/passwd')).toThrow(
+      /Illegal artifact path/,
+    );
   });
 });

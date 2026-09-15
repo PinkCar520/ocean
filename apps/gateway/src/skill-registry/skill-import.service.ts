@@ -7,11 +7,11 @@ import { execSync } from 'child_process';
 
 export interface ImportSkillDto {
   source: 'openclaw-hub' | 'claude-code' | 'git' | 'local';
-  skillId?: string;      // For openclaw-hub
-  url?: string;          // For git
-  skillPath?: string;    // For claude-code or local
-  fileContent?: string;  // For local upload
-  version?: string;      // Optional: specific version for openclaw-hub (defaults to "latest")
+  skillId?: string; // For openclaw-hub
+  url?: string; // For git
+  skillPath?: string; // For claude-code or local
+  fileContent?: string; // For local upload
+  version?: string; // Optional: specific version for openclaw-hub (defaults to "latest")
 }
 
 interface ParsedSkill {
@@ -29,7 +29,7 @@ interface ParsedSkill {
 
 /**
  * SkillImportService
- * 
+ *
  * Handles importing skills from various external sources:
  * - OpenClaw Hub (registry)
  * - Claude Code (local skill directories)
@@ -40,7 +40,7 @@ interface ParsedSkill {
 export class SkillImportService {
   private readonly logger = new Logger(SkillImportService.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private prisma: PrismaClient) { }
+  constructor(@Inject('PRISMA_CLIENT') private prisma: PrismaClient) {}
 
   /**
    * Main import dispatcher
@@ -78,25 +78,38 @@ export class SkillImportService {
 
     // Step 1: Try to fetch from ClawHub API
     try {
-      this.logger.log(`Fetching skill "${skillId}" from ClawHub: ${clawhubUrl}`);
+      this.logger.log(
+        `Fetching skill "${skillId}" from ClawHub: ${clawhubUrl}`,
+      );
       const response = await fetch(clawhubUrl);
 
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error(`Skill "${skillId}" not found on ClawHub`);
         }
-        throw new Error(`ClawHub API error: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `ClawHub API error: ${response.status} ${response.statusText}`,
+        );
       }
 
       content = await response.text();
-      this.logger.log(`Successfully fetched "${skillId}" from ClawHub (${content.length} bytes)`);
+      this.logger.log(
+        `Successfully fetched "${skillId}" from ClawHub (${content.length} bytes)`,
+      );
     } catch (err: any) {
       // Step 2: Fallback to local agents/skills directory
-      this.logger.warn(`ClawHub fetch failed: ${err.message}. Trying local fallback...`);
+      this.logger.warn(
+        `ClawHub fetch failed: ${err.message}. Trying local fallback...`,
+      );
 
-      const localPath = path.join(process.cwd(), `agents/skills/${skillId}/SKILL.md`);
+      const localPath = path.join(
+        process.cwd(),
+        `agents/skills/${skillId}/SKILL.md`,
+      );
       if (!fs.existsSync(localPath)) {
-        throw new Error(`Skill "${skillId}" not found on ClawHub or in local registry`);
+        throw new Error(
+          `Skill "${skillId}" not found on ClawHub or in local registry`,
+        );
       }
 
       content = fs.readFileSync(localPath, 'utf-8');
@@ -186,7 +199,11 @@ export class SkillImportService {
       throw new Error('No file provided');
     }
 
-    const tempDir = path.join(process.cwd(), 'temp_skills', `import_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+    const tempDir = path.join(
+      process.cwd(),
+      'temp_skills',
+      `import_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+    );
     const zipPath = `${tempDir}.zip`;
 
     try {
@@ -245,7 +262,9 @@ export class SkillImportService {
     const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
 
     if (!fm.name || !fm.description) {
-      throw new Error('Invalid SKILL.md: missing name or description in frontmatter');
+      throw new Error(
+        'Invalid SKILL.md: missing name or description in frontmatter',
+      );
     }
 
     return {
@@ -355,7 +374,8 @@ export class SkillImportService {
     if (lower.includes('bug') || lower.includes('fix')) return 'CheckCircle2';
     if (lower.includes('jenkins') || lower.includes('build')) return 'Rocket';
     if (lower.includes('git') || lower.includes('pr')) return 'GitPullRequest';
-    if (lower.includes('chat') || lower.includes('message')) return 'MessageSquare';
+    if (lower.includes('chat') || lower.includes('message'))
+      return 'MessageSquare';
     if (lower.includes('docker')) return 'Box';
     if (lower.includes('mail') || lower.includes('email')) return 'Mail';
     return 'Star';
@@ -386,16 +406,32 @@ export class SkillImportService {
 
     const combined = `${name} ${comp} ${target}`;
 
-    if (combined.includes('zentao') || combined.includes('bug') || combined.includes('prd')) {
+    if (
+      combined.includes('zentao') ||
+      combined.includes('bug') ||
+      combined.includes('prd')
+    ) {
       return 'pm';
     }
-    if (combined.includes('jenkins') || combined.includes('ci') || combined.includes('docker')) {
+    if (
+      combined.includes('jenkins') ||
+      combined.includes('ci') ||
+      combined.includes('docker')
+    ) {
       return 'cicd';
     }
-    if (combined.includes('git') || combined.includes('merge') || combined.includes('pr')) {
+    if (
+      combined.includes('git') ||
+      combined.includes('merge') ||
+      combined.includes('pr')
+    ) {
       return 'vc';
     }
-    if (combined.includes('slack') || combined.includes('mail') || combined.includes('chat')) {
+    if (
+      combined.includes('slack') ||
+      combined.includes('mail') ||
+      combined.includes('chat')
+    ) {
       return 'communication';
     }
 

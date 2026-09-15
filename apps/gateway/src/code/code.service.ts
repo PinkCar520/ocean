@@ -31,7 +31,10 @@ export class CodeService {
   ) {}
 
   private async guard(userId: string) {
-    await this.spaceService.requireAccessibleSpace(userId, CodeService.CODE_SPACE_ID);
+    await this.spaceService.requireAccessibleSpace(
+      userId,
+      CodeService.CODE_SPACE_ID,
+    );
   }
 
   /** 仓库列表（含 Diff/Review 统计）；调用方需有 Code Space 访问权。 */
@@ -43,7 +46,13 @@ export class CodeService {
         _count: { select: { diffs: true } },
         diffs: {
           where: { status: 'open' },
-          select: { id: true, title: true, headRef: true, status: true, _count: { select: { reviews: true } } },
+          select: {
+            id: true,
+            title: true,
+            headRef: true,
+            status: true,
+            _count: { select: { reviews: true } },
+          },
           orderBy: { updatedAt: 'desc' },
           take: 5,
         },
@@ -73,7 +82,8 @@ export class CodeService {
       where: { id: repositoryId, spaceId: CodeService.CODE_SPACE_ID },
       select: { id: true },
     });
-    if (!repo) throw new NotFoundException(`Repository ${repositoryId} not found`);
+    if (!repo)
+      throw new NotFoundException(`Repository ${repositoryId} not found`);
     return this.prisma.codeDiff.findMany({
       where: { repositoryId },
       include: { reviews: { orderBy: { createdAt: 'desc' } } },
@@ -96,11 +106,21 @@ export class CodeService {
     if (existing) {
       return this.prisma.codeReview.update({
         where: { id: existing.id },
-        data: { status: dto.status, comment: dto.comment, decidedAt: new Date() },
+        data: {
+          status: dto.status,
+          comment: dto.comment,
+          decidedAt: new Date(),
+        },
       });
     }
     return this.prisma.codeReview.create({
-      data: { diffId, status: dto.status, reviewerId: userId, comment: dto.comment, decidedAt: new Date() },
+      data: {
+        diffId,
+        status: dto.status,
+        reviewerId: userId,
+        comment: dto.comment,
+        decidedAt: new Date(),
+      },
     });
   }
 
@@ -108,9 +128,14 @@ export class CodeService {
   async overview(userId: string) {
     await this.guard(userId);
     const [repoCount, openDiffs, myPending] = await Promise.all([
-      this.prisma.codeRepository.count({ where: { spaceId: CodeService.CODE_SPACE_ID } }),
+      this.prisma.codeRepository.count({
+        where: { spaceId: CodeService.CODE_SPACE_ID },
+      }),
       this.prisma.codeDiff.count({
-        where: { status: 'open', repository: { spaceId: CodeService.CODE_SPACE_ID } },
+        where: {
+          status: 'open',
+          repository: { spaceId: CodeService.CODE_SPACE_ID },
+        },
       }),
       this.prisma.codeDiff.count({
         where: {
@@ -133,14 +158,21 @@ export class CodeService {
       include: {
         repository: { select: { id: true, name: true } },
         _count: { select: { commands: true } },
-        commands: { orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, input: true, exitCode: true, createdAt: true } },
+        commands: {
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+          select: { id: true, input: true, exitCode: true, createdAt: true },
+        },
       },
       orderBy: { updatedAt: 'desc' },
     });
   }
 
   /** 创建终端会话。 */
-  async createTerminal(userId: string, data: { title?: string; cwd?: string; repositoryId?: string }) {
+  async createTerminal(
+    userId: string,
+    data: { title?: string; cwd?: string; repositoryId?: string },
+  ) {
     await this.guard(userId);
     // repository 需属于 Code Space
     if (data.repositoryId) {
@@ -148,7 +180,10 @@ export class CodeService {
         where: { id: data.repositoryId, spaceId: CodeService.CODE_SPACE_ID },
         select: { id: true },
       });
-      if (!repo) throw new NotFoundException(`Repository ${data.repositoryId} not found`);
+      if (!repo)
+        throw new NotFoundException(
+          `Repository ${data.repositoryId} not found`,
+        );
     }
     return this.prisma.terminalSession.create({
       data: {
@@ -161,13 +196,23 @@ export class CodeService {
   }
 
   /** 记录一条命令（真实执行留给 CLI/Desktop；此处持久化历史与产物）。 */
-  async recordCommand(userId: string, sessionId: string, data: { input: string; output?: string; exitCode?: number; durationMs?: number }) {
+  async recordCommand(
+    userId: string,
+    sessionId: string,
+    data: {
+      input: string;
+      output?: string;
+      exitCode?: number;
+      durationMs?: number;
+    },
+  ) {
     await this.guard(userId);
     const session = await this.prisma.terminalSession.findFirst({
       where: { id: sessionId, spaceId: CodeService.CODE_SPACE_ID },
       select: { id: true, status: true },
     });
-    if (!session) throw new NotFoundException(`Terminal ${sessionId} not found`);
+    if (!session)
+      throw new NotFoundException(`Terminal ${sessionId} not found`);
     const command = await this.prisma.terminalCommand.create({
       data: {
         sessionId,
@@ -180,7 +225,10 @@ export class CodeService {
     });
     // 关闭的会话被再次执行时自动重开
     if (session.status !== 'open') {
-      await this.prisma.terminalSession.update({ where: { id: sessionId }, data: { status: 'open' } });
+      await this.prisma.terminalSession.update({
+        where: { id: sessionId },
+        data: { status: 'open' },
+      });
     }
     return command;
   }
@@ -195,7 +243,8 @@ export class CodeService {
         commands: { orderBy: { createdAt: 'asc' } },
       },
     });
-    if (!session) throw new NotFoundException(`Terminal ${sessionId} not found`);
+    if (!session)
+      throw new NotFoundException(`Terminal ${sessionId} not found`);
     return session;
   }
 }

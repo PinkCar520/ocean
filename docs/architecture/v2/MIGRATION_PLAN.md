@@ -471,3 +471,20 @@ Phase 0 通过后，按以下顺序创建实现任务：
 10. `security: enforce production configuration validation`
 
 每项任务必须附带测试、迁移说明和完成标准，不以“代码已写完”作为完成定义。
+
+
+## 工程基线（测试与质量基建）
+
+**已完成（2026-09-15）：**
+
+- ✅ gateway lint：2590 problems（2 errors + 2588 warnings）→ **0 errors + 1446 warnings**（lint 通过、CI 可绿）。修复内容：`lint:fix` 清理全部 prettier 格式债务；修 run-runner.spec.ts 两处 await-thenable（mock onDelta 类型放宽为 `void | Promise<void>`）。剩余 1446 warnings 为代码级类型债务（no-unsafe-member-access 587 / assignment 468 / argument 135 / call 101 / return 49 / require-await 45 等，源于存量 any），保留规则不静默降级。
+- ✅ web lint：修 4 errors——CodeProjection/LifeProjection/WorkProjection 的 `react-hooks/set-state-in-effect`（loading 初始值改 true、load 内去除同步 setState、effect 内对 async 加载函数精确豁免）；App.tsx prefer-const + unused eslint-disable。
+- ✅ 共享包 scripts 补齐：`packages/ui` 新增 tsconfig.json + `typecheck`（tsc --noEmit），`test` 扩展为 `vitest run`；`apps/cli` 新增 `test`（vitest，git-fs 安全校验 3 例）；`packages/contracts` 修 run.spec 快照缺 priority 字段（schema 必填正确，spec 数据补全）。
+- ✅ 全仓 `pnpm run check`（turbo：lint+typecheck+build+test）15/15 全绿。
+- ✅ 冻结安装：`corepack pnpm install --frozen-lockfile` 幂等通过。
+- ✅ 旧文档债务：`docs/architecture/UClaw_PRD_and_Architecture.md`、`uclaw_architecture_mcp_skill.md`、`docs/PITCH_DECK.md`、`docs/UCLAW_VS_JD_MAPPING.md` 中 React 18 + Vite 表述更新为 Next.js App Router（React 19）。
+
+**待办（工程基线剩余）：**
+
+- [ ] Web/Desktop/Gateway/CLI 端到端冒烟（apps/desktop 测试脚本留待 e2e 阶段：Electron 壳逻辑在 web/gateway 覆盖）。
+- [ ] 共享包统一 lint 配置（contracts/ui 目前无 eslint；gateway 独有 flat config）。

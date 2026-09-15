@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Body, Req, Res, Headers, SetMetadata, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  Res,
+  Headers,
+  SetMetadata,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
@@ -8,7 +20,11 @@ import { RpcGateway } from './rpc.gateway';
 import { SessionService } from '../session/session.service';
 import { UpChatHandler } from '@ocean/mcp-im';
 import type { SkillContext } from '@ocean/core';
-import { autocompleteRequestSchema, chatRequestSchema, generateTitleRequestSchema } from '@ocean/contracts';
+import {
+  autocompleteRequestSchema,
+  chatRequestSchema,
+  generateTitleRequestSchema,
+} from '@ocean/contracts';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -35,7 +51,7 @@ export class ChatController {
     const skills = await this.skillLoader.discover();
     return {
       success: true,
-      skills: skills.map(s => ({
+      skills: skills.map((s) => ({
         id: s.name,
         name: s.name,
         description: s.description,
@@ -59,8 +75,8 @@ export class ChatController {
       debug: {
         dbId: req.user?.dbId, // 验证影子用户 UUID
         workId: req.user?.workId,
-        synced: !!req.user?.dbId
-      }
+        synced: !!req.user?.dbId,
+      },
     };
   }
 
@@ -98,7 +114,9 @@ export class ChatController {
     }
     const body = parsedBody.data;
     const requestId = Math.random().toString(36).substring(7);
-    const messages = body.messages || (body.text ? [{ role: 'user', content: body.text }] : []);
+    const messages =
+      body.messages ||
+      (body.text ? [{ role: 'user', content: body.text }] : []);
     const sessionId: string | undefined = body.sessionId ?? undefined;
 
     // 提取最后一条用户消息文本，用于意图识别
@@ -109,14 +127,16 @@ export class ChatController {
         : '');
     const modelId: string | undefined = body.modelId || body.model;
 
-    console.log(`[Gateway] [${requestId}] Skill mode. Employee: ${req.user?.workId} (${req.user?.dbId}), session: ${sessionId || 'none'}, msg: "${userMessage.slice(0, 60)}..."`);
+    console.log(
+      `[Gateway] [${requestId}] Skill mode. Employee: ${req.user?.workId} (${req.user?.dbId}), session: ${sessionId || 'none'}, msg: "${userMessage.slice(0, 60)}..."`,
+    );
 
     // 从消息的 parts 中提取技能
     const skillIdsFromParts: string[] = [];
     if (Array.isArray(messages)) {
-      messages.forEach(msg => {
+      messages.forEach((msg) => {
         if (msg.role === 'user' && Array.isArray(msg.parts)) {
-          msg.parts.forEach(part => {
+          msg.parts.forEach((part) => {
             if (part.type === 'skill' && part.name) {
               skillIdsFromParts.push(part.name);
             }
@@ -130,22 +150,30 @@ export class ChatController {
       ...(body.activeSkills || []),
       ...(body.skills || []),
       ...(body.skillId ? [body.skillId] : []),
-      ...skillIdsFromParts
+      ...skillIdsFromParts,
     ];
 
     // Session Binding Logic
-    let finalSkillIds = mergedSkillIds.length > 0 ? Array.from(new Set(mergedSkillIds)) : undefined;
+    let finalSkillIds =
+      mergedSkillIds.length > 0
+        ? Array.from(new Set(mergedSkillIds))
+        : undefined;
 
     // Phase 6 6b：Run 归属 Space——会话归属优先（防越权），body 兜底，默认 work。
     // 新会话（无 sessionId）按客户端当前 Space 创建；已有会话固定归属其创建时的 Space。
     let resolvedSpaceId = body.spaceId ?? 'work';
     if (sessionId) {
       try {
-        const session = await this.sessionService.getSessionById(sessionId, req.user?.dbId);
+        const session = await this.sessionService.getSessionById(
+          sessionId,
+          req.user?.dbId,
+        );
         if (session?.spaceId) resolvedSpaceId = session.spaceId;
         if (session) {
           if (finalSkillIds && finalSkillIds.length > 0) {
-            await this.sessionService.updateSession(sessionId, req.user?.dbId, { activeSkillId: finalSkillIds[0] });
+            await this.sessionService.updateSession(sessionId, req.user?.dbId, {
+              activeSkillId: finalSkillIds[0],
+            });
           } else if (session.activeSkillId) {
             finalSkillIds = [session.activeSkillId];
           }
@@ -170,7 +198,10 @@ export class ChatController {
     };
 
     // SSE 响应头
-    res.setHeader('Content-Type', 'text/x-vercel-ai-data-stream; charset=utf-8');
+    res.setHeader(
+      'Content-Type',
+      'text/x-vercel-ai-data-stream; charset=utf-8',
+    );
     res.setHeader('X-Vercel-AI-Data-Stream', 'v1');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -220,7 +251,9 @@ export class ChatController {
     @Headers('x-up-signature') signature: string,
   ) {
     if (signature) {
-      console.log(`[Gateway] Verifying UnionPay UpChat signature: ${signature}`);
+      console.log(
+        `[Gateway] Verifying UnionPay UpChat signature: ${signature}`,
+      );
     }
 
     const message = this.imHandler.parseWebhook(payload);
@@ -228,7 +261,9 @@ export class ChatController {
       return res.status(200).send('Ignored');
     }
 
-    console.log(`[Gateway] UpChat Webhook from ${message.senderName} (${message.senderId}): ${message.content}`);
+    console.log(
+      `[Gateway] UpChat Webhook from ${message.senderName} (${message.senderId}): ${message.content}`,
+    );
 
     // 立即返回 200 防止银联服务器超时重试
     res.status(200).send('OK');
@@ -240,7 +275,9 @@ export class ChatController {
       'im',
     );
 
-    console.log(`[Gateway] Agent Reply to UpChat (${message.senderId}): ${replyText}`);
+    console.log(
+      `[Gateway] Agent Reply to UpChat (${message.senderId}): ${replyText}`,
+    );
     // 真实生产环境：this.imHandler.sendReply(message.chatId, { text: replyText });
   }
 
@@ -253,10 +290,13 @@ export class ChatController {
   async generateTitle(@Body() rawBody: unknown) {
     const parsedBody = generateTitleRequestSchema.safeParse(rawBody);
     if (!parsedBody.success) {
-      throw new BadRequestException({ message: 'Invalid title request', issues: parsedBody.error.issues });
+      throw new BadRequestException({
+        message: 'Invalid title request',
+        issues: parsedBody.error.issues,
+      });
     }
     const { message, modelId } = parsedBody.data;
-    
+
     const title = await this.skillOrchestrator.generateTitle(message, modelId);
     return { success: true, title };
   }
@@ -270,11 +310,14 @@ export class ChatController {
   async autocomplete(@Body() rawBody: unknown) {
     const parsedBody = autocompleteRequestSchema.safeParse(rawBody);
     if (!parsedBody.success) {
-      throw new BadRequestException({ message: 'Invalid autocomplete request', issues: parsedBody.error.issues });
+      throw new BadRequestException({
+        message: 'Invalid autocomplete request',
+        issues: parsedBody.error.issues,
+      });
     }
     const { prefix } = parsedBody.data;
     if (!prefix || prefix.length < 3) return { completion: '' };
-    
+
     const completion = await this.skillOrchestrator.autocomplete(prefix);
     return { completion };
   }
@@ -291,24 +334,30 @@ export class ChatController {
       throw new BadRequestException('No audio file provided');
     }
 
-    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY; // Fallback or proper logic
-    const openaiBaseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+    const openaiApiKey =
+      process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY; // Fallback or proper logic
+    const openaiBaseUrl =
+      process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
 
     if (!openaiApiKey) {
-      throw new BadRequestException('OpenAI API key is not configured on the server');
+      throw new BadRequestException(
+        'OpenAI API key is not configured on the server',
+      );
     }
 
     try {
       const formData = new FormData();
       // Whisper requires a filename with an extension. Use .webm as default for web audio chunks
-      const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype || 'audio/webm' });
+      const blob = new Blob([new Uint8Array(file.buffer)], {
+        type: file.mimetype || 'audio/webm',
+      });
       formData.append('file', blob, 'audio.webm');
       formData.append('model', 'whisper-1');
 
       const response = await fetch(`${openaiBaseUrl}/audio/transcriptions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
+          Authorization: `Bearer ${openaiApiKey}`,
         },
         body: formData,
       });

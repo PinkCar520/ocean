@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { MCPServerService } from '../mcp-server/mcp-server.service';
 import * as fs from 'fs';
@@ -7,10 +12,10 @@ import type { MCPServerFileConfig } from './mcp.types';
 
 /**
  * MCPConfigWatcher
- * 
+ *
  * 配置文件监听器，负责监听 mcp.config.json 和 .mcp.json 的变更，
  * 自动触发 MCP Server 的热加载/卸载。
- * 
+ *
  * 功能：
  * 1. 监听多个配置文件路径
  * 2. 防抖动处理（debounce 500ms）
@@ -84,7 +89,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
       this.watchers.push(watcher);
       this.logger.debug(`Watching: ${filePath}`);
     } catch (err) {
-      this.logger.warn(`Failed to watch ${filePath}: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to watch ${filePath}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -140,7 +147,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
             await this.mcpManager.connectServer(config);
             this.logger.log(`[${serverId}] Connected (hot-add)`);
           } catch (err) {
-            this.logger.error(`[${serverId}] Failed to connect: ${(err as Error).message}`);
+            this.logger.error(
+              `[${serverId}] Failed to connect: ${(err as Error).message}`,
+            );
           }
         }
       }
@@ -151,7 +160,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
           await this.mcpManager.disconnectServer(serverId);
           this.logger.log(`[${serverId}] Disconnected (hot-remove)`);
         } catch (err) {
-          this.logger.error(`[${serverId}] Failed to disconnect: ${(err as Error).message}`);
+          this.logger.error(
+            `[${serverId}] Failed to disconnect: ${(err as Error).message}`,
+          );
         }
       }
 
@@ -184,7 +195,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
           // 后加载的配置覆盖先加载的
           if (config.mcpServers) {
             // 合并服务器配置
-            const existingIds = new Set(mergedConfig.mcpServers.map((s) => s.id));
+            const existingIds = new Set(
+              mergedConfig.mcpServers.map((s) => s.id),
+            );
 
             for (const server of config.mcpServers) {
               const existingIndex = mergedConfig.mcpServers.findIndex(
@@ -204,7 +217,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
             }
           }
         } catch (err) {
-          this.logger.warn(`Failed to load ${configPath}: ${(err as Error).message}`);
+          this.logger.warn(
+            `Failed to load ${configPath}: ${(err as Error).message}`,
+          );
         }
       }
     }
@@ -223,7 +238,7 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
     let hash = 0;
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
 
@@ -237,7 +252,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
     for (const watcher of this.watchers) {
       try {
         watcher.close();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     this.watchers = [];
   }
@@ -261,7 +278,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
         try {
           await this.mcpManager.connectServer(config);
         } catch (err) {
-          this.logger.error(`[${serverId}] Failed to connect: ${(err as Error).message}`);
+          this.logger.error(
+            `[${serverId}] Failed to connect: ${(err as Error).message}`,
+          );
         }
       }
     }
@@ -270,7 +289,9 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
       try {
         await this.mcpManager.disconnectServer(serverId);
       } catch (err) {
-        this.logger.error(`[${serverId}] Failed to disconnect: ${(err as Error).message}`);
+        this.logger.error(
+          `[${serverId}] Failed to disconnect: ${(err as Error).message}`,
+        );
       }
     }
 

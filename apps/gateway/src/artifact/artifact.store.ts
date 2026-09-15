@@ -52,7 +52,8 @@ export class ArtifactStore {
     const record = await this.prisma.runArtifact.findFirst({
       where: { id: artifactId, runId },
     });
-    if (!record) throw new Error(`Artifact ${artifactId} not found for run ${runId}`);
+    if (!record)
+      throw new Error(`Artifact ${artifactId} not found for run ${runId}`);
     return readFileSync(this.resolvePath(record.storageKey), 'utf8');
   }
 

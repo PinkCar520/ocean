@@ -60,7 +60,9 @@ function createExecutor(
     runApproval: {
       findFirst: jest
         .fn()
-        .mockResolvedValue(options.approval === undefined ? null : options.approval),
+        .mockResolvedValue(
+          options.approval === undefined ? null : options.approval,
+        ),
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
     },
@@ -106,9 +108,15 @@ function createExecutor(
     execute: toolExecute,
   });
 
-  const executor = new ToolExecutor(prisma as never, registry, {
-    enqueueRunRequested: jest.fn().mockResolvedValue(undefined),
-  } as never, { inc: jest.fn() } as never, { record: jest.fn().mockResolvedValue({ id: 'a' }) } as never);
+  const executor = new ToolExecutor(
+    prisma as never,
+    registry,
+    {
+      enqueueRunRequested: jest.fn().mockResolvedValue(undefined),
+    } as never,
+    { inc: jest.fn() } as never,
+    { record: jest.fn().mockResolvedValue({ id: 'a' }) } as never,
+  );
   return { executor, tx, prisma, registry, toolExecute };
 }
 
@@ -274,9 +282,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     );
 
     // 消息确认（processed），工具不执行
-    expect(result).toEqual(
-      expect.objectContaining({ status: 'succeeded' }),
-    );
+    expect(result).toEqual(expect.objectContaining({ status: 'succeeded' }));
     expect(toolExecute).not.toHaveBeenCalled();
     // 创建了 approval 步骤（kind=approval）+ RunApproval(pending)
     expect(tx.runStep.create).toHaveBeenCalledWith(
@@ -315,9 +321,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
       toolJob({ name: 'approval.tool', idempotencyKey: 'k_app' }),
     );
 
-    expect(result).toEqual(
-      expect.objectContaining({ status: 'succeeded' }),
-    );
+    expect(result).toEqual(expect.objectContaining({ status: 'succeeded' }));
     // 审批已通过 → 执行工具（续跑），不再创建审批
     expect(toolExecute).toHaveBeenCalledTimes(1);
     expect(tx.runApproval.create).not.toHaveBeenCalled();
@@ -342,9 +346,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
       toolJob({ name: 'approval.tool', idempotencyKey: 'k_app' }),
     );
 
-    expect(result).toEqual(
-      expect.objectContaining({ status: 'succeeded' }),
-    );
+    expect(result).toEqual(expect.objectContaining({ status: 'succeeded' }));
     expect(toolExecute).not.toHaveBeenCalled();
     expect(tx.runApproval.create).not.toHaveBeenCalled();
     expect(tx.runStep.create).not.toHaveBeenCalled();
@@ -359,9 +361,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
       toolJob({ name: 'approval.tool', idempotencyKey: 'k_app' }),
     );
 
-    expect(result).toEqual(
-      expect.objectContaining({ status: 'succeeded' }),
-    );
+    expect(result).toEqual(expect.objectContaining({ status: 'succeeded' }));
     expect(toolExecute).not.toHaveBeenCalled();
   });
 
@@ -370,22 +370,49 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     const registry = new ToolRegistry(new EgressPolicy([]));
     const tx = {
       agentRun: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'run_1', userId: 'user_1', status: 'queued' }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'run_1',
+          userId: 'user_1',
+          status: 'queued',
+        }),
         update: jest.fn().mockResolvedValue({}),
       },
-      runEvent: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({}) },
-      runStep: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({}), update: jest.fn().mockResolvedValue({}) },
-      runApproval: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({}), update: jest.fn().mockResolvedValue({}) },
+      runEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
+      runStep: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      runApproval: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
     };
     const prisma = {
       $transaction: jest.fn(async (cb: any) => cb(tx)),
-      agentRun: { findUnique: jest.fn().mockResolvedValue({ id: 'run_1', userId: 'user_1', status: 'queued' }) },
+      agentRun: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'run_1',
+          userId: 'user_1',
+          status: 'queued',
+        }),
+      },
       runStep: { findMany: jest.fn().mockResolvedValue([]) },
       runApproval: { findFirst: jest.fn().mockResolvedValue(null) },
     };
-    const executor = new ToolExecutor(prisma as never, registry, {
-      enqueueRunRequested: jest.fn().mockResolvedValue(undefined),
-    } as never, { inc: jest.fn() } as never, { record: jest.fn().mockResolvedValue({ id: 'a' }) } as never);
+    const executor = new ToolExecutor(
+      prisma as never,
+      registry,
+      {
+        enqueueRunRequested: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      { inc: jest.fn() } as never,
+      { record: jest.fn().mockResolvedValue({ id: 'a' }) } as never,
+    );
 
     const result = await executor.execute(
       toolJob({

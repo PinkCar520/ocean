@@ -1,10 +1,20 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { GetPromptResult, CreateMessageRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import type {
+  GetPromptResult,
+  CreateMessageRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { tool, jsonSchema } from 'ai';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -29,9 +39,15 @@ interface ManagedMCPClient {
   config: MCPServerConfig;
   transportType: MCPTransportType;
   /** 资源缓存 */
-  resourceCache?: Map<string, { content: MCPResourceContents; expiresAt: number }>;
+  resourceCache?: Map<
+    string,
+    { content: MCPResourceContents; expiresAt: number }
+  >;
   /** 征求回调映射 */
-  elicitationCallbacks?: Map<string, (response: MCPElicitationResponse) => void>;
+  elicitationCallbacks?: Map<
+    string,
+    (response: MCPElicitationResponse) => void
+  >;
 }
 
 import { ApprovalService } from '../skill/approval.service';
@@ -59,7 +75,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     @Inject(forwardRef(() => RpcGateway))
     private rpcGateway: RpcGateway,
     private approvalService: ApprovalService,
-  ) { }
+  ) {}
 
   private replaceVars(value: string): string {
     return value.replace(/\$\{(\w+)\}/g, (_, name) => {
@@ -74,10 +90,16 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       args: (config.args || []).map((arg) => this.replaceVars(arg)),
       url: config.url ? this.replaceVars(config.url) : undefined,
       headers: Object.fromEntries(
-        Object.entries(config.headers || {}).map(([key, val]) => [key, this.replaceVars(val)]),
+        Object.entries(config.headers || {}).map(([key, val]) => [
+          key,
+          this.replaceVars(val),
+        ]),
       ),
       env: Object.fromEntries(
-        Object.entries(config.env || {}).map(([key, val]) => [key, this.replaceVars(val)]),
+        Object.entries(config.env || {}).map(([key, val]) => [
+          key,
+          this.replaceVars(val),
+        ]),
       ),
     };
   }
@@ -89,7 +111,9 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     const configPath = path.join(process.cwd(), 'mcp.config.json');
 
     if (!fs.existsSync(configPath)) {
-      this.logger.warn(`mcp.config.json not found at ${configPath}. MCP layer disabled.`);
+      this.logger.warn(
+        `mcp.config.json not found at ${configPath}. MCP layer disabled.`,
+      );
       return;
     }
 
@@ -98,21 +122,29 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       const raw = fs.readFileSync(configPath, 'utf-8');
       fileConfig = JSON.parse(raw);
     } catch (err) {
-      this.logger.error(`Failed to parse mcp.config.json: ${(err as Error).message}`);
+      this.logger.error(
+        `Failed to parse mcp.config.json: ${(err as Error).message}`,
+      );
       return;
     }
 
-    const resolvedServers = fileConfig.mcpServers.map((srv) => this.resolveServerConfig(srv));
+    const resolvedServers = fileConfig.mcpServers.map((srv) =>
+      this.resolveServerConfig(srv),
+    );
 
     const enabledServers = resolvedServers.filter((s) => s.enabled);
-    this.logger.log(`Found ${enabledServers.length} enabled MCP server(s): ${enabledServers.map((s) => s.id).join(', ')}`);
+    this.logger.log(
+      `Found ${enabledServers.length} enabled MCP server(s): ${enabledServers.map((s) => s.id).join(', ')}`,
+    );
 
     // 并行启动所有 enabled MCP Servers
     await Promise.allSettled(
       enabledServers.map((srv) => this.connectServer(srv)),
     );
 
-    this.logger.log(`MCPClientManager initialized. Connected: [${Array.from(this.clients.keys()).join(', ')}]`);
+    this.logger.log(
+      `MCPClientManager initialized. Connected: [${Array.from(this.clients.keys()).join(', ')}]`,
+    );
   }
 
   // ──────────────────────────────────────────────
@@ -125,7 +157,9 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         await managed.client.close();
         this.logger.log(`[${id}] Disconnected`);
       } catch (err) {
-        this.logger.warn(`[${id}] Error during disconnect: ${(err as Error).message}`);
+        this.logger.warn(
+          `[${id}] Error during disconnect: ${(err as Error).message}`,
+        );
       }
     }
     this.clients.clear();
@@ -150,24 +184,41 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
           aggregated[namespacedName] = tool({
             description: `[${serverId}] ${toolDef.description || toolDef.name}`,
             inputSchema: jsonSchema(
-              (toolDef.inputSchema ?? { type: 'object', properties: {} }) as any,
+              (toolDef.inputSchema ?? {
+                type: 'object',
+                properties: {},
+              }) as any,
             ),
             execute: async (params: any) => {
-              return this.executeMcpToolWithRetry(serverId, toolDef, params, managed);
+              return this.executeMcpToolWithRetry(
+                serverId,
+                toolDef,
+                params,
+                managed,
+              );
             },
           });
         }
       } catch (err) {
-        this.logger.warn(`[${serverId}] Failed to list tools: ${(err as Error).message}`);
+        this.logger.warn(
+          `[${serverId}] Failed to list tools: ${(err as Error).message}`,
+        );
       }
     }
 
     this.cachedAITools = aggregated;
-    this.logger.log(`Tool registry built: [${Object.keys(aggregated).join(', ')}]`);
+    this.logger.log(
+      `Tool registry built: [${Object.keys(aggregated).join(', ')}]`,
+    );
     return aggregated;
   }
 
-  private async executeMcpToolWithRetry(serverId: string, toolDef: any, params: any, managed: ManagedMCPClient): Promise<any> {
+  private async executeMcpToolWithRetry(
+    serverId: string,
+    toolDef: any,
+    params: any,
+    managed: ManagedMCPClient,
+  ): Promise<any> {
     this.logger.debug(`[MCP:${serverId}] Calling tool: ${toolDef.name}`);
     try {
       const result = await managed.client.callTool({
@@ -185,13 +236,22 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         try {
           const uiData = JSON.parse(uiMatch[1]);
 
-          if (uiData.uiType === 'elicitation' || uiData.uiType === 'approval_card') {
-            const requestId = uiData.props?.id || `req_${Math.random().toString(36).substring(7)}`;
+          if (
+            uiData.uiType === 'elicitation' ||
+            uiData.uiType === 'approval_card'
+          ) {
+            const requestId =
+              uiData.props?.id ||
+              `req_${Math.random().toString(36).substring(7)}`;
             const toolName = uiData.props?.toolName || toolDef.name;
 
-            this.logger.log(`[MCP:${serverId}] Registering approval callback for ${requestId}`);
+            this.logger.log(
+              `[MCP:${serverId}] Registering approval callback for ${requestId}`,
+            );
             this.registerElicitationResponseCallback(requestId, (res) => {
-              this.logger.log(`[MCP:${serverId}] Received user response for ${requestId}: ${res.action}`);
+              this.logger.log(
+                `[MCP:${serverId}] Received user response for ${requestId}: ${res.action}`,
+              );
             });
 
             if (params.userId || params.sessionId) {
@@ -199,7 +259,10 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
                 serverId,
                 requestId,
                 toolName,
-                message: uiData.props?.message || uiData.props?.description || `AI 请求执行工具: ${toolName}`,
+                message:
+                  uiData.props?.message ||
+                  uiData.props?.description ||
+                  `AI 请求执行工具: ${toolName}`,
                 args: uiData.props?.args || params,
                 userId: params.userId,
                 sessionId: params.sessionId,
@@ -217,21 +280,33 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
           const cleanText = rawText.replace(/__UI__:.*$/, '').trim();
           return { content: cleanText, ui: uiData };
         } catch (parseErr) {
-          this.logger.warn(`[MCP:${serverId}] Failed to parse __UI__ marker: ${(parseErr as Error).message}`);
+          this.logger.warn(
+            `[MCP:${serverId}] Failed to parse __UI__ marker: ${(parseErr as Error).message}`,
+          );
         }
       }
 
       return { content: rawText, ui: undefined };
     } catch (err: any) {
-      if (err.code === 4099 || err?.data?.code === 4099 || err.message?.includes('4099')) {
-        this.logger.warn(`[MCP:${serverId}] Intercepted 4099 error for ${toolDef.name}. Suspending for user input...`);
-        const errorData = err.data || (err.message.includes('4099') ? JSON.parse(err.message.substring(err.message.indexOf('{'))) : {});
+      if (
+        err.code === 4099 ||
+        err?.data?.code === 4099 ||
+        err.message?.includes('4099')
+      ) {
+        this.logger.warn(
+          `[MCP:${serverId}] Intercepted 4099 error for ${toolDef.name}. Suspending for user input...`,
+        );
+        const errorData =
+          err.data ||
+          (err.message.includes('4099')
+            ? JSON.parse(err.message.substring(err.message.indexOf('{')))
+            : {});
         const inquiries = errorData.inquiries || [];
-        
+
         const requestId = await this.approvalService.createRequest({
           sessionId: params.sessionId || 'global',
           toolName: toolDef.name,
-          args: { originalParams: params, inquiries }, 
+          args: { originalParams: params, inquiries },
         });
 
         if (params.userId || params.sessionId) {
@@ -245,22 +320,36 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
           });
         }
 
-        const approved = await this.approvalService.waitForApproval(requestId, 5 * 60 * 1000);
+        const approved = await this.approvalService.waitForApproval(
+          requestId,
+          5 * 60 * 1000,
+        );
         if (!approved) {
-          throw new Error('User cancelled or timed out during MCP intent clarify');
+          throw new Error(
+            'User cancelled or timed out during MCP intent clarify',
+          );
         }
-        
+
         const reqData = await this.approvalService.getRequest(requestId);
         if (!reqData || !reqData.result) {
           throw new Error('User approved but no result was saved');
         }
-        
-        this.logger.log(`[MCP:${serverId}] User submitted clarification. Retrying tool execution...`);
+
+        this.logger.log(
+          `[MCP:${serverId}] User submitted clarification. Retrying tool execution...`,
+        );
         const newParams = { ...params, ...reqData.result };
-        return this.executeMcpToolWithRetry(serverId, toolDef, newParams, managed);
+        return this.executeMcpToolWithRetry(
+          serverId,
+          toolDef,
+          newParams,
+          managed,
+        );
       }
 
-      this.logger.error(`[MCP:${serverId}] Tool call failed: ${(err as Error).message}`);
+      this.logger.error(
+        `[MCP:${serverId}] Tool call failed: ${(err as Error).message}`,
+      );
       throw err;
     }
   }
@@ -273,9 +362,13 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     const configPath = path.join(process.cwd(), 'mcp.config.json');
     if (fs.existsSync(configPath)) {
       try {
-        const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as MCPServerFileConfig;
+        const raw = JSON.parse(
+          fs.readFileSync(configPath, 'utf-8'),
+        ) as MCPServerFileConfig;
         allConfigs.push(...raw.mcpServers);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     return allConfigs.map((cfg) => ({
@@ -298,9 +391,13 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     for (const [serverId, managed] of this.clients.entries()) {
       try {
         const { resources } = await managed.client.listResources();
-        allResources.push(...(resources || []).map((r: any) => ({ ...r, serverId })));
+        allResources.push(
+          ...(resources || []).map((r: any) => ({ ...r, serverId })),
+        );
       } catch (err) {
-        this.logger.warn(`[${serverId}] Failed to list resources: ${(err as Error).message}`);
+        this.logger.warn(
+          `[${serverId}] Failed to list resources: ${(err as Error).message}`,
+        );
       }
     }
     return allResources;
@@ -310,27 +407,42 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     const allTemplates: MCPResourceTemplate[] = [];
     for (const [serverId, managed] of this.clients.entries()) {
       try {
-        const { resourceTemplates } = await managed.client.listResourceTemplates();
-        allTemplates.push(...(resourceTemplates || []).map((t: any) => ({ ...t, serverId })));
+        const { resourceTemplates } =
+          await managed.client.listResourceTemplates();
+        allTemplates.push(
+          ...(resourceTemplates || []).map((t: any) => ({ ...t, serverId })),
+        );
       } catch (err) {
-        this.logger.warn(`[${serverId}] Failed to list resource templates: ${(err as Error).message}`);
+        this.logger.warn(
+          `[${serverId}] Failed to list resource templates: ${(err as Error).message}`,
+        );
       }
     }
     return allTemplates;
   }
 
-  async readResource(uri: string, serverId?: string): Promise<MCPResourceContents | null> {
+  async readResource(
+    uri: string,
+    serverId?: string,
+  ): Promise<MCPResourceContents | null> {
     const targetClients = serverId
-      ? [[serverId, this.clients.get(serverId)].filter(Boolean) as [string, ManagedMCPClient]]
+      ? [
+          [serverId, this.clients.get(serverId)].filter(Boolean) as [
+            string,
+            ManagedMCPClient,
+          ],
+        ]
       : Array.from(this.clients.entries());
 
     for (const [sid, managed] of targetClients) {
       try {
         const result = await managed.client.readResource({ uri });
         const contents = result.contents?.[0];
-        if (contents) return contents as MCPResourceContents;
+        if (contents) return contents;
       } catch (err) {
-        this.logger.warn(`[Resource:${sid}] Failed to read resource ${uri}: ${(err as Error).message}`);
+        this.logger.warn(
+          `[Resource:${sid}] Failed to read resource ${uri}: ${(err as Error).message}`,
+        );
       }
     }
     return null;
@@ -345,25 +457,43 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     for (const [serverId, managed] of this.clients.entries()) {
       try {
         const { prompts } = await managed.client.listPrompts();
-        allPrompts.push(...(prompts || []).map((p: any) => ({ ...p, serverId })));
+        allPrompts.push(
+          ...(prompts || []).map((p: any) => ({ ...p, serverId })),
+        );
       } catch (err) {
-        this.logger.warn(`[${serverId}] Failed to list prompts: ${(err as Error).message}`);
+        this.logger.warn(
+          `[${serverId}] Failed to list prompts: ${(err as Error).message}`,
+        );
       }
     }
     return allPrompts;
   }
 
-  async getPrompt(name: string, args?: Record<string, string>, serverId?: string): Promise<GetPromptResult | null> {
+  async getPrompt(
+    name: string,
+    args?: Record<string, string>,
+    serverId?: string,
+  ): Promise<GetPromptResult | null> {
     const targetClients = serverId
-      ? [[serverId, this.clients.get(serverId)].filter(Boolean) as [string, ManagedMCPClient]]
+      ? [
+          [serverId, this.clients.get(serverId)].filter(Boolean) as [
+            string,
+            ManagedMCPClient,
+          ],
+        ]
       : Array.from(this.clients.entries());
 
     for (const [sid, managed] of targetClients) {
       try {
-        const result = await managed.client.getPrompt({ name, arguments: args || {} });
+        const result = await managed.client.getPrompt({
+          name,
+          arguments: args || {},
+        });
         return result;
       } catch (err) {
-        this.logger.debug(`[Prompt:${sid}] Prompt ${name} not found: ${(err as Error).message}`);
+        this.logger.debug(
+          `[Prompt:${sid}] Prompt ${name} not found: ${(err as Error).message}`,
+        );
       }
     }
     return null;
@@ -373,7 +503,10 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   // MCP Elicitation 能力
   // ──────────────────────────────────────────────
 
-  registerElicitationResponseCallback(id: string, callback: (response: MCPElicitationResponse) => void): void {
+  registerElicitationResponseCallback(
+    id: string,
+    callback: (response: MCPElicitationResponse) => void,
+  ): void {
     for (const managed of this.clients.values()) {
       const callbacks = managed.elicitationCallbacks || new Map();
       callbacks.set(id, callback);
@@ -381,7 +514,9 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async submitElicitationResponse(response: MCPElicitationResponse): Promise<void> {
+  async submitElicitationResponse(
+    response: MCPElicitationResponse,
+  ): Promise<void> {
     for (const managed of this.clients.values()) {
       const callbacks = managed.elicitationCallbacks;
       if (callbacks?.has(response.id)) {
@@ -413,30 +548,39 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         { capabilities: { sampling: {} } },
       );
 
-      const { CreateMessageRequestSchema } = await import('@modelcontextprotocol/sdk/types.js');
+      const { CreateMessageRequestSchema } =
+        await import('@modelcontextprotocol/sdk/types.js');
 
       // Sampling 处理
-      client.setRequestHandler(
-        CreateMessageRequestSchema,
-        async (request) => {
-          this.logger.log(`[Sampling:${resolvedConfig.id}] Received sampling request`);
+      client.setRequestHandler(CreateMessageRequestSchema, async (request) => {
+        this.logger.log(
+          `[Sampling:${resolvedConfig.id}] Received sampling request`,
+        );
 
-          const { SkillOrchestrator } = await import('../skill/skill.orchestrator.js');
-          const orchestrator = this.moduleRef.get(SkillOrchestrator, { strict: false });
+        const { SkillOrchestrator } =
+          await import('../skill/skill.orchestrator.js');
+        const orchestrator = this.moduleRef.get(SkillOrchestrator, {
+          strict: false,
+        });
 
-          if (!orchestrator) throw new Error('SkillOrchestrator not available');
+        if (!orchestrator) throw new Error('SkillOrchestrator not available');
 
-          const prompt = request.params.messages.map((m: any) => m.content.type === 'text' ? m.content.text : '').join('\n');
-          const responseText = await orchestrator.textResponse('system-sampling', prompt, 'cli');
+        const prompt = request.params.messages
+          .map((m: any) => (m.content.type === 'text' ? m.content.text : ''))
+          .join('\n');
+        const responseText = await orchestrator.textResponse(
+          'system-sampling',
+          prompt,
+          'cli',
+        );
 
-          return {
-            role: 'assistant',
-            content: { type: 'text', text: responseText },
-            model: 'ocean-gateway-integrated-model',
-            stopReason: 'endTurn',
-          };
-        },
-      );
+        return {
+          role: 'assistant',
+          content: { type: 'text', text: responseText },
+          model: 'ocean-gateway-integrated-model',
+          stopReason: 'endTurn',
+        };
+      });
 
       await client.connect(transport);
       this.clients.set(resolvedConfig.id, {
@@ -450,9 +594,13 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
 
       this.cachedAITools = null;
       const { tools } = await client.listTools();
-      this.logger.log(`[${resolvedConfig.id}] Connected via ${transportType}. Tools: [${tools.map((t) => t.name).join(', ')}]`);
+      this.logger.log(
+        `[${resolvedConfig.id}] Connected via ${transportType}. Tools: [${tools.map((t) => t.name).join(', ')}]`,
+      );
     } catch (err) {
-      this.logger.error(`[${resolvedConfig.id}] Failed to connect via ${transportType}: ${(err as Error).message}`);
+      this.logger.error(
+        `[${resolvedConfig.id}] Failed to connect via ${transportType}: ${(err as Error).message}`,
+      );
       throw err;
     }
   }
@@ -466,7 +614,9 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       this.clients.delete(serverId);
       this.cachedAITools = null;
     } catch (err) {
-      this.logger.warn(`[${serverId}] Error during disconnect: ${(err as Error).message}`);
+      this.logger.warn(
+        `[${serverId}] Error during disconnect: ${(err as Error).message}`,
+      );
     }
   }
 

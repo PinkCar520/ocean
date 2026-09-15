@@ -9,10 +9,16 @@ describe('EgressPolicy (Phase 4.7 egress allowlist)', () => {
 
   it('matches exact hosts, ignoring protocol, port, case and path', () => {
     const policy = new EgressPolicy(['gitlab.example.com']);
-    expect(policy.checkUrl('https://gitlab.example.com/proj/1').allowed).toBe(true);
-    expect(policy.checkUrl('http://GITLAB.EXAMPLE.COM:8080/x').allowed).toBe(true);
+    expect(policy.checkUrl('https://gitlab.example.com/proj/1').allowed).toBe(
+      true,
+    );
+    expect(policy.checkUrl('http://GITLAB.EXAMPLE.COM:8080/x').allowed).toBe(
+      true,
+    );
     expect(policy.checkUrl('https://example.com').allowed).toBe(false);
-    expect(policy.checkUrl('https://sub.gitlab.example.com').allowed).toBe(false);
+    expect(policy.checkUrl('https://sub.gitlab.example.com').allowed).toBe(
+      false,
+    );
   });
 
   it('suffix rule `.example.com` matches the base host and all subdomains', () => {
@@ -35,7 +41,7 @@ describe('EgressPolicy (Phase 4.7 egress allowlist)', () => {
   it('fromEnv parses comma-separated SANDBOX_EGRESS_ALLOWLIST', () => {
     const policy = EgressPolicy.fromEnv({
       SANDBOX_EGRESS_ALLOWLIST: ' example.com , .corp.internal ',
-    } as NodeJS.ProcessEnv);
+    });
     expect(policy.checkUrl('https://example.com').allowed).toBe(true);
     expect(policy.checkUrl('https://jenkins.corp.internal').allowed).toBe(true);
     expect(policy.checkUrl('https://other.com').allowed).toBe(false);

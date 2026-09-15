@@ -56,13 +56,22 @@ export class RunController {
    * 归属校验 + ArtifactStore 落盘 + run.artifact_created 事件。
    */
   @Post(':id/artifacts')
-  async saveArtifact(@Param('id') id: string, @Body() body: any, @Req() request: any) {
+  async saveArtifact(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() request: any,
+  ) {
     const userId = this.userId(request);
     if (!userId) return { success: false, error: 'Unauthorized' };
     if (!body?.name || typeof body.content !== 'string') {
       return { success: false, error: 'name and content(string) are required' };
     }
-    const record = await this.runService.saveArtifact(id, userId, body.name, body.content);
+    const record = await this.runService.saveArtifact(
+      id,
+      userId,
+      body.name,
+      body.content,
+    );
     return { success: true, data: record };
   }
 

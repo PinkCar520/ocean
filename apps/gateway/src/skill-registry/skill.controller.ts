@@ -1,4 +1,19 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, SetMetadata, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  Req,
+  HttpCode,
+  HttpStatus,
+  SetMetadata,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SkillService, CreateSkillDto, UpdateSkillDto } from './skill.service';
 import { SkillImportService, ImportSkillDto } from './skill-import.service';
@@ -94,7 +109,13 @@ export class SkillController {
   async createSkill(@Body() body: CreateSkillDto, @Req() req: any) {
     const userId = req.user?.dbId;
     if (!body.slug && body.name) {
-      body.slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Math.random().toString(36).substring(2, 8);
+      body.slug =
+        body.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '') +
+        '-' +
+        Math.random().toString(36).substring(2, 8);
     } else if (!body.slug) {
       body.slug = 'skill-' + Math.random().toString(36).substring(2, 8);
     }
@@ -107,7 +128,11 @@ export class SkillController {
    * 更新技能
    */
   @Put(':id')
-  async updateSkill(@Param('id') id: string, @Body() body: UpdateSkillDto, @Req() req: any) {
+  async updateSkill(
+    @Param('id') id: string,
+    @Body() body: UpdateSkillDto,
+    @Req() req: any,
+  ) {
     const userId = req.user?.dbId;
     const skill = await this.skillService.updateSkill(id, body, userId);
     return { success: true, data: skill };
@@ -141,10 +166,18 @@ export class SkillController {
    */
   @Post(':id/install')
   @HttpCode(HttpStatus.CREATED)
-  async installSkill(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async installSkill(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     const userId = req.user?.dbId;
     const config = body?.config || {};
-    const installation = await this.skillService.installSkill(id, userId, config);
+    const installation = await this.skillService.installSkill(
+      id,
+      userId,
+      config,
+    );
     return { success: true, data: installation };
   }
 
@@ -231,7 +264,11 @@ export class SkillController {
   @Post('sandbox/test')
   async testSandbox(@Body() body: any) {
     const { message, activeSkill, variables } = body;
-    const result = await this.skillOrchestrator.runSandboxTest(message, activeSkill, variables);
+    const result = await this.skillOrchestrator.runSandboxTest(
+      message,
+      activeSkill,
+      variables,
+    );
     return { success: true, data: result };
   }
   /**

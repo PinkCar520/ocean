@@ -50,7 +50,6 @@ export function CodeProjection({ token }: { token: string | null }) {
   const [terminals, setTerminals] = useState<Terminal[]>([]);
 
   const load = async () => {
-    setLoading(true);
     try {
       const [ov, rp, tm] = await Promise.all([
         api.get<any>('/api/code/overview'),
@@ -70,14 +69,15 @@ export function CodeProjection({ token }: { token: string | null }) {
   };
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void load(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [token]);
 
   const decide = async (diffId: string, status: string) => {
     setDeciding(diffId);
     try {
       await api.post<any>(`/api/code/diffs/${diffId}/reviews`, { status });
+      setLoading(true);
+
       await load();
     } catch (err) {
       console.error('[Code] review decision failed:', err);

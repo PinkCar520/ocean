@@ -47,6 +47,7 @@ describe('run contracts', () => {
         space: { id: 'space_1', type: 'code' },
         input: 'Review the repository',
         status: 'queued',
+        priority: 'interactive',
         idempotencyKey: null,
         metadata: null,
         createdAt: occurredAt,

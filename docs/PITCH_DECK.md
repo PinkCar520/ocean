@@ -29,7 +29,7 @@
   * **HITL (Human-in-the-loop 人工介入断点)**：当大模型规划出高危操作（如 `merge_branch`, `trigger_build`）时，AGP 会挂起执行流，通过三栖终端（Web/IM/CLI）向用户下发确认卡片。**AI 只出方案，人类永远拥有最终扣动扳机的权力。**
 
 ### 2.3 极致的底层技术栈矩阵
-* **生成式交互 (Generative UI)**：在 Web 端（React 18 + Vite），抛弃枯燥的 Markdown 文本流，接入 **Vercel AI SDK**。当查询 DevOps 数据时，系统直接流式渲染出可交互的 ECharts 报表组件。
+* **生成式交互 (Generative UI)**：在 Web 端（Next.js App Router），抛弃枯燥的 Markdown 文本流，接入 **Vercel AI SDK**。当查询 DevOps 数据时，系统直接流式渲染出可交互的 ECharts 报表组件。
 * **高并发核心大脑**：后端网关摒弃了传统的 Python 脚本，采用 **NestJS + Node.js**，完美承载长耗时的 SSE（Server-Sent Events）连接与并发事件驱动。
 * **统一记忆与向量搜索**：利用 **PostgreSQL (pgvector)** 统一处理业务数据与知识库高维向量计算（Cosine Distance）；利用 **Redis** 管理多轮对话的长短期记忆。
 * **可观测性建设 (LLMOps)**：全链路接入 **OpenTelemetry (Jaeger)**。大模型的每一次思考耗时、Token 花费、工具调用的网络延迟都历历在目。

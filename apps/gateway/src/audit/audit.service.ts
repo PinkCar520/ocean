@@ -32,7 +32,8 @@ export class AuditService {
         spaceId: data.spaceId,
         runId: data.runId ?? null,
         toolName: data.toolName ?? null,
-        inputJson: data.inputJson === undefined ? undefined : (data.inputJson as object),
+        inputJson:
+          data.inputJson === undefined ? undefined : (data.inputJson as object),
         authorization: data.authorization ?? null,
       },
       select: { id: true },

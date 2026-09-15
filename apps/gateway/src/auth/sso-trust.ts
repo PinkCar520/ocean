@@ -31,7 +31,8 @@ function parseCidr(entry: string): { net: number; bits: number } | null {
   const ip = slash >= 0 ? entry.slice(0, slash) : entry;
   const bits = slash >= 0 ? Number(entry.slice(slash + 1)) : 32;
   const net = ipv4ToUint(ip);
-  if (net === null || !Number.isInteger(bits) || bits < 0 || bits > 32) return null;
+  if (net === null || !Number.isInteger(bits) || bits < 0 || bits > 32)
+    return null;
   return { net: net >>> 0, bits };
 }
 
@@ -51,7 +52,10 @@ export function isIpInTrustList(ip: string, entries: string[]): boolean {
  * SSO 头是否可信：未配置信任列表 → 不可信（默认关闭）。
  * req.ip 由 Express 按 TRUST_PROXY 解析（main.ts 设置），反代之后是真实来源。
  */
-export function isSsoRequestTrusted(ip: string | undefined, trustProxyRaw: string | undefined): boolean {
+export function isSsoRequestTrusted(
+  ip: string | undefined,
+  trustProxyRaw: string | undefined,
+): boolean {
   if (!ip || !trustProxyRaw) return false;
   return isIpInTrustList(ip, parseTrustedProxyList(trustProxyRaw));
 }

@@ -18,8 +18,12 @@ describe('MetricsService (Phase 7 runtime counters)', () => {
     svc.inc('tool.executed', { tool: 'web.get' });
     svc.inc('tool.executed', { tool: 'fs.read' });
     const snap = svc.snapshot();
-    const web = snap.find((p) => p.key === 'tool.executed' && p.labels.tool === 'web.get');
-    const fs = snap.find((p) => p.key === 'tool.executed' && p.labels.tool === 'fs.read');
+    const web = snap.find(
+      (p) => p.key === 'tool.executed' && p.labels.tool === 'web.get',
+    );
+    const fs = snap.find(
+      (p) => p.key === 'tool.executed' && p.labels.tool === 'fs.read',
+    );
     expect(web?.value).toBe(2);
     expect(fs?.value).toBe(1);
   });

@@ -42,9 +42,15 @@ describe('PrivacyService (Phase 7 7c data export / account deletion)', () => {
 
   it('deletes membership then user on confirm', async () => {
     await svc.deleteAccount('u1', 'DELETE');
-    expect(prisma.lifeMemory.deleteMany).toHaveBeenCalledWith({ where: { spaceId: 'life-u1' } });
-    expect(prisma.space.delete).toHaveBeenCalledWith({ where: { id: 'life-u1' } });
-    expect(prisma.membership.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
+    expect(prisma.lifeMemory.deleteMany).toHaveBeenCalledWith({
+      where: { spaceId: 'life-u1' },
+    });
+    expect(prisma.space.delete).toHaveBeenCalledWith({
+      where: { id: 'life-u1' },
+    });
+    expect(prisma.membership.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+    });
     expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'u1' } });
   });
 });

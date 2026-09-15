@@ -10,14 +10,16 @@ import { Pool } from 'pg';
       provide: 'PRISMA_CLIENT',
       useFactory: () => {
         // Prisma 7 推荐的“适配器注入模式”
-        const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ocean?schema=public';
-        
+        const connectionString =
+          process.env.DATABASE_URL ||
+          'postgresql://postgres:postgres@localhost:5432/ocean?schema=public';
+
         // 1. 创建原生 pg 连接池
         const pool = new Pool({ connectionString });
-        
+
         // 2. 将其包装为 Prisma 适配器
         const adapter = new PrismaPg(pool);
-        
+
         // 3. 注入到 PrismaClient
         return new PrismaClient({ adapter });
       },

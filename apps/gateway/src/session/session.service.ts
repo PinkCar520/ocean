@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Inject,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { SpaceService } from '../space/space.service';
 
@@ -22,7 +27,10 @@ export class SessionService {
   // Phase 5：会话归属 Space。所有查询强制 spaceId 范围；
   // 客户端当前无 Space 概念，默认解析到 Work Space。
 
-  async getSessions(userId: string, spaceId = SpaceService.DEFAULT_WORK_SPACE_ID) {
+  async getSessions(
+    userId: string,
+    spaceId = SpaceService.DEFAULT_WORK_SPACE_ID,
+  ) {
     await this.spaceService.assertAccess(userId, spaceId);
     const sessions = await this.prisma.session.findMany({
       where: { userId, status: 'active', spaceId },
@@ -62,7 +70,14 @@ export class SessionService {
   ) {
     await this.spaceService.requireAccessibleSpace(userId, spaceId);
     return this.prisma.session.create({
-      data: { userId, channel, title, status: 'active', activeSkillId, spaceId },
+      data: {
+        userId,
+        channel,
+        title,
+        status: 'active',
+        activeSkillId,
+        spaceId,
+      },
     });
   }
 
@@ -74,7 +89,11 @@ export class SessionService {
     return session;
   }
 
-  async updateSession(id: string, userId: string, data: { title?: string; status?: string; activeSkillId?: string }) {
+  async updateSession(
+    id: string,
+    userId: string,
+    data: { title?: string; status?: string; activeSkillId?: string },
+  ) {
     await this.assertOwnership(id, userId);
     return this.prisma.session.update({
       where: { id },
@@ -175,7 +194,9 @@ export class SessionService {
     });
     if (!session) throw new NotFoundException(`Session ${sessionId} not found`);
     if (session.userId !== userId) {
-      throw new ForbiddenException(`Session ${sessionId} does not belong to current user`);
+      throw new ForbiddenException(
+        `Session ${sessionId} does not belong to current user`,
+      );
     }
   }
 }

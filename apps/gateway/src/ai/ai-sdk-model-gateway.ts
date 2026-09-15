@@ -31,7 +31,11 @@ function toUiMessage(message: ModelMessage) {
       return {
         role: 'tool' as const,
         content: [
-          { type: 'tool-result', toolCallId: message.toolCallId, result: message.result },
+          {
+            type: 'tool-result',
+            toolCallId: message.toolCallId,
+            result: message.result,
+          },
         ],
       };
   }

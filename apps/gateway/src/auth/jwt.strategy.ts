@@ -10,19 +10,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         ExtractJwt.fromAuthHeaderAsBearerToken(),
-        (request) => readCookie(request?.headers?.cookie, OCEAN_SESSION_COOKIE) ?? null,
+        (request) =>
+          readCookie(request?.headers?.cookie, OCEAN_SESSION_COOKIE) ?? null,
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'ocean-secret-key-2024',
+      secretOrKey:
+        configService.get<string>('JWT_SECRET') || 'ocean-secret-key-2024',
     });
   }
 
   async validate(payload: any) {
-    return { 
-      userId: payload.sub, 
-      workId: payload.workId, 
-      email: payload.email, 
-      name: payload.name 
+    return {
+      userId: payload.sub,
+      workId: payload.workId,
+      email: payload.email,
+      name: payload.name,
     };
   }
 }

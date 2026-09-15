@@ -39,7 +39,9 @@ describe('SkillResolver (第 4 条本地化)', () => {
         ),
       },
       $queryRaw: overrides.queryRaw ?? jest.fn().mockResolvedValue([]),
-      skillTriggerLog: { create: overrides.createLog ?? jest.fn().mockResolvedValue({}) },
+      skillTriggerLog: {
+        create: overrides.createLog ?? jest.fn().mockResolvedValue({}),
+      },
     };
     const configService = { get: jest.fn(() => 'http://fastapi:8000') };
     (globalThis as any).fetch = overrides.fetchMock ?? jest.fn();
@@ -75,10 +77,15 @@ describe('SkillResolver (第 4 条本地化)', () => {
 
   it('显式 skillIds 命中（按 id 或 slug）', async () => {
     const resolver = create({});
-    const result = await resolver.resolve(
-      { userId: 'u1', source: 'web', userMessage: '随便说说', skillIds: ['pm'] },
-    );
-    expect(result.matchedSkills).toEqual([{ id: 'exp-1', name: 'PM', match_type: 'explicit' }]);
+    const result = await resolver.resolve({
+      userId: 'u1',
+      source: 'web',
+      userMessage: '随便说说',
+      skillIds: ['pm'],
+    });
+    expect(result.matchedSkills).toEqual([
+      { id: 'exp-1', name: 'PM', match_type: 'explicit' },
+    ]);
   });
 
   it('embedding 兜底：调用 Python Job + pgvector 匹配（score > 0.4 命中）', async () => {
@@ -91,15 +98,18 @@ describe('SkillResolver (第 4 条本地化)', () => {
       { id: 'kw-1', name: '银行业务', content: '你是银行专家', score: 0.2 },
     ]);
     const resolver = create({ fetchMock, queryRaw });
-    const result = await resolver.resolve(
-      { userId: 'u1', source: 'web', userMessage: '合同合规审查', skillIds: ['none'] },
-    );
+    const result = await resolver.resolve({
+      userId: 'u1',
+      source: 'web',
+      userMessage: '合同合规审查',
+      skillIds: ['none'],
+    });
     // 显式 'none' 无命中、关键词无命中 → 只有 embedding 命中（>0.4）
     expect(result.matchedSkills).toEqual([
       { id: 'emb-1', name: '法务', match_type: 'embedding (score: 0.81)' },
     ]);
     // embedding 请求体正确
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body).toEqual({ text: '合同合规审查' });
     // pgvector 查询骨架正确（参数插值由 Prisma 引擎负责，真实冒烟覆盖）
     const sql = queryRaw.mock.calls[0][0].join('');
@@ -112,20 +122,33 @@ describe('SkillResolver (第 4 条本地化)', () => {
     const fetchMock = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
     const queryRaw = jest.fn();
     const resolver = create({ fetchMock, queryRaw });
-    const result = await resolver.resolve(
-      { userId: 'u1', source: 'web', userMessage: '合同合规审查' },
-    );
+    const result = await resolver.resolve({
+      userId: 'u1',
+      source: 'web',
+      userMessage: '合同合规审查',
+    });
     expect(result.matchedSkills).toEqual([]);
     expect(queryRaw).not.toHaveBeenCalled();
   });
 
   it('无命中时返回空注入', async () => {
     const resolver = create({
-      skills: [{ id: 'a', slug: 'a', name: 'A', description: null, content: 'x', triggerKws: [] }],
+      skills: [
+        {
+          id: 'a',
+          slug: 'a',
+          name: 'A',
+          description: null,
+          content: 'x',
+          triggerKws: [],
+        },
+      ],
     });
-    const result = await resolver.resolve(
-      { userId: 'u1', source: 'web', userMessage: '无关话题' },
-    );
+    const result = await resolver.resolve({
+      userId: 'u1',
+      source: 'web',
+      userMessage: '无关话题',
+    });
     expect(result).toEqual({ injectedPrompt: undefined, matchedSkills: [] });
   });
 
@@ -135,8 +158,13 @@ describe('SkillResolver (第 4 条本地化)', () => {
       $queryRaw: jest.fn(),
       skillTriggerLog: { create: jest.fn() },
     };
-    const resolver = new SkillResolver(prisma as never, { get: jest.fn() } as never);
-    expect(await resolver.resolve({ userId: 'u1', source: 'web', userMessage: 'x' })).toEqual({
+    const resolver = new SkillResolver(
+      prisma as never,
+      { get: jest.fn() } as never,
+    );
+    expect(
+      await resolver.resolve({ userId: 'u1', source: 'web', userMessage: 'x' }),
+    ).toEqual({
       matchedSkills: [],
     });
   });

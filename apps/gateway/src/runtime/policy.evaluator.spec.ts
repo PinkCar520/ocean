@@ -6,7 +6,12 @@ jest.mock('../skill/interactive.manager', () => ({
 
 describe('PolicyEvaluator (Agent Runtime 拆分)', () => {
   function create() {
-    const interactiveManager = { wrapHighRiskTool: jest.fn((n: string, d: any) => ({ wrapped: n, def: d })) };
+    const interactiveManager = {
+      wrapHighRiskTool: jest.fn((n: string, d: any) => ({
+        wrapped: n,
+        def: d,
+      })),
+    };
     return {
       evaluator: new PolicyEvaluator(interactiveManager as never),
       interactiveManager,
@@ -34,7 +39,12 @@ describe('PolicyEvaluator (Agent Runtime 拆分)', () => {
     const { evaluator, interactiveManager } = create();
     const def = { description: 'd' };
     const wrapped = evaluator.wrap('local_bash', def, 'sess_1', 'u1');
-    expect(interactiveManager.wrapHighRiskTool).toHaveBeenCalledWith('local_bash', def, 'sess_1', 'u1');
+    expect(interactiveManager.wrapHighRiskTool).toHaveBeenCalledWith(
+      'local_bash',
+      def,
+      'sess_1',
+      'u1',
+    );
     expect(wrapped).toEqual({ wrapped: 'local_bash', def });
   });
 });

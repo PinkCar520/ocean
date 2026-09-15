@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Query, Body, Req, Res, SetMetadata, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Body,
+  Req,
+  Res,
+  SetMetadata,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { OAuthService } from './oauth.service';
@@ -29,7 +39,10 @@ export class OAuthController {
   ) {
     // If user is already authenticated via JWT
     if (req.user?.workId) {
-      const code = await this.oauthService.generateAuthCode(req.user.dbId, req.user.workId);
+      const code = await this.oauthService.generateAuthCode(
+        req.user.dbId,
+        req.user.workId,
+      );
       const callbackUrl = redirectUri || `http://localhost:${port}/callback`;
       const separator = callbackUrl.includes('?') ? '&' : '?';
       const finalUrl = `${callbackUrl}${separator}code=${code}&state=${state || ''}`;
@@ -145,7 +158,10 @@ export class OAuthController {
     }
 
     // Generate auth code
-    const code = await this.oauthService.generateAuthCode(payload.sub, payload.workId);
+    const code = await this.oauthService.generateAuthCode(
+      payload.sub,
+      payload.workId,
+    );
 
     // Redirect to CLI local callback
     const callbackUrl = redirectUri || `http://localhost:${port}/callback`;
@@ -165,7 +181,10 @@ export class OAuthController {
       throw new UnauthorizedException('Missing code.');
     }
 
-    const result = await this.oauthService.exchangeCodeForApiKey(body.code, body.name || 'CLI Login');
+    const result = await this.oauthService.exchangeCodeForApiKey(
+      body.code,
+      body.name || 'CLI Login',
+    );
     if (!result) {
       throw new UnauthorizedException('Invalid or expired code.');
     }

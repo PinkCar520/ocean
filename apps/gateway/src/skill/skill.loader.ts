@@ -55,7 +55,10 @@ export class SkillLoader {
   private catalog = new Map<string, SkillEntry>();
 
   /** Cache: dir → .AIGUIDE.md content */
-  private readonly aiguideCache = new Map<string, { content: string; loadedAt: number }>();
+  private readonly aiguideCache = new Map<
+    string,
+    { content: string; loadedAt: number }
+  >();
   private readonly AIGUIDE_CACHE_TTL_MS = 60_000;
 
   /** Whether discovery has been run */
@@ -86,7 +89,9 @@ export class SkillLoader {
     }
 
     this.discovered = true;
-    this.logger.log(`Skills discovery complete. Found: [${[...this.catalog.keys()].join(', ')}]`);
+    this.logger.log(
+      `Skills discovery complete. Found: [${[...this.catalog.keys()].join(', ')}]`,
+    );
     return [...this.catalog.values()];
   }
 
@@ -107,22 +112,39 @@ export class SkillLoader {
     if (entry) return entry;
 
     try {
-      const dbSkill = await this.prisma.skill.findUnique({ where: { slug: name } });
+      const dbSkill = await this.prisma.skill.findUnique({
+        where: { slug: name },
+      });
       if (dbSkill && dbSkill.content) {
         entry = {
           name: dbSkill.slug,
           description: dbSkill.description || '',
           content: dbSkill.content || '',
-          allowedTools: dbSkill.manifest && (dbSkill.manifest as any)['allowed-tools']
-            ? String((dbSkill.manifest as any)['allowed-tools']).split(' ').filter(Boolean)
-            : undefined,
-          requiresApproval: dbSkill.manifest && (dbSkill.manifest as any)['requires-approval']
-            ? String((dbSkill.manifest as any)['requires-approval']).split(' ').filter(Boolean)
-            : undefined,
+          allowedTools:
+            dbSkill.manifest && (dbSkill.manifest as any)['allowed-tools']
+              ? String((dbSkill.manifest as any)['allowed-tools'])
+                  .split(' ')
+                  .filter(Boolean)
+              : undefined,
+          requiresApproval:
+            dbSkill.manifest && (dbSkill.manifest as any)['requires-approval']
+              ? String((dbSkill.manifest as any)['requires-approval'])
+                  .split(' ')
+                  .filter(Boolean)
+              : undefined,
           compatibility: dbSkill.compatibility || undefined,
-          metadata: dbSkill.manifest && (dbSkill.manifest as any)['metadata'] ? (dbSkill.manifest as any)['metadata'] : undefined,
-          locales: dbSkill.manifest && (dbSkill.manifest as any)['locales'] ? (dbSkill.manifest as any)['locales'] : undefined,
-          inquiries: dbSkill.manifest && (dbSkill.manifest as any)['inquiries'] ? (dbSkill.manifest as any)['inquiries'] : undefined,
+          metadata:
+            dbSkill.manifest && (dbSkill.manifest as any)['metadata']
+              ? (dbSkill.manifest as any)['metadata']
+              : undefined,
+          locales:
+            dbSkill.manifest && (dbSkill.manifest as any)['locales']
+              ? (dbSkill.manifest as any)['locales']
+              : undefined,
+          inquiries:
+            dbSkill.manifest && (dbSkill.manifest as any)['inquiries']
+              ? (dbSkill.manifest as any)['inquiries']
+              : undefined,
         };
         this.catalog.set(name, entry);
         return entry;
@@ -149,11 +171,14 @@ export class SkillLoader {
     } catch (e) {
       // Monorepo specific: search upwards from process.cwd() for agents/skills
       let current = process.cwd();
-      for (let i = 0; i < 4; i++) { // Max 4 levels up
+      for (let i = 0; i < 4; i++) {
+        // Max 4 levels up
         const potential = path.resolve(current, 'agents/skills');
         if (fs.existsSync(potential)) {
           dirs.push(potential);
-          this.logger.debug(`Found built-in skills in monorepo layout: ${potential}`);
+          this.logger.debug(
+            `Found built-in skills in monorepo layout: ${potential}`,
+          );
           break;
         }
         current = path.dirname(current);
@@ -165,7 +190,9 @@ export class SkillLoader {
     if (envSkillsPath) {
       const paths = envSkillsPath.split(path.delimiter).filter(Boolean);
       dirs.push(...paths);
-      this.logger.log(`Scanning external skills from AGP_SKILLS_PATH: ${paths.join(', ')}`);
+      this.logger.log(
+        `Scanning external skills from AGP_SKILLS_PATH: ${paths.join(', ')}`,
+      );
     }
 
     // 3. User-installed via OceanHub (~/.ocean/skills)
@@ -211,7 +238,9 @@ export class SkillLoader {
     }
   }
 
-  private parseSkillMd(skillMdPath: string): Omit<SkillEntry, 'skillDir' | 'skillMdPath'> | null {
+  private parseSkillMd(
+    skillMdPath: string,
+  ): Omit<SkillEntry, 'skillDir' | 'skillMdPath'> | null {
     let raw: string;
     try {
       raw = fs.readFileSync(skillMdPath, 'utf-8');
@@ -231,7 +260,9 @@ export class SkillLoader {
     try {
       fm = (yaml.load(frontmatterMatch[1]) as Record<string, any>) || {};
     } catch (e: any) {
-      this.logger.error(`Failed to parse YAML frontmatter in ${skillMdPath}: ${e.message}`);
+      this.logger.error(
+        `Failed to parse YAML frontmatter in ${skillMdPath}: ${e.message}`,
+      );
       return null;
     }
 
@@ -241,7 +272,9 @@ export class SkillLoader {
 
     // Per spec: skip if description is missing
     if (!name || !description) {
-      this.logger.error(`Missing required frontmatter fields (name/description) in ${skillMdPath}`);
+      this.logger.error(
+        `Missing required frontmatter fields (name/description) in ${skillMdPath}`,
+      );
       return null;
     }
 
@@ -250,18 +283,23 @@ export class SkillLoader {
       description: String(description),
       content: bodyContent,
       allowedTools: fm['allowed-tools']
-        ? String(fm['allowed-tools'])
-          .split(' ')
-          .filter(Boolean)
+        ? String(fm['allowed-tools']).split(' ').filter(Boolean)
         : undefined,
       requiresApproval: fm['requires-approval']
-        ? String(fm['requires-approval'])
-          .split(' ')
-          .filter(Boolean)
+        ? String(fm['requires-approval']).split(' ').filter(Boolean)
         : undefined,
-      compatibility: fm['compatibility'] ? String(fm['compatibility']) : undefined,
-      metadata: fm['metadata'] ? (fm['metadata'] as Record<string, string>) : undefined,
-      locales: fm['locales'] ? (fm['locales'] as Record<string, { displayName?: string; description?: string }>) : undefined,
+      compatibility: fm['compatibility']
+        ? String(fm['compatibility'])
+        : undefined,
+      metadata: fm['metadata']
+        ? (fm['metadata'] as Record<string, string>)
+        : undefined,
+      locales: fm['locales']
+        ? (fm['locales'] as Record<
+            string,
+            { displayName?: string; description?: string }
+          >)
+        : undefined,
       inquiries: fm['inquiries'] ? (fm['inquiries'] as any[]) : undefined,
     };
   }
@@ -291,11 +329,16 @@ export class SkillLoader {
       .map((s) => {
         const allowedToolsCount = s.allowedTools?.length || 0;
         const requiresApprovalCount = s.requiresApproval?.length || 0;
-        const compatibility = s.compatibility ? `\\n    <compatibility>${escapeXml(s.compatibility)}</compatibility>` : '';
+        const compatibility = s.compatibility
+          ? `\\n    <compatibility>${escapeXml(s.compatibility)}</compatibility>`
+          : '';
         const localesXml = s.locales
           ? `\\n    <locales>${Object.entries(s.locales)
-            .map(([lang, loc]) => `<locale lang="${lang}"><displayName>${escapeXml(loc.displayName || '')}</displayName><description>${escapeXml(loc.description || '')}</description></locale>`)
-            .join('\\n      ')}</locales>`
+              .map(
+                ([lang, loc]) =>
+                  `<locale lang="${lang}"><displayName>${escapeXml(loc.displayName || '')}</displayName><description>${escapeXml(loc.description || '')}</description></locale>`,
+              )
+              .join('\\n      ')}</locales>`
           : '';
 
         return `  <skill>
@@ -327,7 +370,9 @@ export class SkillLoader {
 
     const entry = await this.getSkill(skillName);
     if (!entry) {
-      this.logger.warn(`activate_skill called for unknown skill: "${skillName}"`);
+      this.logger.warn(
+        `activate_skill called for unknown skill: "${skillName}"`,
+      );
       return null;
     }
 
@@ -434,7 +479,9 @@ export class SkillLoader {
       if (!fs.existsSync(filePath)) return null;
       const content = fs.readFileSync(filePath, 'utf-8');
       this.aiguideCache.set(filePath, { content, loadedAt: Date.now() });
-      this.logger.log(`.AIGUIDE.md loaded from: ${filePath} (${content.length} chars)`);
+      this.logger.log(
+        `.AIGUIDE.md loaded from: ${filePath} (${content.length} chars)`,
+      );
       return content;
     } catch {
       return null;

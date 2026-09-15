@@ -18,7 +18,10 @@ async function bootstrap() {
   const metrics = new MetricsService();
   app.use((req, res, next) => {
     res.on('finish', () => {
-      metrics.inc('http.requests', { method: req.method, status: String(res.statusCode) });
+      metrics.inc('http.requests', {
+        method: req.method,
+        status: String(res.statusCode),
+      });
     });
     next();
   });
@@ -41,12 +44,12 @@ async function bootstrap() {
   // Increase payload limits for large image/attachment uploads
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
-  
+
   // Serve static files from 'public' directory
   app.useStaticAssets(join(process.cwd(), 'public'), {
     prefix: '/public/',
   });
-  
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

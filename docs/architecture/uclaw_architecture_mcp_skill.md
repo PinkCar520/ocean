@@ -8,7 +8,7 @@
 
 ```mermaid
 graph TD
-    WebUI["前端 Web UI\nReact 18 + Vite + Vercel AI SDK"]
+    WebUI["前端 Web UI\nNext.js App Router + Vercel AI SDK"]
     IM["内网 IM Bot\nchannel-im 包（桥接）"]
 
     subgraph Gateway["NestJS Gateway (apps/gateway)"]

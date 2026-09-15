@@ -50,7 +50,6 @@ export function LifeProjection({ token }: { token: string | null }) {
   const [grantBusy, setGrantBusy] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     try {
       const [mem, priv] = await Promise.all([
         api.get<any>('/api/life/memories'),
@@ -78,6 +77,8 @@ export function LifeProjection({ token }: { token: string | null }) {
       });
       setGrantTo('');
       setGrantPurpose('');
+      setLoading(true);
+
       await load();
     } catch (err: any) {
       console.error('[Life] grant failed:', err);
@@ -90,6 +91,8 @@ export function LifeProjection({ token }: { token: string | null }) {
   const revokeGrant = async (grantId: string) => {
     try {
       await api.post(`/api/spaces/grants/${grantId}/revoke`);
+      setLoading(true);
+
       await load();
     } catch (err: any) {
       console.error('[Life] revoke failed:', err);
@@ -98,8 +101,7 @@ export function LifeProjection({ token }: { token: string | null }) {
   };
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void load(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [token]);
 
   const addMemory = async () => {
@@ -113,6 +115,8 @@ export function LifeProjection({ token }: { token: string | null }) {
       await api.post<any>('/api/life/memories', { content: content.trim(), tags });
       setContent('');
       setTagInput('');
+      setLoading(true);
+
       await load();
     } catch (err) {
       console.error('[Life] add memory failed:', err);
@@ -125,6 +129,8 @@ export function LifeProjection({ token }: { token: string | null }) {
     setBusy(true);
     try {
       await api.delete<any>(`/api/life/memories/${id}`);
+      setLoading(true);
+
       await load();
     } catch (err) {
       console.error('[Life] remove memory failed:', err);

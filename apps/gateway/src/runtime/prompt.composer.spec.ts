@@ -15,7 +15,9 @@ describe('PromptComposer (Agent Runtime 拆分)', () => {
         buildCatalogXml: jest.fn().mockResolvedValue('<catalog/>'),
         loadAiguide: jest.fn().mockResolvedValue(null),
       },
-      skillResolver: { resolve: jest.fn().mockResolvedValue({ matchedSkills: [] }) },
+      skillResolver: {
+        resolve: jest.fn().mockResolvedValue({ matchedSkills: [] }),
+      },
       prisma: {
         userPreference: { findFirst: jest.fn().mockResolvedValue(null) },
       },
@@ -35,7 +37,11 @@ describe('PromptComposer (Agent Runtime 拆分)', () => {
 
   it('组装基础 Prompt：用户工号 + 在线 CLI 节点', async () => {
     const { composer } = create();
-    const prompt = await composer.buildSystemPrompt({ userId: 'w10001', source: 'web', userMessage: 'hi' });
+    const prompt = await composer.buildSystemPrompt({
+      userId: 'w10001',
+      source: 'web',
+      userMessage: 'hi',
+    });
     expect(prompt).toContain('当前登录用户工号: w10001');
     expect(prompt).toContain('当前在线的本地 CLI 节点: cli-a, cli-b');
   });
@@ -46,7 +52,11 @@ describe('PromptComposer (Agent Runtime 拆分)', () => {
       injectedPrompt: '## 命中技能指令',
       matchedSkills: [{ id: 's1', name: 's1' }],
     });
-    const prompt = await composer.buildSystemPrompt({ userId: 'u1', source: 'web', userMessage: 'hi' });
+    const prompt = await composer.buildSystemPrompt({
+      userId: 'u1',
+      source: 'web',
+      userMessage: 'hi',
+    });
     expect(prompt).toContain('## 命中技能指令');
   });
 
@@ -55,16 +65,28 @@ describe('PromptComposer (Agent Runtime 拆分)', () => {
     deps.prisma.userPreference.findFirst.mockResolvedValueOnce({
       customInstructions: '始终用简体中文回复，语气专业。',
     });
-    const prompt = await composer.buildSystemPrompt({ userId: 'u1', source: 'web', userMessage: 'hi' });
+    const prompt = await composer.buildSystemPrompt({
+      userId: 'u1',
+      source: 'web',
+      userMessage: 'hi',
+    });
     expect(prompt).toContain('用户个性化指令');
     expect(prompt).toContain('始终用简体中文回复');
   });
 
   it('显式选中的本地 Skill 注入 <injected_skills> 块', async () => {
     const { composer, deps } = create();
-    deps.skillLoader.getSkill.mockResolvedValueOnce({ name: 'banking', inquiries: [] });
+    deps.skillLoader.getSkill.mockResolvedValueOnce({
+      name: 'banking',
+      inquiries: [],
+    });
     deps.skillLoader.activate.mockResolvedValueOnce('BANKING_RULES_CONTENT');
-    const prompt = await composer.buildSystemPrompt({ userId: 'u1', source: 'web', userMessage: 'hi', skillIds: ['banking'] });
+    const prompt = await composer.buildSystemPrompt({
+      userId: 'u1',
+      source: 'web',
+      userMessage: 'hi',
+      skillIds: ['banking'],
+    });
     expect(prompt).toContain('<injected_skills>');
     expect(prompt).toContain('BANKING_RULES_CONTENT');
     expect(prompt).not.toContain('<catalog/>'); // 显式技能时不注入全量 Catalog
@@ -72,7 +94,11 @@ describe('PromptComposer (Agent Runtime 拆分)', () => {
 
   it('无显式技能时注入全量 Skill Catalog', async () => {
     const { composer } = create();
-    const prompt = await composer.buildSystemPrompt({ userId: 'u1', source: 'web', userMessage: 'hi' });
+    const prompt = await composer.buildSystemPrompt({
+      userId: 'u1',
+      source: 'web',
+      userMessage: 'hi',
+    });
     expect(prompt).toContain('<catalog/>');
   });
 });

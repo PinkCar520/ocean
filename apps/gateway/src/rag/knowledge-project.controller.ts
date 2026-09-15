@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Delete, Body, Param, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Inject,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { SpaceService } from '../space/space.service';
 
@@ -21,10 +29,10 @@ export class KnowledgeProjectController {
       where: { spaceId },
       include: {
         _count: {
-          select: { documents: true }
-        }
+          select: { documents: true },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
     return { success: true, data: projects };
   }
@@ -35,9 +43,9 @@ export class KnowledgeProjectController {
       where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
       include: {
         _count: {
-          select: { documents: true }
-        }
-      }
+          select: { documents: true },
+        },
+      },
     });
     if (!project) {
       return { success: false, error: 'Project not found' };
@@ -46,12 +54,21 @@ export class KnowledgeProjectController {
   }
 
   @Post()
-  async create(@Body() data: { name: string; category: string; description?: string; iconUrl?: string; color?: string }) {
+  async create(
+    @Body()
+    data: {
+      name: string;
+      category: string;
+      description?: string;
+      iconUrl?: string;
+      color?: string;
+    },
+  ) {
     const project = await this.prisma.knowledgeProject.create({
       data: {
         ...data,
         spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
-      }
+      },
     });
     return { success: true, data: project };
   }
@@ -59,7 +76,7 @@ export class KnowledgeProjectController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.prisma.knowledgeProject.deleteMany({
-      where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID }
+      where: { id, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
     });
     return { success: true };
   }

@@ -32,7 +32,8 @@ export class PIIService {
     },
     {
       name: 'PASSWORD_FIELD',
-      regex: /(password|passwd|secret|key|token)["']?\s*[:=]\s*["']?([^"'\s,]+)["']?/gi,
+      regex:
+        /(password|passwd|secret|key|token)["']?\s*[:=]\s*["']?([^"'\s,]+)["']?/gi,
       replace: '$1: "********"',
     },
   ];
@@ -43,11 +44,11 @@ export class PIIService {
   mask(text: string): string {
     if (!text) return text;
     let masked = text;
-    
+
     for (const rule of this.rules) {
       masked = masked.replace(rule.regex, rule.replace);
     }
-    
+
     return masked;
   }
 
@@ -55,6 +56,6 @@ export class PIIService {
    * 检查文本中是否包含敏感信息（用于审计日志）
    */
   hasSensitiveInfo(text: string): boolean {
-    return this.rules.some(rule => rule.regex.test(text));
+    return this.rules.some((rule) => rule.regex.test(text));
   }
 }

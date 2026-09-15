@@ -1,14 +1,18 @@
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
-import { trace, context, Span, SpanStatusCode, Tracer } from '@opentelemetry/api';
+import {
+  trace,
+  context,
+  Span,
+  SpanStatusCode,
+  Tracer,
+} from '@opentelemetry/api';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class TracingService implements OnModuleInit {
   private tracer: Tracer;
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     this.tracer = trace.getTracer('ocean-gateway');
   }
 
@@ -29,15 +33,17 @@ export class TracingService implements OnModuleInit {
     const traceId = span.spanContext().traceId;
 
     // Create a background DB record for this trace
-    this.prisma.trace.create({
-      data: {
-        traceId,
-        name: options.name,
-        userId: options.userId,
-        sessionId: options.sessionId,
-        metadata: options.metadata || {},
-      }
-    }).catch(err => console.error('[Tracing] Failed to persist trace', err));
+    this.prisma.trace
+      .create({
+        data: {
+          traceId,
+          name: options.name,
+          userId: options.userId,
+          sessionId: options.sessionId,
+          metadata: options.metadata || {},
+        },
+      })
+      .catch((err) => console.error('[Tracing] Failed to persist trace', err));
 
     span.end();
     return traceId;
@@ -49,7 +55,7 @@ export class TracingService implements OnModuleInit {
   async traceCall<T>(
     name: string,
     attributes: Record<string, any>,
-    fn: (span: Span) => Promise<T>
+    fn: (span: Span) => Promise<T>,
   ): Promise<T> {
     return this.tracer.startActiveSpan(name, async (span) => {
       try {

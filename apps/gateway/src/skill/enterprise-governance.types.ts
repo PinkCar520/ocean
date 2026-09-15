@@ -32,12 +32,15 @@ export interface ManagedMcpConfig {
   /** Servers that are explicitly denied (cannot be enabled) */
   deniedServers: string[];
   /** Servers that are forced enabled with specific config */
-  forcedServers?: Record<string, {
-    enabled: true;
-    command: string;
-    args: string[];
-    env?: Record<string, string>;
-  }>;
+  forcedServers?: Record<
+    string,
+    {
+      enabled: true;
+      command: string;
+      args: string[];
+      env?: Record<string, string>;
+    }
+  >;
 }
 
 /**
@@ -59,7 +62,9 @@ export function loadManagedSettings(filePath: string): ManagedSettings | null {
  * Load managed MCP config from file.
  * Returns null if file doesn't exist or is invalid.
  */
-export function loadManagedMcpConfig(filePath: string): ManagedMcpConfig | null {
+export function loadManagedMcpConfig(
+  filePath: string,
+): ManagedMcpConfig | null {
   const fs = require('fs');
   try {
     if (!fs.existsSync(filePath)) return null;

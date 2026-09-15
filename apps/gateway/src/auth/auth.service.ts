@@ -1,4 +1,9 @@
-import { Injectable, Inject, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -49,13 +54,13 @@ export class AuthService {
    * 登录验证
    */
   async login(user: any) {
-    const payload = { 
-      sub: user.id, 
-      workId: user.workId, 
+    const payload = {
+      sub: user.id,
+      workId: user.workId,
       email: user.email,
-      name: user.name 
+      name: user.name,
     };
-    
+
     return {
       access_token: this.jwtService.sign(payload),
       user: {

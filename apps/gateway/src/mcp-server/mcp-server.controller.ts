@@ -1,5 +1,20 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, HttpCode, HttpStatus, SetMetadata } from '@nestjs/common';
-import { MCPServerService, CreateMCPServerDto, UpdateMCPServerDto } from './mcp-server.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  HttpCode,
+  HttpStatus,
+  SetMetadata,
+} from '@nestjs/common';
+import {
+  MCPServerService,
+  CreateMCPServerDto,
+  UpdateMCPServerDto,
+} from './mcp-server.service';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -79,7 +94,10 @@ export class MCPServerController {
    * 更新 MCP Server
    */
   @Put(':id')
-  async updateServer(@Param('id') id: string, @Body() body: UpdateMCPServerDto) {
+  async updateServer(
+    @Param('id') id: string,
+    @Body() body: UpdateMCPServerDto,
+  ) {
     const server = await this.mcpServerService.updateServer(id, body);
     return { success: true, data: server };
   }

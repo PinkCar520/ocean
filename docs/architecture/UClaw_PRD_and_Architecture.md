@@ -98,7 +98,7 @@ graph TD
 ### 3. 技术栈骨架 (Technology Stack)
 * **工程架构**：基于 `pnpm workspace` 的 Typescript 全栈大一统 Monorepo。
 * **大脑网关 (`gateway`)**：基于 **NestJS** 构建，统管鉴权、大模型路由调度以及充当核心的 **MCP Client**，解析核心意图并分发至底层的 MCP Servers 库。
-* **前端展示 (`web`)**：React 18 + Vite (SPA) + Vercel AI SDK 构建 Generative UI，可视化整个技能节点的数据轨迹。
+* **前端展示 (`web`)**：Next.js App Router（React 19）+ Vercel AI SDK 构建 Generative UI，可视化整个技能节点的数据轨迹（v2 迁移后，见 `docs/architecture/v2/MIGRATION_PLAN.md`）。
 * **隔离基建包 (`mcp-*`)**：借助 `@modelcontextprotocol/sdk` 开发的可热插拔独立服务，对接诸如内网 DevOps、内部 IM 和各类定制基建。
 * **深度交互终端 (`cli`)**：融入 Anthropic 工作流理念：直接抓取本地开发规范资源与文件，并借助终端拦截风险命令，提供安全沙箱执行（Plan Mode）。
 

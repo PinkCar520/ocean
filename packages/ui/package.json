@@ -6,7 +6,8 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "test": "vitest run src/lib/parseUIKit.spec.ts"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "exports": {
     ".": "./src/index.ts",

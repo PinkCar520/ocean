@@ -5,11 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { RpcModule } from '../chat/rpc.module';
 
 @Module({
-  imports: [
-    AuthModule,
-    PrismaModule,
-    RpcModule,
-  ],
+  imports: [AuthModule, PrismaModule, RpcModule],
   controllers: [UserController],
   providers: [],
   exports: [],

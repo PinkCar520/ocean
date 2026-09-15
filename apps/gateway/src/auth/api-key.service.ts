@@ -35,7 +35,10 @@ export class ApiKeyService {
   /**
    * Generate a new API key for a user
    */
-  async createApiKey(userId: string, dto: CreateApiKeyDto): Promise<ApiKeyResponse> {
+  async createApiKey(
+    userId: string,
+    dto: CreateApiKeyDto,
+  ): Promise<ApiKeyResponse> {
     // Generate key with prefix
     const randomPart = randomBytes(32).toString('hex');
     const key = `ocean_sk_${randomPart}`;
@@ -57,7 +60,7 @@ export class ApiKeyService {
       id: apiKey.id,
       key, // Return full key only once
       name: apiKey.name,
-      permissions: apiKey.permissions as string[],
+      permissions: apiKey.permissions,
       expiresAt: apiKey.expiresAt,
       createdAt: apiKey.createdAt,
       lastUsedAt: apiKey.lastUsedAt,
@@ -67,7 +70,9 @@ export class ApiKeyService {
   /**
    * Find user by API key (validates key, checks expiry and revocation)
    */
-  async findUserByApiKey(apiKey: string): Promise<{ userId: string; workId: string } | null> {
+  async findUserByApiKey(
+    apiKey: string,
+  ): Promise<{ userId: string; workId: string } | null> {
     const keyHash = createHash('sha256').update(apiKey).digest('hex');
 
     const record = await this.prisma.apiKey.findUnique({
@@ -113,7 +118,7 @@ export class ApiKeyService {
     return keys.map((k) => ({
       id: k.id,
       name: k.name,
-      permissions: k.permissions as string[],
+      permissions: k.permissions,
       expiresAt: k.expiresAt,
       createdAt: k.createdAt,
       lastUsedAt: k.lastUsedAt,

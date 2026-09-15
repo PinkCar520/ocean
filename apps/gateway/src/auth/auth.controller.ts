@@ -1,4 +1,15 @@
-import { Controller, Post, Get, Delete, Body, Param, UnauthorizedException, Req, Res, SetMetadata } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Body,
+  Param,
+  UnauthorizedException,
+  Req,
+  Res,
+  SetMetadata,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { ApiKeyService, CreateApiKeyDto } from './api-key.service';
@@ -20,10 +31,15 @@ export class AuthController {
    */
   @Public()
   @Post('register')
-  async register(@Body() body: any, @Res({ passthrough: true }) response: Response) {
+  async register(
+    @Body() body: any,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const { email, password, name } = body;
     if (!email || !password) {
-      throw new UnauthorizedException('Authentication Failed: Email and password are required.');
+      throw new UnauthorizedException(
+        'Authentication Failed: Email and password are required.',
+      );
     }
     const result = await this.authService.register(email, password, name);
     this.setSessionCookie(response, result.access_token);
@@ -36,12 +52,17 @@ export class AuthController {
    */
   @Public()
   @Post('login')
-  async login(@Body() body: any, @Res({ passthrough: true }) response: Response) {
+  async login(
+    @Body() body: any,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const { username, email, password } = body;
     const identifier = username || email;
 
     if (!identifier || !password) {
-      throw new UnauthorizedException('Authentication Failed: Credentials required.');
+      throw new UnauthorizedException(
+        'Authentication Failed: Credentials required.',
+      );
     }
 
     const user = await this.authService.validateUser(identifier, password);

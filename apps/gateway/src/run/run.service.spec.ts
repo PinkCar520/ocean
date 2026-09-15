@@ -43,21 +43,34 @@ describe('RunService', () => {
       let run = where.id ? runs.get(where.id) : undefined;
       if (where.userId_idempotencyKey) {
         run = [...runs.values()].find(
-          item =>
+          (item) =>
             item.userId === where.userId_idempotencyKey.userId &&
             item.idempotencyKey === where.userId_idempotencyKey.idempotencyKey,
         );
       }
-      return run && include ? { ...run, events: events.get(run.id) ?? [] } : run ?? null;
+      return run && include
+        ? { ...run, events: events.get(run.id) ?? [] }
+        : (run ?? null);
     }),
     create: jest.fn(async ({ data }: any) => {
       const now = new Date('2026-09-14T04:30:00.000Z');
-      const run = { id: `run_${nextRun++}`, metadata: null, idempotencyKey: null, ...data, createdAt: now, updatedAt: now };
+      const run = {
+        id: `run_${nextRun++}`,
+        metadata: null,
+        idempotencyKey: null,
+        ...data,
+        createdAt: now,
+        updatedAt: now,
+      };
       runs.set(run.id, run);
       return run;
     }),
     update: jest.fn(async ({ where, data }: any) => {
-      const run = { ...runs.get(where.id), ...data, updatedAt: new Date('2026-09-14T04:31:00.000Z') };
+      const run = {
+        ...runs.get(where.id),
+        ...data,
+        updatedAt: new Date('2026-09-14T04:31:00.000Z'),
+      };
       runs.set(run.id, run);
       return run;
     }),
@@ -78,7 +91,7 @@ describe('RunService', () => {
       const all = events.get(where?.runId) ?? [];
       const filtered =
         where?.sequence?.gt !== undefined
-          ? all.filter(e => e.sequence > where.sequence.gt)
+          ? all.filter((e) => e.sequence > where.sequence.gt)
           : all;
       return filtered.sort((a, b) => a.sequence - b.sequence);
     }),
@@ -109,20 +122,29 @@ describe('RunService', () => {
         return row;
       }),
     },
-    $transaction: jest.fn(async (operation: (transaction: any) => unknown) => operation(prisma)),
+    $transaction: jest.fn(async (operation: (transaction: any) => unknown) =>
+      operation(prisma),
+    ),
   };
   const outbox = {
     enqueueRunRequested: jest.fn(async () => undefined),
     enqueueToolRequested: jest.fn(async () => undefined),
   };
   const spaceService = {
-    requireAccessibleSpace: jest.fn().mockResolvedValue({ id: 'work', type: 'work' }),
+    requireAccessibleSpace: jest
+      .fn()
+      .mockResolvedValue({ id: 'work', type: 'work' }),
   };
   const service = new RunService(
     prisma as never,
     outbox as never,
     spaceService as never,
-    { save: jest.fn().mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }), load: jest.fn() } as never,
+    {
+      save: jest
+        .fn()
+        .mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }),
+      load: jest.fn(),
+    } as never,
     { inc: jest.fn() } as never,
   );
 
@@ -142,7 +164,9 @@ describe('RunService', () => {
     });
 
     expect(snapshot.run.status).toBe('queued');
-    expect(snapshot.events).toMatchObject([{ type: 'run.created', sequence: 0 }]);
+    expect(snapshot.events).toMatchObject([
+      { type: 'run.created', sequence: 0 },
+    ]);
     expect(outbox.enqueueRunRequested).toHaveBeenCalledWith(
       prisma,
       { version: 1, runId: snapshot.run.id, userId: 'user_1' },
@@ -165,7 +189,12 @@ describe('RunService', () => {
     );
   });
 
-  it('returns the existing run for the same user idempotency key', async () => {    const request = { space: { id: 'space_1', type: 'code' as const }, input: 'Review', idempotencyKey: 'request_1' };
+  it('returns the existing run for the same user idempotency key', async () => {
+    const request = {
+      space: { id: 'space_1', type: 'code' as const },
+      input: 'Review',
+      idempotencyKey: 'request_1',
+    };
     const first = await service.create('user_1', request);
     const second = await service.create('user_1', request);
 
@@ -174,21 +203,36 @@ describe('RunService', () => {
   });
 
   it('rejects access from another user', async () => {
-    const snapshot = await service.create('user_1', { space: { id: 'space_1', type: 'life' }, input: 'Plan' });
+    const snapshot = await service.create('user_1', {
+      space: { id: 'space_1', type: 'life' },
+      input: 'Plan',
+    });
 
-    await expect(service.get(snapshot.run.id, 'user_2')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.get(snapshot.run.id, 'user_2')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('cancels a queued run and appends a sequenced event', async () => {
-    const created = await service.create('user_1', { space: { id: 'space_1', type: 'work' }, input: 'Prepare' });
+    const created = await service.create('user_1', {
+      space: { id: 'space_1', type: 'work' },
+      input: 'Prepare',
+    });
     const cancelled = await service.cancel(created.run.id, 'user_1');
 
     expect(cancelled.run.status).toBe('cancelled');
-    expect(cancelled.events.at(-1)).toMatchObject({ type: 'run.status_changed', status: 'cancelled', sequence: 1 });
+    expect(cancelled.events.at(-1)).toMatchObject({
+      type: 'run.status_changed',
+      status: 'cancelled',
+      sequence: 1,
+    });
   });
 
   it('lists events after a sequence for the owner and rejects other users', async () => {
-    const created = await service.create('user_1', { space: { id: 'space_1', type: 'work' }, input: 'hi' });
+    const created = await service.create('user_1', {
+      space: { id: 'space_1', type: 'work' },
+      input: 'hi',
+    });
     const runningEvent = {
       id: 'evt_2',
       runId: created.run.id,
@@ -210,16 +254,23 @@ describe('RunService', () => {
 
     // after=0 → 只回放 sequence>0 的事件（断线续读语义）
     const next = await service.listEvents(created.run.id, 'user_1', 0);
-    expect(next.map(e => e.sequence)).toEqual([1]);
-    expect(next[0]).toMatchObject({ type: 'run.status_changed', status: 'running' });
+    expect(next.map((e) => e.sequence)).toEqual([1]);
+    expect(next[0]).toMatchObject({
+      type: 'run.status_changed',
+      status: 'running',
+    });
 
     // 缺省 after → 全量
     const all = await service.listEvents(created.run.id, 'user_1');
-    expect(all.map(e => e.sequence)).toEqual([0, 1]);
+    expect(all.map((e) => e.sequence)).toEqual([0, 1]);
 
     // 越权访问被拒
-    await expect(service.listEvents(created.run.id, 'user_2', 0)).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(service.listEvents('missing', 'user_1', 0)).rejects.toThrow(/not found/);
+    await expect(
+      service.listEvents(created.run.id, 'user_2', 0),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.listEvents('missing', 'user_1', 0)).rejects.toThrow(
+      /not found/,
+    );
   });
 
   it('enqueues a tool call request for an owned run (Phase 4.4)', async () => {
@@ -318,7 +369,9 @@ describe('RunService', () => {
       1,
     );
     // 事件：approval 步骤完成 + run → queued
-    const eventTypes = (events.get(created.run.id) ?? []).map(e => e.payload.type);
+    const eventTypes = (events.get(created.run.id) ?? []).map(
+      (e) => e.payload.type,
+    );
     expect(eventTypes).toContain('run.step_completed');
     expect(eventTypes).toContain('run.status_changed');
   });
@@ -388,7 +441,12 @@ describe('RunService', () => {
       service.decideApproval(created.run.id, approvalId, 'user_2', 'approved'),
     ).rejects.toBeInstanceOf(ForbiddenException);
     await expect(
-      service.decideApproval(created.run.id, 'appr_missing', 'user_1', 'approved'),
+      service.decideApproval(
+        created.run.id,
+        'appr_missing',
+        'user_1',
+        'approved',
+      ),
     ).rejects.toThrow(/not found/);
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
   });
@@ -401,10 +459,16 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
   const agentRun = {
     findUnique: jest.fn(async ({ where, include }: any) => {
       const run = runs.get(where.id) ?? null;
-      return run && include ? { ...run, events: events.get(run.id) ?? [] } : run;
+      return run && include
+        ? { ...run, events: events.get(run.id) ?? [] }
+        : run;
     }),
     update: jest.fn(async ({ where, data }: any) => {
-      const run = { ...runs.get(where.id), ...data, updatedAt: new Date('2026-09-15T05:00:00.000Z') };
+      const run = {
+        ...runs.get(where.id),
+        ...data,
+        updatedAt: new Date('2026-09-15T05:00:00.000Z'),
+      };
       runs.set(run.id, run);
       return run;
     }),
@@ -417,7 +481,9 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
     }),
     findFirst: jest.fn(async ({ where }: any) => {
       const all = events.get(where?.runId) ?? [];
-      return all.length ? all.reduce((max, e) => (e.sequence > max.sequence ? e : max)) : null;
+      return all.length
+        ? all.reduce((max, e) => (e.sequence > max.sequence ? e : max))
+        : null;
     }),
     findMany: jest.fn(async () => []),
   };
@@ -427,17 +493,29 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
     outboxEvent: { findFirst: jest.fn().mockResolvedValue(null) },
     runApproval: { findUnique: jest.fn(), update: jest.fn() },
     runStep: { findUnique: jest.fn(), update: jest.fn() },
-    $transaction: jest.fn(async (operation: (t: any) => unknown) => operation(prisma)),
+    $transaction: jest.fn(async (operation: (t: any) => unknown) =>
+      operation(prisma),
+    ),
   };
-  const outbox = { enqueueRunRequested: jest.fn(), enqueueToolRequested: jest.fn() };
+  const outbox = {
+    enqueueRunRequested: jest.fn(),
+    enqueueToolRequested: jest.fn(),
+  };
   const spaceService = {
-    requireAccessibleSpace: jest.fn().mockResolvedValue({ id: 'work', type: 'work' }),
+    requireAccessibleSpace: jest
+      .fn()
+      .mockResolvedValue({ id: 'work', type: 'work' }),
   };
   const service = new RunService(
     prisma as never,
     outbox as never,
     spaceService as never,
-    { save: jest.fn().mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }), load: jest.fn() } as never,
+    {
+      save: jest
+        .fn()
+        .mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }),
+      load: jest.fn(),
+    } as never,
     { inc: jest.fn() } as never,
   );
 
@@ -457,16 +535,18 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
       createdAt: now,
       updatedAt: now,
     });
-    events.set(id, [{
-      payload: {
-        id: `ev_${id}`,
-        runId: id,
-        sequence: 0,
-        type: 'run.created',
-        status: 'queued',
-        occurredAt: now.toISOString(),
+    events.set(id, [
+      {
+        payload: {
+          id: `ev_${id}`,
+          runId: id,
+          sequence: 0,
+          type: 'run.created',
+          status: 'queued',
+          occurredAt: now.toISOString(),
+        },
       },
-    }]);
+    ]);
     return id;
   }
 
@@ -491,26 +571,45 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
 
   it('retry 幂等：存在 pending run.requested 时不重复投递', async () => {
     const id = seedRun('failed');
-    (prisma.outboxEvent.findFirst as jest.Mock).mockResolvedValue({ id: 'm1', status: 'pending' });
+    (prisma.outboxEvent.findFirst as jest.Mock).mockResolvedValue({
+      id: 'm1',
+      status: 'pending',
+    });
     await service.retry(id, 'user_1');
     expect(outbox.enqueueRunRequested).not.toHaveBeenCalled();
   });
 
   it('retry 拒绝非终态状态（queued / running / succeeded）', async () => {
-    await expect(service.retry(seedRun('queued'), 'user_1')).rejects.toBeInstanceOf(BadRequestException);
-    await expect(service.retry(seedRun('running'), 'user_1')).rejects.toBeInstanceOf(BadRequestException);
-    await expect(service.retry(seedRun('succeeded'), 'user_1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.retry(seedRun('queued'), 'user_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.retry(seedRun('running'), 'user_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.retry(seedRun('succeeded'), 'user_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('resume 仅允许 paused / waiting_for_input', async () => {
-    await expect(service.resume(seedRun('paused'), 'user_1')).resolves.toMatchObject({ run: { status: 'queued' } });
-    await expect(service.resume(seedRun('waiting_for_input'), 'user_1')).resolves.toMatchObject({ run: { status: 'queued' } });
-    await expect(service.resume(seedRun('waiting_for_approval'), 'user_1')).rejects.toBeInstanceOf(BadRequestException);
-    await expect(service.resume(seedRun('failed'), 'user_1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.resume(seedRun('paused'), 'user_1'),
+    ).resolves.toMatchObject({ run: { status: 'queued' } });
+    await expect(
+      service.resume(seedRun('waiting_for_input'), 'user_1'),
+    ).resolves.toMatchObject({ run: { status: 'queued' } });
+    await expect(
+      service.resume(seedRun('waiting_for_approval'), 'user_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.resume(seedRun('failed'), 'user_1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('retry 越权抛 Forbidden', async () => {
     const id = seedRun('failed');
-    await expect(service.retry(id, 'other_user')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.retry(id, 'other_user')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 });

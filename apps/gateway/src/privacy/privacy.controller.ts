@@ -14,7 +14,10 @@ export class PrivacyController {
   async exportData(@Req() req: any) {
     const userId = req.user?.dbId ?? req.user?.id;
     if (!userId) return { success: false, error: 'Unauthorized' };
-    return { success: true, data: await this.privacyService.exportData(userId) };
+    return {
+      success: true,
+      data: await this.privacyService.exportData(userId),
+    };
   }
 
   @Post('delete-account')

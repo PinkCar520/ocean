@@ -18,7 +18,10 @@ import { ToolRegistry, TOOL_REGISTRY } from './tool.registry';
     {
       provide: ArtifactStore,
       useFactory: (prisma: any) =>
-        new ArtifactStore(prisma, process.env.ARTIFACT_ROOT ?? join(process.cwd(), 'artifacts')),
+        new ArtifactStore(
+          prisma,
+          process.env.ARTIFACT_ROOT ?? join(process.cwd(), 'artifacts'),
+        ),
       inject: ['PRISMA_CLIENT'],
     },
     ToolRegistry,

@@ -7,7 +7,9 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ocean?schema=public',
+  connectionString:
+    process.env.DATABASE_URL ||
+    'postgresql://postgres:postgres@localhost:5432/ocean?schema=public',
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -16,7 +18,8 @@ const builtInSkills = [
   {
     slug: 'fix-bug',
     name: 'Fix Bug',
-    description: '修复禅道缺陷的完整全链路工作流：拉取缺陷详情、分析相关代码、应用修复、Git 提交并在禅道关闭缺陷。',
+    description:
+      '修复禅道缺陷的完整全链路工作流：拉取缺陷详情、分析相关代码、应用修复、Git 提交并在禅道关闭缺陷。',
     category: 'pm',
     source: 'internal',
     version: '1.1',
@@ -31,7 +34,8 @@ const builtInSkills = [
   {
     slug: 'prd-designer',
     name: 'Write PRD',
-    description: '产品经理的智能需求助手：起草 PRD (产品需求文档) 并将其发布到禅道。当用户要求写需求、规划产品、创建 Story 时使用。',
+    description:
+      '产品经理的智能需求助手：起草 PRD (产品需求文档) 并将其发布到禅道。当用户要求写需求、规划产品、创建 Story 时使用。',
     category: 'pm',
     source: 'internal',
     version: '1.1',
@@ -46,7 +50,8 @@ const builtInSkills = [
   {
     slug: 'jenkins',
     name: 'Jenkins CI/CD',
-    description: 'Interact with Jenkins CI/CD server via REST API. Trigger builds, check build status, view console output, manage jobs.',
+    description:
+      'Interact with Jenkins CI/CD server via REST API. Trigger builds, check build status, view console output, manage jobs.',
     category: 'cicd',
     source: 'internal',
     version: '1.0',
@@ -61,7 +66,8 @@ const builtInSkills = [
   {
     slug: 'gitlab',
     name: 'GitLab Integration',
-    description: 'GitLab CI/CD 流水线管理与 Merge Request 操作。支持触发流水线、查询状态、创建和管理 MR。',
+    description:
+      'GitLab CI/CD 流水线管理与 Merge Request 操作。支持触发流水线、查询状态、创建和管理 MR。',
     category: 'vc',
     source: 'internal',
     version: '1.0',
@@ -79,7 +85,9 @@ async function main() {
   console.log('▸ Seeding built-in skills...');
 
   for (const skill of builtInSkills) {
-    const existing = await prisma.skill.findUnique({ where: { slug: skill.slug } });
+    const existing = await prisma.skill.findUnique({
+      where: { slug: skill.slug },
+    });
     if (existing) {
       console.log(`  ⏭  ${skill.slug} already exists, skipping.`);
       continue;

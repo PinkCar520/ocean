@@ -52,12 +52,17 @@ export class SpaceService {
       select: { id: true },
     });
     if (!membership) {
-      throw new ForbiddenException(`User ${userId} has no access to space ${spaceId}`);
+      throw new ForbiddenException(
+        `User ${userId} has no access to space ${spaceId}`,
+      );
     }
   }
 
   /** 校验 Space 存在且用户可访问；返回 SpaceRef。 */
-  async requireAccessibleSpace(userId: string, spaceId: string): Promise<SpaceRef> {
+  async requireAccessibleSpace(
+    userId: string,
+    spaceId: string,
+  ): Promise<SpaceRef> {
     const ref = await this.requireSpace(spaceId);
     await this.assertAccess(userId, spaceId);
     return ref;
@@ -93,17 +98,28 @@ export class SpaceService {
    */
   async createGrant(
     userId: string,
-    dto: { fromSpaceId?: string; toSpaceId: string; purpose?: string; scope?: unknown; expiresAt?: string },
+    dto: {
+      fromSpaceId?: string;
+      toSpaceId: string;
+      purpose?: string;
+      scope?: unknown;
+      expiresAt?: string;
+    },
   ) {
     // fromSpaceId 缺省 = 本人 Life Space（Life 授权 UI 语义）
-    const fromSpaceId = dto.fromSpaceId ?? (await this.ensureLifeSpace(userId)).id;
+    const fromSpaceId =
+      dto.fromSpaceId ?? (await this.ensureLifeSpace(userId)).id;
     if (fromSpaceId === dto.toSpaceId) {
       throw new ForbiddenException('fromSpace and toSpace must differ');
     }
     await this.requireAccessibleSpace(userId, fromSpaceId);
     await this.requireSpace(dto.toSpaceId); // 404 若不存在
     const existing = await this.prisma.contextGrant.findFirst({
-      where: { fromSpaceId: dto.fromSpaceId, toSpaceId: dto.toSpaceId, revokedAt: null },
+      where: {
+        fromSpaceId: dto.fromSpaceId,
+        toSpaceId: dto.toSpaceId,
+        revokedAt: null,
+      },
       select: { id: true },
     });
     const data = {
@@ -117,7 +133,12 @@ export class SpaceService {
     if (existing) {
       return this.prisma.contextGrant.update({
         where: { id: existing.id },
-        data: { purpose: data.purpose, scope: data.scope ?? undefined, expiresAt: data.expiresAt, revokedAt: null },
+        data: {
+          purpose: data.purpose,
+          scope: data.scope ?? undefined,
+          expiresAt: data.expiresAt,
+          revokedAt: null,
+        },
       });
     }
     const created = await this.prisma.contextGrant.create({ data });
@@ -165,13 +186,22 @@ export class SpaceService {
    */
   async ensureLifeSpace(userId: string): Promise<SpaceRef> {
     const id = SpaceService.lifeSpaceIdFor(userId);
-    const existing = await this.prisma.space.findUnique({ where: { id }, select: { id: true, type: true } });
+    const existing = await this.prisma.space.findUnique({
+      where: { id },
+      select: { id: true, type: true },
+    });
     if (existing) {
       await this.ensureMembership(userId, id, 'owner');
       return existing;
     }
     await this.prisma.space.create({
-      data: { id, slug: id, name: '生活空间', type: 'life', description: '个人 Life Space（默认仅本人）' },
+      data: {
+        id,
+        slug: id,
+        name: '生活空间',
+        type: 'life',
+        description: '个人 Life Space（默认仅本人）',
+      },
     });
     await this.prisma.membership.create({
       data: { spaceId: id, userId, role: 'owner' },
@@ -195,7 +225,11 @@ export class SpaceService {
     });
   }
 
-  private async ensureMembership(userId: string, spaceId: string, role: string) {
+  private async ensureMembership(
+    userId: string,
+    spaceId: string,
+    role: string,
+  ) {
     const existing = await this.prisma.membership.findUnique({
       where: { spaceId_userId: { spaceId, userId } },
       select: { id: true },

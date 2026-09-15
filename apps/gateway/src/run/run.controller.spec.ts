@@ -56,7 +56,11 @@ describe('RunController SSE streamEvents (Phase 4.3 订阅恢复)', () => {
     ]);
     runService.getStatus.mockResolvedValueOnce('succeeded');
 
-    await controller.streamEvents('run_1', { user: { dbId: 'u1' }, headers: {} }, res);
+    await controller.streamEvents(
+      'run_1',
+      { user: { dbId: 'u1' }, headers: {} },
+      res,
+    );
 
     const all = res.chunks.join('');
     // 协议要素：retry 提示 + 每条事件带 id 字段
@@ -119,7 +123,11 @@ describe('RunController SSE streamEvents (Phase 4.3 订阅恢复)', () => {
     ]);
     runService.getStatus.mockResolvedValueOnce('succeeded');
 
-    await controller.streamEvents('run_1', { user: { dbId: 'u1' }, headers: {} }, res);
+    await controller.streamEvents(
+      'run_1',
+      { user: { dbId: 'u1' }, headers: {} },
+      res,
+    );
     expect(res.ended).toBe(false);
 
     await jest.advanceTimersByTimeAsync(2000); // 触发一次轮询
@@ -132,10 +140,20 @@ describe('RunController SSE streamEvents (Phase 4.3 订阅恢复)', () => {
     const { controller } = createController();
     const res = createResponse();
     await expect(
-      controller.streamEvents('run_1', { user: { dbId: 'u1' }, headers: {} }, res, '-1'),
+      controller.streamEvents(
+        'run_1',
+        { user: { dbId: 'u1' }, headers: {} },
+        res,
+        '-1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      controller.streamEvents('run_1', { user: { dbId: 'u1' }, headers: {} }, res, 'abc'),
+      controller.streamEvents(
+        'run_1',
+        { user: { dbId: 'u1' }, headers: {} },
+        res,
+        'abc',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
@@ -144,10 +162,14 @@ describe('RunController artifact endpoint (Phase 4.8 artifact 存储分离)', ()
   it('归属校验通过后从 ArtifactStore 读出内容并返回', async () => {
     const { controller, runService, artifactStore } = createController();
     runService.getStatus.mockResolvedValue('succeeded');
-    (artifactStore.load as jest.Mock).mockResolvedValue('ART_CONTENT');
+    artifactStore.load.mockResolvedValue('ART_CONTENT');
     const res: any = { headers: {}, sent: '' };
-    res.setHeader = (k: string, v: string) => { res.headers[k] = v; };
-    res.send = (c: string) => { res.sent = c; };
+    res.setHeader = (k: string, v: string) => {
+      res.headers[k] = v;
+    };
+    res.send = (c: string) => {
+      res.sent = c;
+    };
 
     await controller.artifact('run_1', 'art_1', { user: { dbId: 'u1' } }, res);
 
@@ -159,10 +181,15 @@ describe('RunController artifact endpoint (Phase 4.8 artifact 存储分离)', ()
 
   it('加载失败（不存在/跨 run）→ NotFoundException', async () => {
     const { controller, artifactStore } = createController();
-    (artifactStore.load as jest.Mock).mockRejectedValue(new Error('not found'));
+    artifactStore.load.mockRejectedValue(new Error('not found'));
 
     await expect(
-      controller.artifact('run_1', 'art_x', { user: { dbId: 'u1' } }, {} as never),
+      controller.artifact(
+        'run_1',
+        'art_x',
+        { user: { dbId: 'u1' } },
+        {} as never,
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
