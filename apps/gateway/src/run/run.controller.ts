@@ -51,6 +51,21 @@ export class RunController {
    * 读取 Run 产物内容（Phase 4 第 8 项：artifact 存储分离）。
    * 内容在 ArtifactStore（本地对象存储），DB 只存引用——此端点按引用流式返回。
    */
+  /**
+   * POST /api/runs/:id/artifacts —— 保存 Run 产物（Phase 6 6f）。
+   * 归属校验 + ArtifactStore 落盘 + run.artifact_created 事件。
+   */
+  @Post(':id/artifacts')
+  async saveArtifact(@Param('id') id: string, @Body() body: any, @Req() request: any) {
+    const userId = this.userId(request);
+    if (!userId) return { success: false, error: 'Unauthorized' };
+    if (!body?.name || typeof body.content !== 'string') {
+      return { success: false, error: 'name and content(string) are required' };
+    }
+    const record = await this.runService.saveArtifact(id, userId, body.name, body.content);
+    return { success: true, data: record };
+  }
+
   @Get(':id/artifacts/:artifactId')
   async artifact(
     @Param('id') id: string,

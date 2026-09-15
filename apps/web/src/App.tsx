@@ -424,7 +424,7 @@ function AppInternal({
             <Menu className="w-5 h-5" />
           </button>
           <span className="font-display font-bold text-foreground text-lg">Ocean</span>
-          <div className="w-9" />
+          <SpaceSwitcher spaces={spaces.length ? spaces : [{ id: 'work', name: '工作空间', type: 'work' }]} activeSpaceId={activeSpaceId} onChange={handleSpaceChange} />
         </div>
 
         {/* Space 切换条（Phase 6） */}

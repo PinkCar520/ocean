@@ -81,6 +81,18 @@ export class ChatService {
         after = Math.max(after, event.sequence);
         if (event.type === 'run.output_delta') {
           onChunk(`0:${JSON.stringify(event.delta)}\n`);
+        } else if (event.type === 'artifact.created') {
+          // Phase 6 6f：统一 Artifact 事件 → AI SDK data 行，前端 ArtifactViewer 渲染
+          onChunk(
+            `data:${JSON.stringify({
+              type: 'artifact',
+              runId: event.runId,
+              artifactId: event.artifact?.id,
+              name: event.artifact?.name,
+              uri: event.artifact?.uri,
+              contentType: event.artifact?.contentType,
+            })}\n`,
+          );
         } else if (event.type === 'run.status_changed' && TERMINAL_RUN_STATUSES.has(event.status)) {
           if (event.status === 'failed') {
             onChunk(`3:${JSON.stringify({ message: 'Run failed. See gateway logs for details.' })}\n`);

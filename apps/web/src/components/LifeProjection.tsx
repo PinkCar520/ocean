@@ -44,6 +44,10 @@ export function LifeProjection({ token }: { token: string | null }) {
   const [content, setContent] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [busy, setBusy] = useState(false);
+  // Phase 6 6f：跨 Space 授权
+  const [grantTo, setGrantTo] = useState('');
+  const [grantPurpose, setGrantPurpose] = useState('');
+  const [grantBusy, setGrantBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -60,6 +64,36 @@ export function LifeProjection({ token }: { token: string | null }) {
       setError('无法加载 Life 投影');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createGrant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!grantTo.trim()) return;
+    setGrantBusy(true);
+    try {
+      await api.post('/api/spaces/grants', {
+        toSpaceId: grantTo.trim(),
+        purpose: grantPurpose.trim() || 'Life 数据共享',
+      });
+      setGrantTo('');
+      setGrantPurpose('');
+      await load();
+    } catch (err: any) {
+      console.error('[Life] grant failed:', err);
+      alert('授权失败：' + (err?.message || '请检查目标空间 id'));
+    } finally {
+      setGrantBusy(false);
+    }
+  };
+
+  const revokeGrant = async (grantId: string) => {
+    try {
+      await api.post(`/api/spaces/grants/${grantId}/revoke`);
+      await load();
+    } catch (err: any) {
+      console.error('[Life] revoke failed:', err);
+      alert('撤销失败：' + (err?.message || ''));
     }
   };
 
@@ -196,9 +230,17 @@ export function LifeProjection({ token }: { token: string | null }) {
                       </p>
                       <p className="text-xs text-muted-foreground">{grant.purpose || '数据共享'}</p>
                     </div>
-                    {grant.expiresAt && (
-                      <span className="text-xs text-amber-600">到期 {new Date(grant.expiresAt).toLocaleDateString()}</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {grant.expiresAt && (
+                        <span className="text-xs text-amber-600">到期 {new Date(grant.expiresAt).toLocaleDateString()}</span>
+                      )}
+                      <button
+                        onClick={() => revokeGrant(grant.id)}
+                        className="text-xs text-destructive hover:underline"
+                      >
+                        撤销
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -212,6 +254,21 @@ export function LifeProjection({ token }: { token: string | null }) {
                 ))}
               </div>
             )}
+            <form onSubmit={createGrant} className="mt-3 flex gap-2 border-t border-border pt-3">
+              <input
+                value={grantTo}
+                onChange={(e) => setGrantTo(e.target.value)}
+                placeholder="目标 Space id（如 work / code）"
+                className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary"
+              />
+              <button
+                type="submit"
+                disabled={grantBusy || !grantTo.trim()}
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {grantBusy ? '授权中…' : '新建授权'}
+              </button>
+            </form>
           </div>
         )}
       </div>

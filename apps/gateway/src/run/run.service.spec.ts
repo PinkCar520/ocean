@@ -118,7 +118,12 @@ describe('RunService', () => {
   const spaceService = {
     requireAccessibleSpace: jest.fn().mockResolvedValue({ id: 'work', type: 'work' }),
   };
-  const service = new RunService(prisma as never, outbox as never, spaceService as never);
+  const service = new RunService(
+    prisma as never,
+    outbox as never,
+    spaceService as never,
+    { save: jest.fn().mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }), load: jest.fn() } as never,
+  );
 
   beforeEach(() => {
     runs.clear();
@@ -427,7 +432,12 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
   const spaceService = {
     requireAccessibleSpace: jest.fn().mockResolvedValue({ id: 'work', type: 'work' }),
   };
-  const service = new RunService(prisma as never, outbox as never, spaceService as never);
+  const service = new RunService(
+    prisma as never,
+    outbox as never,
+    spaceService as never,
+    { save: jest.fn().mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }), load: jest.fn() } as never,
+  );
 
   function seedRun(status: string, priority = 'interactive') {
     const id = `run_${nextRun++}`;

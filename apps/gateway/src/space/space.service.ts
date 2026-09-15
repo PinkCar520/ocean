@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 export interface SpaceRef {
   id: string;
@@ -57,6 +57,81 @@ export class SpaceService {
     const ref = await this.requireSpace(spaceId);
     await this.assertAccess(userId, spaceId);
     return ref;
+  }
+
+  /**
+   * 列出当前用户可访问空间相关的授权（from 或 to 任一涉及本人空间）。
+   * Phase 6 6f：跨 Space 授权。
+   */
+  async listGrants(userId: string) {
+    const spaces = await this.prisma.membership.findMany({
+      where: { userId },
+      select: { spaceId: true },
+    });
+    const ids = spaces.map((m) => m.spaceId);
+    return this.prisma.contextGrant.findMany({
+      where: {
+        revokedAt: null,
+        OR: [{ fromSpaceId: { in: ids } }, { toSpaceId: { in: ids } }],
+      },
+      include: {
+        fromSpace: { select: { id: true, name: true, slug: true } },
+        toSpace: { select: { id: true, name: true, slug: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * 创建跨 Space 授权（幂等：同 from/to 未撤销已有则复用并刷新）。
+   * 校验：fromSpace 必须是调用者可访问的空间（不能授权不属于自己的数据）；
+   * toSpace 必须存在且非 fromSpace。
+   */
+  async createGrant(
+    userId: string,
+    dto: { fromSpaceId?: string; toSpaceId: string; purpose?: string; scope?: unknown; expiresAt?: string },
+  ) {
+    // fromSpaceId 缺省 = 本人 Life Space（Life 授权 UI 语义）
+    const fromSpaceId = dto.fromSpaceId ?? (await this.ensureLifeSpace(userId)).id;
+    if (fromSpaceId === dto.toSpaceId) {
+      throw new ForbiddenException('fromSpace and toSpace must differ');
+    }
+    await this.requireAccessibleSpace(userId, fromSpaceId);
+    await this.requireSpace(dto.toSpaceId); // 404 若不存在
+    const existing = await this.prisma.contextGrant.findFirst({
+      where: { fromSpaceId: dto.fromSpaceId, toSpaceId: dto.toSpaceId, revokedAt: null },
+      select: { id: true },
+    });
+    const data = {
+      fromSpaceId,
+      toSpaceId: dto.toSpaceId,
+      purpose: dto.purpose ?? null,
+      scope: dto.scope ? (dto.scope as Prisma.InputJsonValue) : undefined,
+      grantedByUserId: userId,
+      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+    };
+    if (existing) {
+      return this.prisma.contextGrant.update({
+        where: { id: existing.id },
+        data: { purpose: data.purpose, scope: data.scope ?? undefined, expiresAt: data.expiresAt, revokedAt: null },
+      });
+    }
+    return this.prisma.contextGrant.create({ data });
+  }
+
+  /** 撤销授权（软删：revokedAt=now）。 */
+  async revokeGrant(userId: string, grantId: string) {
+    const grant = await this.prisma.contextGrant.findUnique({
+      where: { id: grantId },
+      select: { id: true, fromSpaceId: true },
+    });
+    if (!grant) throw new NotFoundException(`Grant ${grantId} not found`);
+    // 仅授权方空间成员可撤销
+    await this.requireAccessibleSpace(userId, grant.fromSpaceId);
+    return this.prisma.contextGrant.update({
+      where: { id: grantId },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /** Life Space id：每用户一个，人工可读。 */

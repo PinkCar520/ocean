@@ -11,6 +11,7 @@ import { ToolInvocationRenderer, ToolInvocationBadge } from './chat/ToolInvocati
 import { ChatMessage } from './chat/ChatMessage';
 import { IntegrationsPanel } from './chat/IntegrationsPanel';
 import { ActiveContextPanel } from './chat/ActiveContext';
+import { ArtifactViewer } from './ArtifactViewer';
 import { EmptyState } from './chat/EmptyState';
 import { CopyCodeButton, MarkdownComponents, CodeBlock } from './chat/MarkdownConfig';
 import { SkillPreviewPanel } from './chat/SkillPreviewPanel';
@@ -132,6 +133,23 @@ export function ChatSession({
         payload: { ...(acc.payload || {}), ...(curr.payload || {}) }
       };
     }, { payload: {} });
+  }, [data]);
+
+  // ── 统一 Artifact 流（Phase 6 6f）：data 行 {type:'artifact', ...} 去重渲染 ──
+  const artifacts = useMemo(() => {
+    if (!data || !Array.isArray(data)) return [];
+    const seen = new Set<string>();
+    const list: any[] = [];
+    for (const d of data as any[]) {
+      if (d?.type === 'artifact' && d.artifactId) {
+        const key = `${d.runId}:${d.artifactId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push(d);
+        }
+      }
+    }
+    return list;
   }, [data]);
 
   const {
@@ -528,6 +546,20 @@ export function ChatSession({
 
             </AnimatePresence>
 
+            {artifacts.length > 0 && (
+              <div className="w-full space-y-2 pt-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">产物</p>
+                {artifacts.map((a) => (
+                  <ArtifactViewer
+                    key={`${a.runId}:${a.artifactId}`}
+                    runId={a.runId}
+                    artifactId={a.artifactId}
+                    name={a.name || 'artifact'}
+                    contentType={a.contentType}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

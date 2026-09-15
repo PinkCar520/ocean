@@ -19,6 +19,7 @@ import {
   type ToolCall,
 } from '@ocean/contracts';
 import { OutboxService } from './outbox.service';
+import { ArtifactStore } from '../artifact/artifact.store';
 import { SpaceService } from '../space/space.service';
 
 const CANCELLABLE_STATUSES = new Set([
@@ -41,6 +42,7 @@ export class RunService {
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly outbox: OutboxService,
     private readonly spaceService: SpaceService,
+    private readonly artifactStore: ArtifactStore,
   ) {}
 
   async create(
@@ -199,6 +201,48 @@ export class RunService {
         events: [...snapshot.events, event],
       });
     });
+  }
+
+  /**
+   * 保存 Run 产物（Phase 6 6f 统一 Artifact 闭环）。
+   * 归属校验后写入 ArtifactStore，并追加 run.artifact_created 事件
+   * （chat 转译为 AI SDK data 事件，前端统一 ArtifactViewer 渲染）。
+   */
+  async saveArtifact(runId: string, userId: string, name: string, content: string) {
+    await this.get(runId, userId); // 404/403 归属校验
+    const record = await this.artifactStore.save(runId, name, content);
+    // 追加事件（事务内 sequence 续接；事件失败不影响产物已保存）
+    const snapshot = await this.get(runId, userId);
+    await this.prisma.$transaction(async (transaction) => {
+      const sequence = snapshot.events.at(-1)?.sequence ?? -1;
+      const event = runEventSchema.parse({
+        id: crypto.randomUUID(),
+        runId,
+        sequence: sequence + 1,
+        occurredAt: new Date().toISOString(),
+        type: 'artifact.created',
+        artifact: {
+          id: record.id,
+          runId,
+          kind: 'run',
+          name,
+          contentType: 'text/plain; charset=utf-8',
+          uri: `/api/runs/${runId}/artifacts/${record.id}`,
+          size: record.sizeBytes ?? undefined,
+        },
+      });
+      await transaction.runEvent.create({
+        data: {
+          id: event.id,
+          runId,
+          sequence: event.sequence,
+          type: event.type,
+          payload: event as Prisma.InputJsonValue,
+          occurredAt: new Date(event.occurredAt),
+        },
+      });
+    });
+    return record;
   }
 
   async cancel(id: string, userId: string): Promise<RunSnapshot> {    const snapshot = await this.get(id, userId);

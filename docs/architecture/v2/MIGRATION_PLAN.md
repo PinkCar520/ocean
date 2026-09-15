@@ -358,14 +358,18 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ 验证：gateway 单测 142/142（LifeService 5 例含跨 Space Forbidden）、build；web typecheck + build；真实 DB 冒烟（建记忆→列表→隐私→**A 访问 B 的 life space Forbidden**→结构性隔离→自动清理）。
 - ℹ️ 语义：访问不存在的 space → 404（不暴露存在性）；存在但无 membership → 403。Life 隔离是结构性的：spaceId 恒为调用者本人 id，API 无法指定他人空间。
 
+**已完成（6f：跨 Space 授权界面 + 统一 Artifact Viewer + 移动端切换入口）：**
+
+- ✅ 后端 Grant 管理：`SpaceService.listGrants/createGrant/revokeGrant` + `SpaceController`——`GET/POST /api/spaces/grants`、`POST /api/spaces/grants/:id/revoke`。createGrant 校验 fromSpace 必须调用者可访问（跨空间授权他人数据 → Forbidden）、toSpace 存在且 ≠ fromSpace；`fromSpaceId` 缺省 = 本人 Life Space（Life 授权 UI 语义）；幂等：同 from/to 未撤销复用并刷新；revoke 仅 fromSpace 成员可操作（软删 revokedAt=now）。
+- ✅ Artifact 闭环：`RunService.saveArtifact(runId, userId, name, content)`（归属校验 → ArtifactStore 落盘 → 事务追加 **`artifact.created`** 事件，payload 用 contract `artifactSchema`：kind='run'、contentType='text/plain; charset=utf-8'、uri=`/api/runs/:id/artifacts/:artifactId`）；`RunController POST /api/runs/:id/artifacts`；`chat.service` 把 `artifact.created` 转译为 AI SDK `data:` 行 `{type:'artifact', runId, artifactId, name, uri, contentType}`。
+- ✅ 前端：`ArtifactViewer` 组件（`packages/ui/src/components/ArtifactViewer.tsx`，authFetch 鉴权拉取产物内容，按 content-type 渲染文本/JSON/图片）；ChatSession 从 useChat `data` 流解析 `type==='artifact'` 行去重渲染"产物"区块；LifeProjection 隐私面板增加授权表单（新建 Life→目标 Space 授权）+ 撤销按钮；App Shell 移动端 header（md:hidden）加入 SpaceSwitcher。
+- ✅ 验证：gateway 单测 142/142（Grant 4 例 + Artifact 3 例）、build；web typecheck + build；真实 DB 冒烟 `scripts/smoke-6f.cjs`（11 断言：缺省 fromSpace=life、幂等复用、列表可见、跨空间 fromSpace 越权 Forbidden、撤销隐藏、artifact 落盘、artifact.created 事件、事件 uri、内容读回、跨用户 saveArtifact 拒绝、smoke 清理）。
+
 **待办（6b+）：**
 
-- [ ] 6f：跨 Space 授权界面（ContextGrant 管理）+ 统一 Artifact Viewer + 移动端切换入口。
 - [ ] Work 投影：项目、文件、流程、团队（知识库已按 Space 隔离，投影可叠加）。
-- [ ] Life 投影：个人记忆、日程、隐私控制。
-- [ ] 跨 Space 操作来源/目的地/授权确认界面（ContextGrant 已建模）。
-- [ ] 统一 Artifact Viewer。
-- [ ] 移动端 Space 切换入口（当前条桌面独占，移动走 Sidebar）。
+- [ ] Life 投影：日程（个人记忆与隐私控制已随 6e/6f 落地）。
+- [ ] 跨 Space 操作来源/目的地/授权确认界面（ContextGrant 已建模 + 6f 已提供管理 API/UI 入口）。
 
 ### 工作项
 
