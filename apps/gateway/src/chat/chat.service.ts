@@ -57,14 +57,16 @@ export class ChatService {
    */
   async runChatStream(
     messages: any[],
-    ctx: { userId: string; userMessage?: string; skillIds?: string[]; search?: boolean; knowledge?: boolean },
+    ctx: { userId: string; userMessage?: string; skillIds?: string[]; search?: boolean; knowledge?: boolean; spaceId?: string },
     modelId: string | undefined,
     sessionId: string | undefined,
     onChunk: (chunk: string) => void,
   ): Promise<void> {
     const input = buildRunPrompt(messages, ctx, modelId);
+    // Phase 6 6b：Run 归属当前 Space（由 controller 按会话归属/body 解析，默认 work）
+    const spaceId = ctx.spaceId ?? 'work';
     const snapshot = await this.runService.create(ctx.userId, {
-      space: { id: 'work', type: 'work' },
+      space: { id: spaceId, type: 'work' },
       input,
       priority: 'interactive',
       metadata: { sessionId, modelId } as any,

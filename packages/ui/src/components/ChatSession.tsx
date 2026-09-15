@@ -64,6 +64,8 @@ interface ChatSessionProps {
   onRenameConversation?: (id: string, title: string) => void;
   isLoadingHistory?: boolean;
   onMainTabChange?: (id: string) => void;
+  /** Phase 6 6b：当前 Space（新建会话归属） */
+  spaceId?: string;
   t: (key: string, options?: any) => string;
   navigation: {
     navigate: (path: string, options?: any) => void;
@@ -87,6 +89,7 @@ export function ChatSession({
   onRenameConversation,
   isLoadingHistory,
   onMainTabChange,
+  spaceId,
   t,
   navigation,
 }: ChatSessionProps) {
@@ -113,7 +116,7 @@ export function ChatSession({
     sessionIdRef, titleGeneratedRef, data, switchBranch, setCurrentLeafId
   } = useChatSession({
     sessionId, initialMessages, token, selectedModelId,
-    isSearchMode, isKnowledgeMode, onStreamFinished
+    isSearchMode, isKnowledgeMode, onStreamFinished, spaceId
   });
 
   // ── 实时解析并合并 Active Context 元数据 ──

@@ -320,9 +320,15 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ App Shell：主区域顶部 Space 切换条 + 当前身份提示；侧边栏会话列表与 AllChats 按当前 Space 过滤（历史无 spaceId 会话视作 Work）；切换到不存在 Space 时自动创建 Life（`POST /api/spaces/life`）。
 - ✅ 验证：gateway 单测 121/121、隔离集成套件扩展至 15 项断言全过（含 getSessions 返回 spaceId、createSession 指定 Space 落库）；web typecheck + build 通过。
 
+**已完成（6b：聊天消息归属当前 Space）：**
+
+- ✅ chat.controller：Run 归属 Space 解析——会话归属优先（`session.spaceId`，防越权：A Space 的会话消息不可落到 B Space），无会话时按 body.spaceId（默认 work）。
+- ✅ chat.service `runChatStream`：`ctx.spaceId` 透传至 Run 创建（不再硬编码 work）。
+- ✅ 前端链路：`useChatSession`/`ChatSession` 增加 `spaceId` 选项，`/api/chat` 请求体携带当前 Space；App Shell 传入 `activeSpaceId`。
+- ✅ 验证：gateway 单测 123/123（新增 spaceId 透传用例）、build；web typecheck + build 通过。
+
 **待办（6b+）：**
 
-- [ ] 聊天会话创建归属当前 Space（chat.service `runChatStream` 的 space 从请求上下文解析，当前仍硬编码 work）。
 - [ ] Code 投影：仓库、终端、Diff、Review。
 - [ ] Work 投影：项目、文件、流程、团队（知识库已按 Space 隔离，投影可叠加）。
 - [ ] Life 投影：个人记忆、日程、隐私控制。

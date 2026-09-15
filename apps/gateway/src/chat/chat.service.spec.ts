@@ -67,6 +67,28 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     expect(chunks).toEqual(['0:"你好，"', '0:"世界"'].map(s => s + '\n'));
   });
 
+  it('ctx.spaceId 透传：Run 归属当前 Space（Phase 6 6b）', async () => {
+    const run = runServiceMock() as any;
+    const service = new ChatService(configOf('true'), run);
+    const promise = service.runChatStream(
+      [{ role: 'user', content: 'hi' }],
+      { userId: 'u1', userMessage: 'hi', search: false, spaceId: 'life-u1' },
+      'model-x',
+      undefined,
+      () => {},
+    );
+    const runId = 'run_1';
+    const base = { id: 'e1', runId, sequence: 1, occurredAt: new Date().toISOString() };
+    run._eventsByRun.get(runId).push({ ...base, type: 'run.output_delta', delta: 'ok' });
+    run._eventsByRun.get(runId).push({ ...base, id: 'e2', sequence: 2, type: 'run.status_changed', status: 'succeeded' });
+    run._statusByRun.set(runId, 'succeeded');
+    await promise;
+
+    expect(run.create).toHaveBeenCalledWith('u1', expect.objectContaining({
+      space: { id: 'life-u1', type: 'work' },
+    }));
+  });
+
   it('failed 终态输出 AI SDK 3: 错误行', async () => {
     const run = runServiceMock() as any;
     const service = new ChatService(configOf('true'), run);

@@ -136,9 +136,13 @@ export class ChatController {
     // Session Binding Logic
     let finalSkillIds = mergedSkillIds.length > 0 ? Array.from(new Set(mergedSkillIds)) : undefined;
 
+    // Phase 6 6b：Run 归属 Space——会话归属优先（防越权），body 兜底，默认 work。
+    // 新会话（无 sessionId）按客户端当前 Space 创建；已有会话固定归属其创建时的 Space。
+    let resolvedSpaceId = body.spaceId ?? 'work';
     if (sessionId) {
       try {
         const session = await this.sessionService.getSessionById(sessionId, req.user?.dbId);
+        if (session?.spaceId) resolvedSpaceId = session.spaceId;
         if (session) {
           if (finalSkillIds && finalSkillIds.length > 0) {
             await this.sessionService.updateSession(sessionId, req.user?.dbId, { activeSkillId: finalSkillIds[0] });
@@ -161,6 +165,8 @@ export class ChatController {
       search: body.search,
       // @ts-ignore
       knowledge: body.knowledge,
+      // @ts-ignore
+      spaceId: resolvedSpaceId,
     };
 
     // SSE 响应头

@@ -443,6 +443,7 @@ function AppInternal({
                 setSelectedModelId={setSelectedModelId}
                 token={token}
                 user={user}
+                spaceId={activeSpaceId}
                 createSession={createSession}
                 onStreamFinished={onStreamFinished}
                 onRenameConversation={handleRenameChat}

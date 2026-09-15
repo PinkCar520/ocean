@@ -9,6 +9,8 @@ interface UseChatSessionProps {
   isSearchMode: boolean;
   isKnowledgeMode: boolean;
   onStreamFinished: (id: string) => Promise<void>;
+  /** Phase 6 6b：当前 Space（新建会话的 Run 归属） */
+  spaceId?: string;
 }
 
 export function useChatSession({
@@ -18,7 +20,8 @@ export function useChatSession({
   selectedModelId,
   isSearchMode,
   isKnowledgeMode,
-  onStreamFinished
+  onStreamFinished,
+  spaceId
 }: UseChatSessionProps) {
   const initializedRef = useRef(false);
   const sessionIdRef = useRef(sessionId);
@@ -76,7 +79,8 @@ export function useChatSession({
     search: isSearchMode,
     knowledge: isKnowledgeMode,
     sessionId: sessionId,
-  }), [selectedModelId, isSearchMode, isKnowledgeMode, sessionId]);
+    spaceId,
+  }), [selectedModelId, isSearchMode, isKnowledgeMode, sessionId, spaceId]);
 
   const onFinishRef = useRef<any>(null);
   onFinishRef.current = async ({ message }: any) => {
