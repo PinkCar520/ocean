@@ -3,6 +3,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { MetricsService } from './obs/metrics.service';
 import { AuditService } from './audit/audit.service';
 import { AuditController } from './audit/audit.controller';
+import { PrivacyService } from './privacy/privacy.service';
+import { PrivacyController } from './privacy/privacy.controller';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
@@ -62,6 +64,8 @@ import { RunModule } from './run/run.module';
     MetricsService, // Phase 7：运行指标
     AuditService, // Phase 7 7b：审计日志
     AuditController,
+    PrivacyService, // Phase 7 7c：数据导出/账号删除
+    PrivacyController,
   ],
 })
 export class AppModule {}

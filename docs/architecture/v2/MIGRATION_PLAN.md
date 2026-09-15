@@ -414,10 +414,15 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ `GET /api/audit?spaceId=&limit=`（AuditController）。
 - ✅ 验证：gateway 单测 165/165（audit 4 例：来源全量、本人可见性、越权拒绝、limit 截断）、build；真实 DB 冒烟 `scripts/smoke-7b-audit.cjs`（10 断言：工具执行落库+来源字段+输入快照+授权依据、grant 双向审计、本人可见/他人不可见、未知 space 拒绝、清理）。
 
+**已完成（7c 第一项：数据导出与账号删除）：**
+
+- ✅ `PrivacyService`：`GET /api/privacy/export`——本人数据 JSON 导出（profile/memberships/sessions/life memories/runs/audits/grants）；`POST /api/privacy/delete-account`（body `confirm='DELETE'` 防误触）——显式清理 Life Space（memory 挂在 space 上，非 user FK）+ 删 membership + 删 user（会话/Run/审计/授权级联清理），共享 Space 保留。
+- ✅ 验证：gateway 单测 168/168（privacy 3 例：全 Scope 导出、确认口令拒绝、级联删除顺序）、build；真实 DB 冒烟 `scripts/smoke-7c-privacy.cjs`（10 断言：导出 4 Scope、确认拒绝、user/sessions/memories/audits 级联删除、清理）。
+
 **待办（7c+）：**
 
 - [ ] 引入 Secret/KMS 适配器和凭证轮换。
-- [ ] 数据删除、导出、保留策略（审计已落地，导出/保留/删除治理未做）。
+- [ ] 数据保留与归档策略（导出/删除已落地，TTL/归档未做）。
 - [ ] 模型供应商和 MCP 连接数据等级策略。
 - [ ] PostgreSQL、对象存储、队列的备份恢复演练和故障手册。
 
