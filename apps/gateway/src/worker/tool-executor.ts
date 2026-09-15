@@ -44,7 +44,6 @@ export class ToolExecutor {
       throw new Error(`ToolExecutor received unexpected topic: ${job.topic}`);
     }
     const { runId, userId, toolCall } = job.payload;
-
     try {
       // 1) 幂等检查：同 run + 同 idempotencyKey 的 succeeded tool_call 步骤 → 缓存命中
       if (toolCall.idempotencyKey) {
