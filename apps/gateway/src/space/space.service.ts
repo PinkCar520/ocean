@@ -58,4 +58,55 @@ export class SpaceService {
     await this.assertAccess(userId, spaceId);
     return ref;
   }
+
+  /** Life Space id：每用户一个，人工可读。 */
+  static lifeSpaceIdFor(userId: string): string {
+    return `life-${userId}`;
+  }
+
+  /**
+   * 幂等创建用户的 Life Space（首次进入 Life 场景时调用）：
+   * 存在则返回；不存在则创建 space + 本人 owner Membership。
+   */
+  async ensureLifeSpace(userId: string): Promise<SpaceRef> {
+    const id = SpaceService.lifeSpaceIdFor(userId);
+    const existing = await this.prisma.space.findUnique({ where: { id }, select: { id: true, type: true } });
+    if (existing) {
+      await this.ensureMembership(userId, id, 'owner');
+      return existing;
+    }
+    await this.prisma.space.create({
+      data: { id, slug: id, name: '生活空间', type: 'life', description: '个人 Life Space（默认仅本人）' },
+    });
+    await this.prisma.membership.create({
+      data: { spaceId: id, userId, role: 'owner' },
+    });
+    return { id, type: 'life' };
+  }
+
+  /** 用户可见的 Space 列表（有 Membership 的 Space）。 */
+  async listSpaces(userId: string) {
+    return this.prisma.space.findMany({
+      where: { memberships: { some: { userId } } },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        type: true,
+        icon: true,
+        memberships: { where: { userId }, select: { role: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  private async ensureMembership(userId: string, spaceId: string, role: string) {
+    const existing = await this.prisma.membership.findUnique({
+      where: { spaceId_userId: { spaceId, userId } },
+      select: { id: true },
+    });
+    if (!existing) {
+      await this.prisma.membership.create({ data: { spaceId, userId, role } });
+    }
+  }
 }

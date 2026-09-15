@@ -266,13 +266,16 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 **待办（下一轮）：**
 
-- [ ] Document 表通过 projectId 间接归属 Space：查询/删除需 join 校验（schema 未直接加 spaceId）。
-- [ ] `AgentRun.spaceType` 与 `Space.type` 冗余一致性处理（对齐策略待定：以 Space 表为准或保留快照）。
-- [ ] `spaceId` 由可空转非空 + 组合索引（全部层强制后执行）。
-- [ ] 跨 Space 越权测试扩展：ID 猜测、附件 URL、事件订阅、工具凭证。
-- [ ] Life Space 创建流程与默认本人 Membership。
+- [ ] 跨 Space 越权测试扩展：附件 URL、事件订阅、工具凭证（ID 猜测/查询已固化于 `scripts/test-space-isolation.cjs`）。
+- [ ] Life Space 产品流程接入（前端 Space Switcher 创建入口）。
 
-**上一轮增量（2026-09-15 第二次提交）**：SkillInstallation（install/uninstall/status/getUserInstallations）与 MCPServer（list/getById/create/update/delete/checkHealth/syncFromConfig/seed 脚本）全部强制归属默认 Work Space；RAG getStats 的 knowledgeProject 统计加 spaceId 口径；跨 Space 冒烟验证通过（life 记录业务读取返回 null、删除 404）；`test-skill.ts` 冒烟脚本同步适配 SpaceService 构造。
+**Phase 5 收口（2026-09-15 第三次提交）**：
+- ✅ 迁移 `20260915000006_finalize_space_boundary`：`documents` 加 `spaceId` 并回填（project 归属 → project.spaceId，否则 work）；5 表 `spaceId` 转非空；FK 语义 SetNull → Restrict（与 NOT NULL 对齐，Space 删除需显式迁移数据）；组合索引 `documents_spaceId` / `sessions_userId_spaceId` / `skill_installations_userId_spaceId`。
+- ✅ Document 层强制：create 落库 work，getDocuments/delete/getStats 全部限定 work，删除改 `deleteMany` 防跨 Space。
+- ✅ Run spaceType 一致性：`create` 不再信任客户端 type，以 Space 表为准。
+- ✅ Life Space：`SpaceService.ensureLifeSpace`（幂等，id=`life-<userId>`，本人 owner）+ `listSpaces` + `SpaceController`（`GET /api/spaces`、`POST /api/spaces/life`）。
+- ✅ 越权集成测试固化：`scripts/test-space-isolation.cjs` 13 项断言（Membership 403、Session/MCP/Document 跨 Space 读 null/删 404、未知 Space 404、spaceType 覆盖、Life 幂等），自动清理。
+- ✅ 验证：单测 121/121、typecheck、build；集成测试 13/13 真实 DB 通过。
 
 ### 数据迁移顺序
 

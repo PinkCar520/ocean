@@ -43,6 +43,7 @@ export class RAGService {
       data: {
         ...data,
         status: 'processing',
+        spaceId: 'work',
       }
     });
   }
@@ -138,7 +139,7 @@ export class RAGService {
 
   async indexDocument(title: string, rawContent: string, projectId?: string, userId?: string) {
     const doc = await this.prisma.document.create({
-      data: { title, userId, projectId, status: 'processing' }
+      data: { title, userId, projectId, status: 'processing', spaceId: 'work' }
     });
     await this.indexDocumentInternal(doc.id, rawContent);
     return doc.id;
@@ -180,7 +181,7 @@ export class RAGService {
   }
 
   async getDocuments(projectId?: string, userId?: string) {
-    const where: any = {};
+    const where: any = { spaceId: 'work' };
     if (projectId) where.projectId = projectId;
     if (userId) where.userId = userId;
 
@@ -192,14 +193,16 @@ export class RAGService {
   }
 
   async deleteDocument(id: string) {
-    return this.prisma.document.delete({ where: { id } });
+    const result = await this.prisma.document.deleteMany({ where: { id, spaceId: 'work' } });
+    if (result.count === 0) throw new Error('Document not found');
+    return { success: true };
   }
 
   async getStats() {
     const [docCount, chunkCount, orphanedCount, projects] = await Promise.all([
-      this.prisma.document.count(),
-      this.prisma.documentChunk.count(),
-      this.prisma.document.count({ where: { projectId: null } }),
+      this.prisma.document.count({ where: { spaceId: 'work' } }),
+      this.prisma.documentChunk.count({ where: { document: { spaceId: 'work' } } }),
+      this.prisma.document.count({ where: { projectId: null, spaceId: 'work' } }),
       this.prisma.knowledgeProject.findMany({ where: { spaceId: 'work' }, select: { category: true } }),
     ]);
     const categories = Array.from(new Set(projects.map(p => p.category).filter(Boolean)));

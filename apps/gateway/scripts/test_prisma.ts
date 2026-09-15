@@ -11,7 +11,8 @@ async function main() {
     const doc = await prisma.document.create({
       data: {
         title: 'test doc',
-        status: 'processing'
+        status: 'processing',
+        spaceId: 'work'
       }
     });
 

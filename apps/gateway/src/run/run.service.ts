@@ -59,15 +59,16 @@ export class RunService {
       if (existing) return this.get(existing.id, userId);
     }
 
-    // Phase 5：Run 必须归属存在的 Space，且用户可访问（隔离边界）。
-    await this.spaceService.requireAccessibleSpace(userId, request.space.id);
+    // Phase 5：Run 必须归属存在的 Space，且用户可访问（隔离边界）；
+    // spaceType 以 Space 表为准（不信任客户端传入的 type，避免与 Space.type 不一致）。
+    const spaceRef = await this.spaceService.requireAccessibleSpace(userId, request.space.id);
 
     return this.prisma.$transaction(async (transaction) => {
       const run = await transaction.agentRun.create({
         data: {
           userId,
-          spaceId: request.space.id,
-          spaceType: request.space.type,
+          spaceId: spaceRef.id,
+          spaceType: spaceRef.type,
           input: request.input,
           status: 'queued',
           priority: request.priority ?? 'interactive',

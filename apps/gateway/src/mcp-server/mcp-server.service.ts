@@ -280,6 +280,7 @@ export class MCPServerService {
             enabled: srv.enabled ?? true,
             status: 'unknown',
             transport: 'stdio',
+            spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
           },
         });
       }

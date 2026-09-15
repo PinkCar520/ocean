@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { SpaceService } from './space.service';
+import { SpaceController } from './space.controller';
 
 /**
  * SpaceModule —— Phase 5 Space 数据边界。
@@ -8,6 +9,7 @@ import { SpaceService } from './space.service';
  */
 @Global()
 @Module({
+  controllers: [SpaceController],
   providers: [SpaceService],
   exports: [SpaceService],
 })

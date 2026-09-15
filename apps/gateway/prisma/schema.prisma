@@ -60,6 +60,7 @@ model Space {
   knowledgeProjects  KnowledgeProject[]
   skillInstallations SkillInstallation[]
   mcpServers         MCPServer[]
+  documents          Document[]
   agentRuns          AgentRun[]
   grantsFrom         ContextGrant[]      @relation("GrantFrom")
   grantsTo           ContextGrant[]      @relation("GrantTo")
@@ -313,8 +314,8 @@ model Session {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  spaceId String? // Phase 5：会话归属 Space（可空迁移期，回填后转非空）
-  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
 
   title         String  @default("New Chat") // 会话标题
   channel       String  @default("web") // 'web', 'cli', 'im'
@@ -391,6 +392,10 @@ model Document {
   projectId String?           @map("projectId")
   project   KnowledgeProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
+  // Phase 5：文档归属 Space（回填规则：project 有则取 project.spaceId，否则 work）
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+
   chunks DocumentChunk[]
 
   metadata  Json?
@@ -414,8 +419,8 @@ model KnowledgeProject {
   userId   String? @map("userId")
   isPublic Boolean @default(true) @map("isPublic")
 
-  spaceId String? // Phase 5：知识项目归属 Space
-  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now()) @map("createdAt")
   updatedAt DateTime @updatedAt @map("updatedAt")
@@ -571,8 +576,8 @@ model SkillInstallation {
   status  String  @default("active") // 'active' | 'disabled' | 'pending'
   config  Json? // 用户自定义配置
 
-  spaceId String? // Phase 5：安装归属 Space
-  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -616,8 +621,8 @@ model MCPServer {
   lastCheck      DateTime?
   enabled        Boolean   @default(true)
 
-  spaceId String? // Phase 5：连接归属 Space
-  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
