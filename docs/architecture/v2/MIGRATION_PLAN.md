@@ -148,6 +148,16 @@
 
 目标：消除重复事实来源和双控制平面。
 
+### 当前进度（2026-09-15）
+
+第 4 条「收敛 FastAPI 为纯计算 Worker」已完成主体：
+
+- [x] `SkillResolver` 本地化：不再 HTTP 代理 FastAPI。显式 + 关键词匹配全部本地（Prisma），Embedding 语义兜底调 Python 无状态 Job（`POST /api/internal/embedding`），`<injected_skills>` 组装与 `SkillTriggerLog` 落库保持原格式不变；失败静默降级语义不变。单测 6/6，真实 DB 冒烟（关键词 / 显式双路径命中 + 触发日志）PASS。
+- [x] `generateSkill` 本地化：`SkillOrchestrator.generateSkill` 不再代理 FastAPI，改为读 `SystemConfig('skill_creator_prompt')` + 直调配置的 LLM provider（OpenAI 兼容 `/chat/completions`，JSON 模式）。真实模型（dashscope/qwen3.8-max）冒烟 PASS。
+- [x] FastAPI 收敛为无状态计算服务：删除 `models.py` / `database.py` / `schemas.py` 与 `routers/knowledge_projects.py` / `routers/skills.py`（业务 ORM 全部退役）；`main.py` 仅挂 `audio`（Whisper 转写）与 `embedding`（向量计算）两个 Job 路由；`embedding.py` 读取 provider env（`DEFAULT_AI_PROVIDER` + `{P}_API_KEY/BASE_URL`，回退 `OPENAI_*`）；requirements 移除 SQLAlchemy/psycopg2/pgvector。docker-compose 中 fastapi-backend 不再注入 `DATABASE_URL`、不再依赖 postgres。
+- [x] NestJS 唯一产品 API 已确认：知识项目 CRUD（`KnowledgeProjectController`）、Skill 目录/安装/生成（`skill-registry`）均已在 NestJS；`KnowledgeProjectController` 与旧 FastAPI 路由完全重叠，旧实现已删除。
+- [ ] 未完成（后续）：Skill Artifact / Source / 安装升级回滚审计模型化；FastAPI 容器健康检查与独立部署文档；Embedding Job 真实可用性受百炼免费额度限制（`text-embedding-v2` 403），付费开通前语义兜底保持空转降级。
+
 ### 工作项
 
 - 定义 Skill Artifact、Version、Installation 和 Source 数据模型。

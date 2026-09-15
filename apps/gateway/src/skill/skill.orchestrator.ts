@@ -28,6 +28,24 @@ import { SkillResolver } from '../runtime/skill.resolver';
  * ModelRegistry / PromptComposer / ContextAssembler / ToolRuntime /
  * PolicyEvaluator / SkillResolver 六个独立模块。
  */
+
+/** 技能生成默认 System Prompt（原 FastAPI skills.py 迁移）。 */
+const DEFAULT_SKILL_CREATOR_PROMPT = `You are an expert AI Assistant specialized in writing high-quality Skill Prompts for other AI agents.
+The user will give you a brief instruction on what they want the skill to do.
+You need to generate:
+1. 'name': A short, descriptive name (max 3 words).
+2. 'description': A brief explanation of what the skill does.
+3. 'content': The detailed system prompt for this skill. It should be well-structured, clear, and comprehensive. Use markdown. You can define variables like {{variable_name}} if the skill needs dynamic context.
+4. 'triggerKws': A list of 2-5 keyword strings that would trigger this skill based on user queries.
+
+Return the result strictly as a valid JSON object. No markdown code blocks, just raw JSON.
+Example:
+{
+  "name": "PR Reviewer",
+  "description": "Reviews pull requests for code quality",
+  "content": "You are a senior engineer. Review the provided code...",
+  "triggerKws": ["review", "pr", "pull request", "code check"]
+}`;
 @Injectable()
 export class SkillOrchestrator {
   private readonly logger = new Logger(SkillOrchestrator.name);
@@ -65,24 +83,88 @@ export class SkillOrchestrator {
   }
 
   /**
-   * 代理到 FastAPI 的生成技能接口
+   * 从自然语言描述生成技能（第 4 条本地化：不再代理 FastAPI）。
+   * 读取 SystemConfig('skill_creator_prompt') 作为 system prompt（缺省写入），
+   * 直调配置的 LLM provider（OpenAI 兼容 /chat/completions，JSON 模式）。
    */
   async generateSkill(instruction: string): Promise<any> {
-    try {
-      const fastapiUrl = this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000';
-      const res = await globalThis.fetch(`${fastapiUrl}/api/internal/skills/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction }),
+    let config = await this.prisma.systemConfig.findUnique({
+      where: { key: 'skill_creator_prompt' },
+    });
+    if (!config) {
+      config = await this.prisma.systemConfig.create({
+        data: {
+          key: 'skill_creator_prompt',
+          value: DEFAULT_SKILL_CREATOR_PROMPT,
+          description: 'Default system prompt for the AI Skill Creator feature.',
+        },
       });
-      if (res.ok) {
-        return await res.json();
-      } else {
-        throw new Error(`FastAPI responded with status: ${res.status}`);
-      }
-    } catch (err) {
-      this.logger.error(`Failed to generate skill via FastAPI: ${err}`);
-      throw err;
+    }
+
+    const provider = (
+      this.configService.get<string>('DEFAULT_AI_PROVIDER') || 'openai'
+    ).toUpperCase();
+    const apiKey =
+      this.configService.get<string>(`${provider}_API_KEY`) ||
+      this.configService.get<string>('OPENAI_API_KEY');
+    const baseUrl =
+      this.configService.get<string>(`${provider}_BASE_URL`) ||
+      this.configService.get<string>('OPENAI_BASE_URL');
+    const model =
+      this.configService.get<string>(`${provider}_MODEL`) ||
+      this.configService.get<string>('OPENAI_MODEL') ||
+      'gpt-4o';
+
+    if (!apiKey) {
+      throw new Error('LLM API key not configured for skill generation');
+    }
+
+    const res = await globalThis.fetch(
+      `${(baseUrl || '').replace(/\/$/, '')}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: config.value },
+            { role: 'user', content: instruction },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`LLM responded with status: ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const resultText = data.choices?.[0]?.message?.content ?? '';
+    try {
+      const parsed = JSON.parse(resultText) as {
+        name?: string;
+        description?: string;
+        content?: string;
+        triggerKws?: string[];
+      };
+      return {
+        name: parsed.name ?? 'New Skill',
+        description: parsed.description ?? '',
+        content: parsed.content ?? '',
+        triggerKws: parsed.triggerKws ?? [],
+      };
+    } catch {
+      // Fallback if json is malformed
+      return {
+        name: 'Generated Skill',
+        description: '',
+        content: resultText,
+        triggerKws: [],
+      };
     }
   }
 

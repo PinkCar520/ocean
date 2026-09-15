@@ -8,7 +8,7 @@ import { SkillResolver } from './skill.resolver';
 /**
  * PromptComposer —— System Prompt 组装器（Agent Runtime 第 2/6 模块）。
  * 从原 SkillOrchestrator 的 buildSystemPrompt 拆分，职责单一：把
- * 基础 Prompt、用户自定义指令、FastAPI 命中技能、显式本地技能、
+ * 基础 Prompt、用户自定义指令、SkillResolver 命中技能、显式本地技能、
  * 全量 Skill Catalog 与团队规范（.AIGUIDE.md）组合成最终 system prompt。
  * 不关心模型与执行，只产出文本。
  */
@@ -67,7 +67,7 @@ export class PromptComposer {
       this.logger.error(`Failed to fetch user preferences: ${err.message}`);
     }
 
-    // FastAPI Skill 触发引擎命中的技能注入
+    // SkillResolver 本地匹配命中的技能注入（第 4 条收敛，原代理 FastAPI）
     const { injectedPrompt, matchedSkills } = await this.skillResolver.resolve(
       ctx,
       sessionId,
@@ -75,7 +75,7 @@ export class PromptComposer {
     if (injectedPrompt) {
       prompt += `\n\n${injectedPrompt}`;
       this.logger.log(
-        `[PromptComposer] Injected ${matchedSkills.length} skills from FastAPI.`,
+        `[PromptComposer] Injected ${matchedSkills.length} skills via SkillResolver.`,
       );
     }
 

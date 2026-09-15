@@ -13,10 +13,13 @@ class EmbeddingService:
     def get_instance(cls):
         if cls._instance is None:
             cls._instance = EmbeddingService()
-            logger.info("Initializing OpenAI API client for remote embeddings...")
+            logger.info("Initializing LLM API client for remote embeddings...")
             
-            # 使用标准的 OPENAI_API_KEY 和 OPENAI_BASE_URL
-            cls._instance._client = OpenAI()
+            # 与 Skills 计算口径一致：DEFAULT_AI_PROVIDER + {P}_API_KEY/BASE_URL，回退 OPENAI_*
+            provider = os.getenv("DEFAULT_AI_PROVIDER", "openai").upper()
+            api_key = os.getenv(f"{provider}_API_KEY") or os.getenv("OPENAI_API_KEY")
+            base_url = os.getenv(f"{provider}_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+            cls._instance._client = OpenAI(api_key=api_key, base_url=base_url)
             cls._instance._model_name = os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-3-small")
         return cls._instance
 
