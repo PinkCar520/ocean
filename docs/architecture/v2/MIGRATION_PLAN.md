@@ -335,10 +335,16 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ 验证：gateway 单测 128/128（CodeService 6 例含跨 Space Forbidden）、build；web typecheck + build；真实 DB 冒烟（建仓库→Diff→Review 幂等→列表→overview→outsider Forbidden→自动清理）。
 - ⚠️ 注意：迁移种子 `INSERT ... SELECT FROM users` 会给**当时存在的所有用户**加 Code membership；冒烟越权用例的 outsider 必须在此之后创建，否则会被回填污染。
 
+**已完成（6d：Work 投影——项目 / 任务流转）：**
+
+- ✅ 数据模型：`WorkProject` / `WorkTask`（归属 Work Space，FK Restrict/Cascade）；迁移 `20260915000008_add_work_projection`。
+- ✅ 后端 API：`WorkService`（guard 强制 Work Space）+ `WorkController`——`GET /api/work/overview`、`GET/POST /api/work/projects`、`GET/POST /api/work/projects/:id/tasks`、`PATCH /api/work/tasks/:id`（状态流转/改派）。
+- ✅ 前端：`WorkProjection` 组件（统计卡 + 项目/任务列表 + 新建项目/任务 + 开始/完成/阻塞流转）；挂到 Sidebar 原占位的 Workflows 入口。
+- ✅ 验证：gateway 单测 134/134（WorkService 6 例含跨 Space Forbidden）、build；web typecheck + build；真实 DB 冒烟（项目→任务→in_progress→done→overview→outsider Forbidden→自动清理）。
+
 **待办（6b+）：**
 
 - [ ] 终端投影（Code Terminal：会话/命令历史模型，真实执行留给 CLI/Desktop）。
-- [ ] Work 投影：项目、文件、流程、团队。
 - [ ] Life 投影：个人记忆、日程、隐私控制。
 - [ ] Work 投影：项目、文件、流程、团队（知识库已按 Space 隔离，投影可叠加）。
 - [ ] Life 投影：个人记忆、日程、隐私控制。

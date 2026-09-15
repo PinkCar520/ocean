@@ -62,6 +62,8 @@ model Space {
   mcpServers         MCPServer[]
   documents          Document[]
   codeRepositories   CodeRepository[]
+  workProjects       WorkProject[]
+  workTasks          WorkTask[]
   agentRuns          AgentRun[]
   grantsFrom         ContextGrant[]      @relation("GrantFrom")
   grantsTo           ContextGrant[]      @relation("GrantTo")
@@ -761,4 +763,47 @@ model CodeReview {
 
   @@index([diffId])
   @@map("code_reviews")
+}
+
+// ── Phase 6 6d：Work 投影数据模型 ────────────────────────────────
+
+// 工作项目（归属 Work Space；组织共享）
+model WorkProject {
+  id          String  @id @default(uuid())
+  name        String
+  description String? @db.Text
+  status      String  @default("active") // active / paused / archived
+  ownerId     String? @map("ownerId")
+
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+
+  tasks WorkTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spaceId])
+  @@map("work_projects")
+}
+
+// 工作任务（项目内的流转单元）
+model WorkTask {
+  id         String  @id @default(uuid())
+  projectId  String  @map("projectId")
+  project    WorkProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title      String
+  status     String  @default("todo") // todo / in_progress / done / blocked
+  assigneeId String? @map("assigneeId")
+  dueAt      DateTime? @map("dueAt")
+
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([spaceId])
+  @@map("work_tasks")
 }

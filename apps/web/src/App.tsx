@@ -25,6 +25,7 @@ import { installSkill, uninstallSkill } from './app/actions/skills';
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
 import { CodeProjection } from './components/CodeProjection';
+import { WorkProjection } from './components/WorkProjection';
 
 const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
 const WEB_SESSION_ACTIONS = { create: createSession, rename: renameSession, delete: deleteSession };
@@ -489,6 +490,8 @@ function AppInternal({
                 projectActions={WEB_PROJECT_ACTIONS}
               />
             )
+          ) : activeTab === 'workflows' ? (
+            <WorkProjection token={token} />
           ) : (
             <UIGallery />
           )}
