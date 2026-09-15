@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { MetricsService } from '../obs/metrics.service';
 
 export interface ApprovalRequest {
   id: string;
@@ -31,7 +32,10 @@ export interface CreateApprovalRequestDto {
  */
 @Injectable()
 export class ApprovalService {
-  constructor(@Inject('PRISMA_CLIENT') private prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private prisma: PrismaClient,
+    private readonly metrics: MetricsService,
+  ) {}
 
   /**
    * Create a new pending approval request.
@@ -52,6 +56,7 @@ export class ApprovalService {
       },
     });
 
+    this.metrics.inc('approval.requested', { toolName: data.toolName });
     return id;
   }
 

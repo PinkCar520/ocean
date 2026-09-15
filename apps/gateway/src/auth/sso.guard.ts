@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
+import { isSsoRequestTrusted } from './sso-trust';
 import { UserService } from './user.service';
 import { ApiKeyService } from './api-key.service';
 import { OCEAN_SESSION_COOKIE, readCookie } from './auth-cookie';
@@ -76,8 +77,14 @@ export class SsoAuthGuard implements CanActivate {
       }
     }
 
-    // ── 3. SSO Headers ──
+    // ── 3. SSO Headers（Phase 7：仅可信代理来源）──
     if (xSsoToken) {
+      // 默认关闭：未配置 SSO_TRUSTED_PROXY 时忽略 SSO 头，防止任意客户端伪造身份
+      const ssoTrust = process.env.SSO_TRUSTED_PROXY ?? '';
+      if (!isSsoRequestTrusted(request.ip, ssoTrust)) {
+        console.warn('[SsoAuthGuard] SSO headers ignored: request source not trusted');
+        throw new UnauthorizedException('SSO headers not trusted from this source.');
+      }
       const workId = request.headers['x-user-id'] as string;
       if (!workId) {
         console.warn('[SsoAuthGuard] Missing Work-ID in SSO headers');

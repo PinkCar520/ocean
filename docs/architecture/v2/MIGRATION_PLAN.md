@@ -399,6 +399,21 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - 对模型供应商和 MCP 连接执行数据等级策略。
 - 建立备份恢复演练和故障手册。
 
+### 进度（2026-09-15，第一批已交付）
+
+**已完成（7a：生产配置 fail-fast + SSO 可信代理边界 + 运行指标）：**
+
+- ✅ 配置 fail-fast：`src/config/env.validation.ts`——NODE_ENV=production 时拒绝缺失/默认/弱密钥：`JWT_SECRET` 禁默认值（`ocean-secret-key-2024` 等弱值集）且 ≥32 字符、`DATABASE_URL` 必填（非 localhost 的默认口令 DSN 视为风险）、按 `DEFAULT_AI_PROVIDER` 校验供应商 key（provider=local 豁免）；main.ts bootstrap 首行调用，违规打印清单并 `process.exit(1)`。单测 8 例 + 真实进程验证（弱配置 exit 1 / 合法 exit 0 / dev 跳过）。
+- ✅ SSO 可信代理边界：`src/auth/sso-trust.ts`——CIDR/IP 匹配（精确 IP、/8、/32、/0）；sso.guard 的 SSO 头分支仅在来源命中 `SSO_TRUSTED_PROXY` 时接受，**默认关闭**（未配置则忽略 x-sso-token/x-user-id，防任意客户端伪造身份）；main.ts 设置 `trust proxy`（默认 loopback，反代需显式 `TRUST_PROXY`）。单测 7 例。
+- ✅ 运行指标：`src/obs/metrics.service.ts`——OTel Meter（push 到 collector）+ 进程内快照；计数器：`run.created{spaceId}`、`run.terminal{status}`、`tool.executed{tool}`、`approval.requested{toolName}`、`outbox.enqueued{topic}`、`http.requests{method,status}`；注入 RunService/RunRunner/ToolExecutor/ApprovalService/OutboxService + main.ts 全局 HTTP 中间件；`GET /api/metrics` 输出 Prometheus 文本。单测 4 例（计数/标签/Prometheus 格式/引号转义）。
+
+**待办（7b+）：**
+
+- [ ] 引入 Secret/KMS 适配器和凭证轮换。
+- [ ] 数据删除、导出、保留和审计策略（可回答"某次工具写操作由谁、哪个 Space、因何授权、用了什么输入"）。
+- [ ] 模型供应商和 MCP 连接数据等级策略。
+- [ ] PostgreSQL、对象存储、队列的备份恢复演练和故障手册。
+
 ### 验收标准
 
 - 安全配置缺失时生产服务无法启动。

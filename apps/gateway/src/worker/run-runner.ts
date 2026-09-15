@@ -17,6 +17,7 @@ import type {
 } from '../ai/model-gateway';
 import { OutboxService } from '../run/outbox.service';
 import { ToolRegistry } from '../tool/tool.registry';
+import { MetricsService } from '../obs/metrics.service';
 import type { ToolCall } from '@ocean/contracts';
 
 /**
@@ -81,6 +82,7 @@ export class RunRunner {
     @Inject(MODEL_GATEWAY) private readonly modelGateway: ModelGateway,
     private readonly outbox: OutboxService,
     private readonly registry: ToolRegistry,
+    private readonly metrics: MetricsService,
   ) {}
 
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
@@ -118,6 +120,7 @@ export class RunRunner {
       });
 
       if (!takeover.ok) {
+        this.metrics.inc('run.terminal', { status: 'failed' });
         return {
           jobId: job.id,
           runId,
@@ -197,6 +200,7 @@ export class RunRunner {
             completedAt: new Date(),
           },
         });
+        this.metrics.inc('run.terminal', { status: 'succeeded' });
         await this.appendEvent(tx, runId, {
           id: randomUUID(),
           runId,

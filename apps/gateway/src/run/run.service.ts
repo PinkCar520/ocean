@@ -20,6 +20,7 @@ import {
 } from '@ocean/contracts';
 import { OutboxService } from './outbox.service';
 import { ArtifactStore } from '../artifact/artifact.store';
+import { MetricsService } from '../obs/metrics.service';
 import { SpaceService } from '../space/space.service';
 
 const CANCELLABLE_STATUSES = new Set([
@@ -43,6 +44,7 @@ export class RunService {
     private readonly outbox: OutboxService,
     private readonly spaceService: SpaceService,
     private readonly artifactStore: ArtifactStore,
+    private readonly metrics: MetricsService,
   ) {}
 
   async create(
@@ -96,6 +98,8 @@ export class RunService {
           occurredAt: new Date(event.occurredAt),
         },
       });
+      this.metrics.inc('run.created', { spaceId: run.spaceId });
+      this.metrics.inc('run.created', { spaceId: run.spaceId });
       await this.outbox.enqueueRunRequested(
         transaction,
         {

@@ -13,6 +13,7 @@ import {
 
 import { RetryableError, type RunExecutionResult } from './run-runner';
 import { OutboxService } from '../run/outbox.service';
+import { MetricsService } from '../obs/metrics.service';
 import { ToolRegistry } from '../tool/tool.registry';
 import { TerminalToolError } from '../tool/tool.types';
 
@@ -37,6 +38,7 @@ export class ToolExecutor {
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly registry: ToolRegistry,
     private readonly outbox: OutboxService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
@@ -44,6 +46,7 @@ export class ToolExecutor {
       throw new Error(`ToolExecutor received unexpected topic: ${job.topic}`);
     }
     const { runId, userId, toolCall } = job.payload;
+    this.metrics.inc('tool.executed', { tool: toolCall?.name ?? 'unknown' });
     try {
       // 1) 幂等检查：同 run + 同 idempotencyKey 的 succeeded tool_call 步骤 → 缓存命中
       if (toolCall.idempotencyKey) {

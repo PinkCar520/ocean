@@ -84,6 +84,7 @@ function createRunner(
     gateway as never,
     outbox as never,
     registry as never,
+    { inc: jest.fn() } as never,
   );
   return { runner, prisma, tx, gateway, outbox };
 }

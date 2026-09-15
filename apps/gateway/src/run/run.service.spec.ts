@@ -123,6 +123,7 @@ describe('RunService', () => {
     outbox as never,
     spaceService as never,
     { save: jest.fn().mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }), load: jest.fn() } as never,
+    { inc: jest.fn() } as never,
   );
 
   beforeEach(() => {
@@ -437,6 +438,7 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
     outbox as never,
     spaceService as never,
     { save: jest.fn().mockResolvedValue({ id: 'art_1', runId: 'run_1', name: 'out.txt' }), load: jest.fn() } as never,
+    { inc: jest.fn() } as never,
   );
 
   function seedRun(status: string, priority = 'interactive') {
