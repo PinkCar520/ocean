@@ -26,6 +26,7 @@ import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceCon
 import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
 import { CodeProjection } from './components/CodeProjection';
 import { WorkProjection } from './components/WorkProjection';
+import { LifeProjection } from './components/LifeProjection';
 
 const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
 const WEB_SESSION_ACTIONS = { create: createSession, rename: renameSession, delete: deleteSession };
@@ -436,6 +437,8 @@ function AppInternal({
         <div className="flex-1 flex overflow-hidden">
           {activeSpaceId === 'code' ? (
             <CodeProjection token={token} />
+          ) : activeSpaceId?.startsWith('life-') ? (
+            <LifeProjection token={token} />
           ) : activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession

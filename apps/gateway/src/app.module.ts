@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { SpaceModule } from './space/space.module';
 import { CodeModule } from './code/code.module';
 import { WorkModule } from './work/work.module';
+import { LifeModule } from './life/life.module';
 import { UserModule } from './user/user.module';
 import { UploadModule } from './upload/upload.module';
 import { SessionModule } from './session/session.module';
@@ -46,6 +47,7 @@ import { RunModule } from './run/run.module';
     RunModule, // Ocean v2 持久化执行 API
     CodeModule, // Phase 6 6c：Code 投影（仓库/Diff/Review）
     WorkModule, // Phase 6 6d：Work 投影（项目/任务）
+    LifeModule, // Phase 6 6e：Life 投影（个人记忆/隐私）
     ProxyModule, // 图片代理
   ],
   controllers: [],

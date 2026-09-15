@@ -350,9 +350,17 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ 验证：gateway 单测 137/137（终端 3 例：归属/自动重开/NotFound）、build；web typecheck + build；真实 DB 冒烟（建会话→命令→列表→关闭重开→outsider Forbidden→自动清理）。
 - ⚠️ 环境注意：本会话曾两次出现"最新迁移表在建后被移除"的瞬态（psql 应用后表短暂存在，随后冒烟时 TableDoesNotExist）；二分验证常规命令链（typecheck/test/build）不删表，重跑迁移 SQL（幂等）即恢复。冒烟前先 psql 验证表存在。
 
+**已完成（6e：Life 投影——个人记忆 / 隐私控制）：**
+
+- ✅ 数据模型：`LifeMemory`（归属用户专属 Life Space `life-<userId>`）；迁移 `20260915000010_add_life_projection`。
+- ✅ 后端 API：`LifeService`（guard 幂等 ensureLifeSpace + 强制本人 Space）+ `LifeController`——`GET/POST /api/life/memories`、`DELETE /api/life/memories/:id`、`GET /api/life/privacy`（ContextGrant 授权 + PolicySet 策略概览）。
+- ✅ 前端：`LifeProjection` 组件（记忆列表/添加/标签/删除 + 隐私授权区块：默认零授权=不共享）；App Shell 在 `life-*` Space 下显示。
+- ✅ 验证：gateway 单测 142/142（LifeService 5 例含跨 Space Forbidden）、build；web typecheck + build；真实 DB 冒烟（建记忆→列表→隐私→**A 访问 B 的 life space Forbidden**→结构性隔离→自动清理）。
+- ℹ️ 语义：访问不存在的 space → 404（不暴露存在性）；存在但无 membership → 403。Life 隔离是结构性的：spaceId 恒为调用者本人 id，API 无法指定他人空间。
+
 **待办（6b+）：**
 
-- [ ] Life 投影：个人记忆、日程、隐私控制。
+- [ ] 6f：跨 Space 授权界面（ContextGrant 管理）+ 统一 Artifact Viewer + 移动端切换入口。
 - [ ] Work 投影：项目、文件、流程、团队（知识库已按 Space 隔离，投影可叠加）。
 - [ ] Life 投影：个人记忆、日程、隐私控制。
 - [ ] 跨 Space 操作来源/目的地/授权确认界面（ContextGrant 已建模）。

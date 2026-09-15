@@ -64,6 +64,7 @@ model Space {
   codeRepositories   CodeRepository[]
   terminalSessions   TerminalSession[]
   terminalCommands   TerminalCommand[]
+  lifeMemories       LifeMemory[]
   workProjects       WorkProject[]
   workTasks          WorkTask[]
   agentRuns          AgentRun[]
@@ -852,4 +853,23 @@ model TerminalCommand {
   @@index([sessionId])
   @@index([spaceId])
   @@map("terminal_commands")
+}
+
+// ── Phase 6 6e：Life 投影数据模型 ───────────────────────────────
+
+// 个人记忆（归属用户专属 Life Space：life-<userId>；默认仅本人可见）
+model LifeMemory {
+  id      String   @id @default(uuid())
+  content String   @db.Text
+  tags    String[] @default([])
+  type    String   @default("note") // note / reminder / preference / diary
+
+  spaceId String
+  space   Space    @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spaceId])
+  @@map("life_memories")
 }
