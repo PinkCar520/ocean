@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { streamText, generateText, convertToModelMessages, stepCountIs, tool, UIMessage } from 'ai';
+import { streamText, generateText, stepCountIs } from 'ai';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { SkillLoader } from './skill.loader';
 import { PermissionService } from './permission.service';
@@ -11,14 +11,22 @@ import { InteractiveManager } from './interactive.manager';
 import { TracingService } from '../tracing/tracing.service';
 import { RAGService } from '../rag/rag.service';
 import { ZentaoService } from '../zentao/zentao.service';
-import { z } from 'zod';
 import type { SkillContext } from '@ocean/core';
-import { createChatModel } from '../ai/model.factory';
+import { ModelRegistry } from '../runtime/model.registry';
+import { PromptComposer } from '../runtime/prompt.composer';
+import { ContextAssembler } from '../runtime/context.assembler';
+import { ToolRuntime } from '../runtime/tool.runtime';
+import { PolicyEvaluator } from '../runtime/policy.evaluator';
+import { SkillResolver } from '../runtime/skill.resolver';
 
 /**
  * SkillOrchestrator
  *
  * Implements the AgentSkills client-side protocol for Ocean Gateway.
+ * 自 Agent Runtime 拆分后（第 2 项），本类收敛为纯编排：模型解析、
+ * Prompt 组装、上下文装配、工具装配、策略判定、技能解析全部委托
+ * ModelRegistry / PromptComposer / ContextAssembler / ToolRuntime /
+ * PolicyEvaluator / SkillResolver 六个独立模块。
  */
 @Injectable()
 export class SkillOrchestrator {
@@ -35,137 +43,25 @@ export class SkillOrchestrator {
     private tracingService: TracingService,
     private ragService: RAGService,
     private zentaoService: ZentaoService,
+    private modelRegistry: ModelRegistry,
+    private promptComposer: PromptComposer,
+    private contextAssembler: ContextAssembler,
+    private toolRuntime: ToolRuntime,
+    private policyEvaluator: PolicyEvaluator,
+    private skillResolver: SkillResolver,
     @Inject('PRISMA_CLIENT') private prisma: any,
   ) { }
 
-  // ──────────────────────────────────────────────
-  // Model
-  // ──────────────────────────────────────────────
-  private getModel(modelId?: string) {
-    return createChatModel(this.configService, modelId);
-  }
-
-  /**
-   * 获取当前网关配置的模型列表
-   */
+  /** 获取当前网关配置的模型列表（委托 ModelRegistry）。 */
   getAvailableModels() {
-    const models = [
-      { id: this.configService.get('DEEPSEEK_MODEL'), provider: 'deepseek', icon: 'Sparkles', color: 'text-blue-500' },
-      { id: this.configService.get('ANTHROPIC_MODEL'), provider: 'anthropic', icon: 'Brain', color: 'text-purple-500' },
-      { id: this.configService.get('GEMINI_MODEL'), provider: 'gemini', icon: 'Globe', color: 'text-orange-500' },
-      { id: this.configService.get('DASHSCOPE_MODEL'), provider: 'dashscope', icon: 'Cloud', color: 'text-indigo-500' },
-      { id: this.configService.get('OPENAI_MODEL'), provider: 'openai', icon: 'Zap', color: 'text-green-500' },
-      { id: this.configService.get('LOCAL_MODEL'), provider: 'local', icon: 'Terminal', color: 'text-gray-500' }
-    ];
-
-    return models
-      .filter(m => m.id)
-      .map(m => ({
-        id: m.id,
-        name: m.id,
-        provider: m.provider,
-        icon: m.icon,
-        color: m.color,
-      }));
+    return this.modelRegistry.getAvailableModels();
   }
 
   // ──────────────────────────────────────────────
-  // Step 2 + 3: System Prompt
+  // Step 2 + 3: System Prompt（委托 PromptComposer / SkillResolver）
   // ──────────────────────────────────────────────
-  private async buildSystemPrompt(ctx: SkillContext, sessionId?: string): Promise<string> {
-    const onlineClis = this.rpcGateway.getOnlineUsers();
-    const promptPath = this.configService.get<string>('SYSTEM_PROMPT_PATH') || 'agents/prompts/system_prompt.md';
-
-    let basePrompt = `你是银行内网 AI 助手 Ocean。
-当前登录用户工号: ${ctx.userId}
-当前在线的本地 CLI 节点: ${onlineClis.join(', ') || '无'}
-
-你可以调用 MCP 工具以及直接操作开发者本地工作站的文件和 Git 仓库。
-拿到工具执行结果后，请用中文进行通俗易懂的总结。`;
-
-    try {
-      const fullPath = require('path').resolve(process.cwd(), promptPath);
-      if (require('fs').existsSync(fullPath)) {
-        basePrompt = require('fs').readFileSync(fullPath, 'utf-8');
-      }
-    } catch (err) {
-      this.logger.warn(`Failed to load prompt from ${promptPath}, using fallback.`);
-    }
-
-    let prompt = basePrompt
-      .replace('{{currentUserId}}', ctx.userId)
-      .replace('{{onlineClis}}', onlineClis.join(', ') || '无');
-
-    // 注入用户自定义指令 (对标 Claude Custom Instructions)
-    try {
-      const prefs = await this.prisma.userPreference.findFirst({
-        where: { user: { workId: ctx.userId } }
-      });
-      if (prefs?.customInstructions) {
-        prompt += `\n\n## 用户个性化指令 (Custom Instructions)\n以下是用户定义的回复偏好，请务必严格遵守：\n${prefs.customInstructions}`;
-      }
-    } catch (err: any) {
-      this.logger.error(`Failed to fetch user preferences: ${err.message}`);
-    }
-
-    // CALL FASTAPI SKILL TRIGGER ENGINE
-    try {
-      const fastapiUrl = this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000';
-      const resolveRes = await globalThis.fetch(`${fastapiUrl}/api/internal/skills/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: ctx.userMessage || '',
-          session_id: sessionId,
-          skill_ids: ctx.skillIds
-        })
-      });
-      if (resolveRes.ok) {
-        const data = await resolveRes.json();
-        if (data.injected_prompt) {
-          prompt += `\n\n${data.injected_prompt}`;
-          this.logger.log(`[Orchestrator] Injected ${data.matched_skills?.length} skills from FastAPI.`);
-        }
-      } else {
-        this.logger.warn(`FastAPI skill resolve failed: ${resolveRes.statusText}`);
-      }
-    } catch (err) {
-      this.logger.error(`Failed to call FastAPI Skill Engine: ${err}`);
-    }
-
-    // 显式注入通过 UI 选中的本地 Skills
-    let explicitLocalSkillsInjected = false;
-    if (ctx.skillIds && ctx.skillIds.length > 0) {
-      let localInjected = '';
-      for (const skillId of ctx.skillIds) {
-        const skill = await this.skillLoader.getSkill(skillId);
-        if (skill?.inquiries && skill.inquiries.length > 0) {
-          prompt += `\n\n> [!IMPORTANT]\n> 此技能 [${skill.name}] 定义了意图澄清表单（Inquiries）。如果用户当前的话语中没有明确提供这些参数，请你**必须立刻调用 \`agp_intent_clarify\` 工具**，不要随意猜测或直接生成结果！`;
-        }
-        const content = await this.skillLoader.activate(skillId);
-        if (content) {
-          localInjected += `\n${content}`;
-        }
-      }
-      if (localInjected) {
-        prompt += `\n\n<injected_skills>\n以下为你注入了用户显式选定的专门领域的AI专家技能，请优先并重点根据它们的内容来回答用户的问题。如果用户询问该技能的作用，请严格基于以下内容进行回答：\n${localInjected}\n</injected_skills>`;
-        explicitLocalSkillsInjected = true;
-      }
-    }
-
-    // 仅在未明确指定 skill 且 FastAPI 没有下发特定技能时，才下发全量 Catalog 供其自行探索
-    // 避免全量 Catalog 导致大模型在明确询问特定 skill 时回答全部 skill 列表
-    if (!explicitLocalSkillsInjected && (!ctx.skillIds || ctx.skillIds.length === 0)) {
-      const catalogXml = await this.skillLoader.buildCatalogXml();
-      prompt += `\n\n以下 Skills 提供了特定任务的专项指令。当用户的请求与某个 Skill 的描述匹配时，请调用 activate_skill 工具加载该 Skill 的完整指令。\n\n${catalogXml}`;
-    }
-
-    const guide = await this.skillLoader.loadAiguide(ctx.workspacePath);
-    if (guide) {
-      prompt += `\n\n## 团队开发规范（.AIGUIDE.md）\n${guide}`;
-    }
-
-    return prompt;
+  private buildSystemPrompt(ctx: SkillContext, sessionId?: string): Promise<string> {
+    return this.promptComposer.buildSystemPrompt(ctx, sessionId);
   }
 
   /**
@@ -191,238 +87,10 @@ export class SkillOrchestrator {
   }
 
   // ──────────────────────────────────────────────
-  // Tools: Atomic Local Tools + MCP + activate_skill
+  // Tools: Atomic Local Tools + MCP + activate_skill（委托 ToolRuntime / PolicyEvaluator）
   // ──────────────────────────────────────────────
-  private async buildTools(ctx: SkillContext, sessionId?: string): Promise<Record<string, any>> {
-    const currentUserId = ctx.userId;
-
-    const atomicTools = {
-      getBugInfo: tool({
-        description: '获取指定 Bug ID 的详细信息，结果将以卡片形式展示',
-        inputSchema: z.object({
-          bugId: z.string().describe('缺陷的 ID，如 BUG-2048'),
-        }),
-        execute: async ({ bugId }) => {
-          const bug = await this.zentaoService.getBugInfo(bugId);
-          if (!bug) {
-            return { found: false, message: `未找到 BUG-${bugId}` };
-          }
-          return {
-            found: true,
-            bugId: bug.id,
-            ui: {
-              uiType: 'bug_card',
-              props: {
-                id: bug.id,
-                title: bug.title,
-                status: bug.status,
-                assignee: bug.assignee,
-                severity: bug.severity,
-                description: bug.description,
-                createdAt: bug.createdAt,
-              },
-            },
-          };
-        },
-      }),
-
-      searchBugs: tool({
-        description: '根据关键词在禅道中搜索缺陷',
-        inputSchema: z.object({
-          query: z.string().describe('搜索关键词'),
-        }),
-        execute: async ({ query }) => {
-          return await this.zentaoService.searchBugs(query);
-        },
-      }),
-
-      resolveBug: tool({
-        description: '在禅道中将指定的 Bug 标记为已解决（Resolved）',
-        inputSchema: z.object({
-          bugId: z.string().describe('缺陷的 ID，如 BUG-5'),
-        }),
-        execute: async ({ bugId }) => {
-          const success = await this.zentaoService.resolveBug(bugId);
-          return { status: success ? 'Success' : 'Error', bugId };
-        },
-      }),
-
-      local_file_read: tool({
-        description: '读取开发者本地工作站的文件内容',
-        inputSchema: z.object({
-          path: z.string().describe('文件相对路径'),
-        }),
-        execute: async ({ path }) => {
-          const result = await this.rpcGateway.sendToCli(currentUserId, 'read_file', { path });
-          return {
-            status: 'Success',
-            path,
-            content: result,
-            ui: {
-              uiType: 'code_block',
-              props: { command: `read_file ${path}`, output: result, status: 'success', language: path.split('.').pop() || 'text' },
-            },
-            // Metadata for Active Context
-            activeContext: {
-              type: 'file',
-              name: path.split('/').pop() || path,
-              path: path,
-              status: 'DONE',
-              progress: 100
-            }
-          };
-        },
-      }),
-
-      rag_search: tool({
-        description: '在 Ocean 知识库（RAG）中搜索相关文档。适用于回答银行业务规则、系统使用说明、代码库规范等问题。',
-        inputSchema: z.object({
-          query: z.string().describe('搜索关键词或语义查询'),
-          limit: z.number().optional().default(5).describe('返回结果条数'),
-        }),
-        execute: async ({ query, limit }) => {
-          return await this.tracingService.traceCall('RAG Search', { query, limit }, async (span) => {
-            const results = await this.ragService.searchSimilarity(query, limit);
-            span.setAttribute('results_count', results.length);
-            return {
-              status: 'Success',
-              results: results.map(r => ({
-                title: r.title,
-                content: r.content,
-                score: r.distance,
-              }))
-            };
-          });
-        },
-      }),
-
-      local_file_edit: tool({
-        description: '通过精准匹配旧代码块并替换为新代码块来修改本地文件。',
-        inputSchema: z.object({
-          path: z.string().describe('文件相对路径'),
-          oldString: z.string().describe('要被替换的原始代码块（必须完全匹配）'),
-          newString: z.string().describe('替换后的新代码块'),
-        }),
-        execute: async ({ path, oldString, newString }) => {
-          const result = await this.rpcGateway.sendToCli(currentUserId, 'local_file_edit', { path, oldString, newString, sessionId });
-          return {
-            status: 'Success',
-            path,
-            ui: {
-              uiType: 'diff_viewer',
-              props: { fileName: path, diff: [{ type: 'deletion', content: oldString }, { type: 'addition', content: newString }] },
-            },
-            activeContext: {
-              type: 'file',
-              name: path.split('/').pop() || path,
-              path: path,
-              status: 'SAVED',
-              progress: 100
-            }
-          };
-        },
-      }),
-
-      local_git: tool({
-        description: '操作本地 Git 仓库（status, add, commit, push, log, diff, branch）。',
-        inputSchema: z.object({
-          action: z.enum(['status', 'add', 'commit', 'push', 'log', 'diff', 'branch']).describe('Git 动作'),
-          args: z.string().optional().describe('动作参数，如 "." 或 \'-m "message"\''),
-        }) as any,
-        execute: async ({ action, args }) => {
-          const result = await this.rpcGateway.sendToCli(currentUserId, 'local_git', { action, args, sessionId });
-
-          const response: any = {
-            status: 'Success',
-            ...result,
-            ui: {
-              uiType: 'code_block',
-              props: {
-                command: `git ${action} ${args || ''}`.trim(),
-                output: result.raw || (typeof result === 'string' ? result : JSON.stringify(result, null, 2)),
-                status: 'success'
-              }
-            },
-          };
-
-          // Workspace Update for Active Context
-          if (action === 'status' && result.branch) {
-            response.activeContext = {
-              workspace: {
-                name: result.gitDir?.split('/').pop() || 'Ocean',
-                branch: result.branch,
-                isClean: result.isClean,
-                path: result.cwd || ''
-              }
-            };
-          }
-
-          return response;
-        },
-      }),
-
-
-      local_bash: tool({
-        description: '在开发者本地工作站执行 Shell 指令（编译、测试、安装依赖等）。',
-        inputSchema: z.object({
-          command: z.string().describe('要执行的完整 Shell 指令'),
-        }),
-        execute: async ({ command }) => {
-          const result = await this.rpcGateway.sendToCli(currentUserId, 'bash', { command, sessionId });
-          return {
-            status: 'Success',
-            output: result,
-            ui: { uiType: 'code_block', props: { command, output: result, status: 'success' } },
-          };
-        },
-      }),
-
-      local_plan: tool({
-        description: '管理复杂任务的执行计划（编排工作流）。',
-        inputSchema: z.object({
-          action: z.enum(['start', 'update', 'list', 'exit']).describe('操作'),
-          subjects: z.array(z.string()).optional().describe('步骤列表'),
-          id: z.string().optional().describe('任务 ID'),
-          status: z.enum(['todo', 'doing', 'done', 'failed']).optional().describe('状态'),
-        }),
-        execute: async (params: any) => {
-          const result = await this.rpcGateway.sendToCli(currentUserId, 'local_plan', { ...params, sessionId });
-          return { status: 'Success', ...result, ui: { uiType: 'task_plan', props: result } };
-        },
-      }),
-
-      activate_skill: tool({
-        description: '加载特定 Skill 的完整执行指令。',
-        inputSchema: z.object({
-          skill_name: z.string().describe('Skill 名称'),
-        }),
-        execute: async ({ skill_name }) => {
-          const content = await this.skillLoader.activate(skill_name);
-          if (!content) return { error: `Skill "${skill_name}" not found.` };
-          return { message: `Skill "${skill_name}" activated.`, skill_content: content };
-        },
-      }),
-    };
-
-    // Wrap high-risk tools with approval
-    const finalTools: Record<string, any> = { 
-      ...atomicTools,
-      ...this.interactiveManager.getClarifyTool()
-    };
-    if (sessionId) {
-      finalTools.local_file_edit = this.interactiveManager.wrapHighRiskTool('local_file_edit', atomicTools.local_file_edit, sessionId, currentUserId);
-      finalTools.local_bash = this.interactiveManager.wrapHighRiskTool('local_bash', atomicTools.local_bash, sessionId, currentUserId);
-
-      const mcpTools = await this.mcpManager.getAITools();
-      for (const [name, toolDef] of Object.entries(mcpTools)) {
-        finalTools[name] = this.interactiveManager.wrapHighRiskTool(name, toolDef, sessionId, currentUserId);
-      }
-    } else {
-      const mcpTools = await this.mcpManager.getAITools();
-      Object.assign(finalTools, mcpTools);
-    }
-
-    return finalTools;
+  private buildTools(ctx: SkillContext, sessionId?: string): Promise<Record<string, any>> {
+    return this.toolRuntime.buildTools(ctx, sessionId);
   }
 
 
@@ -456,42 +124,20 @@ export class SkillOrchestrator {
           }
         }
 
-        // Robustly ensure messages have parts for the SDK
-        const sanitizedMessages = (messages || []).map(m => {
-          if (!m) return { role: 'user', content: '', parts: [] };
-          let parts = m.parts;
-          if (!parts && typeof m.content === 'string') {
-            parts = [{ type: 'text', text: m.content }];
-          }
-          return { ...m, parts: parts || [] };
-        });
+        // Robustly ensure messages have parts for the SDK（委托 ContextAssembler）
+        const sanitizedMessages = this.contextAssembler.sanitizeMessages(messages || []);
 
-        // --- RAG Context Injection ---
+        // --- RAG Context Injection（委托 ContextAssembler）---
         if (isSearchMode || isKnowledgeMode) {
-          const lastUserText = ctx.userMessage;
-          if (lastUserText) {
-            const contextResults = await this.ragService.searchSimilarity(lastUserText, 3);
-            if (contextResults.length > 0) {
-              const contextText = contextResults
-                .map(r => `[Document: ${r.title}]\n${r.content}`)
-                .join('\n\n');
-
-              const ragPrompt = `以下是来自 Ocean 知识库的相关背景资料，请结合这些信息回答用户问题：\n\n${contextText}`;
-
-              const lastIdx = sanitizedMessages.length - 1;
-              if (lastIdx >= 0 && sanitizedMessages[lastIdx].role === 'user') {
-                sanitizedMessages[lastIdx].content = `${ragPrompt}\n\n用户问题：${sanitizedMessages[lastIdx].content}`;
-                // Also update parts if they exist
-                if (sanitizedMessages[lastIdx].parts) {
-                  sanitizedMessages[lastIdx].parts = [{ type: 'text', text: sanitizedMessages[lastIdx].content }];
-                }
-              }
-              span.setAttribute('rag_context_injected', true);
-            }
-          }
+          const { injected } = await this.contextAssembler.injectRagContext(
+            sanitizedMessages,
+            ctx,
+            isSearchMode ? 'search' : 'knowledge',
+          );
+          span.setAttribute('rag_context_injected', injected);
         }
 
-        const modelMessages = await convertToModelMessages(sanitizedMessages);
+        const modelMessages = await this.contextAssembler.toModelMessages(sanitizedMessages);
         const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx, sessionId), this.buildTools(ctx, sessionId)]);
 
         const allParts: any[] = [];
@@ -503,7 +149,7 @@ export class SkillOrchestrator {
         });
 
         const result = streamText({
-          model: this.getModel(modelId),
+          model: this.modelRegistry.getModel(modelId),
           messages: modelMessages,
           toolChoice: 'auto',
           stopWhen: stepCountIs(10),
@@ -638,7 +284,7 @@ export class SkillOrchestrator {
     try {
       const ctx: SkillContext = { userId, source, userMessage: content };
       const [systemPrompt, tools] = await Promise.all([this.buildSystemPrompt(ctx), this.buildTools(ctx)]);
-      const { text } = await generateText({ model: this.getModel(), messages: [{ role: 'user', content }], system: systemPrompt, tools, stopWhen: stepCountIs(10) });
+      const { text } = await generateText({ model: this.modelRegistry.getModel(), messages: [{ role: 'user', content }], system: systemPrompt, tools, stopWhen: stepCountIs(10) });
       return text;
     } catch (err: any) {
       return `Error: ${err.message}`;
@@ -651,7 +297,7 @@ export class SkillOrchestrator {
   async generateTitle(userContent: string, modelId?: string): Promise<string> {
     try {
       const { text } = await generateText({
-        model: this.getModel(modelId),
+        model: this.modelRegistry.getModel(modelId),
         system: '你是一个标题生成助手。总结一个 5 字以内的中文标题，不要标点符号。直接返回文字。',
         messages: [{ role: 'user', content: userContent }],
       });
@@ -679,7 +325,7 @@ export class SkillOrchestrator {
       )?.id || models[0].id;
 
       const { text } = await generateText({
-        model: this.getModel(fastModelId),
+        model: this.modelRegistry.getModel(fastModelId),
         system: `You are a Ghost-Text generator for a professional AI workspace.
 Your ONLY goal is to continue or refine the user's input text to make it a better prompt.
 
@@ -725,32 +371,12 @@ EXAMPLES:
     // 2. 构建系统基础 System Prompt
     let systemPrompt = await this.buildSystemPrompt(ctx);
 
-    // 3. 调用 FastAPI 匹配其它关联的 Skill
+    // 3. 调用 SkillResolver 匹配其它关联的 Skill
     let matchedSkills: any[] = [];
     let injectedPrompt = '';
-    
-    try {
-      const fastapiUrl = this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000';
-      const resolveRes = await globalThis.fetch(`${fastapiUrl}/api/internal/skills/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: message,
-          skill_ids: ctx.skillIds
-        }),
-      });
-      if (resolveRes.ok) {
-        const data = await resolveRes.json();
-        if (data.injected_prompt) {
-          injectedPrompt = data.injected_prompt;
-        }
-        if (data.matched_skills) {
-          matchedSkills = data.matched_skills;
-        }
-      }
-    } catch (err) {
-      this.logger.error(`Sandbox: Failed to call FastAPI Skill Engine: ${err}`);
-    }
+    const resolved = await this.skillResolver.resolve(ctx);
+    if (resolved.injectedPrompt) injectedPrompt = resolved.injectedPrompt;
+    if (resolved.matchedSkills.length > 0) matchedSkills = resolved.matchedSkills;
 
     // 4. 强制注入当前正在编辑且未保存的 activeSkill
     let activeSkillInjected = '';
@@ -780,7 +406,7 @@ EXAMPLES:
     }
 
     // 6. 运行大模型调用
-    const model = this.getModel();
+    const model = this.modelRegistry.getModel();
     
     const { text, usage } = await generateText({
       model: model,

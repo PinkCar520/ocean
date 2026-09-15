@@ -28,6 +28,12 @@ import { TracingModule } from '../tracing/tracing.module';
 import { RAGModule } from '../rag/rag.module';
 import { ZentaoModule } from '../zentao/zentao.module';
 import { InteractiveManager } from './interactive.manager';
+import { ModelRegistry } from '../runtime/model.registry';
+import { PromptComposer } from '../runtime/prompt.composer';
+import { ContextAssembler } from '../runtime/context.assembler';
+import { ToolRuntime } from '../runtime/tool.runtime';
+import { PolicyEvaluator } from '../runtime/policy.evaluator';
+import { SkillResolver } from '../runtime/skill.resolver';
 
 @Module({
   imports: [
@@ -46,13 +52,26 @@ import { InteractiveManager } from './interactive.manager';
     SkillOrchestrator,
     ApprovalService,
     PermissionService,
-    InteractiveManager
+    InteractiveManager,
+    // Agent Runtime 拆分（第 2 项）：六个独立职责模块，Orchestrator 委托
+    ModelRegistry,
+    PromptComposer,
+    ContextAssembler,
+    ToolRuntime,
+    PolicyEvaluator,
+    SkillResolver,
   ],
   exports: [
     SkillLoader, 
     SkillOrchestrator, 
     ApprovalService, 
-    PermissionService
+    PermissionService,
+    ModelRegistry,
+    PromptComposer,
+    ContextAssembler,
+    ToolRuntime,
+    PolicyEvaluator,
+    SkillResolver,
   ],
 })
 export class SkillModule {}

@@ -259,6 +259,24 @@ SecureSandbox 从占位实现升级为真实边界：
 - **双链路并存期**：现有 SSE 直驱聊天链路与 Run 链路会短暂双轨（迁移计划允许 feature flag 切换），需明确旧链路退役条件，不允许无限期双轨。
 - **不复制 Claude 的六语言 addon**：Ocean 无桌面原生层诉求，Worker 保持 TS/Node 单语言，跨语言边界只发生在 MCP 子进程（协议隔离）。
 
+### 7.1 Agent Runtime 拆分（2026-09-15 已落地）
+
+在 Phase 4 之后按迁移顺序第 2 项执行的架构债治理：把 `SkillOrchestrator`（808 行 monolith）中耦合的六类职责拆为独立服务（`apps/gateway/src/runtime/`），Orchestrator 收敛为纯编排、公开 API（streamResponse/textResponse/generateTitle/autocomplete/runSandboxTest/generateSkill/getAvailableModels）与外部行为不变。
+
+| 模块 | 职责 | 从 Orchestrator 迁出的内容 | 依赖 |
+|---|---|---|---|
+| `ModelRegistry` | 模型实例与清单 | `getModel`、`getAvailableModels` | ConfigService → ai/model.factory |
+| `PromptComposer` | System Prompt 组装 | `buildSystemPrompt` 全文（基础 prompt/占位符、Custom Instructions、FastAPI 命中注入、显式本地 Skill、全量 Catalog、.AIGUIDE.md） | ConfigService、RpcGateway、SkillLoader、SkillResolver、PRISMA |
+| `ContextAssembler` | 消息上下文装配 | 消息 parts 归一化、RAG 背景注入（search/knowledge）、convertToModelMessages | RAGService → ai SDK |
+| `ToolRuntime` | 工具集装配 | `buildTools` 全文（10 个原子工具 + 澄清 + MCP + 审批包装） | Zentao/Rpc/RAG/Tracing/SkillLoader/InteractiveManager/MCPManager/PolicyEvaluator |
+| `PolicyEvaluator` | 工具执行策略判定 | 高危判定收口（`shouldWrap`：local_file_edit/local_bash 恒高危、MCP 默认拦截）+ 委托 `wrap` | InteractiveManager |
+| `SkillResolver` | 技能解析 | FastAPI `/api/internal/skills/resolve` 调用（含失败静默降级） | ConfigService |
+
+- **装配**：六个服务注册/导出于 `SkillModule`（宿主组装），Orchestrator 构造注入并全部委托；`SkillModule` 的 imports 依赖未变。
+- **验证**：全量 94 单测通过（新增 22 例：六个 runtime 模块行为 + 委托点）；typecheck 0 error、lint 0 error；Nest DI 装配冒烟 PASS（Test 编译 SkillModule，六服务与 Orchestrator 均实例化、availableModels 委托生效）。
+- **踩坑**：Jest 无法解析 ESM-only 的 `ai` / `@ai-sdk/openai`（node_modules 默认不 transform）——涉及这些 import 链的 spec 通过 `jest.mock('ai')` / mock 上游 service 类绕过；`Test.createTestingModule` 需 `ConfigModule.forRoot({ isGlobal: true })` 且按 class token `get`。
+- **边界说明**：streamResponse 中的会话持久化、数据流协议转换、tracing 属于「Run Engine 编排」职责，待 Phase 4 尾项「Web 切换 Run API」时由 RunRunner/SSE 取代，本次不拆。
+
 ## 8. 参考资料
 
 - 《AI产品Desktop技术架构调研报告.md》（本仓库根目录）：Claude/Codex/Kimi/豆包/DeepSeek 桌面架构、证据分级与来源索引。
