@@ -30,6 +30,34 @@ services:
       redis:
         condition: service_started
 
+  # Ocean Run Engine Worker（独立进程消费 outbox，ADR-002/003；Web 切 Run API 的执行前提）
+  worker:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    container_name: ocean-worker
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ocean?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GATEWAY_ROOT=/app
+      - WORKER_POLL_MS=1000
+      - WORKER_CLAIM_LIMIT=5
+      - WORKER_LOG_LEVEL=info
+    command:
+      - sh
+      - -c
+      - cd apps/gateway && node dist/apps/gateway/src/worker/main
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   # Ocean Web（Next.js App Router / Server Components）
   web:
     build:
