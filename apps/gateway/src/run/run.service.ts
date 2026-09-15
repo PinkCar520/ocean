@@ -1,13 +1,21 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   agentRunSchema,
   runEventSchema,
   runSnapshotSchema,
+  toolCallSchema,
+  toolRequestedMessageSchema,
   type AgentRun,
   type CreateRunRequest,
   type RunEvent,
   type RunSnapshot,
+  type ToolCall,
 } from '@ocean/contracts';
 import { OutboxService } from './outbox.service';
 
@@ -26,15 +34,23 @@ export class RunService {
     private readonly outbox: OutboxService,
   ) {}
 
-  async create(userId: string, request: CreateRunRequest): Promise<RunSnapshot> {
+  async create(
+    userId: string,
+    request: CreateRunRequest,
+  ): Promise<RunSnapshot> {
     if (request.idempotencyKey) {
       const existing = await this.prisma.agentRun.findUnique({
-        where: { userId_idempotencyKey: { userId, idempotencyKey: request.idempotencyKey } },
+        where: {
+          userId_idempotencyKey: {
+            userId,
+            idempotencyKey: request.idempotencyKey,
+          },
+        },
       });
       if (existing) return this.get(existing.id, userId);
     }
 
-    return this.prisma.$transaction(async transaction => {
+    return this.prisma.$transaction(async (transaction) => {
       const run = await transaction.agentRun.create({
         data: {
           userId,
@@ -42,6 +58,7 @@ export class RunService {
           spaceType: request.space.type,
           input: request.input,
           status: 'queued',
+          priority: request.priority ?? 'interactive',
           idempotencyKey: request.idempotencyKey,
           metadata: request.metadata as Prisma.InputJsonValue | undefined,
         },
@@ -64,12 +81,19 @@ export class RunService {
           occurredAt: new Date(event.occurredAt),
         },
       });
-      await this.outbox.enqueueRunRequested(transaction, {
-        version: 1,
-        runId: run.id,
-        userId,
+      await this.outbox.enqueueRunRequested(
+        transaction,
+        {
+          version: 1,
+          runId: run.id,
+          userId,
+        },
+        priorityRankOf(run.priority),
+      );
+      return runSnapshotSchema.parse({
+        run: this.toContract(run),
+        events: [event],
       });
-      return runSnapshotSchema.parse({ run: this.toContract(run), events: [event] });
     });
   }
 
@@ -79,11 +103,12 @@ export class RunService {
       include: { events: { orderBy: { sequence: 'asc' } } },
     });
     if (!run) throw new NotFoundException(`Run ${id} not found`);
-    if (run.userId !== userId) throw new ForbiddenException(`Run ${id} does not belong to current user`);
+    if (run.userId !== userId)
+      throw new ForbiddenException(`Run ${id} does not belong to current user`);
 
     return runSnapshotSchema.parse({
       run: this.toContract(run),
-      events: run.events.map(event => runEventSchema.parse(event.payload)),
+      events: run.events.map((event) => runEventSchema.parse(event.payload)),
     });
   }
 
@@ -91,7 +116,7 @@ export class RunService {
     const snapshot = await this.get(id, userId);
     if (!CANCELLABLE_STATUSES.has(snapshot.run.status)) return snapshot;
 
-    return this.prisma.$transaction(async transaction => {
+    return this.prisma.$transaction(async (transaction) => {
       const run = await transaction.agentRun.update({
         where: { id },
         data: { status: 'cancelled' },
@@ -115,8 +140,264 @@ export class RunService {
           occurredAt: new Date(event.occurredAt),
         },
       });
-      return runSnapshotSchema.parse({ run: this.toContract(run), events: [...snapshot.events, event] });
+      return runSnapshotSchema.parse({
+        run: this.toContract(run),
+        events: [...snapshot.events, event],
+      });
     });
+  }
+
+  /**
+   * 事件续读（SSE 投影）：返回 sequence > after 的事件。
+   * after 缺省返回全部；供 GET /api/runs/:id/events 断点续读（对应设计 5.3）。
+   */
+  async listEvents(
+    id: string,
+    userId: string,
+    after?: number,
+  ): Promise<RunEvent[]> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    });
+    if (!run) throw new NotFoundException(`Run ${id} not found`);
+    if (run.userId !== userId)
+      throw new ForbiddenException(`Run ${id} does not belong to current user`);
+
+    const events = await this.prisma.runEvent.findMany({
+      where: {
+        runId: id,
+        ...(after !== undefined ? { sequence: { gt: after } } : {}),
+      },
+      orderBy: { sequence: 'asc' },
+    });
+    return events.map((event) => runEventSchema.parse(event.payload));
+  }
+
+  /** 步骤详情（RunStep 落库后供前端/CLI 展示与恢复定位）。 */
+  async listSteps(id: string, userId: string): Promise<unknown[]> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    });
+    if (!run) throw new NotFoundException(`Run ${id} not found`);
+    if (run.userId !== userId)
+      throw new ForbiddenException(`Run ${id} does not belong to current user`);
+
+    return this.prisma.runStep.findMany({
+      where: { runId: id },
+      orderBy: { seq: 'asc' },
+    });
+  }
+
+  /** 轻量状态查询：SSE 订阅端用于判断终态后关闭连接。 */
+  async getStatus(id: string, userId: string): Promise<string> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id },
+      select: { id: true, userId: true, status: true },
+    });
+    if (!run) throw new NotFoundException(`Run ${id} not found`);
+    if (run.userId !== userId)
+      throw new ForbiddenException(`Run ${id} does not belong to current user`);
+    return run.status;
+  }
+
+  /** 事件序列：取当前最大 sequence + 1（事务内调用，保证单调且不冲突）。 */
+  private async nextRunSequence(
+    tx: Prisma.TransactionClient,
+    runId: string,
+  ): Promise<number> {
+    const last = await tx.runEvent.findFirst({
+      where: { runId },
+      orderBy: { sequence: 'desc' },
+    });
+    return last ? last.sequence + 1 : 0;
+  }
+
+  /**
+   * 提交一次工具调用请求（Phase 4 第 4 项：幂等工具调用）。   * 校验 Run 归属后写入 outbox `tool.requested`，由 Worker 的 ToolExecutor
+   * 幂等执行：相同 `toolCall.idempotencyKey` 不产生二次外部写操作。
+   */
+  async createToolCall(
+    id: string,
+    userId: string,
+    toolCall: ToolCall,
+  ): Promise<{ accepted: boolean; runId: string; toolCallId: string }> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id },
+      select: { id: true, userId: true, priority: true },
+    });
+    if (!run) throw new NotFoundException(`Run ${id} not found`);
+    if (run.userId !== userId)
+      throw new ForbiddenException(`Run ${id} does not belong to current user`);
+
+    const message = toolRequestedMessageSchema.parse({
+      version: 1,
+      runId: id,
+      userId,
+      toolCall: toolCallSchema.parse(toolCall),
+    });
+    await this.prisma.$transaction(async (transaction) => {
+      await this.outbox.enqueueToolRequested(
+        transaction,
+        message,
+        priorityRankOf(run.priority),
+      );
+    });
+
+    return { accepted: true, runId: id, toolCallId: toolCall.id };
+  }
+
+  /**
+   * 审批决策（Phase 4 第 5 项：审批/交互续跑）。
+   * - approved：审批记录置 approved、approval 步骤 completed，Run → queued，
+   *   重新投递 `tool.requested`（同一 toolCall，含 idempotencyKey）→ Worker
+   *   从检查点续跑执行工具（幂等键保证不重做已完成的外部写）。
+   * - rejected：审批记录置 rejected、Run → cancelled 终态，不投递。
+   * 已决策（非 pending）的重复决策幂等返回当前快照。
+   */
+  async decideApproval(
+    runId: string,
+    approvalId: string,
+    userId: string,
+    decision: 'approved' | 'rejected',
+  ): Promise<RunSnapshot> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id: runId },
+      select: { id: true, userId: true, priority: true },
+    });
+    if (!run) throw new NotFoundException(`Run ${runId} not found`);
+    if (run.userId !== userId)
+      throw new ForbiddenException(`Run ${runId} does not belong to current user`);
+
+    const approval = await this.prisma.runApproval.findUnique({
+      where: { id: approvalId },
+    });
+    if (!approval || approval.runId !== runId)
+      throw new NotFoundException(`Approval ${approvalId} not found for run ${runId}`);
+    if (approval.status !== 'pending') {
+      return this.get(runId, userId); // 幂等：已决策
+    }
+
+    await this.prisma.$transaction(async (transaction) => {
+      const now = new Date();
+      const stepRow = await transaction.runStep.findUnique({
+        where: { id: approvalId },
+      });
+      if (!stepRow) {
+        throw new Error(`Approval step ${approvalId} not found`);
+      }
+
+      await transaction.runApproval.update({
+        where: { id: approvalId },
+        data: { status: decision, decidedBy: userId, decidedAt: now },
+      });
+
+      // approval 步骤收尾（step id = approval id）+ checkpoint（resume 数据基础）
+      const stepStatus = decision === 'approved' ? 'succeeded' : 'failed';
+      await transaction.runStep.update({
+        where: { id: approvalId },
+        data: {
+          status: stepStatus,
+          completedAt: now,
+          checkpoint: {
+            approval: decision,
+            decidedAt: now.toISOString(),
+            seq: stepRow.seq,
+          },
+        },
+      });
+      await transaction.runEvent.create({
+        data: {
+          id: crypto.randomUUID(),
+          runId,
+          sequence: await this.nextRunSequence(transaction, runId),
+          type: 'run.step_completed',
+          payload: {
+            id: crypto.randomUUID(),
+            runId,
+            sequence: 0,
+            occurredAt: now.toISOString(),
+            type: 'run.step_completed',
+            step: {
+              id: approvalId,
+              runId,
+              seq: stepRow.seq,
+              kind: 'approval',
+              status: stepStatus,
+              input: stepRow.input,
+              output: { decision },
+              startedAt: stepRow.startedAt.toISOString(),
+              completedAt: now.toISOString(),
+            },
+          },
+          occurredAt: now,
+        },
+      });
+
+      if (decision === 'approved') {
+        // 续跑：Run → queued + 重新投递 tool.requested（同一 toolCall，含 idempotencyKey）
+        const toolCall = stepRow.input as ToolCall | null;
+        if (!toolCall) {
+          throw new Error(`Approval ${approvalId} has no toolCall input to resume`);
+        }
+        await transaction.agentRun.update({
+          where: { id: runId },
+          data: { status: 'queued' },
+        });
+        await transaction.runEvent.create({
+          data: {
+            id: crypto.randomUUID(),
+            runId,
+            sequence: await this.nextRunSequence(transaction, runId),
+            type: 'run.status_changed',
+            payload: {
+              id: crypto.randomUUID(),
+              runId,
+              sequence: 0,
+              occurredAt: new Date().toISOString(),
+              type: 'run.status_changed',
+              status: 'queued',
+            },
+            occurredAt: new Date(),
+          },
+        });
+        await this.outbox.enqueueToolRequested(
+          transaction,
+          {
+            version: 1,
+            runId,
+            userId,
+            toolCall: toolCallSchema.parse(toolCall),
+          },
+          priorityRankOf(run.priority),
+        );
+      } else {
+        await transaction.agentRun.update({
+          where: { id: runId },
+          data: { status: 'cancelled' },
+        });
+        await transaction.runEvent.create({
+          data: {
+            id: crypto.randomUUID(),
+            runId,
+            sequence: await this.nextRunSequence(transaction, runId),
+            type: 'run.status_changed',
+            payload: {
+              id: crypto.randomUUID(),
+              runId,
+              sequence: 0,
+              occurredAt: new Date().toISOString(),
+              type: 'run.status_changed',
+              status: 'cancelled',
+            },
+            occurredAt: new Date(),
+          },
+        });
+      }
+    });
+
+    return this.get(runId, userId);
   }
 
   private toContract(run: {
@@ -126,6 +407,7 @@ export class RunService {
     spaceType: string;
     input: string;
     status: string;
+    priority: string;
     idempotencyKey: string | null;
     metadata: Prisma.JsonValue;
     createdAt: Date;
@@ -137,10 +419,18 @@ export class RunService {
       space: { id: run.spaceId, type: run.spaceType },
       input: run.input,
       status: run.status,
+      priority: run.priority,
       idempotencyKey: run.idempotencyKey ?? null,
       metadata: run.metadata ?? null,
       createdAt: run.createdAt.toISOString(),
       updatedAt: run.updatedAt.toISOString(),
     });
   }
+}
+
+/** priority 字符串 → outbox priorityRank（0=critical 最先取件，2=background 最后）。 */
+function priorityRankOf(priority: string): number {
+  if (priority === 'critical') return 0;
+  if (priority === 'background') return 2;
+  return 1;
 }

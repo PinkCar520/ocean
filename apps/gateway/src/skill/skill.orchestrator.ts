@@ -1,7 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, generateText, convertToModelMessages, stepCountIs, tool, UIMessage } from 'ai';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { SkillLoader } from './skill.loader';
@@ -14,6 +13,7 @@ import { RAGService } from '../rag/rag.service';
 import { ZentaoService } from '../zentao/zentao.service';
 import { z } from 'zod';
 import type { SkillContext } from '@ocean/core';
+import { createChatModel } from '../ai/model.factory';
 
 /**
  * SkillOrchestrator
@@ -42,99 +42,7 @@ export class SkillOrchestrator {
   // Model
   // ──────────────────────────────────────────────
   private getModel(modelId?: string) {
-    const defaultProvider = this.configService.get<string>('DEFAULT_AI_PROVIDER') || 'deepseek';
-
-    // 聚合所有的配置项
-    const configs: Record<string, any> = {
-      deepseek: {
-        apiKey: this.configService.get('DEEPSEEK_API_KEY'),
-        baseURL: this.configService.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
-        model: this.configService.get('DEEPSEEK_MODEL'),
-      },
-      anthropic: {
-        apiKey: this.configService.get('ANTHROPIC_API_KEY'),
-        model: this.configService.get('ANTHROPIC_MODEL'),
-      },
-      gemini: {
-        apiKey: this.configService.get('GEMINI_API_KEY'),
-        model: this.configService.get('GEMINI_MODEL'),
-      },
-      dashscope: {
-        apiKey: this.configService.get('DASHSCOPE_API_KEY'),
-        baseURL: this.configService.get('DASHSCOPE_BASE_URL') || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        model: this.configService.get('DASHSCOPE_MODEL'),
-      },
-      openai: {
-        apiKey: this.configService.get('OPENAI_API_KEY'),
-        baseURL: this.configService.get('OPENAI_BASE_URL') || 'https://api.openai.com/v1',
-        model: this.configService.get('OPENAI_MODEL'),
-      },
-      local: {
-        apiKey: this.configService.get('LOCAL_API_KEY'),
-        baseURL: this.configService.get('LOCAL_BASE_URL') || 'http://localhost:11434/v1',
-        model: this.configService.get('LOCAL_MODEL'),
-      }
-    };
-
-    // 如果传入了明确的 modelId，可以扩展逻辑去匹配。为了简单起见，如果 modelId 是 provider 的名字，直接切换
-    let activeProviderKey = defaultProvider;
-    let selectedModelId = configs[defaultProvider]?.model;
-
-    if (modelId) {
-      if (configs[modelId]) {
-        activeProviderKey = modelId;
-        selectedModelId = configs[modelId].model;
-      } else {
-        // Find which provider owns this model
-        for (const [key, conf] of Object.entries(configs)) {
-          if (conf.model === modelId || conf.model?.split(',').map((m: string) => m.trim()).includes(modelId)) {
-            activeProviderKey = key;
-            selectedModelId = modelId;
-            break;
-          }
-        }
-      }
-    }
-
-    const conf = configs[activeProviderKey];
-    if (!conf || (!conf.apiKey && activeProviderKey !== 'local')) {
-      this.logger.warn(`Provider ${activeProviderKey} is not fully configured.`);
-    }
-
-    if (activeProviderKey === 'anthropic') {
-      const { createAnthropic } = require('@ai-sdk/anthropic');
-      return createAnthropic({ apiKey: conf.apiKey })(selectedModelId);
-    }
-
-    if (activeProviderKey === 'gemini') {
-      const { createGoogleGenerativeAI } = require('@ai-sdk/google');
-      return createGoogleGenerativeAI({ apiKey: conf.apiKey })(selectedModelId);
-    }
-
-    // Default to OpenAI-compatible for DeepSeek, DashScope, OpenAI, Local
-    const provider = createOpenAI({
-      baseURL: conf.baseURL,
-      apiKey: conf.apiKey || 'empty',
-      ...((activeProviderKey === 'dashscope' || activeProviderKey === 'deepseek') && selectedModelId?.includes('deepseek') ? {
-        fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-          if (init?.body && typeof init.body === 'string') {
-            try {
-              const body = JSON.parse(init.body);
-              if (activeProviderKey === 'deepseek') {
-                body.thinking = { type: 'enabled' };
-                body.reasoning_effort = 'high';
-              } else {
-                body.enable_thinking = true;
-              }
-              init.body = JSON.stringify(body);
-            } catch { /* ignore parse errors */ }
-          }
-          return globalThis.fetch(input, init);
-        },
-      } : {}),
-    });
-
-    return provider.chat(selectedModelId);
+    return createChatModel(this.configService, modelId);
   }
 
   /**

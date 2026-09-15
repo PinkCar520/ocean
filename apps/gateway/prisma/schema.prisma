@@ -46,9 +46,13 @@ model AgentRun {
   spaceType      String
   input          String     @db.Text
   status         String     @default("queued")
+  priority       String     @default("interactive") // critical | interactive | background（Phase 4 第 6 项）
   idempotencyKey String?
   metadata       Json?
   events         RunEvent[]
+  steps          RunStep[]
+  approvals      RunApproval[]
+  artifacts      RunArtifact[]
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
@@ -56,6 +60,27 @@ model AgentRun {
   @@index([userId, status])
   @@index([spaceId, createdAt])
   @@map("agent_runs")
+}
+
+// RunStep：Run 的步骤化执行记录（模型调用/工具调用/审批/产物），
+// 状态推进以 RunStep 为粒度，RunEvent 是其可投递投影（对应 ADR-003）。
+model RunStep {
+  id          String    @id @default(uuid())
+  runId       String
+  run         AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  seq         Int
+  kind        String    @default("model_call") // model_call | tool_call | approval | artifact
+  status      String    @default("started") // started | succeeded | failed | interrupted
+  input       Json?
+  output      Json?
+  error       String?   @db.Text
+  checkpoint  Json?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([runId, seq])
+  @@index([runId, status])
+  @@map("run_steps")
 }
 
 model RunEvent {
@@ -72,6 +97,43 @@ model RunEvent {
   @@map("run_events")
 }
 
+// RunApproval：Run 维度的审批记录（对应 contracts approvalSchema，Phase 4 第 5 项）。
+// 需要审批的工具（Tool.requiresApproval）执行前先创建 pending 审批，
+// Run 进入 waiting_for_approval；决策后 approved → 重新投递续跑（从检查点继续），
+// rejected/expired → Run 终态 cancelled。
+model RunApproval {
+  id         String   @id @default(uuid())
+  runId      String
+  run        AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  toolCallId String
+  toolName   String
+  args       Json
+  status     String   @default("pending") // pending | approved | rejected | expired
+  decidedBy  String?
+  decidedAt  DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([runId, status])
+  @@map("run_approvals")
+}
+
+// RunArtifact：Run 的产物引用（Phase 4 第 8 项，借鉴 K6：大产物不入 PG）。
+// 内容落在 ArtifactStore（本地对象存储目录），DB 只存元数据 + storageKey 引用。
+model RunArtifact {
+  id         String   @id @default(uuid())
+  runId      String
+  run        AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  name       String
+  sizeBytes  Int
+  storageKey String   @unique // 形如 "<runId>/<artifactId>"
+  createdAt  DateTime @default(now())
+
+  @@index([runId])
+  @@map("run_artifacts")
+}
+
 // Transactional Outbox：业务状态与待处理消息原子提交，Worker 通过租约竞争消费。
 model OutboxEvent {
   id            String    @id @default(uuid())
@@ -80,6 +142,7 @@ model OutboxEvent {
   aggregateId   String
   payload       Json
   status        String    @default("pending")
+  priorityRank  Int       @default(1) // 0=critical, 1=interactive, 2=background（Phase 4 第 6 项）
   availableAt   DateTime  @default(now())
   lockedAt      DateTime?
   lockedBy      String?
@@ -89,6 +152,7 @@ model OutboxEvent {
   createdAt     DateTime  @default(now())
 
   @@index([status, availableAt])
+  @@index([status, priorityRank, availableAt])
   @@index([lockedAt])
   @@index([aggregateType, aggregateId])
   @@map("outbox_events")

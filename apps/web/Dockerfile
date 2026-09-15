@@ -32,13 +32,13 @@ ARG OCEAN_GATEWAY_URL=http://gateway:3000
 ENV OCEAN_GATEWAY_URL=$OCEAN_GATEWAY_URL
 
 # 使用 Turbo 进行构建（只会精准构建 web 及其涉及的依赖包，自动保证拓扑顺序）
-RUN npx turbo run build --filter=web
+RUN npx turbo run build --filter=web --env-mode=loose
 
 # 阶段 3：Runner (生产运行环境)
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-ENV PORT=5173
+ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV OCEAN_GATEWAY_URL=http://gateway:3000
 
@@ -46,6 +46,6 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 
-EXPOSE 5173
+EXPOSE 3000
 
 CMD ["node", "apps/web/server.js"]

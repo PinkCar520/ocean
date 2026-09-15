@@ -38,7 +38,7 @@ services:
     container_name: ocean-web
     restart: always
     ports:
-      - "8081:5173"
+      - "8081:3000"
     env_file:
       - .env
     environment:
