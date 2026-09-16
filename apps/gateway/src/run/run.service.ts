@@ -431,6 +431,38 @@ export class RunService {
     if (approval.status !== 'pending') {
       return this.get(runId, userId); // 幂等：已决策
     }
+    if (approval.expiresAt && approval.expiresAt.getTime() < Date.now()) {
+      // 审批超时：标记 expired 并取消 Run，避免 pending 审批永久悬挂。
+      await this.prisma.$transaction(async (transaction) => {
+        await transaction.runApproval.update({
+          where: { id: approvalId },
+          data: { status: 'expired', decidedAt: new Date() },
+        });
+        await transaction.agentRun.update({
+          where: { id: runId },
+          data: { status: 'cancelled' },
+        });
+        const now = new Date();
+        await transaction.runEvent.create({
+          data: {
+            id: crypto.randomUUID(),
+            runId,
+            sequence: await this.nextRunSequence(transaction, runId),
+            type: 'run.status_changed',
+            payload: {
+              id: crypto.randomUUID(),
+              runId,
+              sequence: 0,
+              occurredAt: now.toISOString(),
+              type: 'run.status_changed',
+              status: 'cancelled',
+            } as Prisma.InputJsonValue,
+            occurredAt: now,
+          },
+        });
+      });
+      return this.get(runId, userId);
+    }
 
     await this.prisma.$transaction(async (transaction) => {
       const now = new Date();

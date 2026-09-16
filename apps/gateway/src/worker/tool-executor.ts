@@ -33,6 +33,8 @@ export { TerminalToolError } from '../tool/tool.types';
  * - **失败分类**：TerminalToolError（业务错误）→ run failed 终态、消息确认；
  *   其他（网络/超时/瞬时）→ run 回 queued、消息退避重试。
  */
+const APPROVAL_TTL_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class ToolExecutor {
   constructor(
@@ -325,6 +327,7 @@ export class ToolExecutor {
           toolCallId: toolCall.id,
           toolName: toolCall.name,
           args: toolCall.input as Prisma.InputJsonValue,
+          expiresAt: new Date(Date.now() + APPROVAL_TTL_MS),
         },
       });
       await this.appendEvent(tx, runId, {
