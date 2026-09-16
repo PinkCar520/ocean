@@ -62,9 +62,27 @@ export function WorkspaceProvider({
   token: string | null;
   initialActiveProject?: ProjectInfo | null;
 }) {
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(initialActiveProject?.id ?? null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(() => {
+    // 持久化：优先服务端初始项目，其次恢复 localStorage 中的当前工作区
+    if (initialActiveProject?.id) return initialActiveProject.id;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ocean_active_project');
+      return saved || null;
+    }
+    return null;
+  });
   const [activeProject, setActiveProject] = useState<ProjectInfo | null>(initialActiveProject);
   const hasInitialProjectRef = React.useRef(Boolean(initialActiveProject));
+
+  // 当前工作区/项目选择持久化（刷新不丢失）
+  useEffect(() => {
+    try {
+      if (activeProjectId) localStorage.setItem('ocean_active_project', activeProjectId);
+      else localStorage.removeItem('ocean_active_project');
+    } catch {
+      /* localStorage 不可用时静默 */
+    }
+  }, [activeProjectId]);
   const [isLoading, setIsLoading] = useState(false);
   const [mcpMetrics, setMcpMetrics] = useState<MCPMetric[]>([]);
   const [node, setNode] = useState<NodeTelemetry>({

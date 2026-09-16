@@ -112,8 +112,20 @@ export function ChatSession({
   const navigate = navigation.navigate;
 
   // ── Session Configuration State ──
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('ocean_search_mode') === '1';
+  });
+  const [isKnowledgeMode, setIsKnowledgeMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('ocean_knowledge_mode') === '1';
+  });
+  useEffect(() => {
+    sessionStorage.setItem('ocean_search_mode', isSearchMode ? '1' : '0');
+  }, [isSearchMode]);
+  useEffect(() => {
+    sessionStorage.setItem('ocean_knowledge_mode', isKnowledgeMode ? '1' : '0');
+  }, [isKnowledgeMode]);
 
   // ── Hooks ──
   const {

@@ -45,6 +45,19 @@ export function useChatInput({
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const autocompleteLastReqRef = useRef<number>(0);
 
+  // 输入草稿持久化（sessionStorage：刷新不丢失，关标签页即清理）
+  useEffect(() => {
+    const saved = sessionStorage.getItem('ocean_draft_input');
+    if (saved) setLocalInput(saved);
+  }, []);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('ocean_draft_input', localInput);
+    } catch {
+      /* 不可用时静默 */
+    }
+  }, [localInput]);
+
   useEffect(() => {
     const trySkill = localStorage.getItem('ocean_try_skill_name');
     if (trySkill) {
