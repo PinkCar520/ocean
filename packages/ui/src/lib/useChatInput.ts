@@ -225,6 +225,23 @@ export function useChatInput({
     isKnowledgeMode
   ]);
 
+  // 最新 onFormSubmit 引用（供挂载自动提交使用，避免闭包冻结空输入）
+  const onFormSubmitRef = useRef(onFormSubmit);
+  useEffect(() => {
+    onFormSubmitRef.current = onFormSubmit;
+  }, [onFormSubmit]);
+
+  // 工作引导首页（WorkHome）提交的指令：预填输入框并自动发送
+  useEffect(() => {
+    const pending = sessionStorage.getItem('ocean_work_prompt');
+    if (!pending) return;
+    sessionStorage.removeItem('ocean_work_prompt');
+    setLocalInput(pending);
+    window.setTimeout(() => {
+      onFormSubmitRef.current?.();
+    }, 60);
+  }, []);
+
   // Handle auto-resize
   useEffect(() => {
     if (textAreaRef.current) {

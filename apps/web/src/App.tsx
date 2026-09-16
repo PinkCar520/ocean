@@ -26,6 +26,7 @@ import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceCon
 import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
 import { CodeProjection } from './components/CodeProjection';
 import { WorkProjection } from './components/WorkProjection';
+import { WorkHome } from './components/WorkHome';
 import { ApprovalPanel } from './components/ApprovalPanel';
 
 const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
@@ -170,6 +171,7 @@ function AppInternal({
   const { activeProject, setActiveProjectId } = useWorkspace();
 
   const handleMainTabChange = useCallback((tab: string) => {
+    setSpaceHome(false);
     const routes: Record<string, string> = {
       chat: '/app',
       all_chats: '/app/chats',
@@ -228,6 +230,8 @@ function AppInternal({
     { id: 'work', label: '工作' },
     { id: 'life', label: '生活' },
   ];
+  // 工作 Tab：引导首页（WorkHome） vs 聊天/功能页；生活 Tab 恒为聊天
+  const [spaceHome, setSpaceHome] = useState(true);
   const [spaces, setSpaces] = useState<SpaceOption[]>([]);
 
   useEffect(() => {
@@ -281,6 +285,7 @@ function AppInternal({
   const handleSpaceChange = (spaceId: string) => {
     setActiveSpaceId(spaceId);
     setSpaceView(spaceId.startsWith('life-') ? 'life' : 'work');
+    setSpaceHome(spaceId !== 'code' && !spaceId.startsWith('life-'));
     navigate('/app');
   };
 
@@ -288,7 +293,9 @@ function AppInternal({
   const handleSpaceViewChange = useCallback((view: SpaceView) => {
     if (view === 'work') {
       setActiveSpaceId('work');
+      setSpaceHome(true);
     } else {
+      setSpaceHome(false);
       // life：有 Life Space 直接切，否则创建
       const life = spaces.find((sp) => sp.id.startsWith('life-'));
       if (life) {
@@ -387,10 +394,12 @@ function AppInternal({
   };
 
   const loadConversationAndActivate = (id: string) => {
+    setSpaceHome(false);
     loadConversation(id);
   };
 
   const handleNewChatAndActivate = () => {
+    setSpaceHome(false);
     handleNewChat();
   };
 
@@ -508,6 +517,16 @@ function AppInternal({
         <div className="flex-1 flex overflow-hidden">
           {activeSpaceId === 'code' ? (
             <CodeProjection token={token} />
+          ) : spaceHome && spaceView === 'work' && (activeTab === 'chat' || !activeTab) ? (
+            <WorkHome
+              onCreateWorkChat={(prompt) => {
+                sessionStorage.setItem('ocean_work_prompt', prompt);
+                setSpaceHome(false);
+                handleNewChat();
+              }}
+              onOpenProjects={() => handleMainTabChange('projects')}
+              onOpenWorkflows={() => handleMainTabChange('workflows')}
+            />
           ) : activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession
