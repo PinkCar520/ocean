@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import {
   Check,
   Loader2,
-  ShieldCheck,
   ExternalLink,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -47,7 +46,6 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,24 +73,28 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
     void load();
   }, [load]);
 
-  const save = useCallback(async () => {
-    if (!policy) return;
-    setSaving(true);
-    setSaved(false);
-    try {
-      const res = await fetch('/api/permissions/settings', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(policy),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      setSaved(true);
-      setTimeout(() => onClose?.(), 400);
-    } catch {
-      setError(t('approval_center.save_failed'));
-      setSaving(false);
-    }
-  }, [policy, t, onClose]);
+  // 选中即保存（豆包交互：点卡片即生效，无确认按钮）
+  const selectMode = useCallback(
+    async (mode: string) => {
+      if (!policy) return;
+      const next = { ...policy, mode };
+      setPolicy(next);
+      setSaving(true);
+      try {
+        const res = await fetch('/api/permissions/settings', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(next),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+      } catch {
+        setError(t('approval_center.save_failed'));
+      } finally {
+        setSaving(false);
+      }
+    },
+    [policy, t],
+  );
 
   // 当前选中档（plan 归入按需确认展示）
   const activeTier =
@@ -140,7 +142,8 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                   <button
                     key={m.mode}
                     type="button"
-                    onClick={() => setPolicy({ ...policy, mode: m.mode })}
+                    onClick={() => selectMode(m.mode)}
+                    disabled={saving}
                     className={cn(
                       'flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all',
                       active
@@ -170,42 +173,20 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                         {t(`approval_center.mode_${m.key}_desc`)}
                       </span>
                     </span>
-                    <span
-                      className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-                        active ? 'border-primary bg-primary' : 'border-border bg-card',
-                      )}
-                    >
-                      {active && <Check className="h-3 w-3 text-white" strokeWidth={3.5} />}
-                    </span>
+                    {active && (
+                      <Check
+                        className={cn(
+                          'h-4 w-4 shrink-0',
+                          m.warn ? 'text-orange-500' : 'text-primary',
+                        )}
+                        strokeWidth={3}
+                      />
+                    )}
                   </button>
                 );
               })}
             </div>
 
-            {/* 底部确认按钮：显示当前选中档名称 */}
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              className={cn(
-                'flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition disabled:opacity-50',
-                activeTier.warn
-                  ? 'bg-orange-600 text-white hover:bg-orange-500'
-                  : 'bg-foreground text-background hover:opacity-85',
-              )}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : saved ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <ShieldCheck className="h-4 w-4" />
-              )}
-              {saved
-                ? t('approval_center.saved')
-                : t(`approval_center.mode_${activeTier.key}_title`)}
-            </button>
           </>
         )
       )}
