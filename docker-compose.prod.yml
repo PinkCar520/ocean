@@ -13,7 +13,8 @@ services:
       - ocean_gateway_uploads:/app/public/uploads
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ocean?schema=public
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
@@ -55,15 +56,15 @@ services:
     container_name: ocean-postgres
     restart: always
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ocean
+      - POSTGRES_USER=${POSTGRES_USER:-ocean}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_DB=${POSTGRES_DB:-ocean}
     ports:
       - "5432:5432"
     volumes:
       - ocean_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ocean} -d ${POSTGRES_DB:-ocean}" ]
       interval: 5s
       timeout: 5s
       retries: 5
