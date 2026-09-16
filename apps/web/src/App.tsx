@@ -222,6 +222,23 @@ function AppInternal({
     localStorage.setItem('ocean_active_space', activeSpaceId);
   }, [activeSpaceId]);
 
+  // 显式创建 Life Space（Space Switcher 菜单「创建生活空间」入口）
+  const handleCreateLifeSpace = useCallback(async () => {
+    try {
+      const life = await api.post<any>('/api/spaces/life', {});
+      if (life?.data?.id) {
+        setSpaces((prev) =>
+          prev.some((sp) => sp.id === life.data.id)
+            ? prev
+            : [...prev, { id: life.data.id, name: '生活空间', type: 'life', role: 'owner' }],
+        );
+        setActiveSpaceId(life.data.id);
+      }
+    } catch (err) {
+      console.error('[Space] failed to create life space:', err);
+    }
+  }, []);
+
   // 加载可用 Space 列表；缺省 Work 兜底；当前 Space 不存在时创建 Life
   useEffect(() => {
     let cancelled = false;
@@ -423,7 +440,12 @@ function AppInternal({
             <Menu className="w-5 h-5" />
           </button>
           <span className="font-display font-bold text-foreground text-lg">Ocean</span>
-          <SpaceSwitcher spaces={spaces.length ? spaces : [{ id: 'work', name: '工作空间', type: 'work' }]} activeSpaceId={activeSpaceId} onChange={handleSpaceChange} />
+          <SpaceSwitcher
+            spaces={spaces.length ? spaces : [{ id: 'work', name: '工作空间', type: 'work' }]}
+            activeSpaceId={activeSpaceId}
+            onChange={handleSpaceChange}
+            onCreateLife={handleCreateLifeSpace}
+          />
         </div>
 
         {/* Space 切换条（Phase 6） */}

@@ -20,10 +20,12 @@ export function SpaceSwitcher({
   spaces,
   activeSpaceId,
   onChange,
+  onCreateLife,
 }: {
   spaces: SpaceOption[];
   activeSpaceId: string;
   onChange: (spaceId: string) => void;
+  onCreateLife?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -106,6 +108,19 @@ export function SpaceSwitcher({
               {space.role && <span className="text-xs text-muted-foreground">{space.role}</span>}
             </button>
           ))}
+          {!spaces.some((sp) => sp.type === 'life') && onCreateLife && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateLife();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-emerald-600 transition-colors hover:bg-accent/60"
+            >
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">L</span>
+              <span>创建生活空间（Life）</span>
+            </button>
+          )}
         </div>
       )}
     </div>
