@@ -161,14 +161,14 @@ export function ApprovalCenter({
                     onClick={() => selectMode(m.mode)}
                     disabled={saving}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all hover:bg-muted/60',
+                      'flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-left transition-all hover:bg-muted/60',
                     )}
                   >
                     <m.icon className="h-4 w-4 shrink-0 text-foreground" />
                     <span className="min-w-0 flex-1">
                       <span
                         className={cn(
-                          'block text-[13px] font-bold',
+                          'block text-[13px] font-bold leading-snug',
                           m.warn
                             ? 'text-orange-600 dark:text-orange-400'
                             : 'text-foreground',
@@ -178,7 +178,7 @@ export function ApprovalCenter({
                       </span>
                       <span
                         className={cn(
-                          'mt-0.5 block text-[11px] leading-relaxed',
+                          'mt-0 block text-[11px] leading-snug',
                           m.warn
                             ? 'text-orange-600/70 dark:text-orange-400/70'
                             : 'text-muted-foreground',
