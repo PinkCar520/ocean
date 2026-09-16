@@ -30,7 +30,13 @@ function check(name, ok, detail = '') {
   const spaceService = new SpaceService(prisma);
   const sessionService = new SessionService(prisma, spaceService);
   const outboxMock = { enqueueRunRequested: async () => {}, enqueueToolRequested: async () => {} };
-  const runService = new RunService(prisma, outboxMock, spaceService);
+  const runService = new RunService(
+    prisma,
+    outboxMock,
+    spaceService,
+    { save: async () => ({ id: 'iso-art' }), load: async () => Buffer.from('iso') },
+    { inc: () => {} },
+  );
   const mcpService = new MCPServerService(prisma, { get: () => undefined }, spaceService);
 
   const user = await prisma.user.findFirst();
@@ -41,6 +47,7 @@ function check(name, ok, detail = '') {
   let sess;
   let lifeMcp;
   let lifeDoc;
+  let credMcp;
 
   try {
     // 1. Membership 门禁
@@ -100,18 +107,52 @@ function check(name, ok, detail = '') {
     const spaces = await spaceService.listSpaces(user.id);
     check('listSpaces 含 work + life', spaces.some((s) => s.id === 'work') && spaces.some((s) => s.id === life.id));
 
+    // 7. Run 附件 URL / 事件订阅：outsider 越权读取 → 403（归属校验）
+    const isoRun = await runService.create(user.id, {
+      space: { id: 'work', type: 'work' },
+      input: 'iso-artifact-events',
+      priority: 'interactive',
+    });
+    await runService.saveArtifact(isoRun.run.id, user.id, 'iso.txt', 'secret-content');
+    let artDenied = false;
+    try { await runService.getStatus(isoRun.run.id, outsider.id); } catch (e) { artDenied = e.status === 403; }
+    check('附件 URL 越权：outsider getStatus → 403', artDenied);
+    let evDenied = false;
+    try { await runService.listEvents(isoRun.run.id, outsider.id, -1); } catch (e) { evDenied = e.status === 403; }
+    check('事件订阅越权：outsider listEvents → 403', evDenied);
+
+    // 8. 工具凭证：Space 级 MCP env（敏感 token）跨 Space 不透出 + 不可删
+    credMcp = await prisma.mCPServer.create({
+      data: {
+        name: 'iso-cred-mcp',
+        transport: 'stdio',
+        status: 'unknown',
+        spaceId: 'iso-life',
+        env: { TOKEN: 'super-secret-token' },
+      },
+    });
+    const credViaBiz = await mcpService.getServerById(credMcp.id);
+    check('工具凭证越权：跨 Space 读不到 MCP env 配置', credViaBiz === null);
+    let credDel = false;
+    try { await mcpService.deleteServer(credMcp.id); } catch (e) { credDel = e.status === 404; }
+    check('工具凭证越权：跨 Space 删除 → 404', credDel);
+
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} passed`);
     if (failed.length) process.exitCode = 1;
   } finally {
     // cleanup（幂等）
     await prisma.agentRun.deleteMany({ where: { input: 'iso-run' } });
+    await prisma.agentRun.deleteMany({ where: { input: 'iso-artifact-events' } });
+    await prisma.runArtifact.deleteMany({ where: { name: 'iso.txt' } });
+    await prisma.mCPServer.deleteMany({ where: { id: credMcp?.id } });
     await prisma.session.deleteMany({ where: { id: sess?.id } });
     await prisma.session.deleteMany({ where: { title: 'iso-life-session' } });
     await prisma.document.deleteMany({ where: { id: lifeDoc?.id } });
     await prisma.mCPServer.deleteMany({ where: { id: lifeMcp?.id } });
     await prisma.membership.deleteMany({ where: { spaceId: 'iso-life' } });
     await prisma.space.deleteMany({ where: { id: 'iso-life' } });
+    await prisma.lifeMemory.deleteMany({ where: { spaceId: { startsWith: 'life-' } } });
     await prisma.membership.deleteMany({ where: { spaceId: { startsWith: 'life-' } } });
     await prisma.space.deleteMany({ where: { id: { startsWith: 'life-' } } });
     await prisma.user.deleteMany({ where: { id: outsider.id } });
