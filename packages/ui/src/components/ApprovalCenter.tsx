@@ -159,12 +159,7 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                         : 'hover:bg-muted/60',
                     )}
                   >
-                    <m.icon
-                      className={cn(
-                        'h-4 w-4 shrink-0',
-                        m.warn ? 'text-orange-500' : 'text-primary',
-                      )}
-                    />
+                    <m.icon className="h-4 w-4 shrink-0 text-foreground" />
                     <span className="min-w-0 flex-1">
                       <span
                         className={cn(
