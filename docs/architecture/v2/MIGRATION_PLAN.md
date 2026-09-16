@@ -126,13 +126,13 @@
 
 ### 工作项
 
-- 提取 `ModelRegistry`，统一供应商配置和模型能力描述。
-- 提取 `PromptComposer` 与 `ContextAssembler`。
-- 提取 `ToolRuntime`，统一 MCP 与本地 RPC 工具表示。
-- 提取 `PolicyEvaluator`，让所有工具调用经过同一权限入口。
-- 提取 `SkillResolver`，暂时适配现有 SkillLoader/Registry/FastAPI。
-- 为每项服务建立单元测试。
-- 将 `SkillOrchestrator` 变为兼容门面，不再直接访问 Prisma、文件系统或第三方 API。
+- [x] 提取 `ModelRegistry`，统一供应商配置和模型能力描述。
+- [x] 提取 `PromptComposer` 与 `ContextAssembler`。
+- [x] 提取 `ToolRuntime`，统一 MCP 与本地 RPC 工具表示。
+- [x] 提取 `PolicyEvaluator`，让所有工具调用经过同一权限入口。
+- [x] 提取 `SkillResolver`，暂时适配现有 SkillLoader/Registry/FastAPI。
+- [x] 为每项服务建立单元测试（runtime 6 模块 25/25 通过）。
+- [x] 将 `SkillOrchestrator` 变为兼容门面，不再直接访问 Prisma、文件系统或第三方 API（残留：generateSkill 读 SystemConfig 与旧直驱 fallback，均为有意保留）。
 
 ### 验收标准
 
