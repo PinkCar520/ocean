@@ -205,7 +205,10 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 **剩余尾项（客户端切换与治理）**：
 
 - [x] Web 聊天正式全面切换到 Run API：**`CHAT_USE_RUN` 默认开启**（可 `=false` 显式回退旧直驱）；真实模型端到端验收通过——POST /api/chat（SSE）→ 创建 AgentRun → worker 工具循环（model_call→tool→回喂→续跑）→ run succeeded → output_delta 转译 `0:` 行输出「已调用 echo 工具…」，HTTP 200；期间修复 chat→Run 的 dbId 归属断裂（SkillContext 增 dbId，Run 链路以 DB 标识为准，listEvents 同源）。
-- [ ] Desktop、CLI、IM 统一接入 Run API（复用 Web 切换契约：create → /events SSE → approve/decide → retry/resume）。
+- [x] Desktop、CLI、IM 统一接入 Run API：
+  - Desktop：与 Web 共享 `packages/ui` 的 ChatSession（`useChat api:'/api/chat'`），随 Web 切换零改动即走 Run。
+  - IM：UpChat webhook 改走 Run——sender 经 `syncUserFromSso` + `ensureMembershipIfMissing(work)` 后 `runToText`（创建 run → 轮询事件至终态 → 拼接输出），真实报文 e2e 通过（run succeeded + 工具循环）。
+  - CLI：`--gateway` 单轮模式走统一 Run 链路（`runChatLoopViaGateway` SSE + API key），真实模型 e2e 通过（echo 工具 + 流式回显）；交互 REPL 保留本地直连（定位使然，文档注明）。
 - [x] 提供明确的 resume/retry 产品 API（`POST /api/runs/:id/retry`、`POST /api/runs/:id/resume`；requeueRun 事务：状态校验 + queued + run.status_changed 事件 + 幂等投递 run.requested）。
 - [~] 清除旧 `Session.activeJobId`、`lastCheckpoint`：字段已删除并落库（迁移 20260915000004，全仓零引用）；旧 ApprovalRequest 与新 RunApproval 双轨合并待 Web 全面切换、旧聊天链路退役后删除 ApprovalRequest 模型/表。
 - [~] 补充重启恢复、重复投递、审批超时的系统级验证：Run 引擎端到端冒烟（create→worker 消费→succeeded、failed→retry→重跑 succeeded、resume 非法状态拒绝）PASS；崩溃恢复沿用 Phase 4 单场景冒烟；审批超时/重复投递专项纳入「生产治理」章节待补。
