@@ -112,6 +112,7 @@ program
   .option('-m, --model <model>', 'Model to use')
   .option('-w, --workspace <path>', 'Workspace directory', process.cwd())
   .option('-u, --user <userId>', 'User ID')
+  .option('--gateway', '通过 Gateway Run API 执行（统一工具/审批/审计）')
   .action(async (query, options) => {
     const gatewayUrl = process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
     const workspace = path.resolve(options.workspace);
@@ -127,7 +128,12 @@ program
       console.log(chalk.cyan(`[Ocean] Query: ${query}`));
       console.log(chalk.cyan(`[Ocean] User: ${userId}`));
       console.log(chalk.cyan(`[Ocean] Workspace: ${workspace}\n`));
-      await runRepl({ userId, workspace, singleQuery: query });
+      await runRepl({
+        userId,
+        workspace,
+        singleQuery: query,
+        gateway: options.gateway,
+      });
     } else {
       // Interactive REPL
       console.log(chalk.bold('\nOcean Terminal AI'));

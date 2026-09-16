@@ -5,7 +5,12 @@
 import type { ModelMessage } from 'ai';
 import type { CliConfig, LoadedSkill, ToolContext } from './types.js';
 import { createModelRouter } from './llm/model-router.js';
-import { buildSystemPrompt, runChatLoop } from './llm/chat.js';
+import {
+  buildSystemPrompt,
+  runChatLoop,
+  runChatLoopViaGateway,
+} from './llm/chat.js';
+import { resolveApiKey } from './utils/auth.js';
 import { getTools } from './tools/index.js';
 import { loadSkillsFromDir } from './skills/loader.js';
 import { McpClientManager } from './mcp/client.js';
@@ -20,6 +25,8 @@ interface ReplOptions {
   userId: string;
   workspace: string;
   singleQuery?: string;
+  /** 通过 Gateway Run API 执行（第 3 条：CLI 接入统一 Run API） */
+  gateway?: boolean;
 }
 
 /**
@@ -33,6 +40,16 @@ export async function runRepl(options: ReplOptions) {
     await runSingleQuery(options);
     process.exit(0);
     return;
+  }
+
+  // 交互模式暂不支持 --gateway（Ink UI 绑定本地 runChatLoop），明确提示回退本地
+  if (options.gateway) {
+    console.log(
+      chalk.yellow('[Ocean] 交互模式暂不支持 --gateway，继续使用本地模型直连。'),
+    );
+    console.log(
+      chalk.gray('（单轮查询 ocean "问题" --gateway 走统一 Run API）'),
+    );
   }
 
   // Check if stdin is a TTY (interactive terminal)
@@ -55,6 +72,32 @@ export async function runRepl(options: ReplOptions) {
 async function runSingleQuery(options: ReplOptions) {
   const query = options.singleQuery;
   if (!query) return;
+
+  // 第 3 条：--gateway 时走统一 Run API（Gateway worker 执行，工具/审批/审计入 Run）
+  if (options.gateway) {
+    const gatewayUrl =
+      process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
+    const apiKey = await resolveApiKey();
+    if (!apiKey) {
+      console.log(chalk.yellow('[Ocean] --gateway 需要 API Key，请先运行 ocean login'));
+      return;
+    }
+    console.log(chalk.cyan(`[Ocean] Query: ${query}`));
+    console.log(chalk.cyan(`[Ocean] User: ${options.userId}`));
+    console.log(chalk.cyan(`[Ocean] Gateway: ${gatewayUrl} (Run API)\n`));
+    try {
+      await runChatLoopViaGateway({
+        gatewayUrl,
+        apiKey,
+        input: query,
+        onText: (text) => process.stdout.write(text),
+      });
+      process.stdout.write('\n');
+    } catch (err: any) {
+      console.log(chalk.red(`[Ocean] Gateway error: ${err.message}`));
+    }
+    return;
+  }
 
   console.log(chalk.cyan(`[Ocean] Query: ${query}`));
   console.log(chalk.cyan(`[Ocean] User: ${options.userId}`));
