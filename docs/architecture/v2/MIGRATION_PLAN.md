@@ -204,7 +204,7 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 **剩余尾项（客户端切换与治理）**：
 
-- [~] Web 聊天正式全面切换到 Run API：后端 Run 驱动已就绪（`CHAT_USE_RUN=true` 时 POST /api/chat 创建 AgentRun 并订阅 run events 转译 AI SDK 协议，前端零改动）；工具循环已落地（SIM 12/12 + 真实模型验证），但批量冒烟存在约 10–15% 偶发「工具完成未续跑」样本（Run 仍 succeeded，见 worker-design-reference §7.2 待查项），**生产默认切换前需先锁定该路径**；端到端 SIM 冒烟 PASS。
+- [~] Web 聊天正式全面切换到 Run API：后端 Run 驱动已就绪（`CHAT_USE_RUN=true` 时 POST /api/chat 创建 AgentRun 并订阅 run events 转译 AI SDK 协议，前端零改动）；工具循环真实模型批量 12/12 通过（模型→工具→回喂→续跑→succeeded），**§7.2 竞态根因已锁定并解决：docker 旧镜像 worker 与本地 worker 共用同一 outbox 双消费**（旧代码反复 TypeValidationError 重试，把 run 拖入 failed 循环；`docker stop ocean-worker` 后 12/12 全绿）；ai-sdk v7 ModelMessage 适配 + thinking 模型 reasoning 兜底已落地；`CHAT_USE_RUN` 默认开启条件已具备，待 Web 切换验收。
 - [ ] Desktop、CLI、IM 统一接入 Run API（复用 Web 切换契约：create → /events SSE → approve/decide → retry/resume）。
 - [x] 提供明确的 resume/retry 产品 API（`POST /api/runs/:id/retry`、`POST /api/runs/:id/resume`；requeueRun 事务：状态校验 + queued + run.status_changed 事件 + 幂等投递 run.requested）。
 - [~] 清除旧 `Session.activeJobId`、`lastCheckpoint`：字段已删除并落库（迁移 20260915000004，全仓零引用）；旧 ApprovalRequest 与新 RunApproval 双轨合并待 Web 全面切换、旧聊天链路退役后删除 ApprovalRequest 模型/表。

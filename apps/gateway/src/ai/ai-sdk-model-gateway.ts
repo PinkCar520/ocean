@@ -7,6 +7,7 @@ import type {
   ModelGenerateRequest,
   ModelGenerateResult,
   ModelMessage,
+  ModelToolCall,
 } from './model-gateway';
 
 /** 把与实现无关的 ModelMessage 转换为 ai-sdk v7 ModelMessage 格式。
@@ -72,17 +73,41 @@ export class AiSdkModelGateway implements ModelGateway {
 
     const result = streamText(options as Parameters<typeof streamText>[0]);
 
+    // textStream 优先（保留流式增量）；thinking 模型（如 qwen3-max 系列）在
+    // 工具回喂后可能只产出 reasoning 而无 content，此时 textStream 抛
+    // "No output generated"——回退读取 reasoningStream 作为输出。
     let text = '';
-    for await (const delta of result.textStream) {
-      text += delta;
-      if (onDelta) await onDelta(delta);
+    try {
+      for await (const delta of result.textStream) {
+        text += delta;
+        if (onDelta) await onDelta(delta);
+      }
+    } catch (error) {
+      let reasoning = '';
+      try {
+        reasoning = (await result.reasoningText) ?? '';
+      } catch {
+        /* reasoning 同样不可用时放弃 */
+      }
+      if (reasoning) {
+        text = reasoning;
+        if (onDelta) await onDelta(reasoning);
+      } else {
+        throw error;
+      }
     }
 
-    const toolCalls = (await result.toolCalls).map((tc) => ({
-      id: tc.toolCallId,
-      name: tc.toolName,
-      input: (tc.input ?? {}) as Record<string, unknown>,
-    }));
+    let toolCalls: ModelToolCall[] = [];
+    try {
+      toolCalls = (await result.toolCalls).map((tc) => ({
+        id: tc.toolCallId,
+        name: tc.toolName,
+        input: (tc.input ?? {}) as Record<string, unknown>,
+      }));
+    } catch (error) {
+      // 若 textStream 已回退到 reasoning，toolCalls 解析失败时视为无工具调用
+      if (!text) throw error;
+    }
 
     return { text, toolCalls };
   }
