@@ -33,7 +33,9 @@ class EmbeddingService:
         
         response = self._client.embeddings.create(
             input=[text],
-            model=self._model_name
+            model=self._model_name,
+            # 显式指定 1536 维以匹配 pgvector(1536)（qwen3.7-text-embedding 默认 1024）
+            dimensions=1536,
         )
         return response.data[0].embedding
 
