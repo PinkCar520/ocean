@@ -67,6 +67,9 @@ interface ChatSessionProps {
   onMainTabChange?: (id: string) => void;
   /** Phase 6 6b：当前 Space（新建会话归属） */
   spaceId?: string;
+  /** 空间 Tab（工作|生活）——空状态渲染于 logo 上方 */
+  spaceTabs?: Array<{ id: string; label: string }>;
+  onSpaceTabChange?: (id: string) => void;
   t: (key: string, options?: any) => string;
   navigation: {
     navigate: (path: string, options?: any) => void;
@@ -91,6 +94,8 @@ export function ChatSession({
   isLoadingHistory,
   onMainTabChange,
   spaceId,
+  spaceTabs,
+  onSpaceTabChange,
   t,
   navigation,
 }: ChatSessionProps) {
@@ -462,6 +467,9 @@ export function ChatSession({
                   setLocalInput={setLocalInput}
                   onFormSubmit={onFormSubmit}
                   showSuggestions={false}
+                  spaceTabs={spaceTabs}
+                  activeSpaceId={(spaceId ?? '').startsWith('life-') ? 'life' : 'work'}
+                  onSpaceTabChange={onSpaceTabChange}
                 />
               ) : (
                 <div key="chat-messages" className="flex flex-col w-full">

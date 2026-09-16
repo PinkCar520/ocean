@@ -7,6 +7,10 @@ interface EmptyStateProps {
   onFormSubmit: () => void;
   /** 生活空间等不展示建议卡片时置 false */
   showSuggestions?: boolean;
+  /** 空间 Tab（工作|生活），渲染于 logo 上方 */
+  spaceTabs?: Array<{ id: string; label: string }>;
+  activeSpaceId?: string;
+  onSpaceTabChange?: (id: string) => void;
 }
 
 export function EmptyState({
@@ -14,6 +18,9 @@ export function EmptyState({
   setLocalInput,
   onFormSubmit,
   showSuggestions = true,
+  spaceTabs,
+  activeSpaceId,
+  onSpaceTabChange,
 }: EmptyStateProps) {
   const suggestions = [
     { icon: Search, label: t('chat.suggestions.bug_query', '查询缺陷详情'), prompt: '帮我查询缺陷 BUG-1 的详细信息' },
@@ -26,6 +33,25 @@ export function EmptyState({
     <div className="flex flex-col w-full min-w-0 pb-4">
       {/* Center Logo & Title */}
       <div className="flex flex-col items-center justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {spaceTabs && spaceTabs.length > 0 && (
+          <div className="mb-6 flex items-center gap-1 rounded-full border border-border bg-card/60 px-1.5 py-1">
+            {spaceTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onSpaceTabChange?.(tab.id)}
+                className={
+                  (activeSpaceId === tab.id
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground') +
+                  ' rounded-full px-4 py-1 text-sm font-medium transition-colors outline-none'
+                }
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="w-28 h-28 mb-4 flex items-center justify-center relative group transition-all duration-500 hover:-translate-y-1">
           <img src="/logo.svg" alt="Ocean Logo" className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500" />
         </div>

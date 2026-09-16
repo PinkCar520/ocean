@@ -479,30 +479,6 @@ function AppInternal({
           />
         </div>
 
-        {/* 顶部居中「工作 | 生活」Tab（替代原 Space 切换条） */}
-        <div className="hidden md:flex items-center justify-center relative px-4 py-0 border-b border-border bg-card/50 shrink-0">
-          <nav className="flex items-center gap-1">
-            {SPACE_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleSpaceViewChange(tab.id)}
-                className={cn(
-                  'relative px-3.5 py-2.5 text-sm font-medium transition-colors outline-none',
-                  spaceView === tab.id
-                    ? 'text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {tab.label}
-                {spaceView === tab.id && (
-                  <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />
-                )}
-              </button>
-            ))}
-          </nav>
-        </div>
-
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {activeSpaceId === 'code' ? (
@@ -519,6 +495,8 @@ function AppInternal({
                 token={token}
                 user={user}
                 spaceId={activeSpaceId}
+                spaceTabs={SPACE_TABS}
+                onSpaceTabChange={(id) => handleSpaceViewChange(id as SpaceView)}
                 createSession={createSession}
                 onStreamFinished={onStreamFinished}
                 onRenameConversation={handleRenameChat}
