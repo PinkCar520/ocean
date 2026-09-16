@@ -6,6 +6,7 @@ import {
 import { Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { SpaceService } from '../space/space.service';
+import { AuditService } from '../audit/audit.service';
 
 export interface CreateSkillDto {
   slug: string;
@@ -50,6 +51,7 @@ export class SkillService {
   constructor(
     @Inject('PRISMA_CLIENT') private prisma: PrismaClient,
     private readonly spaceService: SpaceService,
+    private readonly audit: AuditService,
   ) {}
 
   async getSkills(params?: {
@@ -221,11 +223,16 @@ export class SkillService {
         data: { status: 'active', config: config || existing.config },
       });
     }
+    const skill = await this.prisma.skill.findUnique({
+      where: { id: skillId },
+      select: { version: true },
+    });
     return this.prisma.skillInstallation.create({
       data: {
         skillId,
         userId: userId || null,
         config: config || {},
+        version: skill?.version ?? null,
         status: 'active',
         spaceId,
       },
@@ -240,6 +247,127 @@ export class SkillService {
         spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
       },
     });
+  }
+
+  /**
+   * 技能版本列表（升级/回滚审计依据）。
+   */
+  async getSkillVersions(skillId: string) {
+    return this.prisma.skillVersion.findMany({
+      where: { skillId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        version: true,
+        changelog: true,
+        userId: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  /**
+   * 升级技能：快照当前内容为新版本并更新安装版本。
+   * input.content/version 传入时同时更新技能本体（否则仅记录快照）。
+   */
+  async upgradeSkill(
+    skillId: string,
+    userId: string,
+    input: { content?: string; version?: string; changelog?: string } = {},
+  ) {
+    const skill = await this.prisma.skill.findUnique({
+      where: { id: skillId },
+      select: { id: true, name: true, version: true, content: true },
+    });
+    if (!skill) throw new NotFoundException(`Skill ${skillId} not found`);
+
+    const nextVersion = input.version ?? skill.version ?? '1.0.0';
+    const nextContent = input.content ?? skill.content;
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1) 快照旧内容为新版本（升级前状态）
+      await tx.skillVersion.create({
+        data: {
+          skillId,
+          userId,
+          name: skill.name,
+          version: skill.version ?? null,
+          changelog: input.changelog ?? null,
+          content: skill.content ?? null,
+        },
+      });
+      // 2) 更新技能本体
+      await tx.skill.update({
+        where: { id: skillId },
+        data: { version: nextVersion, content: nextContent },
+      });
+      // 3) 更新安装版本快照
+      await tx.skillInstallation.updateMany({
+        where: { skillId, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+        data: { version: nextVersion },
+      });
+    });
+
+    await this.audit.record({
+      actorUserId: userId,
+      action: 'skill.upgrade',
+      spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
+      toolName: skillId,
+      inputJson: { from: skill.version, to: nextVersion, changelog: input.changelog },
+      authorization: 'auto',
+    });
+
+    return this.getSkillVersions(skillId);
+  }
+
+  /**
+   * 回滚技能到指定历史版本：恢复 content/version，并记录一条回滚快照。
+   */
+  async rollbackSkill(skillId: string, versionId: string, userId: string) {
+    const target = await this.prisma.skillVersion.findUnique({
+      where: { id: versionId },
+    });
+    if (!target || target.skillId !== skillId) {
+      throw new NotFoundException(`SkillVersion ${versionId} not found`);
+    }
+    const skill = await this.prisma.skill.findUnique({
+      where: { id: skillId },
+      select: { version: true, content: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      // 回滚前先快照当前状态（可再回滚回升级态）
+      await tx.skillVersion.create({
+        data: {
+          skillId,
+          userId,
+          name: target.name,
+          version: skill?.version ?? null,
+          changelog: `rollback to ${target.version ?? versionId}`,
+          content: skill?.content ?? null,
+        },
+      });
+      await tx.skill.update({
+        where: { id: skillId },
+        data: { version: target.version ?? null, content: target.content ?? null },
+      });
+      await tx.skillInstallation.updateMany({
+        where: { skillId, spaceId: SpaceService.DEFAULT_WORK_SPACE_ID },
+        data: { version: target.version ?? null },
+      });
+    });
+
+    await this.audit.record({
+      actorUserId: userId,
+      action: 'skill.rollback',
+      spaceId: SpaceService.DEFAULT_WORK_SPACE_ID,
+      toolName: skillId,
+      inputJson: { targetVersionId: versionId, targetVersion: target.version },
+      authorization: 'auto',
+    });
+
+    return this.getSkillVersions(skillId);
   }
 
   async getInstallationStatus(skillId: string, userId?: string) {

@@ -583,6 +583,7 @@ model SkillInstallation {
   user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
   status  String  @default("active") // 'active' | 'disabled' | 'pending'
   config  Json? // 用户自定义配置
+  version String? // 安装时的技能版本快照（升级/回滚后更新）
 
   spaceId String
   space   Space  @relation(fields: [spaceId], references: [id], onDelete: Restrict)
@@ -604,6 +605,8 @@ model SkillVersion {
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   name      String
+  version   String? // 语义化版本快照（回滚目标）
+  changelog String? @db.Text // 本次变更说明
   content   String?  @db.Text
   createdAt DateTime @default(now())
 

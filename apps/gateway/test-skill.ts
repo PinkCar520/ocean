@@ -9,7 +9,11 @@ const pool = new Pool({ connectionString: 'postgresql://postgres:postgres@localh
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-const service = new SkillService(prisma, new SpaceService(prisma));
+const service = new SkillService(
+  prisma,
+  new SpaceService(prisma),
+  { record: async () => ({ id: 'audit' }) } as any,
+);
 
 async function runTests() {
   console.log('--- Starting SkillService Tests ---');

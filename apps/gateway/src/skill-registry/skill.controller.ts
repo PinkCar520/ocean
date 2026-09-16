@@ -194,6 +194,52 @@ export class SkillController {
   }
 
   /**
+   * GET /api/skills/:id/versions
+   * 技能版本历史（升级/回滚审计依据）
+   */
+  @Get(':id/versions')
+  async getSkillVersions(@Param('id') id: string) {
+    const versions = await this.skillService.getSkillVersions(id);
+    return { success: true, data: versions };
+  }
+
+  /**
+   * POST /api/skills/:id/upgrade
+   * 升级技能：快照当前内容为新版本，可选提交新 content/version
+   */
+  @Post(':id/upgrade')
+  @HttpCode(HttpStatus.CREATED)
+  async upgradeSkill(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.dbId;
+    const versions = await this.skillService.upgradeSkill(id, userId, {
+      content: typeof body?.content === 'string' ? body.content : undefined,
+      version: typeof body?.version === 'string' ? body.version : undefined,
+      changelog: typeof body?.changelog === 'string' ? body.changelog : undefined,
+    });
+    return { success: true, data: versions };
+  }
+
+  /**
+   * POST /api/skills/:id/rollback/:versionId
+   * 回滚技能到指定历史版本
+   */
+  @Post(':id/rollback/:versionId')
+  @HttpCode(HttpStatus.CREATED)
+  async rollbackSkill(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.dbId;
+    const versions = await this.skillService.rollbackSkill(id, versionId, userId);
+    return { success: true, data: versions };
+  }
+
+  /**
    * GET /api/skills/:id/install/status
    * 获取安装状态
    */
