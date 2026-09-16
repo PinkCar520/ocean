@@ -324,9 +324,11 @@ export class ToolExecutor {
         data: {
           id: approvalId,
           runId,
+          userId,
           toolCallId: toolCall.id,
           toolName: toolCall.name,
           args: toolCall.input as Prisma.InputJsonValue,
+          source: 'run',
           expiresAt: new Date(Date.now() + APPROVAL_TTL_MS),
         },
       });

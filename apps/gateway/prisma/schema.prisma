@@ -30,6 +30,7 @@ model User {
   skills             Skill[]
   skillVersions      SkillVersion[]
   agentRuns          AgentRun[]
+  runApprovals       RunApproval[]
   memberships        Membership[]
   identities         Identity[]
   contextGrants      ContextGrant[] // 作为授权人发起的跨 Space 授权
@@ -204,12 +205,17 @@ model RunEvent {
 // Run 进入 waiting_for_approval；决策后 approved → 重新投递续跑（从检查点继续），
 // rejected/expired → Run 终态 cancelled。
 model RunApproval {
-  id         String    @id @default(uuid())
-  runId      String
-  run        AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
-  toolCallId String
+  id         String     @id @default(uuid())
+  // runId 可空：Run 内审批（Worker 创建，续跑走 decide）与外部审批（CLI 本地执行创建，无 Run）共用一表。
+  runId      String?
+  run        AgentRun?  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  userId     String? // 审批归属用户（外部审批必填；Run 内审批由 Worker 回填 run.userId）
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  toolCallId String?
   toolName   String
   args       Json
+  sessionId  String? // 外部审批来源会话标识（CLI 本地执行）
+  source     String    @default("run") // run | cli
   status     String    @default("pending") // pending | approved | rejected | expired
   decidedBy  String?
   decidedAt  DateTime?
@@ -218,6 +224,7 @@ model RunApproval {
   updatedAt  DateTime  @updatedAt
 
   @@index([runId, status])
+  @@index([userId, status])
   @@map("run_approvals")
 }
 

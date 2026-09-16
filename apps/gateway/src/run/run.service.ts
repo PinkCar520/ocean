@@ -613,7 +613,80 @@ export class RunService {
       updatedAt: run.updatedAt.toISOString(),
     });
   }
+
+  /**
+   * 外部审批（CLI 本地执行）：无 Run 的审批请求，Web 对话窗口轮询展示、CLI 轮询结果。
+   */
+  async createExternalApproval(
+    userId: string,
+    input: { toolName: string; args: Record<string, unknown>; sessionId?: string },
+  ) {
+    return this.prisma.runApproval.create({
+      data: {
+        userId,
+        toolName: input.toolName,
+        args: input.args as Prisma.InputJsonValue,
+        sessionId: input.sessionId ?? null,
+        source: 'cli',
+        expiresAt: new Date(Date.now() + EXTERNAL_APPROVAL_TTL_MS),
+      },
+    });
+  }
+
+  /** 当前用户的待审批列表（Web 对话窗口审批面板轮询）。 */
+  async listPendingApprovals(userId: string) {
+    return this.prisma.runApproval.findMany({
+      where: { userId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  /** 单条审批状态（CLI 轮询；无 Run 外部审批）。 */
+  async getExternalApproval(approvalId: string, userId: string) {
+    const approval = await this.prisma.runApproval.findUnique({
+      where: { id: approvalId },
+    });
+    if (!approval || approval.userId !== userId) {
+      throw new NotFoundException(`Approval ${approvalId} not found`);
+    }
+    return approval;
+  }
+
+  /**
+   * 外部审批决策（无 Run）：仅标记状态，CLI 轮询到结果后继续/拒绝本地执行。
+   * 已决策幂等；超时自动 expired。
+   */
+  async decideExternalApproval(
+    approvalId: string,
+    userId: string,
+    decision: 'approved' | 'rejected',
+  ) {
+    const approval = await this.prisma.runApproval.findUnique({
+      where: { id: approvalId },
+    });
+    if (!approval || approval.userId !== userId) {
+      throw new NotFoundException(`Approval ${approvalId} not found`);
+    }
+    if (approval.status !== 'pending') return approval;
+    if (approval.expiresAt && approval.expiresAt.getTime() < Date.now()) {
+      return this.prisma.runApproval.update({
+        where: { id: approvalId },
+        data: { status: 'expired', decidedAt: new Date() },
+      });
+    }
+    return this.prisma.runApproval.update({
+      where: { id: approvalId },
+      data: {
+        status: decision === 'approved' ? 'approved' : 'rejected',
+        decidedBy: userId,
+        decidedAt: new Date(),
+      },
+    });
+  }
 }
+
+const EXTERNAL_APPROVAL_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** priority 字符串 → outbox priorityRank（0=critical 最先取件，2=background 最后）。 */
 function priorityRankOf(priority: string): number {
