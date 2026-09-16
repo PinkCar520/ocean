@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@ocean/ui/lib/api-client';
 import { cn } from '@ocean/ui/lib/utils';
 
@@ -48,6 +48,8 @@ export function LifeProjection({ token }: { token: string | null }) {
   const [grantTo, setGrantTo] = useState('');
   const [grantPurpose, setGrantPurpose] = useState('');
   const [grantBusy, setGrantBusy] = useState(false);
+  // 居中引导首页（ChatGPT Work 形态）
+  const heroRef = useRef<HTMLTextAreaElement>(null);
 
   const load = async () => {
     try {
@@ -144,16 +146,64 @@ export function LifeProjection({ token }: { token: string | null }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div>
+    <div className="flex-1 overflow-y-auto">
+      {/* 居中引导首页（图二形态） */}
+      <div className="flex flex-col items-center justify-center px-6 pt-14 pb-8 text-center">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">今天想记录什么？</h1>
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">私人记忆、提醒与日程——只属于你的生活空间，默认不对外共享。</p>
+        <div className="mt-6 flex w-full max-w-xl items-center gap-2">
+          <textarea
+            ref={heroRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && addMemory()}
+            placeholder="写下一段记忆、提醒或偏好，如：每周三晚和家人视频…"
+            rows={2}
+            className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            disabled={busy || !content.trim()}
+            onClick={addMemory}
+            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            记录
+          </button>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-sm">
+          <button
+            type="button"
+            onClick={() => heroRef.current?.focus()}
+            className="rounded-full border border-border bg-card px-3.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            记一笔
+          </button>
+          <button
+            type="button"
+            onClick={() => document.getElementById('life-memories')?.scrollIntoView({ behavior: 'smooth' })}
+            className="rounded-full border border-border bg-card px-3.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            查看记忆
+          </button>
+          <button
+            type="button"
+            onClick={() => document.getElementById('life-privacy')?.scrollIntoView({ behavior: 'smooth' })}
+            className="rounded-full border border-border bg-card px-3.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            隐私设置
+          </button>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-4xl space-y-6 px-6 pb-10">
+        <div id="life-memories">
           <h1 className="text-xl font-bold text-foreground">生活空间</h1>
           <p className="text-sm text-muted-foreground">个人记忆、提醒与隐私控制（仅本人可见）</p>
         </div>
 
         {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
 
-        {/* 记忆输入 */}
+        {/* 记忆输入（Hero 快捷入口的下沉表单） */}
         <div className="rounded-xl border border-border bg-card p-4 space-y-2">
           <textarea
             value={content}
@@ -182,7 +232,7 @@ export function LifeProjection({ token }: { token: string | null }) {
         </div>
 
         {/* 记忆列表 */}
-        <div className="space-y-2">
+        <div id="life-memories-list" className="space-y-2">
           {memories.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               还没有个人记忆。写下第一条笔记或提醒。
@@ -221,7 +271,7 @@ export function LifeProjection({ token }: { token: string | null }) {
 
         {/* 隐私控制 */}
         {privacy && (
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div id="life-privacy" className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm font-semibold text-foreground">隐私与授权</p>
             <p className="text-xs text-muted-foreground">当前 Life 空间对外的数据授权与策略</p>
             {privacy.grants.length === 0 ? (

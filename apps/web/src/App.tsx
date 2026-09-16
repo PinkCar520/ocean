@@ -24,7 +24,6 @@ import { installSkill, uninstallSkill } from './app/actions/skills';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
-import { CodeProjection } from './components/CodeProjection';
 import { WorkProjection } from './components/WorkProjection';
 import { ApprovalPanel } from './components/ApprovalPanel';
 import { LifeProjection } from './components/LifeProjection';
@@ -171,6 +170,7 @@ function AppInternal({
   const { activeProject, setActiveProjectId } = useWorkspace();
 
   const handleMainTabChange = useCallback((tab: string) => {
+    setSpaceHome(false);
     const routes: Record<string, string> = {
       chat: '/app',
       all_chats: '/app/chats',
@@ -212,11 +212,25 @@ function AppInternal({
     await logout();
   };
 
-  // ── Phase 6：Space 切换与当前身份 ──
+  // ── Phase 6：Space 切换与当前身份（产品形态：顶部「工作 | 生活」两标签 + 居中引导首页） ──
+  type SpaceView = 'work' | 'life';
+  const [spaceView, setSpaceView] = useState<SpaceView>(() => {
+    if (typeof window === 'undefined') return 'work';
+    const saved = localStorage.getItem('ocean_active_space') ?? 'work';
+    if (saved.startsWith('life-')) return 'life';
+    return 'work'; // code 并入工作舱
+  });
   const [activeSpaceId, setActiveSpaceId] = useState<string>(() => {
     if (typeof window === 'undefined') return 'work';
-    return localStorage.getItem('ocean_active_space') ?? 'work';
+    const saved = localStorage.getItem('ocean_active_space') ?? 'work';
+    return saved === 'code' ? 'work' : saved;
   });
+  const SPACE_TABS: Array<{ id: SpaceView; label: string }> = [
+    { id: 'work', label: '工作' },
+    { id: 'life', label: '生活' },
+  ];
+  // 舱首页（居中引导） vs 聊天/功能页：顶部标签置 home，侧边栏导航离开 home
+  const [spaceHome, setSpaceHome] = useState(true);
   const [spaces, setSpaces] = useState<SpaceOption[]>([]);
 
   useEffect(() => {
@@ -234,6 +248,7 @@ function AppInternal({
             : [...prev, { id: life.data.id, name: '生活空间', type: 'life', role: 'owner' }],
         );
         setActiveSpaceId(life.data.id);
+        setSpaceView('life');
       }
     } catch (err) {
       console.error('[Space] failed to create life space:', err);
@@ -267,9 +282,29 @@ function AppInternal({
   }, [activeSpaceId]);
 
   const handleSpaceChange = (spaceId: string) => {
-    setActiveSpaceId(spaceId);
+    setActiveSpaceId(spaceId === 'code' ? 'work' : spaceId);
+    setSpaceView(spaceId.startsWith('life-') ? 'life' : 'work');
+    setSpaceHome(true);
     navigate('/app');
   };
+
+  // 顶部标签切换（工作 | 生活）
+  const handleSpaceViewChange = useCallback((view: SpaceView) => {
+    setSpaceHome(true);
+    if (view === 'work') {
+      setActiveSpaceId('work');
+    } else {
+      // life：有 Life Space 直接切，否则创建
+      const life = spaces.find((sp) => sp.id.startsWith('life-'));
+      if (life) {
+        setActiveSpaceId(life.id);
+      } else {
+        void handleCreateLifeSpace();
+      }
+    }
+    setSpaceView(view);
+    navigate('/app');
+  }, [spaces, handleCreateLifeSpace, navigate]);
 
   // ── Server-First 会话管理 ──
   const {
@@ -357,10 +392,12 @@ function AppInternal({
   };
 
   const loadConversationAndActivate = (id: string) => {
+    setSpaceHome(false);
     loadConversation(id);
   };
 
   const handleNewChatAndActivate = () => {
+    setSpaceHome(false);
     handleNewChat();
   };
 
@@ -449,18 +486,39 @@ function AppInternal({
           />
         </div>
 
-        {/* Space 切换条（Phase 6） */}
-        <div className="hidden md:flex items-center justify-between px-4 py-1.5 border-b border-border bg-card/50 shrink-0">
-          <SpaceSwitcher spaces={spaces.length ? spaces : [{ id: 'work', name: '工作空间', type: 'work' }]} activeSpaceId={activeSpaceId} onChange={handleSpaceChange} />
-          <span className="text-xs text-muted-foreground">当前身份：{spaces.find((sp) => sp.id === activeSpaceId)?.name ?? activeSpaceId}</span>
+        {/* 顶部 Space 标签条（图二形态：聊天 | 工作 | 代码 | 生活） */}
+        <div className="hidden md:flex items-center justify-between px-4 py-0 border-b border-border bg-card/50 shrink-0">
+          <nav className="flex items-center gap-1">
+            {SPACE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleSpaceViewChange(tab.id)}
+                className={cn(
+                  'relative px-3.5 py-2.5 text-sm font-medium transition-colors outline-none',
+                  spaceView === tab.id
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tab.label}
+                {spaceView === tab.id && (
+                  <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />
+                )}
+              </button>
+            ))}
+          </nav>
+          <span className="text-xs text-muted-foreground">当前身份：{spaceView === 'life' ? (spaces.find((sp) => sp.id === activeSpaceId)?.name ?? '生活空间') : '工作空间'}</span>
         </div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
-          {activeSpaceId === 'code' ? (
-            <CodeProjection token={token} />
-          ) : activeSpaceId?.startsWith('life-') ? (
-            <LifeProjection token={token} />
+          {spaceHome && (activeTab === 'chat' || !activeTab) ? (
+            spaceView === 'life' ? (
+              <LifeProjection token={token} />
+            ) : (
+              <WorkProjection token={token} />
+            )
           ) : activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession
