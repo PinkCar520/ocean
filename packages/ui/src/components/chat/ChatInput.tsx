@@ -1,7 +1,7 @@
 import React, { useState, useLayoutEffect } from 'react';
 import {
   Plus, FileText, X as CloseIcon,
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines, Shield, Hand, CheckCircle2, AlertCircle
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines, Shield, Hand, Radar, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -602,7 +602,7 @@ export const ChatInput = React.memo(({
                     ) : permissionMode === 'default' ? (
                       <Hand className="w-4 h-4 sm:w-5 sm:h-5" />
                     ) : (
-                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Radar className="w-4 h-4 sm:w-5 sm:h-5" />
                     )}
                     <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">
                       {permissionMode === 'bypassPermissions'

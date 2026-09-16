@@ -7,7 +7,7 @@ import {
   Loader2,
   ExternalLink,
   Hand,
-  CheckCircle2,
+  Radar,
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -37,7 +37,7 @@ const TIERS: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { mode: 'default', key: 'ask', icon: Hand },
-  { mode: 'acceptEdits', key: 'ondemand', icon: CheckCircle2 },
+  { mode: 'acceptEdits', key: 'ondemand', icon: Radar },
   { mode: 'bypassPermissions', key: 'allow', warn: true, icon: AlertCircle },
 ];
 

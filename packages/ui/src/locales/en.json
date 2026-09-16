@@ -687,7 +687,7 @@
     "mode_ask_title": "Always ask",
     "mode_ask_desc": "Always ask when editing external files or using the internet",
     "mode_ondemand_title": "Approve on demand",
-    "mode_ondemand_desc": "Only request approval for detected risky operations",
+    "mode_ondemand_desc": "Only ask for risky operations",
     "mode_allow_title": "Allow everything",
     "mode_allow_desc": "Unrestricted access to the internet and any files on your computer",
     "advanced_rules": "Advanced rules",
