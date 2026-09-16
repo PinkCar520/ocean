@@ -555,6 +555,13 @@ export const ChatInput = React.memo(({
                     </div>
                     {isSearchMode && <Check className="w-4 h-4 text-primary" />}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsKnowledgeMode(!isKnowledgeMode)} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-muted mb-0.5">
+                    <div className="flex items-center gap-3">
+                      <Database className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-[13px] font-medium text-foreground">Knowledge base</span>
+                    </div>
+                    {isKnowledgeMode && <Check className="w-4 h-4 text-primary" />}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -627,46 +634,6 @@ export const ChatInput = React.memo(({
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              <button
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.multiple = true;
-                  input.onchange = (e: any) => {
-                    if (e.target.files) addFiles(Array.from(e.target.files as FileList));
-                  };
-                  input.click();
-                }}
-                className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all shrink-0"
-              >
-                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-
-              <button
-                onClick={() => setIsSearchMode(!isSearchMode)}
-                className={cn(
-                  "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all transform active:scale-95 shrink-0",
-                  isSearchMode
-                    ? "text-primary bg-primary/5"
-                    : "text-muted-foreground hover:bg-muted hover:text-primary"
-                )}
-              >
-                <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-
-              <button
-                onClick={() => setIsKnowledgeMode(!isKnowledgeMode)}
-                className={cn(
-                  "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all transform active:scale-95 shrink-0",
-                  isKnowledgeMode
-                    ? "text-primary bg-primary/5"
-                    : "text-muted-foreground hover:bg-muted hover:text-primary"
-                )}
-              >
-                <Database className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-
 
             </div>
 
