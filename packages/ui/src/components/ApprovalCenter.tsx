@@ -39,7 +39,12 @@ interface PolicySettings {
   rules: PolicyRule[];
 }
 
-const MODES = ['default', 'acceptEdits', 'plan', 'bypassPermissions'];
+// Codex/豆包式三档权限模式 → 后端 PermissionSettings.mode 映射
+const MODES: Array<{ mode: string; key: string; warn?: boolean }> = [
+  { mode: 'default', key: 'ask' },
+  { mode: 'acceptEdits', key: 'ondemand' },
+  { mode: 'bypassPermissions', key: 'allow', warn: true },
+];
 
 const ACTION_STYLE: Record<string, string> = {
   allow: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
@@ -300,35 +305,75 @@ export function ApprovalCenter() {
           )}
           {policy && (
             <>
-              {/* 模式 */}
-              <div className="rounded-xl border border-border bg-card p-3.5">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  {t('approval_center.policy_mode')}
+              {/* 三档权限模式（参考 Codex/豆包：始终询问 / 按需确认 / 全部允许） */}
+              <div>
+                <p className="mb-2.5 text-sm font-bold text-foreground">
+                  {t('approval_center.mode_title')}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {MODES.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setPolicy({ ...policy, mode: m })}
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
-                        policy.mode === m
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      {m}
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-2">
+                  {MODES.map((m) => {
+                    const active =
+                      policy.mode === m.mode ||
+                      (m.mode === 'acceptEdits' && policy.mode === 'plan');
+                    return (
+                      <button
+                        key={m.mode}
+                        type="button"
+                        onClick={() => setPolicy({ ...policy, mode: m.mode })}
+                        className={cn(
+                          'flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all',
+                          active
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-border bg-card hover:border-border/70 hover:bg-muted/30',
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                            active
+                              ? 'border-primary'
+                              : 'border-border',
+                          )}
+                        >
+                          {active && (
+                            <span className="h-2 w-2 rounded-full bg-primary" />
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={cn(
+                              'block text-[13px] font-bold',
+                              m.warn
+                                ? active
+                                  ? 'text-orange-600 dark:text-orange-400'
+                                  : 'text-orange-600/80 dark:text-orange-400/80'
+                                : 'text-foreground',
+                            )}
+                          >
+                            {t(`approval_center.mode_${m.key}_title`)}
+                          </span>
+                          <span
+                            className={cn(
+                              'mt-0.5 block text-[11px] leading-relaxed',
+                              m.warn
+                                ? 'text-orange-600/70 dark:text-orange-400/70'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            {t(`approval_center.mode_${m.key}_desc`)}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* 规则 */}
+              {/* 高级规则 */}
               <div className="rounded-xl border border-border bg-card p-3.5">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    {t('approval_center.policy_rules')}
+                    {t('approval_center.advanced_rules')}
                   </p>
                   <button
                     type="button"

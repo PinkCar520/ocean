@@ -704,6 +704,14 @@
     "saved": "已保存",
     "save_failed": "保存失败",
     "load_failed": "加载失败",
-    "loading": "加载中…"
+    "loading": "加载中…",
+    "mode_title": "应如何批准 Ocean 操作？",
+    "mode_ask_title": "始终询问",
+    "mode_ask_desc": "编辑外部文件和使用互联网时始终询问",
+    "mode_ondemand_title": "按需确认",
+    "mode_ondemand_desc": "仅对检测到的风险操作请求批准",
+    "mode_allow_title": "全部允许",
+    "mode_allow_desc": "可不受限制地访问互联网和你电脑上的任何文件",
+    "advanced_rules": "高级规则"
   }
 }
