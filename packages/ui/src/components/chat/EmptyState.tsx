@@ -5,12 +5,15 @@ interface EmptyStateProps {
   t: any;
   setLocalInput: (val: string) => void;
   onFormSubmit: () => void;
+  /** 生活空间等不展示建议卡片时置 false */
+  showSuggestions?: boolean;
 }
 
 export function EmptyState({
   t,
   setLocalInput,
-  onFormSubmit
+  onFormSubmit,
+  showSuggestions = true,
 }: EmptyStateProps) {
   const suggestions = [
     { icon: Search, label: t('chat.suggestions.bug_query', '查询缺陷详情'), prompt: '帮我查询缺陷 BUG-1 的详细信息' },
@@ -30,7 +33,8 @@ export function EmptyState({
         <p className="text-muted-foreground font-medium text-lg">What can I help you with today?</p>
       </div>
 
-      {/* Suggested Prompts */}
+      {/* Suggested Prompts（生活空间不展示） */}
+      {showSuggestions && (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {suggestions.map((s, i) => (
           <button
@@ -50,6 +54,7 @@ export function EmptyState({
           </button>
         ))}
       </div>
+      )}
     </div>
   );
 }

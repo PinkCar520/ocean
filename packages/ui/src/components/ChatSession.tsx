@@ -461,6 +461,7 @@ export function ChatSession({
                   t={t}
                   setLocalInput={setLocalInput}
                   onFormSubmit={onFormSubmit}
+                  showSuggestions={!((spaceId ?? '').startsWith('life-'))}
                 />
               ) : (
                 <div key="chat-messages" className="flex flex-col w-full">
