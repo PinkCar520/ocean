@@ -1,7 +1,7 @@
 import React, { useState, useLayoutEffect } from 'react';
 import {
   Plus, FileText, X as CloseIcon,
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines, Shield
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines, Shield, Hand, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -122,6 +122,18 @@ export const ChatInput = React.memo(({
   const preRecordTextRef = React.useRef(localInput);
 
   const [isPermissionOpen, setIsPermissionOpen] = useState(false);
+  const [permissionMode, setPermissionMode] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'acceptEdits';
+    return localStorage.getItem('ocean_permission_mode') ?? 'acceptEdits';
+  });
+  const handlePermissionModeChange = (mode: string) => {
+    setPermissionMode(mode);
+    try {
+      localStorage.setItem('ocean_permission_mode', mode);
+    } catch {
+      /* 不可用时静默 */
+    }
+  };
   const { isRecording, isSupported, audioVolumes, toggle, stop } = useVoiceInput({
     onResult: (text, isFinal) => {
       const prefix = preRecordTextRef.current ? preRecordTextRef.current + ' ' : '';
@@ -582,10 +594,23 @@ export const ChatInput = React.memo(({
               <DropdownMenu open={isPermissionOpen} onOpenChange={setIsPermissionOpen}>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground bg-transparent hover:bg-muted hover:text-primary transition-all shrink-0"
+                    className="flex h-9 items-center gap-1.5 rounded-full px-2.5 text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground transition-all shrink-0"
                     title={t('chat.approval_center')}
                   >
-                    <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
+                    {permissionMode === 'bypassPermissions' ? (
+                      <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+                    ) : permissionMode === 'default' ? (
+                      <Hand className="w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                    )}
+                    <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">
+                      {permissionMode === 'bypassPermissions'
+                        ? t('approval_center.mode_allow_title')
+                        : permissionMode === 'default'
+                          ? t('approval_center.mode_ask_title')
+                          : t('approval_center.mode_ondemand_title')}
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
                 {/* 样式与位置对齐 + 号按钮：锚定按钮向上弹出，毛玻璃卡片 */}
@@ -595,7 +620,10 @@ export const ChatInput = React.memo(({
                   className="w-[380px] border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-4 backdrop-blur-xl bg-card/95 mb-2"
                 >
                   <div className="max-h-[70vh] overflow-y-auto">
-                    <ApprovalCenter onClose={() => setIsPermissionOpen(false)} />
+                    <ApprovalCenter
+                      onClose={() => setIsPermissionOpen(false)}
+                      onModeChange={handlePermissionModeChange}
+                    />
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>

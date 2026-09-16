@@ -47,7 +47,13 @@ const ACTION_STYLE: Record<string, string> = {
   ask: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30',
 };
 
-export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
+export function ApprovalCenter({
+  onClose,
+  onModeChange,
+}: {
+  onClose?: () => void;
+  onModeChange?: (mode: string) => void;
+}) {
   const { t } = useTranslation();
 
   const [policy, setPolicy] = useState<PolicySettings | null>(null);
@@ -95,6 +101,7 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
           body: JSON.stringify(next),
         });
         if (!res.ok) throw new Error(String(res.status));
+        onModeChange?.(next.mode);
         onClose?.();
       } catch {
         setError(t('approval_center.save_failed'));
