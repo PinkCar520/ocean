@@ -95,13 +95,14 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
           body: JSON.stringify(next),
         });
         if (!res.ok) throw new Error(String(res.status));
+        onClose?.();
       } catch {
         setError(t('approval_center.save_failed'));
       } finally {
         setSaving(false);
       }
     },
-    [policy, t],
+    [policy, t, onClose],
   );
 
   // 当前选中档（plan 归入按需确认展示）
