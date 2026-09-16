@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
-import { Dialog, DialogPortal, DialogOverlay, DialogTrigger } from '../ui/dialog';
+
 import { ApprovalCenter } from '../ApprovalCenter';
 import { beautifyModelName } from '../../lib/chat-utils';
 import { useProjects } from '../../lib/useProjects';
@@ -579,25 +579,26 @@ export const ChatInput = React.memo(({
                 )}
               </AnimatePresence>
 
-              <Dialog open={isPermissionOpen} onOpenChange={setIsPermissionOpen}>
-                <DialogTrigger asChild>
+              <DropdownMenu open={isPermissionOpen} onOpenChange={setIsPermissionOpen}>
+                <DropdownMenuTrigger asChild>
                   <button
-                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-primary transition-all shrink-0"
+                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground bg-transparent hover:bg-muted hover:text-primary transition-all shrink-0"
                     title={t('chat.approval_center')}
                   >
                     <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
-                </DialogTrigger>
-                <DialogPortal>
-                  <DialogOverlay />
-                  {/* 还原 Codex/豆包：无标题栏、无关闭 X 的纯净权限卡片 */}
-                  <div className="fixed left-1/2 top-1/2 z-[10001] w-[400px] -translate-x-1/2 -translate-y-1/2 p-0">
-                    <div className="max-h-[85vh] overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl">
-                      <ApprovalCenter onClose={() => setIsPermissionOpen(false)} />
-                    </div>
+                </DropdownMenuTrigger>
+                {/* 样式与位置对齐 + 号按钮：锚定按钮向上弹出，毛玻璃卡片 */}
+                <DropdownMenuContent
+                  align="start"
+                  side="top"
+                  className="w-[380px] border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-4 backdrop-blur-xl bg-card/95 mb-2"
+                >
+                  <div className="max-h-[70vh] overflow-y-auto">
+                    <ApprovalCenter onClose={() => setIsPermissionOpen(false)} />
                   </div>
-                </DialogPortal>
-              </Dialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <button
                 onClick={() => {
