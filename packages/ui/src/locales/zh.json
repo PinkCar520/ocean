@@ -83,7 +83,8 @@
       "total": "总分支"
     },
     "voice_unsupported": "您的浏览器不支持原生的语音识别 API，请使用 Chrome 或 Edge 浏览器体验语音听写功能。",
-    "voice_chat_soon": "实时语音对话功能即将上线，敬请期待！"
+    "voice_chat_soon": "实时语音对话功能即将上线，敬请期待！",
+    "permissions": "审批权限"
   },
   "dashboard": {
     "title": "研发效能大盘",

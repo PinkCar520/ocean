@@ -1,10 +1,12 @@
 import React, { useState, useLayoutEffect } from 'react';
 import {
   Plus, FileText, X as CloseIcon,
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { PermissionManager } from '../PermissionManager';
 import { beautifyModelName } from '../../lib/chat-utils';
 import { useProjects } from '../../lib/useProjects';
 import { useInstalledSkills } from '../../lib/useInstalledSkills';
@@ -119,6 +121,7 @@ export const ChatInput = React.memo(({
 
   const preRecordTextRef = React.useRef(localInput);
 
+  const [isPermissionOpen, setIsPermissionOpen] = useState(false);
   const { isRecording, isSupported, audioVolumes, toggle, stop } = useVoiceInput({
     onResult: (text, isFinal) => {
       const prefix = preRecordTextRef.current ? preRecordTextRef.current + ' ' : '';
@@ -576,6 +579,22 @@ export const ChatInput = React.memo(({
                 )}
               </AnimatePresence>
 
+              <Dialog open={isPermissionOpen} onOpenChange={setIsPermissionOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-primary transition-all shrink-0"
+                    title={t('chat.permissions')}
+                  >
+                    <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{t('chat.permissions')}</DialogTitle>
+                  </DialogHeader>
+                  <PermissionManager />
+                </DialogContent>
+              </Dialog>
 
               <button
                 onClick={() => {

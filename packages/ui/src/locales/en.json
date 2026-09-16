@@ -62,7 +62,8 @@
       "count": "steps"
     },
     "voice_unsupported": "Your browser does not support the native speech recognition API. Please use Chrome or Edge for voice dictation.",
-    "voice_chat_soon": "Real-time voice chat is coming soon!"
+    "voice_chat_soon": "Real-time voice chat is coming soon!",
+    "permissions": "Permissions"
   },
   "dashboard": {
     "title": "Engineering Insights",
