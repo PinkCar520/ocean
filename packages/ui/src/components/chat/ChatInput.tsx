@@ -576,41 +576,6 @@ export const ChatInput = React.memo(({
                 )}
               </AnimatePresence>
 
-              <DropdownMenu open={isModelDropdownOpen} onOpenChange={setIsModelDropdownOpen}>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-muted-foreground hover:bg-muted transition-all border border-transparent hover:border-border/40 shrink-0">
-                    <ActiveIcon className={cn("w-4 h-4 shrink-0", activeModel.color)} />
-                    <span className="text-[10px] sm:text-[11px] font-bold tracking-tight max-w-[60px] sm:max-w-none truncate">{activeDisplayName}</span>
-                    <ChevronDown className={cn("w-3 h-3 transition-transform shrink-0", isModelDropdownOpen ? "rotate-180" : "")} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-60 border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-1.5 backdrop-blur-xl bg-card/90">
-                  <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">{t('chat.available_models')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-border/40" />
-                  <div className="max-h-[300px] overflow-y-auto no-scrollbar">
-                    {models.map((m) => {
-                      const displayName = beautifyModelName(m.name);
-                      const ModelIcon = ICON_MAP[m.icon] || Globe;
-                      return (
-                        <DropdownMenuItem key={m.id} onClick={() => setSelectedModelId(m.id)} className="flex items-center justify-between gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all mb-0.5 hover:bg-muted">
-                          <div className="flex items-center gap-3">
-                            <div className={cn("flex items-center justify-center w-8 h-8", m.color)}>
-                              <ModelIcon className="w-5 h-5" />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[14px] font-bold text-foreground">{displayName}</span>
-                              <span className="text-[11px] text-muted-foreground font-medium">{m.provider}</span>
-                            </div>
-                          </div>
-                          {selectedModelId === m.id && <Check className="w-4 h-4 text-primary shrink-0" />}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
 
               <button
                 onClick={() => {
@@ -655,6 +620,42 @@ export const ChatInput = React.memo(({
             </div>
 
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              <DropdownMenu open={isModelDropdownOpen} onOpenChange={setIsModelDropdownOpen}>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-muted-foreground hover:bg-muted transition-all border border-transparent hover:border-border/40 shrink-0">
+                  <ActiveIcon className={cn("w-4 h-4 shrink-0", activeModel.color)} />
+                  <span className="text-[10px] sm:text-[11px] font-bold tracking-tight max-w-[60px] sm:max-w-none truncate">{activeDisplayName}</span>
+                  <ChevronDown className={cn("w-3 h-3 transition-transform shrink-0", isModelDropdownOpen ? "rotate-180" : "")} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-60 border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-1.5 backdrop-blur-xl bg-card/90">
+                <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">{t('chat.available_models')}</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-border/40" />
+                <div className="max-h-[300px] overflow-y-auto no-scrollbar">
+                  {models.map((m) => {
+                    const displayName = beautifyModelName(m.name);
+                    const ModelIcon = ICON_MAP[m.icon] || Globe;
+                    return (
+                      <DropdownMenuItem key={m.id} onClick={() => setSelectedModelId(m.id)} className="flex items-center justify-between gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all mb-0.5 hover:bg-muted">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center justify-center w-8 h-8", m.color)}>
+                            <ModelIcon className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[14px] font-bold text-foreground">{displayName}</span>
+                            <span className="text-[11px] text-muted-foreground font-medium">{m.provider}</span>
+                          </div>
+                        </div>
+                        {selectedModelId === m.id && <Check className="w-4 h-4 text-primary shrink-0" />}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
+
               <button
                 onClick={() => {
                   if (!isSupported) {
