@@ -374,7 +374,7 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - ✅ 产品形态决策：顶部 **「工作 | 生活」两个居中 Tab**（替代原 Space 切换条），**代码/聊天不占主标签**——主区保持原空间投影逻辑（code→CodeProjection、life→LifeProjection、work→按侧边栏导航），移动端 SpaceSwitcher 保留并同步。
 - ✅ App.tsx：顶部居中 Tab 条（`SPACE_TABS` 两标签 + 下划线激活态 + 右侧当前身份提示）；`activeSpaceId` 由 Tab/移动端切换驱动并持久化 localStorage。
 - ✅ 验证：web typecheck + build 通过；docker `web` 容器重建生效。
-- 提交：`9599c4b`（首版）→ 收敛为仅保留居中 Tab（`8xxxxx`，撤销投影 Hero/二级导航改造）。
+- 提交：`9599c4b`（首版）→ 收敛为仅保留居中 Tab（`634b971`，撤销投影 Hero/二级导航改造）。
 
 **待办（6b+）：**
 
