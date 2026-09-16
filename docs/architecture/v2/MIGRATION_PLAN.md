@@ -1,8 +1,8 @@
 # Ocean v2 架构迁移计划
 
-状态：In Progress（Phase 0）
+状态：In Progress（Phase 6/7 主体完成，Phase 0/4/6/7 尾项收尾中）
 
-更新时间：2026-09-14
+更新时间：2026-09-16（整体进度审查后同步）
 
 ## 1. 迁移目标
 
@@ -59,7 +59,7 @@
 - [x] 会话创建/重命名/删除、项目创建/删除、技能安装/卸载已迁为 Server Actions，并保留 Desktop API 适配。
 - [x] 聊天 SSE、上传、语音、本地节点 RPC 与自动补全已确认为 Client API 边界，不纳入 Server Action 迁移。
 - [x] Gateway 安装后自动生成 Prisma Client，不再依赖旧缓存。
-- [ ] Gateway 仍有 1820 条存量 lint 警告；按模块逐步清偿并恢复为 error。
+- [ ] Gateway 仍有 1433 条存量 lint 警告（0 errors，CI 可绿；2026-09-16 实测，原 1820 条已随审批删除等收敛）；按模块逐步清偿并恢复为 error。
 - [ ] 补齐缺少的 workspace `typecheck`、`test`、`lint` 脚本。
 - [ ] 补齐 Web、Desktop、Gateway、CLI 冒烟测试。
 - [ ] 验证全新 checkout 的冻结安装与 README 启动流程。
@@ -497,7 +497,11 @@ Phase 0 通过后，按以下顺序创建实现任务：
   3. `WorkerModule` 独立模块树缺依赖——显式 import `SpaceModule`/`MetricsModule`/`AuditModule`；worker 由此可真实启动并消费 outbox（本地验证 3 个积压 run 全部 succeeded）。
 - ✅ 本地 gateway（PORT=3100）与 worker 真实启动验证通过（docker 3000 为旧镜像，其 worker 因同类 DI 崩溃重启，需 `docker compose up --build` 重建镜像后才消费新代码）。
 
+**已完成（2026-09-16 整体审查追加）：**
+
+- ✅ 迁移记录一致性修复：`_prisma_migrations` 缺失 6 条已应用迁移记录（20260420030753 / 20260605032918 / 20260914043000 / 20260916000001/0002/0003，均为手动 psql 应用但未登记）——表结构逐一验证存在后，`prisma migrate resolve --applied` 补齐；`migrate status` 现为 **18 migrations found / Database schema is up to date**。
+
 **待办（工程基线剩余）：**
 
 - [ ] 共享包统一 lint 配置（contracts/ui 目前无 eslint；gateway 独有 flat config）。
-- [ ] docker 栈镜像重建（ocean-gateway/ocean-worker 为旧代码，worker 崩溃循环；重建后 e2e 可直连 3000）。
+- [x] docker 栈镜像重建：ocean-gateway/ocean-worker/ocean-web 已重建并 up（2026-09-16，含外部审批端点与审批面板后端）；ocean-fastapi-backend healthy；3000/8081 探活正常。
