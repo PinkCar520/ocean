@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@ocean/ui/lib/api-client';
 import { cn } from '@ocean/ui/lib/utils';
-import { CodeProjection } from './CodeProjection';
 
 interface Task {
   id: string;
@@ -52,10 +51,6 @@ export function WorkProjection({ token }: { token: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [newProject, setNewProject] = useState('');
   const [busy, setBusy] = useState(false);
-  // 工作舱二级视图：概览（居中引导 + 项目/任务） | 代码（CodeProjection）
-  const [sub, setSub] = useState<'overview' | 'code'>('overview');
-  const heroRef = useRef<HTMLInputElement>(null);
-  const [approvalTip, setApprovalTip] = useState(false);
 
   const load = async () => {
     try {
@@ -135,108 +130,41 @@ export function WorkProjection({ token }: { token: string | null }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* 工作舱二级导航（概览 | 代码） */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-border bg-card/50 px-6">
-        {(
-          [
-            ['overview', '概览'],
-            ['code', '代码'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setSub(id)}
-            className={cn(
-              'relative px-3 py-2 text-sm font-medium transition-colors outline-none',
-              sub === id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {label}
-            {sub === id && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />}
-          </button>
-        ))}
-      </div>
-
-      {sub === 'code' ? (
-        <CodeProjection token={token} />
-      ) : (
-        <div className="flex-1 overflow-y-auto">
-          {/* 居中引导首页（图二形态） */}
-          <div className="flex flex-col items-center justify-center px-6 pt-14 pb-8 text-center">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">我们要做什么？</h1>
-            <p className="mt-2 max-w-md text-sm text-muted-foreground">规划项目、推进任务、评审代码——把工作交给 Ocean。</p>
-            <div className="mt-6 flex w-full max-w-xl items-center gap-2">
-              <input
-                ref={heroRef}
-                value={newProject}
-                onChange={(e) => setNewProject(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && createProject()}
-                placeholder="输入工作指令，如：为 Ocean 创建 Q3 里程碑项目…"
-                className="flex-1 rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary"
-              />
-              <button
-                type="button"
-                disabled={busy || !newProject.trim()}
-                onClick={createProject}
-                className="shrink-0 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                新建项目
-              </button>
-            </div>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() => heroRef.current?.focus()}
-                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                使用 Ocean Work
-              </button>
-              <button
-                type="button"
-                onClick={() => { setApprovalTip(true); setTimeout(() => setApprovalTip(false), 3000); }}
-                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                帮我批准
-              </button>
-              <button
-                type="button"
-                onClick={() => setSub('code')}
-                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                代码工作区
-              </button>
-              <button
-                type="button"
-                onClick={() => document.getElementById('work-stats')?.scrollIntoView({ behavior: 'smooth' })}
-                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                查看统计
-              </button>
-            </div>
-            {approvalTip && (
-              <p className="mt-4 rounded-full bg-card px-4 py-1.5 text-xs text-muted-foreground">
-                待审批事项显示在右下角审批面板
-              </p>
-            )}
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">工作空间</h1>
+            <p className="text-sm text-muted-foreground">项目与任务流转（归属 Work Space）</p>
           </div>
+          <div className="flex gap-2">
+            <input
+              value={newProject}
+              onChange={(e) => setNewProject(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && createProject()}
+              placeholder="新项目名称…"
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+            />
+            <button
+              type="button"
+              disabled={busy || !newProject.trim()}
+              onClick={createProject}
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              新建项目
+            </button>
+          </div>
+        </div>
 
-          <div id="work-stats" className="mx-auto max-w-5xl space-y-6 px-6 pb-10">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">工作空间</h1>
-              <p className="text-sm text-muted-foreground">项目与任务流转（归属 Work Space）</p>
-            </div>
+        {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
 
-            {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
-
-            {overview && (
-              <div className="grid grid-cols-3 gap-3">
-                {statCard('项目', overview.projectCount ?? 0, 'bg-sky-500')}
-                {statCard('进行中任务', overview.inFlightTasks ?? 0, 'bg-amber-500')}
-                {statCard('我的任务', overview.myTasks ?? 0, 'bg-emerald-500')}
-              </div>
-            )}
+        {overview && (
+          <div className="grid grid-cols-3 gap-3">
+            {statCard('项目', overview.projectCount ?? 0, 'bg-sky-500')}
+            {statCard('进行中任务', overview.inFlightTasks ?? 0, 'bg-amber-500')}
+            {statCard('我的任务', overview.myTasks ?? 0, 'bg-emerald-500')}
+          </div>
+        )}
 
         <div className="space-y-3">
           {projects.length === 0 && !error && (
@@ -309,9 +237,7 @@ export function WorkProjection({ token }: { token: string | null }) {
             </div>
           ))}
         </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

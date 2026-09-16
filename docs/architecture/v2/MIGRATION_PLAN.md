@@ -371,12 +371,10 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 **已完成（产品形态收敛，2026-09-16）：**
 
-- ✅ 产品形态决策：顶部 **「工作 | 生活」两标签**（参考 ChatGPT Work 形态），**代码不再作为平级标签**——并入工作舱二级视图（概览 | 代码）；**聊天不占标签**——侧边栏「新对话/历史会话」进入，跟随当前 Space。
-- ✅ 工作舱首页（`WorkProjection` 重构）：居中引导「我们要做什么？」+ 中央输入框（新建项目）+ 快捷入口（使用 Ocean Work / 帮我批准 / 代码工作区 / 查看统计）；二级导航「概览 | 代码」，代码子视图复用 `CodeProjection`。
-- ✅ 生活舱首页（`LifeProjection` 增加）：居中引导「今天想记录什么？」+ 记录输入 + 快捷入口（记一笔 / 查看记忆 / 隐私设置），下方保留记忆列表与隐私控制。
-- ✅ App.tsx：顶部标签条（`SPACE_TABS` 两标签 + 下划线激活态）替代桌面 Space 切换条；`spaceHome` 状态区分舱首页与聊天/功能页（顶部标签置 home，侧边栏导航离开 home）；移动端 SpaceSwitcher 保留并同步两标签视图。
-- ✅ 验证：web typecheck + build 通过；docker `web` 容器重建，bundle 含新 Hero 文案（容器内 `grep` 命中）。
-- 提交：`9599c4b`。
+- ✅ 产品形态决策：顶部 **「工作 | 生活」两个居中 Tab**（替代原 Space 切换条），**代码/聊天不占主标签**——主区保持原空间投影逻辑（code→CodeProjection、life→LifeProjection、work→按侧边栏导航），移动端 SpaceSwitcher 保留并同步。
+- ✅ App.tsx：顶部居中 Tab 条（`SPACE_TABS` 两标签 + 下划线激活态 + 右侧当前身份提示）；`activeSpaceId` 由 Tab/移动端切换驱动并持久化 localStorage。
+- ✅ 验证：web typecheck + build 通过；docker `web` 容器重建生效。
+- 提交：`9599c4b`（首版）→ 收敛为仅保留居中 Tab（`8xxxxx`，撤销投影 Hero/二级导航改造）。
 
 **待办（6b+）：**
 
