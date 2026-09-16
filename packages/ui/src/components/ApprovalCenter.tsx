@@ -166,10 +166,10 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                     type="button"
                     onClick={() => setPolicy({ ...policy, mode: m.mode })}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition-all',
+                      'flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-all',
                       active
-                        ? 'border-primary bg-primary/5 shadow-sm'
-                        : 'border-border bg-card hover:border-border/70 hover:bg-muted/30',
+                        ? 'bg-primary/5 ring-1 ring-primary/25 shadow-sm'
+                        : 'bg-muted/40 hover:bg-muted/60',
                     )}
                   >
                     <span className="min-w-0 flex-1">

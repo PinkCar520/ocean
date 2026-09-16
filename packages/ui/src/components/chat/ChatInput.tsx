@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { Dialog, DialogPortal, DialogOverlay, DialogTrigger } from '../ui/dialog';
 import { ApprovalCenter } from '../ApprovalCenter';
 import { beautifyModelName } from '../../lib/chat-utils';
 import { useProjects } from '../../lib/useProjects';
@@ -588,12 +588,15 @@ export const ChatInput = React.memo(({
                     <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>{t('chat.approval_center')}</DialogTitle>
-                  </DialogHeader>
-                  <ApprovalCenter onClose={() => setIsPermissionOpen(false)} />
-                </DialogContent>
+                <DialogPortal>
+                  <DialogOverlay />
+                  {/* 还原 Codex/豆包：无标题栏、无关闭 X 的纯净权限卡片 */}
+                  <div className="fixed left-1/2 top-1/2 z-[10001] w-[400px] -translate-x-1/2 -translate-y-1/2 p-0">
+                    <div className="max-h-[85vh] overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl">
+                      <ApprovalCenter onClose={() => setIsPermissionOpen(false)} />
+                    </div>
+                  </div>
+                </DialogPortal>
               </Dialog>
 
               <button
