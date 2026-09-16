@@ -148,7 +148,7 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                       'flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all',
                       active
                         ? 'bg-primary/5 ring-1 ring-primary/25 shadow-sm'
-                        : 'bg-muted/40 hover:bg-muted/60',
+                        : 'hover:bg-muted/60',
                     )}
                   >
                     <span className="min-w-0 flex-1">
