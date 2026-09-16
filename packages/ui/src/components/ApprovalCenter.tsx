@@ -6,6 +6,9 @@ import {
   Check,
   Loader2,
   ExternalLink,
+  HelpCircle,
+  ShieldCheck,
+  Unlock,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -27,10 +30,15 @@ interface PolicySettings {
 }
 
 // 三档权限模式 → 后端 PermissionSettings.mode
-const TIERS: Array<{ mode: string; key: string; warn?: boolean }> = [
-  { mode: 'default', key: 'ask' },
-  { mode: 'acceptEdits', key: 'ondemand' },
-  { mode: 'bypassPermissions', key: 'allow', warn: true },
+const TIERS: Array<{
+  mode: string;
+  key: string;
+  warn?: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { mode: 'default', key: 'ask', icon: HelpCircle },
+  { mode: 'acceptEdits', key: 'ondemand', icon: ShieldCheck },
+  { mode: 'bypassPermissions', key: 'allow', warn: true, icon: Unlock },
 ];
 
 const ACTION_STYLE: Record<string, string> = {
@@ -151,6 +159,12 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                         : 'hover:bg-muted/60',
                     )}
                   >
+                    <m.icon
+                      className={cn(
+                        'h-4 w-4 shrink-0',
+                        m.warn ? 'text-orange-500' : 'text-primary',
+                      )}
+                    />
                     <span className="min-w-0 flex-1">
                       <span
                         className={cn(
