@@ -53,3 +53,7 @@ apps/cli/dist/
 packages/*/dist/
 
 # claude-code-sourcemap
+
+# Python
+__pycache__/
+*.pyc
