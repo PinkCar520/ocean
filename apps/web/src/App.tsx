@@ -225,8 +225,8 @@ function AppInternal({
     return saved;
   });
   const SPACE_TABS: Array<{ id: SpaceView; label: string }> = [
-    { id: 'work', label: '工作' },
-    { id: 'life', label: '生活' },
+    { id: 'work', label: t('space.tabs.work', '工作') },
+    { id: 'life', label: t('space.tabs.life', '生活') },
   ];
   const [spaces, setSpaces] = useState<SpaceOption[]>([]);
 

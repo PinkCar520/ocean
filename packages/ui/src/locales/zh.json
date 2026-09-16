@@ -81,7 +81,9 @@
     "branch": {
       "current": "当前分支",
       "total": "总分支"
-    }
+    },
+    "voice_unsupported": "您的浏览器不支持原生的语音识别 API，请使用 Chrome 或 Edge 浏览器体验语音听写功能。",
+    "voice_chat_soon": "实时语音对话功能即将上线，敬请期待！"
   },
   "dashboard": {
     "title": "研发效能大盘",
@@ -642,5 +644,42 @@
       "deny": "拒绝",
       "ask": "询问"
     }
+  },
+  "space": {
+    "tabs": {
+      "work": "工作",
+      "life": "生活"
+    }
+  },
+  "active_context": {
+    "project": "当前项目",
+    "switch_project": "切换项目",
+    "inactive_project": "未激活项目",
+    "select_prompt": "请选择一个项目以同步业务领域与执行规范",
+    "select_project": "选择项目",
+    "ready_desc": "正在为您提供专属的业务编排与智能协作支持。",
+    "privacy_mode": "本地隐私保护模式",
+    "privacy_on": "已开启",
+    "env_status": "环境状态",
+    "agent_online": "助手已连接",
+    "agent_waiting": "等待启动",
+    "default_branch": "默认",
+    "pending_changes": "有待处理变更",
+    "system_load": "系统工作负载",
+    "stable_running": "稳定运行中",
+    "cpu_perf": "处理性能",
+    "smart_actions": "智能辅助指令",
+    "path_workdir": "工作区目录",
+    "path_library": "本地资料库",
+    "path_cases": "本地卷宗库",
+    "path_resources": "本地资源库",
+    "path_ops": "运营数据归档",
+    "path_workspace": "本地工作区",
+    "branch_branch": "当前版本/分支",
+    "branch_period": "当前账期",
+    "branch_compliance": "合规版本",
+    "branch_recruit": "招聘批次",
+    "branch_cycle": "业务周期",
+    "branch_status": "当前状态"
   }
 }

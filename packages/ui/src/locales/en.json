@@ -60,7 +60,9 @@
     },
     "tools": {
       "count": "steps"
-    }
+    },
+    "voice_unsupported": "Your browser does not support the native speech recognition API. Please use Chrome or Edge for voice dictation.",
+    "voice_chat_soon": "Real-time voice chat is coming soon!"
   },
   "dashboard": {
     "title": "Engineering Insights",
@@ -620,5 +622,42 @@
       "deny": "Deny",
       "ask": "Ask"
     }
+  },
+  "space": {
+    "tabs": {
+      "work": "Work",
+      "life": "Life"
+    }
+  },
+  "active_context": {
+    "project": "Current Project",
+    "switch_project": "Switch project",
+    "inactive_project": "No Active Project",
+    "select_prompt": "Select a project to sync business domain and execution guidelines",
+    "select_project": "Select project",
+    "ready_desc": "Providing dedicated business orchestration and intelligent collaboration support.",
+    "privacy_mode": "Local Privacy Mode",
+    "privacy_on": "On",
+    "env_status": "Environment",
+    "agent_online": "Agent connected",
+    "agent_waiting": "Waiting to start",
+    "default_branch": "Default",
+    "pending_changes": "Pending changes",
+    "system_load": "System load",
+    "stable_running": "Running stable",
+    "cpu_perf": "Performance",
+    "smart_actions": "Smart Commands",
+    "path_workdir": "Workspace Directory",
+    "path_library": "Local Library",
+    "path_cases": "Local Case Files",
+    "path_resources": "Local Resources",
+    "path_ops": "Ops Archives",
+    "path_workspace": "Local Workspace",
+    "branch_branch": "Branch / Version",
+    "branch_period": "Billing Period",
+    "branch_compliance": "Compliance Version",
+    "branch_recruit": "Hiring Batch",
+    "branch_cycle": "Business Cycle",
+    "branch_status": "Status"
   }
 }

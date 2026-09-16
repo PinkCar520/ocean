@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
+import { useTranslation } from 'react-i18next';
 import { beautifyModelName } from '../../lib/chat-utils';
 import { useProjects } from '../../lib/useProjects';
 import { useInstalledSkills } from '../../lib/useInstalledSkills';
@@ -110,6 +111,7 @@ export const ChatInput = React.memo(({
   isEmpty = false,
   onMainTabChange,
 }: ChatInputProps) => {
+  const { t } = useTranslation();
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: 'Globe', color: 'text-slate-400' };
   const activeDisplayName = beautifyModelName(activeModel.name);
   const ActiveIcon = ICON_MAP[activeModel.icon] || Globe;
@@ -659,7 +661,7 @@ export const ChatInput = React.memo(({
               <button
                 onClick={() => {
                   if (!isSupported) {
-                    alert('您的浏览器不支持原生的语音识别 API，请使用 Chrome 或 Edge 浏览器体验语音听写功能。');
+                    alert(t('chat.voice_unsupported'));
                     return;
                   }
                   handleVoiceToggle();
@@ -675,7 +677,7 @@ export const ChatInput = React.memo(({
 
               {(!localInput.trim() && attachments.length === 0 && !isLoading) ? (
                 <button
-                  onClick={() => alert("实时语音对话功能即将上线，敬请期待！")}
+                  onClick={() => alert(t('chat.voice_chat_soon'))}
                   className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative text-muted-foreground hover:bg-muted hover:text-foreground"
                   title="开启实时语音对话"
                 >
