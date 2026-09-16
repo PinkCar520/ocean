@@ -269,8 +269,8 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 
 **待办（下一轮）：**
 
-- [ ] 跨 Space 越权测试扩展：附件 URL、事件订阅、工具凭证（ID 猜测/查询已固化于 `scripts/test-space-isolation.cjs`）。
-- [ ] Life Space 产品流程接入（前端 Space Switcher 创建入口）。
+- [x] 跨 Space 越权测试扩展：附件 URL、事件订阅、工具凭证（MCP env）三类新增断言，`scripts/test-space-isolation.cjs` 19/19 真实 DB 通过。
+- [x] Life Space 产品流程接入：Space Switcher 菜单「创建生活空间」入口（无 life 时显示）→ `POST /api/spaces/life` → 列表追加 + 自动切换；与原「当前 Space 不存在时自动创建」双保险。
 
 **Phase 5 收口（2026-09-15 第三次提交）**：
 - ✅ 迁移 `20260915000006_finalize_space_boundary`：`documents` 加 `spaceId` 并回填（project 归属 → project.spaceId，否则 work）；5 表 `spaceId` 转非空；FK 语义 SetNull → Restrict（与 NOT NULL 对齐，Space 删除需显式迁移数据）；组合索引 `documents_spaceId` / `sessions_userId_spaceId` / `skill_installations_userId_spaceId`。
