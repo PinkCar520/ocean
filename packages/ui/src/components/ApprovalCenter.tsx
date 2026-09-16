@@ -147,7 +147,7 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                     className={cn(
                       'flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all',
                       active
-                        ? 'bg-primary/5 ring-1 ring-primary/25 shadow-sm'
+                        ? 'bg-primary/5'
                         : 'hover:bg-muted/60',
                     )}
                   >
