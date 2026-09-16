@@ -362,7 +362,7 @@ describe('RunRunner', () => {
               { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
             ],
           },
-          { role: 'tool', toolCallId: 'tc_1', result: { text: '查一下' } },
+          { role: 'tool', toolCallId: 'tc_1', toolName: 'echo', result: { text: '查一下' } },
         ],
       }),
     );

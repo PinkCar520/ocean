@@ -263,10 +263,19 @@ export class RunRunner {
         modelTurns += 1;
         hasModelTurn = true;
       } else if (step.kind === 'tool_call' && step.status === 'succeeded') {
-        const stepInput = (step.input ?? {}) as { toolCall?: { id?: string } };
+        // tool_call 步骤 input 兼容两种形状：嵌套 { toolCall: { id } }（旧）与
+        // 平铺 ToolCall（ToolExecutor 直接落 toolCall 对象）。
+        const stepInput = (step.input ?? {}) as {
+          toolCall?: { id?: string; name?: string };
+          id?: string;
+          name?: string;
+        };
+        const toolCallId = stepInput.toolCall?.id ?? stepInput.id ?? '';
+        const toolName = stepInput.toolCall?.name ?? stepInput.name ?? '';
         messages.push({
           role: 'tool',
-          toolCallId: stepInput.toolCall?.id ?? '',
+          toolCallId,
+          toolName,
           result: step.output,
         });
       }

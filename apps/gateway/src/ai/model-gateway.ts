@@ -19,7 +19,7 @@ export interface ModelToolCall {
 export type ModelMessage =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text?: string; toolCalls?: ModelToolCall[] }
-  | { role: 'tool'; toolCallId: string; result: unknown };
+  | { role: 'tool'; toolCallId: string; toolName: string; result: unknown };
 
 /** 暴露给模型的工具定义（inputSchema 为 zod schema，由 ToolRegistry 工具提供）。 */
 export interface ModelToolSpec {

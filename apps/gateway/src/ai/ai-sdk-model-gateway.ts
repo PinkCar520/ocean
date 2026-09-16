@@ -9,7 +9,10 @@ import type {
   ModelMessage,
 } from './model-gateway';
 
-/** 把与实现无关的 ModelMessage 转换为 ai-sdk UIMessage 格式。 */
+/** 把与实现无关的 ModelMessage 转换为 ai-sdk v7 ModelMessage 格式。
+ * v7 的 ModelMessage：assistant.content 为字符串或 parts 数组（含
+ * tool-call part）；tool 消息 content 必须为 tool-result part 数组，
+ * 且带 toolName + output({type,value})。不可用顶层 toolCalls/字符串 content。 */
 function toUiMessage(message: ModelMessage) {
   switch (message.role) {
     case 'user':
@@ -22,7 +25,7 @@ function toUiMessage(message: ModelMessage) {
           type: 'tool-call',
           toolCallId: tc.id,
           toolName: tc.name,
-          args: tc.input,
+          input: tc.input,
         });
       }
       return { role: 'assistant' as const, content: parts };
@@ -34,7 +37,11 @@ function toUiMessage(message: ModelMessage) {
           {
             type: 'tool-result',
             toolCallId: message.toolCallId,
-            result: message.result,
+            toolName: message.toolName,
+            output: {
+              type: 'json',
+              value: message.result ?? null,
+            },
           },
         ],
       };
