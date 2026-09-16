@@ -18,7 +18,6 @@ import { UploadModule } from './upload/upload.module';
 import { SessionModule } from './session/session.module';
 import { SkillRegistryModule } from './skill-registry/skill-registry.module';
 import { MCPServerModule } from './mcp-server/mcp-server.module';
-import { ApprovalModule } from './skill/approval.module';
 import { ProxyModule } from './proxy/proxy.module';
 import { SsoAuthGuard } from './auth/sso.guard';
 import { TracingModule } from './tracing/tracing.module';
@@ -50,7 +49,6 @@ import { RunModule } from './run/run.module';
     SkillRegistryModule, // 技能注册中心
     SkillModule, // ← Agent Skills 编排核心
     MCPServerModule, // MCP Server 管理
-    ApprovalModule, // AGP 审批治理
     RunModule, // Ocean v2 持久化执行 API
     CodeModule, // Phase 6 6c：Code 投影（仓库/Diff/Review）
     WorkModule, // Phase 6 6d：Work 投影（项目/任务）

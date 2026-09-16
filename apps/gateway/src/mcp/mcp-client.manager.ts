@@ -50,7 +50,6 @@ interface ManagedMCPClient {
   >;
 }
 
-import { ApprovalService } from '../skill/approval.service';
 
 /**
  * MCPClientManager
@@ -74,7 +73,6 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     private moduleRef: ModuleRef,
     @Inject(forwardRef(() => RpcGateway))
     private rpcGateway: RpcGateway,
-    private approvalService: ApprovalService,
   ) {}
 
   private replaceVars(value: string): string {
@@ -296,54 +294,11 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(
           `[MCP:${serverId}] Intercepted 4099 error for ${toolDef.name}. Suspending for user input...`,
         );
-        const errorData =
-          err.data ||
-          (err.message.includes('4099')
-            ? JSON.parse(err.message.substring(err.message.indexOf('{')))
-            : {});
-        const inquiries = errorData.inquiries || [];
-
-        const requestId = await this.approvalService.createRequest({
-          sessionId: params.sessionId || 'global',
-          toolName: toolDef.name,
-          args: { originalParams: params, inquiries },
-        });
-
-        if (params.userId || params.sessionId) {
-          this.rpcGateway.server.emit('mcp_inquiry', {
-            serverId,
-            requestId,
-            toolName: toolDef.name,
-            inquiries,
-            userId: params.userId,
-            sessionId: params.sessionId,
-          });
-        }
-
-        const approved = await this.approvalService.waitForApproval(
-          requestId,
-          5 * 60 * 1000,
-        );
-        if (!approved) {
-          throw new Error(
-            'User cancelled or timed out during MCP intent clarify',
-          );
-        }
-
-        const reqData = await this.approvalService.getRequest(requestId);
-        if (!reqData || !reqData.result) {
-          throw new Error('User approved but no result was saved');
-        }
-
-        this.logger.log(
-          `[MCP:${serverId}] User submitted clarification. Retrying tool execution...`,
-        );
-        const newParams = { ...params, ...reqData.result };
-        return this.executeMcpToolWithRetry(
-          serverId,
-          toolDef,
-          newParams,
-          managed,
+        // 旧轨审批（ApprovalRequest）已退役：MCP 意图澄清（4099）需要在线输入，
+        // 请在 Run 模式下使用（对话窗口弹审批/澄清卡片）。
+        throw new Error(
+          `[MCP:${serverId}] 工具 ${toolDef.name} 需要用户输入（4099）。` +
+            '旧直驱链路已停用在线澄清，请在 Run 模式（CHAT_USE_RUN=true 默认开启）使用。',
         );
       }
 

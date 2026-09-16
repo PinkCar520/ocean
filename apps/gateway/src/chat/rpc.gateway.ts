@@ -7,13 +7,11 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import type { RPCResponse } from '@ocean/core';
-import { ApprovalService } from '../skill/approval.service';
 import { OrchestratorService } from './orchestrator.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
-    private readonly approvalService: ApprovalService,
     private readonly orchestratorService: OrchestratorService,
   ) {}
 
@@ -126,47 +124,6 @@ export class RpcGateway implements OnGatewayConnection, OnGatewayDisconnect {
       payload.status,
       payload.metadata,
     );
-  }
-
-  @SubscribeMessage('request_approval')
-  async handleRequestApproval(
-    client: Socket,
-    payload: { sessionId: string; toolName: string; args: any },
-  ) {
-    console.log(
-      `[RpcGateway] Received approval request from CLI: ${payload.toolName} (Session: ${payload.sessionId})`,
-    );
-
-    try {
-      const requestId = await this.approvalService.createRequest({
-        sessionId: payload.sessionId,
-        toolName: payload.toolName,
-        args: payload.args,
-      });
-
-      // Poll for status or wait
-      const approved = await this.approvalService.waitForApproval(
-        requestId,
-        5 * 60 * 1000,
-      ); // 5 min timeout
-
-      client.emit('approval_resolved', {
-        requestId,
-        approved,
-      });
-      console.log(
-        `[RpcGateway] Approval ${requestId} resolved: ${approved ? 'APPROVED' : 'DENIED'}`,
-      );
-    } catch (err: any) {
-      console.error(
-        `[RpcGateway] Error handling approval request:`,
-        err.message,
-      );
-      client.emit('approval_resolved', {
-        approved: false,
-        error: err.message,
-      });
-    }
   }
 
   // 下发指令到特定用户的 CLI 并等待返回结果

@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
-import { ApprovalService } from './approval.service';
 import { PermissionService } from './permission.service';
 
 /**
@@ -15,7 +14,6 @@ export class InteractiveManager {
   private readonly logger = new Logger(InteractiveManager.name);
 
   constructor(
-    private readonly approvalService: ApprovalService,
     private readonly permissionService: PermissionService,
   ) {}
 
@@ -121,93 +119,14 @@ export class InteractiveManager {
         }
 
         this.logger.warn(
-          `High-risk tool execution intercepted: ${toolName}. Waiting for user approval.`,
+          `High-risk tool execution intercepted: ${toolName}. ` +
+            `旧直驱链路（CHAT_USE_RUN=false）已停用审批，拒绝执行。请在 Run 模式使用（审批弹在对话窗口）。`,
         );
-
-        // 创建审批单
-        const requestId = await this.approvalService.createRequest({
-          sessionId,
-          toolName,
-          args,
-        });
-
-        // 阻塞式等待审批结果（默认 5 分钟超时）
-        const approved = await this.approvalService.waitForApproval(
-          requestId,
-          5 * 60 * 1000,
-        );
-
-        if (!approved) {
-          this.logger.log(`Action "${toolName}" was denied by user.`);
-          return {
-            status: 'denied',
-            message: `Action "${toolName}" was denied by user.`,
-          };
-        }
-
-        this.logger.log(
-          `Action "${toolName}" was approved by user. Executing...`,
-        );
-        // 审批通过，执行原逻辑
-        return originalExecute(args);
+        return {
+          status: 'denied',
+          message: `工具 ${toolName} 需要审批。旧直驱链路已停用审批，请使用默认 Run 模式（审批在对话窗口批准）。`,
+        };
       },
     });
-  }
-
-  /**
-   * 3. MCP 第三方拦截重试机制 (Thread-blocking 轮询流)
-   *
-   * 专用于捕获 MCP 底层工具抛出的 4099 错误 (STATUS_NEED_AGP_INPUT)。
-   * Gateway 将主动建立带有 requestId 的拦截任务，下发卡片给前端，死等前端回复。
-   * 拿到回复后，会将参数打平合并到 params，以供外部循环重试。
-   */
-  public async handleMcpClarify(
-    serverId: string,
-    toolName: string,
-    params: any,
-    sessionId: string,
-    userId: string,
-    inquiries: any[],
-  ): Promise<any> {
-    this.logger.warn(
-      `[MCP:${serverId}] Intercepted 4099 error for ${toolName}. Suspending for user input...`,
-    );
-
-    // 借用 approvalService 建立一个等待任务（利用它的轮询机制）
-    const requestId = await this.approvalService.createRequest({
-      sessionId,
-      toolName,
-      args: { originalParams: params, inquiries }, // 把意图放进 args 供前端或排查用
-    });
-
-    // 这里通过 rpcGateway (通过外部事件或类似审批流) 将卡片推给前端
-    // 在目前的架构中，mcp-client.manager.ts 会负责发 WebSocket 消息，这里只负责等待
-
-    return {
-      requestId,
-      waitForResult: async () => {
-        // 等待前端提交 (5分钟超时)
-        const approved = await this.approvalService.waitForApproval(
-          requestId,
-          5 * 60 * 1000,
-        );
-        if (!approved) {
-          throw new Error(
-            'User cancelled or timed out during MCP intent clarify',
-          );
-        }
-
-        // 拿到前端存回的 result（即用户填写的表单 answers）
-        const reqData = await this.approvalService.getRequest(requestId);
-        if (!reqData || !reqData.result) {
-          throw new Error('User approved but no result was saved');
-        }
-
-        this.logger.log(
-          `[MCP:${serverId}] User submitted clarification. Resuming execution...`,
-        );
-        return reqData.result;
-      },
-    };
   }
 }

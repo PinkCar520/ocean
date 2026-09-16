@@ -339,7 +339,6 @@ model Session {
 
   messages         Message[]
   tasks            Task[] // 编排任务列表
-  approvalRequests ApprovalRequest[] // 该会话的审批请求
 
   expiresAt DateTime?
   createdAt DateTime  @default(now())
@@ -526,27 +525,6 @@ model CapsuleSnapshot {
 
 // 审批请求持久化表
 // 替代原有的内存 Map 存储，支持多实例部署、重启不丢失、超时自动过期
-model ApprovalRequest {
-  id        String  @id @default(uuid()) @db.VarChar(64)
-  sessionId String
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  toolName   String // 需要审批的工具名称
-  args       Json // 工具调用参数快照
-  status     String    @default("pending") // 'pending' | 'approved' | 'denied'
-  result     Json? // 用户提交的表单数据 (MCP 拦截重试用)
-  responseBy String?   @db.VarChar(20) // 操作人工号（谁批准的）
-  responseAt DateTime? // 批准/拒绝时间
-  expiresAt  DateTime // 超时自动过期（默认 30 分钟）
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([sessionId, status])
-  @@index([expiresAt])
-  @@map("approval_requests")
-}
-
 // 技能注册表（兼容 Claude Code / OpenClaw Hub SKILL.md 标准）
 model Skill {
   id            String                       @id @default(uuid())

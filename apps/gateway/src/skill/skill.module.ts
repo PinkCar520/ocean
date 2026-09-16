@@ -6,8 +6,6 @@ import { MCPModule } from '../mcp/mcp.module';
 import { RpcModule } from '../chat/rpc.module';
 import { SessionModule } from '../session/session.module';
 import { SkillController } from './skill.controller';
-import { ApprovalModule } from './approval.module';
-import { ApprovalService } from './approval.service';
 import { PermissionModule } from './permission.module';
 import { PermissionController } from './permission.controller';
 /**
@@ -40,7 +38,6 @@ import { SkillResolver } from '../runtime/skill.resolver';
     MCPModule,
     RpcModule,
     SessionModule,
-    ApprovalModule,
     PermissionModule,
     TracingModule,
     RAGModule,
@@ -50,7 +47,6 @@ import { SkillResolver } from '../runtime/skill.resolver';
   providers: [
     SkillLoader,
     SkillOrchestrator,
-    ApprovalService,
     PermissionService,
     InteractiveManager,
     // Agent Runtime 拆分（第 2 项）：六个独立职责模块，Orchestrator 委托
@@ -64,7 +60,6 @@ import { SkillResolver } from '../runtime/skill.resolver';
   exports: [
     SkillLoader,
     SkillOrchestrator,
-    ApprovalService,
     PermissionService,
     ModelRegistry,
     PromptComposer,
