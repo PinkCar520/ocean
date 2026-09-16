@@ -26,6 +26,8 @@ import {
   generateTitleRequestSchema,
 } from '@ocean/contracts';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
+import { UserService } from '../auth/user.service';
+import { SpaceService } from '../space/space.service';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -39,6 +41,8 @@ export class ChatController {
     private readonly rpcGateway: RpcGateway,
     private readonly sessionService: SessionService,
     private readonly chatService: ChatService,
+    private readonly userService: UserService,
+    private readonly spaceService: SpaceService,
   ) {}
 
   /**
@@ -270,12 +274,17 @@ export class ChatController {
     // 立即返回 200 防止银联服务器超时重试
     res.status(200).send('OK');
 
-    // 异步走 Skill 编排
-    const replyText = await this.skillOrchestrator.textResponse(
+    // Run 驱动（第 3 条）：IM 用户经 SSO 同步并确保 work space 访问后，
+    // 走统一 Run API（worker 工具循环 + 审批 + 幂等），不再直接调模型。
+    const dbUser = await this.userService.syncUserFromSso(
       message.senderId,
-      message.content,
-      'im',
+      message.senderName,
     );
+    const userId = dbUser?.id ?? message.senderId;
+    await this.spaceService.ensureMembershipIfMissing(userId, 'work');
+    const replyText = await this.chatService.runToText(userId, message.content, {
+      source: 'im',
+    });
 
     console.log(
       `[Gateway] Agent Reply to UpChat (${message.senderId}): ${replyText}`,

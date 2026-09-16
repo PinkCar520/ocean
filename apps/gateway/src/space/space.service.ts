@@ -239,4 +239,9 @@ export class SpaceService {
       await this.prisma.membership.create({ data: { spaceId, userId, role } });
     }
   }
+
+  /** 幂等确保用户对 space 有访问（IM/CLI 等非登录渠道首次进入时调用）。 */
+  async ensureMembershipIfMissing(userId: string, spaceId: string) {
+    await this.ensureMembership(userId, spaceId, 'member');
+  }
 }

@@ -127,6 +127,45 @@ export class ChatService {
   }
 
   /**
+   * 非流式 Run 执行（IM/CLI 等同步渠道）：创建 run → 轮询事件至终态 → 拼接文本。
+   * 失败时返回以 "Run failed:" 开头的文本，由调用方原样回给渠道。
+   */
+  async runToText(
+    userId: string,
+    input: string,
+    opts: { spaceId?: string; source?: string } = {},
+  ): Promise<string> {
+    const snapshot = await this.runService.create(userId, {
+      space: { id: opts.spaceId ?? 'work', type: 'work' },
+      input,
+      priority: 'interactive',
+      metadata: { source: opts.source ?? 'im' },
+    });
+    const runId = snapshot.run.id;
+    let after = snapshot.events.at(-1)?.sequence ?? -1;
+    let output = '';
+    const deadline = Date.now() + RUN_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const events = await this.runService.listEvents(runId, userId, after);
+      for (const event of events) {
+        after = Math.max(after, event.sequence);
+        if (event.type === 'run.output_delta') {
+          output += event.delta;
+        } else if (
+          event.type === 'run.status_changed' &&
+          TERMINAL_RUN_STATUSES.has(event.status)
+        ) {
+          return event.status === 'failed'
+            ? `Run failed: ${(event as { message?: string }).message ?? 'see gateway logs'}`
+            : output;
+        }
+      }
+      if (events.length === 0) await sleep(RUN_POLL_MS);
+    }
+    return output || 'Run timeout: check /api/runs for details';
+  }
+
+  /**
    * 获取当前网关配置的模型列表 (供前端动态展示)
    * ⚠️ 注意：前端应优先迁移到使用 SkillOrchestrator.getAvailableModels()
    */
