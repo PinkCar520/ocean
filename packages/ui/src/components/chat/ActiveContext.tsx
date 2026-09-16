@@ -18,12 +18,12 @@ import { cn } from '../../lib/utils';
 import { useWorkspace, type ProjectCategory } from '../../contexts/WorkspaceContext';
 
 const DOMAIN_CONFIG: Record<ProjectCategory, { label: string; icon: any; color: string; bgColor: string; pathLabel: string; branchLabel: string }> = {
-  Engineering: { label: '当前工作区', icon: GitBranch, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10', pathLabel: '工作区目录', branchLabel: '当前版本/分支' },
-  Finance: { label: '当前工作区', icon: Wallet, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10', pathLabel: '本地资料库', branchLabel: '当前账期' },
-  Legal: { label: '当前工作区', icon: Scale, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-500/10', pathLabel: '本地卷宗库', branchLabel: '合规版本' },
-  HR: { label: '当前工作区', icon: Users, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-500/10', pathLabel: '本地资源库', branchLabel: '招聘批次' },
-  Operations: { label: '当前工作区', icon: Briefcase, color: 'text-sky-600 dark:text-sky-400', bgColor: 'bg-sky-500/10', pathLabel: '运营数据归档', branchLabel: '业务周期' },
-  Default: { label: '当前工作区', icon: Terminal, color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-500/10', pathLabel: '本地工作区', branchLabel: '当前状态' },
+  Engineering: { label: '当前项目', icon: GitBranch, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10', pathLabel: '工作区目录', branchLabel: '当前版本/分支' },
+  Finance: { label: '当前项目', icon: Wallet, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10', pathLabel: '本地资料库', branchLabel: '当前账期' },
+  Legal: { label: '当前项目', icon: Scale, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-500/10', pathLabel: '本地卷宗库', branchLabel: '合规版本' },
+  HR: { label: '当前项目', icon: Users, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-500/10', pathLabel: '本地资源库', branchLabel: '招聘批次' },
+  Operations: { label: '当前项目', icon: Briefcase, color: 'text-sky-600 dark:text-sky-400', bgColor: 'bg-sky-500/10', pathLabel: '运营数据归档', branchLabel: '业务周期' },
+  Default: { label: '当前项目', icon: Terminal, color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-500/10', pathLabel: '本地工作区', branchLabel: '当前状态' },
 };
 
 export function ActiveContextPanel({ onAction }: { onAction?: (action: string) => void }) {
@@ -68,7 +68,7 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
               <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-4 text-muted-foreground/80">
                 <FolderOpen className="w-6 h-6" />
               </div>
-              <p className="text-sm font-bold text-foreground mb-1">未激活工作空间</p>
+              <p className="text-sm font-bold text-foreground mb-1">未激活项目</p>
               <p className="text-[11px] text-muted-foreground mb-6 px-4">请选择一个项目以同步业务领域与执行规范</p>
               <button 
                 onClick={handleSwitchProject}
