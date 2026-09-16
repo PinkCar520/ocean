@@ -617,7 +617,7 @@ export const ChatInput = React.memo(({
                 <DropdownMenuContent
                   align="start"
                   side="top"
-                  className="w-[380px] border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-4 backdrop-blur-xl bg-card/95 mb-2"
+                  className="w-[340px] border-border shadow-[0_10px_30px_rgba(0,0,0,0.1)] rounded-2xl p-4 backdrop-blur-xl bg-card/95 mb-2"
                 >
                   <div className="max-h-[70vh] overflow-y-auto">
                     <ApprovalCenter
