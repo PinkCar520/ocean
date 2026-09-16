@@ -4,12 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
-  ChevronDown,
   Loader2,
   ShieldCheck,
-  Plus,
-  Trash2,
-  Layers,
   ExternalLink,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -52,7 +48,6 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,27 +100,8 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
       (m) => policy?.mode === m.mode || (m.mode === 'acceptEdits' && policy?.mode === 'plan'),
     ) ?? TIERS[1];
 
-  const patchRule = (idx: number, patch: Partial<PolicyRule>) => {
-    if (!policy) return;
-    setPolicy({
-      ...policy,
-      rules: policy.rules.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
-    });
-  };
-  const removeRule = (idx: number) => {
-    if (!policy) return;
-    setPolicy({ ...policy, rules: policy.rules.filter((_, i) => i !== idx) });
-  };
-  const addRule = () => {
-    if (!policy) return;
-    setPolicy({
-      ...policy,
-      rules: [...policy.rules, { action: 'ask', pattern: '' }],
-    });
-  };
-
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {/* 标题 + 了解更多 */}
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-[15px] font-bold leading-snug text-foreground">
@@ -166,7 +142,7 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                     type="button"
                     onClick={() => setPolicy({ ...policy, mode: m.mode })}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-xl p-3.5 text-left transition-all',
+                      'flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all',
                       active
                         ? 'bg-primary/5 ring-1 ring-primary/25 shadow-sm'
                         : 'bg-muted/40 hover:bg-muted/60',
@@ -205,94 +181,6 @@ export function ApprovalCenter({ onClose }: { onClose?: () => void }) {
                   </button>
                 );
               })}
-            </div>
-
-            {/* 高级规则（默认折叠） */}
-            <div className="rounded-xl border border-border bg-card">
-              <button
-                type="button"
-                onClick={() => setAdvancedOpen(!advancedOpen)}
-                className="flex w-full items-center justify-between px-3.5 py-2.5"
-              >
-                <span className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
-                  <Layers className="h-3.5 w-3.5" />
-                  {t('approval_center.advanced_rules')}
-                  {policy.rules.length > 0 && (
-                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-black text-muted-foreground">
-                      {policy.rules.length}
-                    </span>
-                  )}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    'h-3.5 w-3.5 text-muted-foreground transition-transform',
-                    advancedOpen && 'rotate-180',
-                  )}
-                />
-              </button>
-              {advancedOpen && (
-                <div className="border-t border-border p-3.5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      {t('approval_center.policy_rules')}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={addRule}
-                      className="flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/5"
-                    >
-                      <Plus className="h-3 w-3" />
-                      {t('approval_center.add_rule')}
-                    </button>
-                  </div>
-                  <div className="flex max-h-[28vh] flex-col gap-1.5 overflow-y-auto pr-1">
-                    {policy.rules.length === 0 && (
-                      <p className="py-3 text-center text-[11px] text-muted-foreground/60">
-                        {t('approval_center.no_rules')}
-                      </p>
-                    )}
-                    {policy.rules.map((r, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5">
-                        <select
-                          value={r.action}
-                          onChange={(e) =>
-                            patchRule(idx, {
-                              action: e.target.value as PolicyRule['action'],
-                            })
-                          }
-                          className={cn(
-                            'h-8 shrink-0 rounded-lg border px-1.5 text-[11px] font-bold outline-none',
-                            ACTION_STYLE[r.action],
-                          )}
-                        >
-                          <option value="allow">{t('approval_center.action_allow')}</option>
-                          <option value="deny">{t('approval_center.action_deny')}</option>
-                          <option value="ask">{t('approval_center.action_ask')}</option>
-                        </select>
-                        <input
-                          value={r.pattern}
-                          onChange={(e) => patchRule(idx, { pattern: e.target.value })}
-                          placeholder="mcp__*:read, Edit(src/**)"
-                          className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-muted/40 px-2 text-[11px] font-mono text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary"
-                        />
-                        <input
-                          value={r.comment ?? ''}
-                          onChange={(e) => patchRule(idx, { comment: e.target.value })}
-                          placeholder={t('approval_center.comment')}
-                          className="h-8 w-24 shrink-0 rounded-lg border border-border bg-muted/40 px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeRule(idx)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* 底部确认按钮：显示当前选中档名称 */}
