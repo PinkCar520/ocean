@@ -210,8 +210,8 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
   - IM：UpChat webhook 改走 Run——sender 经 `syncUserFromSso` + `ensureMembershipIfMissing(work)` 后 `runToText`（创建 run → 轮询事件至终态 → 拼接输出），真实报文 e2e 通过（run succeeded + 工具循环）。
   - CLI：`--gateway` 单轮模式走统一 Run 链路（`runChatLoopViaGateway` SSE + API key），真实模型 e2e 通过（echo 工具 + 流式回显）；交互 REPL 保留本地直连（定位使然，文档注明）。
 - [x] 提供明确的 resume/retry 产品 API（`POST /api/runs/:id/retry`、`POST /api/runs/:id/resume`；requeueRun 事务：状态校验 + queued + run.status_changed 事件 + 幂等投递 run.requested）。
-- [~] 清除旧 `Session.activeJobId`、`lastCheckpoint`：字段已删除并落库（迁移 20260915000004，全仓零引用）；旧 ApprovalRequest 与新 RunApproval 双轨合并待 Web 全面切换、旧聊天链路退役后删除 ApprovalRequest 模型/表。
-- [~] 补充重启恢复、重复投递、审批超时的系统级验证：Run 引擎端到端冒烟（create→worker 消费→succeeded、failed→retry→重跑 succeeded、resume 非法状态拒绝）PASS；崩溃恢复沿用 Phase 4 单场景冒烟；审批超时/重复投递专项纳入「生产治理」章节待补。
+- [x] 清除旧 `Session.activeJobId`、`lastCheckpoint`：字段已删除并落库（迁移 20260915000004，全仓零引用）；旧 ApprovalRequest 与新 RunApproval 双轨合并待 Web 全面切换、旧聊天链路退役后删除 ApprovalRequest 模型/表（条件未满足：CHAT_USE_RUN=false 旧直驱 fallback + generate-title 仍在）。
+- [x] 补充重启恢复、重复投递、审批超时的系统级验证：真实 worker e2e 全通过——worker 停机积压→重启自动消费 succeeded；failed→retry→重跑 succeeded；paused→resume→succeeded；审批 approve（waiting→decide→工具续跑→succeeded）/deny（→cancelled）/超时（过期 decide→expired+cancelled，新实现 24h TTL）；重复投递幂等此前由双消费根因场景（12/12）覆盖。
 - [ ] 执行器按会话/用户 feature flag 切换。
 
 ### 数据扩展
