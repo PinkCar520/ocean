@@ -1,7 +1,9 @@
 import { ChatService } from './chat.service';
 
 function configOf(value: string | undefined) {
-  return { get: jest.fn(() => value) } as never;
+  return {
+    get: jest.fn((key: string, fallback?: string) => value ?? fallback),
+  } as never;
 }
 
 function runServiceMock() {
@@ -52,10 +54,10 @@ function runServiceMock() {
 }
 
 describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
-  it('isRunMode 仅在 CHAT_USE_RUN=true 时开启', () => {
+  it('isRunMode 默认开启，仅 CHAT_USE_RUN=false 关闭', () => {
     expect(
       new ChatService(configOf(undefined), runServiceMock()).isRunMode(),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       new ChatService(configOf('false'), runServiceMock()).isRunMode(),
     ).toBe(false);

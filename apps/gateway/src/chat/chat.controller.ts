@@ -185,6 +185,7 @@ export class ChatController {
 
     const ctx: SkillContext = {
       userId: req.user?.workId || 'Anonymous',
+      dbId: req.user?.dbId,
       source: 'web',
       userMessage,
       workspacePath: body.workspacePath,
@@ -197,7 +198,8 @@ export class ChatController {
       spaceId: resolvedSpaceId,
     };
 
-    // SSE 响应头
+    // SSE 响应头（显式 200：流式响应而非资源创建，useChat 依赖 2xx 读流）
+    res.status(200);
     res.setHeader(
       'Content-Type',
       'text/x-vercel-ai-data-stream; charset=utf-8',

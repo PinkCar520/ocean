@@ -70,6 +70,8 @@ export interface Skill {
 export interface SkillContext {
   /** 当前用户工号 */
   userId: string;
+  /** DB 用户标识（UUID，Space/Membership 归属校验用；Run 链路优先） */
+  dbId?: string;
   /** 来源渠道 */
   source: 'web' | 'cli' | 'im';
   /** 用户所在工作区路径（用于加载 .AIGUIDE.md） */

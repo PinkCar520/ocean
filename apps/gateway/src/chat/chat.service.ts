@@ -48,9 +48,9 @@ export class ChatService {
     private runService: RunService,
   ) {}
 
-  /** 是否启用 Run 驱动聊天（默认关闭，设置 CHAT_USE_RUN=true 切换；Run 引擎稳定后移除旧直驱）。 */
+  /** 是否启用 Run 驱动聊天（默认开启，CHAT_USE_RUN=false 显式回退旧直驱；Run 引擎稳定后移除旧链路）。 */
   isRunMode(): boolean {
-    return this.configService.get('CHAT_USE_RUN') === 'true';
+    return this.configService.get('CHAT_USE_RUN', 'true') !== 'false';
   }
 
   /**
@@ -64,6 +64,7 @@ export class ChatService {
     messages: any[],
     ctx: {
       userId: string;
+      dbId?: string;
       userMessage?: string;
       skillIds?: string[];
       search?: boolean;
@@ -75,9 +76,12 @@ export class ChatService {
     onChunk: (chunk: string) => void,
   ): Promise<void> {
     const input = buildRunPrompt(messages, ctx, modelId);
-    // Phase 6 6b：Run 归属当前 Space（由 controller 按会话归属/body 解析，默认 work）
+    // Phase 6 6b：Run 归属当前 Space（由 controller 按会话归属/body 解析，默认 work）。
+    // Run 链路以 DB 用户标识（dbId）为归属：membership/space 校验存的是 dbId，
+    // 不能使用工号 workId（否则 User W1 has no access）。
+    const userId = ctx.dbId ?? ctx.userId;
     const spaceId = ctx.spaceId ?? 'work';
-    const snapshot = await this.runService.create(ctx.userId, {
+    const snapshot = await this.runService.create(userId, {
       space: { id: spaceId, type: 'work' },
       input,
       priority: 'interactive',
@@ -88,7 +92,7 @@ export class ChatService {
     const deadline = Date.now() + RUN_TIMEOUT_MS;
 
     while (Date.now() < deadline) {
-      const events = await this.runService.listEvents(runId, ctx.userId, after);
+      const events = await this.runService.listEvents(runId, userId, after);
       for (const event of events) {
         after = Math.max(after, event.sequence);
         if (event.type === 'run.output_delta') {
