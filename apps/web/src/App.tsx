@@ -26,6 +26,7 @@ import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceCon
 import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
 import { CodeProjection } from './components/CodeProjection';
 import { WorkProjection } from './components/WorkProjection';
+import { ApprovalPanel } from './components/ApprovalPanel';
 import { LifeProjection } from './components/LifeProjection';
 
 const MODEL_ICONS: Record<string, any> = { Sparkles, Cloud, Cpu, Zap: Sparkles };
@@ -522,6 +523,7 @@ function AppInternal({
         </div>
 
       </main>
+      {token && <ApprovalPanel />}
       {isSettingsOpen && <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}

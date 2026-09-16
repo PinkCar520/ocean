@@ -25,6 +25,7 @@ export function createBashTool() {
   return {
     name: 'bash',
     description: 'Execute shell commands. For Git: 1. NEVER update git config. 2. NEVER skip hooks (--no-verify) unless requested. 3. ALWAYS create NEW commits, NEVER --amend. 4. DO NOT commit secrets (.env). 5. Avoid interactive commands.',
+    requiresApproval: true, // 本地执行 shell 前需用户在对话窗口批准（对齐 Codex trust 模型）
     inputSchema: z.object({
       command: z.string().describe('The shell command to execute'),
       cwd: z.string().optional().describe('Working directory (defaults to context cwd)'),

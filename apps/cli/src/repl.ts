@@ -12,6 +12,7 @@ import {
 } from './llm/chat.js';
 import { resolveApiKey } from './utils/auth.js';
 import { getTools } from './tools/index.js';
+import { createGatewayApprovalHandler } from './approval/gateway-approval.js';
 import { loadSkillsFromDir } from './skills/loader.js';
 import { McpClientManager } from './mcp/client.js';
 import { runInkApp } from './ui/app.js';
@@ -151,12 +152,23 @@ async function runSingleQuery(options: ReplOptions) {
     tools[name] = {
       description: tool.description,
       parameters: tool.inputSchema,
+      requiresApproval: tool.requiresApproval === true,
       execute: async (args: any) => tool.execute(args, toolContext),
     };
   }
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
   const messages: ModelMessage[] = [{ role: 'user', content: query }];
+
+  // 审批门：CLI 负责执行，审批弹在对话窗口（Web 审批面板）——有 API Key 时启用
+  const apiKey = await resolveApiKey();
+  const approvalHandler = apiKey
+    ? createGatewayApprovalHandler({
+        gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
+        apiKey,
+        sessionId: toolContext.sessionId,
+      })
+    : undefined;
 
   const spinner = ora(chalk.cyan('Thinking...')).start();
 
@@ -168,6 +180,7 @@ async function runSingleQuery(options: ReplOptions) {
       model,
       systemPrompt,
       tools,
+      approvalHandler,
       onText: (text: string) => {
         if (streamedText.length === 0) spinner.stop();
         process.stdout.write(text);
@@ -251,12 +264,23 @@ async function runReadlineRepl(options: ReplOptions) {
     tools[name] = {
       description: tool.description,
       parameters: tool.inputSchema,
+      requiresApproval: tool.requiresApproval === true,
       execute: async (args: any) => tool.execute(args, toolContext),
     };
   }
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
   const messages: ModelMessage[] = [];
+
+  // 审批门：CLI 负责执行，审批弹在对话窗口（Web 审批面板）——有 API Key 时启用
+  const apiKey = await resolveApiKey();
+  const approvalHandler = apiKey
+    ? createGatewayApprovalHandler({
+        gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
+        apiKey,
+        sessionId: toolContext.sessionId,
+      })
+    : undefined;
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
@@ -289,7 +313,7 @@ async function runReadlineRepl(options: ReplOptions) {
         const model = modelRouter.getModel();
         let streamedText = '';
         const result = await runChatLoop(messages, {
-          model, systemPrompt, tools,
+          model, systemPrompt, tools, approvalHandler,
           onText: (text: string) => {
             if (!streamedText) spinner.stop();
             process.stdout.write(text);

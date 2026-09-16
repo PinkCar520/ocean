@@ -126,17 +126,51 @@ export async function runChatLoop(
     onToolCall?: (toolName: string, args: any) => void;
     onToolResult?: (toolName: string, result: any) => void;
     signal?: AbortSignal;
+    /**
+     * 审批门（对齐 Codex/Claude：CLI 执行、对话窗口弹审批）。
+     * 传入后，requiresApproval 工具执行前先调 handler，返回 'approved' 才放行。
+     */
+    approvalHandler?: (
+      toolName: string,
+      args: any,
+    ) => Promise<'approved' | 'rejected' | 'expired'>;
   },
 ): Promise<{ text: string; toolCalls: ToolCallPart[]; toolResults: ToolResultPart[] }> {
   let fullText = '';
   const toolCalls: ToolCallPart[] = [];
   const toolResults: ToolResultPart[] = [];
 
+  // 审批门：包装 requiresApproval 工具，未获批准则不执行（返回拒绝文本给模型）
+  const tools = options.approvalHandler
+    ? Object.fromEntries(
+        Object.entries(options.tools).map(([name, tool]) => {
+          const def = tool as any;
+          if (!def.requiresApproval) return [name, tool];
+          return [
+            name,
+            {
+              ...def,
+              execute: async (args: any, toolOptions: any) => {
+                const decision = await options.approvalHandler!(name, args);
+                if (decision !== 'approved') {
+                  return {
+                    type: 'text',
+                    text: `[审批拒绝] 工具 ${name} 未获批准（${decision}），已取消执行。`,
+                  };
+                }
+                return def.execute(args, toolOptions);
+              },
+            },
+          ];
+        }),
+      )
+    : options.tools;
+
   const result = streamText({
     model: options.model,
     messages,
     system: options.systemPrompt,
-    tools: options.tools,
+    tools,
     toolChoice: 'auto',
     stopWhen: stepCountIs(10),
     abortSignal: options.signal,

@@ -5,6 +5,7 @@ import type { ModelMessage } from 'ai';
 import type { CliConfig, LoadedSkill, ModelProvider, ToolContext } from '../types.js';
 import { createModelRouter } from '../llm/model-router.js';
 import { buildSystemPrompt, runChatLoop } from '../llm/chat.js';
+import { createGatewayApprovalHandler } from '../approval/gateway-approval.js';
 import { getTools } from '../tools/index.js';
 import { loadSkillsFromDir } from '../skills/loader.js';
 import { McpClientManager } from '../mcp/client.js';
@@ -26,6 +27,11 @@ export interface InkAppProps {
   mcpManager: McpClientManager;
   mcpTools: Array<{ name: string; description: string }>;
   systemPrompt: string;
+  /** 审批门：CLI 负责执行、对话窗口弹审批（无 API Key 时 undefined） */
+  approvalHandler?: (
+    toolName: string,
+    args: any,
+  ) => Promise<'approved' | 'rejected' | 'expired'>;
 }
 
 import { resolveApiKey, removeCredentials, getAutoUserId, saveCredentials } from '../utils/auth.js';
@@ -84,6 +90,7 @@ export function InkApp(props: InkAppProps) {
         model,
         systemPrompt: props.systemPrompt,
         tools: props.tools,
+        approvalHandler: props.approvalHandler,
         onText: (text: string) => {
           setStreamingText(prev => prev + text);
         },
@@ -331,11 +338,22 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
     tools[name] = {
       description: tool.description,
       parameters: tool.inputSchema,
+      requiresApproval: tool.requiresApproval === true,
       execute: async (args: any) => tool.execute(args, toolContext),
     };
   }
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
+
+  // 审批门：CLI 负责执行，审批弹在对话窗口（Web 审批面板）——有 API Key 时启用
+  const apiKey = await resolveApiKey();
+  const approvalHandler = apiKey
+    ? createGatewayApprovalHandler({
+        gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
+        apiKey,
+        sessionId: toolContext.sessionId,
+      })
+    : undefined;
 
   const { waitUntilExit } = render(
     <InkApp
@@ -349,6 +367,7 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
       mcpManager={mcpManager}
       mcpTools={mcpTools}
       systemPrompt={systemPrompt}
+      approvalHandler={approvalHandler}
     />,
     { exitOnCtrlC: true },
   );
