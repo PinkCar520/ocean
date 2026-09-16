@@ -213,7 +213,7 @@ Catalog 保留原始来源和制品，可重新导出为 `SKILL.md`；旧 Resolv
 - [x] 清除旧 `Session.activeJobId`、`lastCheckpoint`：字段已删除并落库（迁移 20260915000004，全仓零引用）。
 - [x] 审批双轨合并完成：`ApprovalRequest` 模型/表已删除（迁移 20260916000003 DROP TABLE），`approval.service/controller/module` 移除，旧 WebSocket `request_approval` 下线。审批统一走 `RunApproval`：Run 内审批（worker ensureApproval，自动回填 userId）与外部审批（`POST /api/approvals`，CLI 本地执行创建、Web 对话窗口 ApprovalPanel 弹卡决策、CLI 轮询结果）共用一表；旧直驱链路（CHAT_USE_RUN=false）的高危工具拦截降级为直接拒绝（提示走 Run 模式），MCP 4099 在线澄清随之退役。
 - [x] 补充重启恢复、重复投递、审批超时的系统级验证：真实 worker e2e 全通过——worker 停机积压→重启自动消费 succeeded；failed→retry→重跑 succeeded；paused→resume→succeeded；审批 approve（waiting→decide→工具续跑→succeeded）/deny（→cancelled）/超时（过期 decide→expired+cancelled，新实现 24h TTL）；重复投递幂等此前由双消费根因场景（12/12）覆盖。
-- [ ] 执行器按会话/用户 feature flag 切换。
+- [x] ~~执行器按会话/用户 feature flag 切换~~（决策 2026-09-16：开发阶段无需按会话/用户灰度——`CHAT_USE_RUN` 全局开关已完整覆盖新旧执行器切换与回滚（Web 聊天 `chat.service.ts` 默认 `'true'`，`=false` 显式回退旧直驱）；按用户/会话灰度属产品发布策略，待对外灰度发布时按需引入，不纳入 v2 迁移范围。Phase 4 至此收口。）
 
 ### 数据扩展
 
