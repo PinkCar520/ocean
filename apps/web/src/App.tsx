@@ -501,7 +501,6 @@ function AppInternal({
               </button>
             ))}
           </nav>
-          <span className="absolute right-4 text-xs text-muted-foreground">当前身份：{spaceView === 'life' ? (spaces.find((sp) => sp.id === activeSpaceId)?.name ?? '生活空间') : '工作空间'}</span>
         </div>
 
         {/* Main Content Area */}
