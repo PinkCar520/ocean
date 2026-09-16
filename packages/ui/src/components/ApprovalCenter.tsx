@@ -151,7 +151,7 @@ export function ApprovalCenter({
         policy && (
           <>
             {/* 三档单选卡片 */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               {TIERS.map((m) => {
                 const active = activeTier.mode === m.mode;
                 return (
