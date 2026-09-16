@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, Search, Wrench, ClipboardList, Rocket } from 'lucide-react';
 
 interface EmptyStateProps {
@@ -22,6 +22,15 @@ export function EmptyState({
   activeSpaceId,
   onSpaceTabChange,
 }: EmptyStateProps) {
+  // Tab 激活滑块：测量激活按钮位置，切换时平滑滑动
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+  useEffect(() => {
+    const el = tabRefs.current[activeSpaceId ?? ''];
+    if (el) {
+      setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+    }
+  }, [activeSpaceId]);
   const suggestions = [
     { icon: Search, label: t('chat.suggestions.bug_query', '查询缺陷详情'), prompt: '帮我查询缺陷 BUG-1 的详细信息' },
     { icon: Wrench, label: t('chat.suggestions.fix_suggestion', '修复代码问题'), prompt: '分析一下当前项目的代码质量问题并给出修复建议' },
@@ -34,17 +43,24 @@ export function EmptyState({
       {/* Center Logo & Title */}
       <div className="flex flex-col items-center justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {spaceTabs && spaceTabs.length > 0 && (
-          <div className="mb-8 flex items-center gap-1.5 rounded-full border border-border bg-card/60 p-1.5">
+          <div className="relative mb-8 flex items-center gap-1.5 rounded-full border border-border bg-card/60 p-1.5">
+            {indicator && (
+              <span
+                className="absolute rounded-full bg-muted transition-all duration-300 ease-out"
+                style={{ top: 6, bottom: 6, left: indicator.left, width: indicator.width }}
+              />
+            )}
             {spaceTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
+                ref={(el) => { tabRefs.current[tab.id] = el; }}
                 onClick={() => onSpaceTabChange?.(tab.id)}
                 className={
+                  'relative z-10 rounded-full px-6 py-2 text-base font-semibold transition-colors duration-200 outline-none ' +
                   (activeSpaceId === tab.id
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted') +
-                  ' rounded-full px-6 py-2 text-base font-semibold transition-colors outline-none'
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground')
                 }
               >
                 {tab.label}
