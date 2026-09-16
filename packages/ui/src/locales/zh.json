@@ -84,7 +84,8 @@
     },
     "voice_unsupported": "您的浏览器不支持原生的语音识别 API，请使用 Chrome 或 Edge 浏览器体验语音听写功能。",
     "voice_chat_soon": "实时语音对话功能即将上线，敬请期待！",
-    "permissions": "审批权限"
+    "permissions": "审批权限",
+    "approval_center": "审批与权限"
   },
   "dashboard": {
     "title": "研发效能大盘",
@@ -682,5 +683,27 @@
     "branch_recruit": "招聘批次",
     "branch_cycle": "业务周期",
     "branch_status": "当前状态"
+  },
+  "approval_center": {
+    "tab_approvals": "待审批",
+    "tab_policy": "权限策略",
+    "empty_approvals": "暂无待审批",
+    "empty_hint": "CLI 本地执行或 Run 触发需要审批的工具时，会在这里出现",
+    "approve": "批准",
+    "reject": "拒绝",
+    "decision_failed": "决策失败",
+    "policy_mode": "审批模式",
+    "policy_rules": "权限规则",
+    "add_rule": "添加规则",
+    "no_rules": "暂无规则，默认按模式判定",
+    "action_allow": "允许",
+    "action_deny": "拒绝",
+    "action_ask": "询问",
+    "comment": "备注",
+    "save": "保存",
+    "saved": "已保存",
+    "save_failed": "保存失败",
+    "load_failed": "加载失败",
+    "loading": "加载中…"
   }
 }

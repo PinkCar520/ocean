@@ -6,7 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { PermissionManager } from '../PermissionManager';
+import { ApprovalCenter } from '../ApprovalCenter';
 import { beautifyModelName } from '../../lib/chat-utils';
 import { useProjects } from '../../lib/useProjects';
 import { useInstalledSkills } from '../../lib/useInstalledSkills';
@@ -583,16 +583,16 @@ export const ChatInput = React.memo(({
                 <DialogTrigger asChild>
                   <button
                     className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-primary transition-all shrink-0"
-                    title={t('chat.permissions')}
+                    title={t('chat.approval_center')}
                   >
                     <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>{t('chat.permissions')}</DialogTitle>
+                    <DialogTitle>{t('chat.approval_center')}</DialogTitle>
                   </DialogHeader>
-                  <PermissionManager />
+                  <ApprovalCenter />
                 </DialogContent>
               </Dialog>
 

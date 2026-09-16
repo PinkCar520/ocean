@@ -63,7 +63,8 @@
     },
     "voice_unsupported": "Your browser does not support the native speech recognition API. Please use Chrome or Edge for voice dictation.",
     "voice_chat_soon": "Real-time voice chat is coming soon!",
-    "permissions": "Permissions"
+    "permissions": "Permissions",
+    "approval_center": "Approvals & Permissions"
   },
   "dashboard": {
     "title": "Engineering Insights",
@@ -660,5 +661,27 @@
     "branch_recruit": "Hiring Batch",
     "branch_cycle": "Business Cycle",
     "branch_status": "Status"
+  },
+  "approval_center": {
+    "tab_approvals": "Approvals",
+    "tab_policy": "Policy",
+    "empty_approvals": "No pending approvals",
+    "empty_hint": "Requests appear here when CLI local execution or a Run needs approval",
+    "approve": "Approve",
+    "reject": "Reject",
+    "decision_failed": "Decision failed",
+    "policy_mode": "Permission mode",
+    "policy_rules": "Rules",
+    "add_rule": "Add rule",
+    "no_rules": "No rules; default mode applies",
+    "action_allow": "Allow",
+    "action_deny": "Deny",
+    "action_ask": "Ask",
+    "comment": "Note",
+    "save": "Save",
+    "saved": "Saved",
+    "save_failed": "Save failed",
+    "load_failed": "Failed to load",
+    "loading": "Loading…"
   }
 }
