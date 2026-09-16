@@ -34,7 +34,7 @@ export function EmptyState({
       {/* Center Logo & Title */}
       <div className="flex flex-col items-center justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {spaceTabs && spaceTabs.length > 0 && (
-          <div className="mb-8 flex items-center gap-1.5 rounded-full border border-border bg-card/70 p-1.5 shadow-sm">
+          <div className="mb-8 flex items-center gap-1.5 rounded-full border border-border bg-card/60 p-1.5">
             {spaceTabs.map((tab) => (
               <button
                 key={tab.id}
@@ -42,7 +42,7 @@ export function EmptyState({
                 onClick={() => onSpaceTabChange?.(tab.id)}
                 className={
                   (activeSpaceId === tab.id
-                    ? 'bg-foreground text-background shadow'
+                    ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted') +
                   ' rounded-full px-6 py-2 text-base font-semibold transition-colors outline-none'
                 }
