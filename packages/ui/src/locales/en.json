@@ -690,6 +690,7 @@
     "mode_ondemand_desc": "Only request approval for detected risky operations",
     "mode_allow_title": "Allow everything",
     "mode_allow_desc": "Unrestricted access to the internet and any files on your computer",
-    "advanced_rules": "Advanced rules"
+    "advanced_rules": "Advanced rules",
+    "know_more": "Learn more"
   }
 }

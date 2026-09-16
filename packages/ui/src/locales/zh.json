@@ -712,6 +712,7 @@
     "mode_ondemand_desc": "仅对检测到的风险操作请求批准",
     "mode_allow_title": "全部允许",
     "mode_allow_desc": "可不受限制地访问互联网和你电脑上的任何文件",
-    "advanced_rules": "高级规则"
+    "advanced_rules": "高级规则",
+    "know_more": "了解更多"
   }
 }

@@ -592,7 +592,7 @@ export const ChatInput = React.memo(({
                   <DialogHeader>
                     <DialogTitle>{t('chat.approval_center')}</DialogTitle>
                   </DialogHeader>
-                  <ApprovalCenter />
+                  <ApprovalCenter onClose={() => setIsPermissionOpen(false)} />
                 </DialogContent>
               </Dialog>
 
