@@ -151,7 +151,7 @@ export function ApprovalCenter({
         policy && (
           <>
             {/* 三档单选卡片 */}
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {TIERS.map((m) => {
                 const active = activeTier.mode === m.mode;
                 return (
@@ -161,7 +161,7 @@ export function ApprovalCenter({
                     onClick={() => selectMode(m.mode)}
                     disabled={saving}
                     className={cn(
-                      'flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-left transition-all hover:bg-muted/60',
+                      'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all hover:bg-muted/60',
                     )}
                   >
                     <m.icon className="h-4 w-4 shrink-0 text-foreground" />
