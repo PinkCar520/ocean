@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
-import { useTranslation } from 'react-i18next';
 import { beautifyModelName } from '../../lib/chat-utils';
 import { useProjects } from '../../lib/useProjects';
 import { useInstalledSkills } from '../../lib/useInstalledSkills';
@@ -111,7 +110,6 @@ export const ChatInput = React.memo(({
   isEmpty = false,
   onMainTabChange,
 }: ChatInputProps) => {
-  const { t } = useTranslation();
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: 'Globe', color: 'text-slate-400' };
   const activeDisplayName = beautifyModelName(activeModel.name);
   const ActiveIcon = ICON_MAP[activeModel.icon] || Globe;
