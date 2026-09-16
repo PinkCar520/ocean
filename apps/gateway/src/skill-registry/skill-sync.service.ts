@@ -40,7 +40,7 @@ export class SkillSyncService implements OnModuleInit {
         const tags = this.inferTags(skill.compatibility || '');
 
         if (!existing) {
-          await this.skillService.createSkill({
+          const created = await this.skillService.createSkill({
             slug,
             name: skill.name,
             description: skill.description,
@@ -56,7 +56,15 @@ export class SkillSyncService implements OnModuleInit {
           });
           createdCount++;
           this.logger.log(`  ✓ Auto-synced new skill: ${skill.name}`);
+          await this.skillService.refreshSkillEmbedding(
+            created.id,
+            skill.content,
+          );
         } else {
+          // 内容未变化则跳过（避免每次启动重复写库与重算向量）
+          if (existing.content === skill.content) {
+            continue;
+          }
           await this.skillService.updateSkill(existing.id, {
             name: skill.name,
             description: skill.description,
@@ -67,6 +75,10 @@ export class SkillSyncService implements OnModuleInit {
           });
           updatedCount++;
           this.logger.log(`  ↻ Updated existing skill: ${skill.name}`);
+          await this.skillService.refreshSkillEmbedding(
+            existing.id,
+            skill.content,
+          );
         }
       }
       this.logger.log(
