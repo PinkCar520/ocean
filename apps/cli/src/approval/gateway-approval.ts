@@ -28,8 +28,16 @@ export function createGatewayApprovalHandler(options: {
   };
   const hintText = options.hint ?? '请在对话窗口（Web 审批面板）批准或拒绝';
 
+  // 同工具并发去重：模型在一次响应中并行发起多个同工具调用时，合并为同一张审批单
+  // （避免 CLI 同时轮询多张 pending、Web 面板出现重复卡片）。
+  const inflight = new Map<string, Promise<'approved' | 'rejected' | 'expired'>>();
+
   return async (toolName: string, args: any) => {
-    let approvalId: string;
+    const existing = inflight.get(toolName);
+    if (existing) return existing;
+
+    const run = (async (): Promise<'approved' | 'rejected' | 'expired'> => {
+      let approvalId: string;
     try {
       const res = await fetch(`${base}/api/approvals`, {
         method: 'POST',
@@ -86,7 +94,12 @@ export function createGatewayApprovalHandler(options: {
         /* Gateway 瞬时不可用，继续轮询 */
       }
     }
-    console.log(chalk.red(`✗ [审批] ${toolName} 等待审批超时。`));
-    return 'expired';
+      console.log(chalk.red(`✗ [审批] ${toolName} 等待审批超时。`));
+      return 'expired';
+    })();
+
+    inflight.set(toolName, run);
+    run.finally(() => inflight.delete(toolName));
+    return run;
   };
 }
