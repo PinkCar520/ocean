@@ -6,9 +6,9 @@ import {
   Check,
   Loader2,
   ExternalLink,
-  HelpCircle,
-  ShieldCheck,
-  Unlock,
+  Hand,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -36,9 +36,9 @@ const TIERS: Array<{
   warn?: boolean;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { mode: 'default', key: 'ask', icon: HelpCircle },
-  { mode: 'acceptEdits', key: 'ondemand', icon: ShieldCheck },
-  { mode: 'bypassPermissions', key: 'allow', warn: true, icon: Unlock },
+  { mode: 'default', key: 'ask', icon: Hand },
+  { mode: 'acceptEdits', key: 'ondemand', icon: CheckCircle2 },
+  { mode: 'bypassPermissions', key: 'allow', warn: true, icon: AlertCircle },
 ];
 
 const ACTION_STYLE: Record<string, string> = {
