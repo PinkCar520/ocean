@@ -5,6 +5,9 @@ import * as os from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+// 统一应用显示名（菜单栏 / Dock / 关于页 / 通知），避免 dev 模式回退到包名 ocean-desktop
+app.setName('Ocean')
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -58,7 +61,7 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     app.dock?.setIcon(icon)
     app.setAboutPanelOptions({
-      applicationName: app.getName(),
+      applicationName: 'Ocean',
       applicationVersion: app.getVersion(),
       version: app.getVersion(),
       iconPath: join(__dirname, '../../resources/icon.png')
@@ -66,7 +69,7 @@ app.whenReady().then(() => {
   }
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.ocean.desktop')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
