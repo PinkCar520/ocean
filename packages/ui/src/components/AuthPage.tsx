@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Sparkles, Mail, Lock, User, 
   ArrowRight, Globe, CheckCircle2, 
@@ -9,12 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation, Trans } from 'react-i18next';
 import { api } from '../lib/api-client';
 
-export interface CredentialVault {
-  get: () => Promise<{ email: string; password: string } | null>;
-  save: (c: { email: string; password: string }) => Promise<unknown>;
-  clear: () => Promise<unknown>;
-}
-
 interface AuthPageProps {
   onLoginSuccess: (token: string, user: any) => void;
   authenticate?: (input: {
@@ -23,11 +17,9 @@ interface AuthPageProps {
     password: string;
     name?: string;
   }) => Promise<{ user?: any; error?: string }>;
-  /** 桌面端（Electron）安全凭据保险库：挂载时自动填充，登录成功自动保存 */
-  credentials?: CredentialVault;
 }
 
-export function AuthPage({ onLoginSuccess, authenticate, credentials }: AuthPageProps) {
+export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,25 +29,6 @@ export function AuthPage({ onLoginSuccess, authenticate, credentials }: AuthPage
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-
-  // 桌面端：打开登录页时从系统钥匙串自动填充已保存的凭据
-  useEffect(() => {
-    if (!credentials) return;
-    let cancelled = false;
-    credentials
-      .get()
-      .then((c) => {
-        if (cancelled || !c) return;
-        setEmail(c.email);
-        setPassword(c.password);
-      })
-      .catch(() => {
-        /* 钥匙串不可用时静默 */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [credentials]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,16 +44,10 @@ export function AuthPage({ onLoginSuccess, authenticate, credentials }: AuthPage
       if (authenticate) {
         const result = await authenticate({ mode, email, password, name });
         if (result.error || !result.user) throw new Error(result.error || 'Authentication failed');
-        if (mode === 'login' && credentials) {
-          credentials.save({ email, password }).catch(() => {});
-        }
         onLoginSuccess('', result.user);
         return;
       }
       const data = await api.post<any>(endpoint, body);
-      if (mode === 'login' && credentials) {
-        credentials.save({ email, password }).catch(() => {});
-      }
       onLoginSuccess(data.access_token, data.user);
     } catch (err: any) {
       setError(err.message);

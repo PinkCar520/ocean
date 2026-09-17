@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
@@ -107,53 +107,6 @@ app.whenReady().then(() => {
       return { success: false, canceled: true };
     } catch (err: any) {
       console.error('Failed to open folder picker:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  // ── Secure Credential Vault (system keychain via safeStorage) ──
-  // Electron 无浏览器密码管理器，autocomplete 不生效；用系统钥匙串做应用内自动填充。
-  const credentialsFile = () => join(app.getPath('userData'), 'credentials.bin');
-
-  const readCredentials = (): { email: string; password: string } | null => {
-    try {
-      if (!safeStorage.isEncryptionAvailable()) return null;
-      const p = credentialsFile();
-      if (!fs.existsSync(p)) return null;
-      const parsed = JSON.parse(safeStorage.decryptString(fs.readFileSync(p)));
-      if (parsed && typeof parsed.email === 'string' && typeof parsed.password === 'string') {
-        return { email: parsed.email, password: parsed.password };
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  };
-
-  ipcMain.handle('credentials-get', () => readCredentials());
-
-  ipcMain.handle('credentials-save', (_, c: { email: string; password: string }) => {
-    try {
-      if (!safeStorage.isEncryptionAvailable()) {
-        return { success: false, error: 'System encryption unavailable' };
-      }
-      if (!c || typeof c.email !== 'string' || typeof c.password !== 'string') {
-        return { success: false, error: 'Invalid credentials payload' };
-      }
-      fs.writeFileSync(credentialsFile(), safeStorage.encryptString(JSON.stringify(c)));
-      return { success: true };
-    } catch (err: any) {
-      console.error('Failed to save credentials:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('credentials-clear', () => {
-    try {
-      fs.rmSync(credentialsFile(), { force: true });
-      return { success: true };
-    } catch (err: any) {
-      console.error('Failed to clear credentials:', err);
       return { success: false, error: err.message };
     }
   });
