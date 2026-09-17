@@ -71,11 +71,14 @@ export function ApprovalCenter({
       });
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as PolicySettings;
+      const loadedMode = data.mode ?? 'acceptEdits';
       setPolicy({
-        mode: data.mode ?? 'default',
+        mode: loadedMode,
         maxMcpOutputTokens: data.maxMcpOutputTokens ?? 25000,
         rules: Array.isArray(data.rules) ? data.rules : [],
       });
+      // 打开弹窗即以后端为准同步按钮（写入 localStorage），消除双源不一致
+      onModeChange?.(loadedMode);
     } catch {
       setError(t('approval_center.load_failed'));
     } finally {

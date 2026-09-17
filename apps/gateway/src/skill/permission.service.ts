@@ -12,10 +12,11 @@ import {
 
 /**
  * Default settings when no settings.json is found.
- * Matches Claude Code's 'default' mode behavior.
+ * 统一默认「按需确认」(acceptEdits)：自动批准低风险操作、仅对风险操作询问，
+ * 与前端输入框按钮默认值一致（Codex 等主流 Agent 同款默认）。
  */
 const DEFAULT_SETTINGS: PermissionSettings = {
-  mode: 'default',
+  mode: 'acceptEdits',
   maxMcpOutputTokens: 25_000,
 };
 
@@ -154,7 +155,7 @@ export class PermissionService {
     if (!this.cachedSettings) {
       this.loadSettings(workspacePath);
     }
-    return this.cachedSettings?.mode ?? 'default';
+    return this.cachedSettings?.mode ?? 'acceptEdits';
   }
 
   /**
