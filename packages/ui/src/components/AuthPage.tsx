@@ -142,6 +142,8 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                     <input 
                       type="text"
+                      name="name"
+                      autoComplete="name"
                       required
                       value={name}
                       onChange={e => setName(e.target.value)}
@@ -159,6 +161,8 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <input 
                   type="text"
+                  name="email"
+                  autoComplete="username"
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -177,6 +181,8 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <input 
                   type="password"
+                  name="password"
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
