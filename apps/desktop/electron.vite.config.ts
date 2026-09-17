@@ -27,6 +27,9 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
+      // 独立端口：避免与 Web 的 next dev (5173) 冲突；浏览器 IPv6 优先曾连到本进程
+      port: 5174,
+      strictPort: true,
       proxy: {
         '/api': {
           target: proxyTarget,
