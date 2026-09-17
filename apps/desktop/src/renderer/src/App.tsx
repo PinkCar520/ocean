@@ -242,7 +242,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     return (
       <>
         <Toaster />
-        <AuthPage onLoginSuccess={handleLoginSuccess} />
+        <AuthPage onLoginSuccess={handleLoginSuccess} credentials={window.api?.credentials} />
       </>
     );
   }

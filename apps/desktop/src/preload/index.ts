@@ -5,7 +5,12 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   createLocalProject: (name: string) => ipcRenderer.invoke('create-local-project', name),
   openFolderPicker: () => ipcRenderer.invoke('open-folder-picker'),
-  revealInFinder: (path: string) => ipcRenderer.invoke('reveal-in-finder', path)
+  revealInFinder: (path: string) => ipcRenderer.invoke('reveal-in-finder', path),
+  credentials: {
+    get: () => ipcRenderer.invoke('credentials-get'),
+    save: (c: { email: string; password: string }) => ipcRenderer.invoke('credentials-save', c),
+    clear: () => ipcRenderer.invoke('credentials-clear')
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
