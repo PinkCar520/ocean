@@ -47,6 +47,13 @@ export class AuthService {
       },
     });
 
+    // Phase 5：新用户自动成为默认 Work Space owner（迁移种子只回填迁移时已存在用户）
+    await this.prisma.membership.upsert({
+      where: { spaceId_userId: { spaceId: 'work', userId: user.id } },
+      create: { spaceId: 'work', userId: user.id, role: 'owner' },
+      update: {},
+    });
+
     return this.login(user);
   }
 

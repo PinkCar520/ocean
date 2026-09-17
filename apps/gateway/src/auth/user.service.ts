@@ -12,7 +12,7 @@ export class UserService {
   async syncUserFromSso(workId: string, name?: string) {
     if (!workId || workId === 'Guest') return null;
 
-    return this.prisma.user.upsert({
+    const user = await this.prisma.user.upsert({
       where: { workId },
       update: {
         name: name || undefined,
@@ -33,6 +33,15 @@ export class UserService {
         preferences: true,
       },
     });
+
+    // Phase 5：SSO 用户同样自动成为默认 Work Space owner（幂等）
+    await this.prisma.membership.upsert({
+      where: { spaceId_userId: { spaceId: 'work', userId: user.id } },
+      create: { spaceId: 'work', userId: user.id, role: 'owner' },
+      update: {},
+    });
+
+    return user;
   }
 
   /**
