@@ -4,6 +4,23 @@ export interface OceanBaseEvent {
   timestamp: number;
 }
 
+export {
+  IS_PUBLIC_KEY,
+  evaluateTool,
+  isPermissionSettings,
+  isReadOnlyTool,
+  matchRule,
+  normalizeRules,
+  wildcardToRegex,
+} from './permission-policy.js';
+export type {
+  NormalizedRule,
+  PermissionAction,
+  PermissionMode,
+  PermissionRule,
+  PermissionSettings,
+} from './permission-policy.js';
+
 export interface BugDetail {
   id: string;
   title: string;
@@ -129,4 +146,4 @@ export type {
   UIText,
   UIKit,
   ToolResult,
-} from './ui-protocol';
+} from './ui-protocol.js';

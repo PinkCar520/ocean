@@ -62,27 +62,33 @@ export function WorkspaceProvider({
   token: string | null;
   initialActiveProject?: ProjectInfo | null;
 }) {
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(() => {
-    // 持久化：优先服务端初始项目，其次恢复 localStorage 中的当前工作区
-    if (initialActiveProject?.id) return initialActiveProject.id;
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ocean_active_project');
-      return saved || null;
-    }
-    return null;
-  });
+  // 首屏必须与 SSR 一致；localStorage 偏好在 hydration 后恢复。
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(
+    initialActiveProject?.id ?? null,
+  );
   const [activeProject, setActiveProject] = useState<ProjectInfo | null>(initialActiveProject);
   const hasInitialProjectRef = React.useRef(Boolean(initialActiveProject));
+  const [projectPreferenceHydrated, setProjectPreferenceHydrated] = useState(
+    Boolean(initialActiveProject),
+  );
+
+  useEffect(() => {
+    if (!initialActiveProject?.id) {
+      setActiveProjectId(localStorage.getItem('ocean_active_project') || null);
+    }
+    setProjectPreferenceHydrated(true);
+  }, [initialActiveProject?.id]);
 
   // 当前工作区/项目选择持久化（刷新不丢失）
   useEffect(() => {
+    if (!projectPreferenceHydrated) return;
     try {
       if (activeProjectId) localStorage.setItem('ocean_active_project', activeProjectId);
       else localStorage.removeItem('ocean_active_project');
     } catch {
       /* localStorage 不可用时静默 */
     }
-  }, [activeProjectId]);
+  }, [activeProjectId, projectPreferenceHydrated]);
   const [isLoading, setIsLoading] = useState(false);
   const [mcpMetrics, setMcpMetrics] = useState<MCPMetric[]>([]);
   const [node, setNode] = useState<NodeTelemetry>({

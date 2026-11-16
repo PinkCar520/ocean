@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CliConfig } from '../types.js';
 
-interface McpServerEntry {
+export interface McpServerEntry {
   id: string;
   name: string;
   command: string;
@@ -17,12 +17,20 @@ interface McpConfigFile {
   mcpServers: McpServerEntry[];
 }
 
+export interface McpToolDefinition {
+  name: string;
+  description: string;
+  server: string;
+  inputSchema: Record<string, unknown>;
+}
+
 /**
  * MCP Client Manager for CLI
  * Discovers and connects to MCP servers, exposes tools to AI
  */
 export class McpClientManager {
   private clients = new Map<string, Client>();
+  private toolRoutes = new Map<string, { serverId: string; toolName: string }>();
   private config: McpConfigFile | null = null;
 
   constructor(private cliConfig: CliConfig) { }
@@ -45,12 +53,21 @@ export class McpClientManager {
     for (const p of pathsToTry) {
       if (fs.existsSync(p!)) {
         const raw = fs.readFileSync(p!, 'utf-8');
-        this.config = JSON.parse(raw);
+        this.config = normalizeMcpConfig(JSON.parse(raw));
         // Resolve ${OCEAN_ROOT} in paths
         if (oceanRoot && this.config) {
           this.config.mcpServers = this.config.mcpServers.map((s: McpServerEntry) => ({
             ...s,
-            args: s.args.map(a => a.replace(/\$\{OCEAN_ROOT\}/g, oceanRoot)),
+            command: replaceEnvVars(s.command, {
+              ...process.env,
+              OCEAN_ROOT: oceanRoot,
+              GATEWAY_ROOT: process.env.GATEWAY_ROOT || path.join(oceanRoot, 'apps', 'gateway'),
+            }),
+            args: s.args.map((arg) => replaceEnvVars(arg, {
+              ...process.env,
+              OCEAN_ROOT: oceanRoot,
+              GATEWAY_ROOT: process.env.GATEWAY_ROOT || path.join(oceanRoot, 'apps', 'gateway'),
+            })),
           }));
         }
         console.log(`[MCP] Loaded config from: ${p}`);
@@ -70,7 +87,12 @@ export class McpClientManager {
       await this.loadConfig();
     }
 
-    const servers = this.config!.mcpServers.filter(s => s.enabled !== false);
+    // Starting an MCP command executes local code. Require explicit opt-in in project config.
+    const servers = this.config!.mcpServers.filter((server) => server.enabled === true);
+    const disabledCount = this.config!.mcpServers.length - servers.length;
+    if (disabledCount > 0) {
+      console.log(`[MCP] Skipped ${disabledCount} server(s) without explicit enabled: true trust.`);
+    }
 
     for (const server of servers) {
       try {
@@ -115,8 +137,9 @@ export class McpClientManager {
   /**
    * Get all tools from all connected MCP servers
    */
-  async getAllTools() {
-    const tools: Array<{ name: string; description: string; server: string }> = [];
+  async getAllTools(): Promise<McpToolDefinition[]> {
+    const tools: McpToolDefinition[] = [];
+    this.toolRoutes.clear();
 
     for (const [serverId, client] of this.clients) {
       try {
@@ -128,7 +151,9 @@ export class McpClientManager {
             name: `mcp__${serverId}__${toolName}`,
             description: tool.description || '',
             server: serverId,
+            inputSchema: (tool.inputSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>,
           });
+          this.toolRoutes.set(`mcp__${serverId}__${toolName}`, { serverId, toolName });
         }
       } catch {
         // ignore
@@ -141,23 +166,19 @@ export class McpClientManager {
   /**
    * Call a tool on an MCP server
    */
-  async callTool(toolName: string, args: Record<string, any>) {
-    // Parse tool name: mcp__serverId__toolName
-    const parts = toolName.split('__');
-    if (parts.length !== 3 || parts[0] !== 'mcp') {
-      throw new Error(`Invalid MCP tool name: ${toolName}. Expected format: mcp__serverId__toolName`);
-    }
-
-    const [, serverId, tool] = parts;
+  async callTool(toolName: string, args: Record<string, any>, options: { signal?: AbortSignal } = {}) {
+    const route = this.toolRoutes.get(toolName);
+    if (!route) throw new Error(`Unknown MCP tool: ${toolName}`);
+    const { serverId, toolName: remoteToolName } = route;
     const client = this.clients.get(serverId);
     if (!client) {
       throw new Error(`MCP server not connected: ${serverId}`);
     }
 
     const result = await client.callTool({
-      name: tool,
+      name: remoteToolName,
       arguments: args,
-    });
+    }, undefined, { signal: options.signal, timeout: 60_000 });
 
     return result;
   }
@@ -176,6 +197,7 @@ export class McpClientManager {
       }
     }
     this.clients.clear();
+    this.toolRoutes.clear();
 
     // Force unref any lingering ChildProcess handles from the MCP SDK.
     // The SDK's close() doesn't always properly unref the underlying process,
@@ -196,13 +218,60 @@ function replaceEnvVars(str: string, env: NodeJS.ProcessEnv): string {
   return str.replace(/\$\{(\w+)\}/g, (_, key) => env[key] || '');
 }
 
+export function normalizeMcpConfig(value: unknown): McpConfigFile {
+  if (!value || typeof value !== 'object' || !('mcpServers' in value)) {
+    throw new Error('MCP config must contain mcpServers');
+  }
+  const source = (value as { mcpServers: unknown }).mcpServers;
+  const entries: Array<[string, any]> = Array.isArray(source)
+    ? source.map((entry: any) => [String(entry?.id ?? ''), entry])
+    : source && typeof source === 'object'
+      ? Object.entries(source)
+      : [];
+  if (!Array.isArray(source) && (!source || typeof source !== 'object')) {
+    throw new Error('MCP mcpServers must be an array or object');
+  }
+
+  const ids = new Set<string>();
+  const mcpServers = entries.map(([key, raw]: [string, any]) => {
+    const id = raw?.id || key;
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(id) || ids.has(id)) {
+      throw new Error(`MCP server id is invalid or duplicated: ${id}`);
+    }
+    ids.add(id);
+    if (typeof raw?.command !== 'string' || !raw.command.trim()) {
+      throw new Error(`MCP server ${id} must define a stdio command`);
+    }
+    if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') {
+      throw new Error(`MCP server ${id} enabled must be a boolean`);
+    }
+    if (raw.args !== undefined && (!Array.isArray(raw.args) || raw.args.some((arg: unknown) => typeof arg !== 'string'))) {
+      throw new Error(`MCP server ${id} args must be an array of strings`);
+    }
+    const env = raw.env ?? {};
+    if (!env || typeof env !== 'object' || Array.isArray(env)
+      || Object.values(env).some((item) => typeof item !== 'string')) {
+      throw new Error(`MCP server ${id} env must contain string values`);
+    }
+    return {
+      id,
+      name: typeof raw.name === 'string' && raw.name.trim() ? raw.name : id,
+      command: raw.command,
+      args: raw.args ?? [],
+      env: env as Record<string, string>,
+      enabled: raw.enabled,
+    };
+  });
+  return { mcpServers };
+}
+
 /**
  * Find the Ocean project root by walking up the directory tree
  */
 function findRoot(startDir: string): string | null {
   let current = startDir;
   while (true) {
-    if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml')) && fs.existsSync(path.join(current, 'agent'))) {
+    if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml')) && fs.existsSync(path.join(current, 'apps', 'gateway'))) {
       return current;
     }
     const parent = path.dirname(current);

@@ -1,0 +1,145 @@
+openapi: 3.1.0
+info:
+  title: OLO Control Plane API
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        "200": {description: Healthy}
+  /v1/observations:
+    post:
+      operationId: ingestObservation
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "./schemas/domain.schema.json#/$defs/Observation"}
+      responses:
+        "201": {description: Stored}
+        "200": {description: Existing idempotent result}
+        "409": {description: Idempotency conflict}
+  /v1/context/views/current:
+    get:
+      operationId: getCurrentContext
+      parameters:
+        - in: query
+          name: subjectId
+          required: true
+          schema: {type: string}
+      responses:
+        "200": {description: Versioned current context}
+  /v1/intents:
+    post:
+      operationId: createIntent
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "./schemas/domain.schema.json#/$defs/Intent"}
+      responses:
+        "201": {description: Intent created}
+  /v1/tasks/{taskId}:
+    get:
+      operationId: getTask
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: {type: string}
+      responses:
+        "200": {description: Task lifecycle}
+        "404": {description: Unknown task}
+  /v1/plans/{planId}/decisions:
+    post:
+      operationId: decidePlan
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "./schemas/domain.schema.json#/$defs/PermissionDecision"}
+      responses:
+        "200": {description: Decision recorded}
+        "409": {description: Plan revision already has a different decision}
+  /v1/bodies/{bodyId}/capabilities:
+    post:
+      operationId: registerCapability
+      parameters:
+        - in: path
+          name: bodyId
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "./schemas/domain.schema.json#/$defs/Capability"}
+      responses:
+        "201": {description: Capability registered for the body lease}
+  /v1/actions:
+    post:
+      operationId: createAction
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "./schemas/domain.schema.json#/$defs/ActionCreate"}
+      responses:
+        "201": {description: Action prepared}
+        "200": {description: Existing idempotent action}
+        "403": {description: Executable permission evidence missing}
+        "404": {description: Capability unavailable}
+        "409": {description: Idempotency conflict}
+  /v1/actions/{actionId}/results:
+    post:
+      operationId: recordActionResult
+      parameters:
+        - in: path
+          name: actionId
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "./schemas/domain.schema.json#/$defs/ActionResult"}
+      responses:
+        "200": {description: Result transition recorded}
+        "404": {description: Unknown action}
+        "409": {description: Invalid transition or missing verification evidence}
+  /v1/actions/{actionId}/receipt:
+    get:
+      operationId: getActionReceipt
+      parameters:
+        - in: path
+          name: actionId
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: Immutable receipt
+          content:
+            application/json:
+              schema: {$ref: "./schemas/domain.schema.json#/$defs/ActionReceipt"}
+        "404": {description: Unknown action}

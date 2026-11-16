@@ -12,8 +12,10 @@ const TOOL_ICONS: Record<string, string> = {
   file_read: '▤',
   file_write: '✎',
   file_edit: '✎',
+  notebook_edit: '✎',
   grep: '⌕',
   glob: '▤',
+  task_plan: '☷',
 };
 
 function formatArgs(args: any): string {
@@ -32,6 +34,13 @@ function formatArgs(args: any): string {
 function formatResult(result: any): string {
   if (typeof result === 'string') return result.slice(0, 80);
   if (result?.error) return `✗ ${result.error}`;
+  if (result?.data?.kind === 'image') return `Image: ${result.data.path} (${result.data.mediaType}, ${result.data.size} bytes)`;
+  if (result?.data?.kind === 'notebook') return `Notebook: ${result.data.path} (${result.data.cellCount} cells)`;
+  if (Array.isArray(result?.tasks) && typeof result?.mode === 'string') {
+    const icons: Record<string, string> = { todo: '○', doing: '◐', done: '✓', failed: '✗' };
+    const lines = result.tasks.map((task: any) => `${icons[task.status] ?? '○'} ${task.id}. ${task.subject}`);
+    return [result.message ?? `Plan mode: ${result.mode}`, ...lines].join('\n').slice(0, 320);
+  }
   if (result?.data) {
     const str = JSON.stringify(result.data);
     return str.length > 80 ? str.slice(0, 80) + '…' : str;

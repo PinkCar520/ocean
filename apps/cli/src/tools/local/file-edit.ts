@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import { LocalTool, LocalToolResponse } from '../base.js';
-import { security } from '../../utils/security.js';
+import { SecurityEngine } from '../../utils/security.js';
+import { atomicWriteFile } from '../../utils/file-system.js';
 
 interface FileEditParams {
   path: string;
@@ -16,17 +17,18 @@ export class FileEditTool extends LocalTool<FileEditParams, string> {
   readonly name = 'local_file_edit';
   readonly description = 'Surgically replace a block of code in a local file.';
 
+  constructor(private readonly workspaceRoot: string = process.cwd()) {
+    super();
+  }
+
   async execute(params: FileEditParams): Promise<LocalToolResponse<string>> {
     const { path: filePath, oldString, newString } = params;
 
-    // 1. Security Check
-    const { isValid, resolvedPath } = security.validatePath(filePath);
-    if (!isValid) {
-      return { success: false, error: `Access denied: Path ${filePath} is outside workspace.` };
-    }
+    if (!oldString) return { success: false, error: 'oldString must not be empty.' };
 
     try {
-      const content = await fs.readFile(resolvedPath, 'utf-8');
+      const safePath = await new SecurityEngine(this.workspaceRoot).resolveReadablePath(filePath);
+      const content = await fs.readFile(safePath, 'utf-8');
       
       // 2. Precision Match
       if (!content.includes(oldString)) {
@@ -47,7 +49,7 @@ export class FileEditTool extends LocalTool<FileEditParams, string> {
 
       // 3. Apply Edit
       const newContent = content.replace(oldString, newString);
-      await fs.writeFile(resolvedPath, newContent, 'utf-8');
+      await atomicWriteFile(safePath, newContent);
 
       return {
         success: true,

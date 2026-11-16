@@ -109,12 +109,12 @@ export class InteractiveManager {
       ...toolDef,
       execute: async (args: any) => {
         // 权限判定：如果是自动放行的工具，直接执行
-        if (this.permissionService.isAutoAllowed(toolName)) {
+        if (this.permissionService.isAutoAllowed(toolName, undefined, args)) {
           return originalExecute(args);
         }
 
         // 权限判定：如果是明确拒绝的工具，直接抛错
-        if (this.permissionService.isDenied(toolName)) {
+        if (this.permissionService.isDenied(toolName, undefined, args)) {
           throw new Error(`Permission Denied: ${toolName}`);
         }
 

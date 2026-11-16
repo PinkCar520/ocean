@@ -102,6 +102,10 @@ export class RunRunner {
             reason: `Run ${runId} does not belong to user ${userId}`,
           };
 
+        if (!['queued', 'running'].includes(run.status)) return { ok: false as const, ignored: true as const };
+        const claimed = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
+        if (!claimed.count) return { ok: false as const, ignored: true as const };
+
         if (run.status !== 'running') {
           await tx.agentRun.update({
             where: { id: runId },
@@ -120,6 +124,7 @@ export class RunRunner {
       });
 
       if (!takeover.ok) {
+        if ('ignored' in takeover) return { jobId: job.id, runId, status: 'succeeded' };
         this.metrics.inc('run.terminal', { status: 'failed' });
         return {
           jobId: job.id,
@@ -139,6 +144,7 @@ export class RunRunner {
 
       // 3) model_call 步骤：started（崩溃续跑复用 started 步骤，不重复写事件）
       const step = await this.ensureStepStarted(runId, takeover.input);
+      if (!step) return { jobId: job.id, runId, status: 'succeeded' };
 
       // 4) 模型调用 → 文本增量投影 run.output_delta，同时收集 tool_use
       let buffer = '';
@@ -184,13 +190,19 @@ export class RunRunner {
           takeover.priority,
           step,
           toolCall,
-          { text: fullText, toolCalls },
+          // Persist only the call submitted to the outbox in this turn. This
+          // keeps the transcript valid for providers that require a result for
+          // every assistant tool call; remaining work is requested on a later
+          // model turn instead of leaving orphan tool-call IDs in history.
+          { text: fullText, toolCalls: [first] },
         );
         return { jobId: job.id, runId, status: 'succeeded' };
       }
 
       // 6) 无工具 → 完成：step succeeded + step_completed + run succeeded（同一事务）
       await this.prisma.$transaction(async (tx) => {
+        const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
+        if (!active.count) return;
         const output = { text: fullText, toolCalls: [] as ModelToolCall[] };
         await tx.runStep.update({
           where: { id: step.id },
@@ -328,6 +340,8 @@ export class RunRunner {
     });
 
     await this.prisma.$transaction(async (tx) => {
+      const active = await tx.agentRun.updateMany({ where: { id: runId, userId, status: 'running' }, data: { status: 'running' } });
+      if (!active.count) return;
       // 幂等：同 toolCallId 已有工具步骤（任何状态）或 pending 消息 → 不重复投递
       const steps = await tx.runStep.findMany({
         where: { runId, kind: 'tool_call' },
@@ -409,8 +423,10 @@ export class RunRunner {
   private async ensureStepStarted(
     runId: string,
     input: string,
-  ): Promise<{ id: string; seq: number }> {
+  ): Promise<{ id: string; seq: number } | null> {
     return this.prisma.$transaction(async (tx) => {
+      const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
+      if (!active.count) return null;
       const existing = await tx.runStep.findFirst({
         where: { runId, kind: 'model_call' },
         orderBy: { seq: 'desc' },
@@ -453,6 +469,8 @@ export class RunRunner {
   private async flushDelta(runId: string, delta: string): Promise<void> {
     try {
       await this.prisma.$transaction(async (tx) => {
+        const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
+        if (!active.count) return;
         await this.appendEvent(tx, runId, {
           id: randomUUID(),
           runId,
@@ -476,9 +494,12 @@ export class RunRunner {
     const { runId } = job.payload;
     const message = error instanceof Error ? error.message : String(error);
     const retryable = error instanceof RetryableError;
+    let ignored = false;
 
     try {
       await this.prisma.$transaction(async (tx) => {
+        const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
+        if (!active.count) { ignored = true; return; }
         // 已创建的执行步骤标记 failed（存在则更新，幂等）
         const latest = await tx.runStep.findFirst({
           where: { runId, kind: 'model_call' },
@@ -536,6 +557,7 @@ export class RunRunner {
       };
     }
 
+    if (ignored) return { jobId: job.id, runId, status: 'succeeded' };
     return {
       jobId: job.id,
       runId,

@@ -16,7 +16,7 @@ interface MessageListProps {
   toolCalls: Array<{ name: string; args: any }>;
   toolResults: Array<{ name: string; result: any }>;
   commandOutput: string | null;
-  commandType: 'help' | 'model' | 'skills' | 'tools' | 'mcp' | 'error' | null;
+  commandType: 'help' | 'model' | 'skills' | 'tools' | 'mcp' | 'tasks' | 'error' | null;
   error: string | null;
 }
 

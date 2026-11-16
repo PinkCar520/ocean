@@ -12,6 +12,7 @@ import type { z } from 'zod';
 export interface ToolContext {
   runId: string;
   userId: string;
+  toolCallId?: string;
 }
 
 export interface Tool {

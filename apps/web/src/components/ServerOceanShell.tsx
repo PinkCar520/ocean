@@ -2,11 +2,17 @@ import OceanShell from '../App';
 import { getOceanServerBootstrap } from '../lib/server-session';
 import { redirect } from 'next/navigation';
 
-export default async function ServerOceanShell({ initialTab }: { initialTab?: string }) {
+export default async function ServerOceanShell({
+  initialTab,
+  preloadAll = false,
+}: {
+  initialTab?: string;
+  preloadAll?: boolean;
+}) {
   const bootstrap = await getOceanServerBootstrap({
-    includeModels: initialTab === 'chat',
-    includeProjects: initialTab === 'projects',
-    includeSkills: initialTab === 'library',
+    includeModels: preloadAll || initialTab === 'chat',
+    includeProjects: preloadAll || initialTab === 'projects',
+    includeSkills: preloadAll || initialTab === 'library',
   });
   if (!bootstrap) redirect('/auth');
 
@@ -20,6 +26,7 @@ export default async function ServerOceanShell({ initialTab }: { initialTab?: st
       initialSkills={bootstrap.skills}
       initialSkillStats={bootstrap.skillStats}
       initialTab={initialTab}
+      initialPermissionMode={bootstrap.permissionMode}
     />
   );
 }

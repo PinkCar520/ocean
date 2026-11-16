@@ -14,7 +14,7 @@ import type {
  * v7 的 ModelMessage：assistant.content 为字符串或 parts 数组（含
  * tool-call part）；tool 消息 content 必须为 tool-result part 数组，
  * 且带 toolName + output({type,value})。不可用顶层 toolCalls/字符串 content。 */
-function toUiMessage(message: ModelMessage) {
+export function toUiMessage(message: ModelMessage) {
   switch (message.role) {
     case 'user':
       return { role: 'user' as const, content: message.text };
@@ -32,6 +32,16 @@ function toUiMessage(message: ModelMessage) {
       return { role: 'assistant' as const, content: parts };
     }
     case 'tool':
+      const value = message.result as any;
+      const isNotebook = value?.kind === 'notebook' && Array.isArray(value.parts);
+      const isImage = value?.kind === 'image' && ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(value.mediaType) && typeof value.base64 === 'string';
+      const notebookParts = isNotebook ? value.parts.map((part: any) => {
+        if (part?.type === 'text' && typeof part.text === 'string') return { type: 'text', text: part.text };
+        if (part?.type === 'image' && ['image/png', 'image/jpeg'].includes(part.mediaType) && typeof part.base64 === 'string') {
+          return { type: 'file', mediaType: part.mediaType, data: { type: 'data', data: part.base64 } };
+        }
+        return { type: 'text', text: '[Unsupported notebook output]' };
+      }) : [];
       return {
         role: 'tool' as const,
         content: [
@@ -39,10 +49,11 @@ function toUiMessage(message: ModelMessage) {
             type: 'tool-result',
             toolCallId: message.toolCallId,
             toolName: message.toolName,
-            output: {
-              type: 'json',
-              value: message.result ?? null,
-            },
+            output: isImage
+              ? { type: 'content', value: [{ type: 'text', text: `Image: ${value.path}` }, { type: 'file', mediaType: value.mediaType, data: { type: 'data', data: value.base64 } }] }
+              : isNotebook
+              ? notebookParts.length ? { type: 'content', value: notebookParts } : { type: 'text', value: 'Notebook contains no cells.' }
+              : { type: 'json', value: message.result ?? null },
           },
         ],
       };

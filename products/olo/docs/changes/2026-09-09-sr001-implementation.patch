@@ -1,0 +1,1187 @@
+--- /dev/null
++++ b/OLO/Core/Wake/WakeSession.swift
+@@ -0,0 +1,156 @@
++import Foundation
++
++/// SR-001's deterministic foreground fixture. Times are minutes in one simulated day,
++/// never wall-clock alarms or claims about sensed sleep.
++struct WakeSession: Codable, Equatable, Sendable {
++    enum Phase: String, Codable, Sendable {
++        case idle, quiet, ambient, prompt, atRisk, needsContext, permissionRequired, snoozing, awake, cancelled
++    }
++    enum Input: Sendable {
++        case start, advance(Int), traffic(Int), invalidateTraffic, calendarAvailable(Bool)
++        case permission(Bool), acknowledge, requestSnooze, acceptSnooze, declineSnooze, cancel
++    }
++    struct Entry: Codable, Equatable, Identifiable, Sendable {
++        let id: UUID
++        let minute: Int
++        let text: String
++    }
++    private(set) var now = 438 // 07:18
++    var meeting: Int { 570 } // 09:30
++    var arrivalBuffer: Int { 10 }
++    var preparation: Int { 47 }
++    private(set) var commute = 53
++    private(set) var trafficValidUntil = 468
++    private(set) var hasCalendar = true
++    private(set) var authorized = false
++    private(set) var started = false
++    private(set) var phase: Phase = .idle
++    private(set) var snoozeUntil: Int?
++    private(set) var proposedSnooze: Int?
++    private(set) var awakeAt: Int?
++    private(set) var entries: [Entry] = []
++
++    var latest: Int { meeting - arrivalBuffer - commute - preparation }
++    var preferred: Int { latest - 10 }
++    var earliest: Int { preferred - 5 }
++    var departure: Int { meeting - arrivalBuffer - commute }
++    var isTerminal: Bool { phase == .awake || phase == .cancelled }
++    var contextValid: Bool { hasCalendar && now < trafficValidUntil }
++    var canRespond: Bool { started && !isTerminal }
++
++    static func time(_ minute: Int) -> String {
++        let value = max(0, minute)
++        return String(format: "%02d:%02d", value / 60, value % 60)
++    }
++
++    mutating func apply(_ input: Input) {
++        guard !isTerminal else { return }
++        let previous = phase
++        switch input {
++        case .start:
++            guard !started else { return }
++            started = true
++            authorized = true // Explicit start button grants only this demo's visual intervention.
++            record("开始本次模拟；允许页面内提示。")
++        case .advance(let minutes):
++            guard started, (1...60).contains(minutes) else { return }
++            now = min(1439, now + minutes)
++            proposedSnooze = nil
++        case .traffic(let minutes):
++            guard (1...240).contains(minutes) else { return }
++            commute = minutes
++            trafficValidUntil = now + 30
++            proposedSnooze = nil
++            record("模拟交通更新：\(minutes) 分钟；有效 30 分钟。")
++        case .invalidateTraffic:
++            trafficValidUntil = now
++            proposedSnooze = nil
++            record("模拟交通证据过期。")
++        case .calendarAvailable(let available):
++            hasCalendar = available
++            proposedSnooze = nil
++            record(available ? "恢复模拟日程。" : "模拟日程缺失。")
++        case .permission(let allowed):
++            authorized = allowed
++            if !allowed { snoozeUntil = nil; proposedSnooze = nil }
++            record(allowed ? "允许本次页面内提示。" : "撤销页面内提示授权。")
++        case .acknowledge:
++            guard canRespond else { return }
++            awakeAt = now
++            snoozeUntil = nil
++            proposedSnooze = nil
++            phase = .awake
++            record("用户明确回应「我醒了」；停止唤醒，等待 SR-002。")
++            return
++        case .requestSnooze:
++            guard canRespond, authorized, contextValid else { return }
++            let minutes = min(10, max(0, latest - now))
++            proposedSnooze = minutes > 0 ? now + minutes : nil
++            record(minutes > 0 ? "请求再睡 10 分钟；可选 \(minutes) 分钟，等待确认。" : "已无可用延后时间；不自动改变日程。")
++        case .acceptSnooze:
++            guard canRespond, authorized, contextValid,
++                  let proposedSnooze, proposedSnooze > now, proposedSnooze <= latest else {
++                self.proposedSnooze = nil
++                evaluate()
++                return
++            }
++            snoozeUntil = proposedSnooze
++            self.proposedSnooze = nil
++            record("用户确认延后至 \(Self.time(proposedSnooze))。")
++        case .declineSnooze:
++            proposedSnooze = nil
++            record("用户放弃延后。")
++        case .cancel:
++            guard started else { return }
++            phase = .cancelled
++            snoozeUntil = nil
++            proposedSnooze = nil
++            record("用户取消本次模拟；未改变日程或设置闹钟。")
++            return
++        }
++        evaluate()
++        if phase != previous { record(summary) }
++    }
++
++    private mutating func evaluate() {
++        guard started, !isTerminal else { return }
++        guard authorized else { phase = .permissionRequired; return }
++        guard contextValid else { phase = .needsContext; return }
++        if let until = snoozeUntil {
++            // Traffic changes can invalidate an accepted delay.
++            if until > latest {
++                snoozeUntil = nil
++                record("交通变化使延后方案失效，重新计算。")
++            } else if now < until {
++                phase = .snoozing
++                return
++            } else {
++                snoozeUntil = nil
++            }
++        }
++        if now >= latest { phase = .atRisk }
++        else if now < preferred { phase = .quiet }
++        else if now < preferred + 2 { phase = .ambient }
++        else { phase = .prompt }
++    }
++
++    var summary: String {
++        switch phase {
++        case .idle: "准备好后开始模拟"
++        case .quiet: "现在可以保持安静"
++        case .ambient: "进入起床窗口，轻量提示"
++        case .prompt: "差不多该起来了"
++        case .atRisk: "已到最晚起床时间，需要你决定"
++        case .needsContext: "缺少有效情境，暂停起床判断"
++        case .permissionRequired: "提示已暂停，等待授权"
++        case .snoozing: "延后期间保持安静"
++        case .awake: "你已确认醒来"
++        case .cancelled: "本次模拟已取消"
++        }
++    }
++
++    private mutating func record(_ text: String) {
++        entries.append(Entry(id: UUID(), minute: now, text: text))
++        if entries.count > 100 { entries.removeFirst(entries.count - 100) }
++    }
++}
+--- /dev/null
++++ b/OLO/App/WakeDemoController.swift
+@@ -0,0 +1,56 @@
++import Foundation
++import Observation
++
++@MainActor
++@Observable
++final class WakeDemoController {
++    private(set) var session = WakeSession()
++    private(set) var isBusy = false
++    private(set) var loaded = false
++    private(set) var storageError: String?
++    private let store: any WakeSessionStoring
++
++    init(store: any WakeSessionStoring = WakeSessionStore()) { self.store = store }
++
++    func load() async {
++        guard !loaded, !isBusy else { return }
++        isBusy = true
++        defer { isBusy = false }
++        do {
++            session = try await store.load() ?? WakeSession()
++            loaded = true
++            storageError = nil
++        } catch {
++            storageError = "无法读取上次模拟。请重试，或明确开始新记录。"
++        }
++    }
++
++    func send(_ input: WakeSession.Input) async {
++        guard loaded, !isBusy, storageError == nil else { return }
++        session.apply(input)
++        await persist()
++    }
++
++    func reset() async {
++        guard !isBusy else { return }
++        session = WakeSession()
++        loaded = true
++        await persist()
++    }
++
++    func retry() async {
++        if loaded { await persist() } else { await load() }
++    }
++
++    private func persist() async {
++        guard !isBusy else { return }
++        isBusy = true
++        defer { isBusy = false }
++        do {
++            try await store.save(session)
++            storageError = nil
++        } catch {
++            storageError = "本次状态尚未保存。请重试保存后继续。"
++        }
++    }
++}
+--- /dev/null
++++ b/OLO/Persistence/WakeSessionStore.swift
+@@ -0,0 +1,21 @@
++import Foundation
++
++protocol WakeSessionStoring: Sendable {
++    func load() async throws -> WakeSession?
++    func save(_ session: WakeSession) async throws
++}
++
++/// A single local simulation snapshot; no sensor history or long-term routine learning.
++actor WakeSessionStore: WakeSessionStoring {
++    private let url: URL
++    init(url: URL = URL.documentsDirectory.appending(path: "sr001-demo.json")) {
++        self.url = url
++    }
++    func load() throws -> WakeSession? {
++        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
++        return try JSONDecoder().decode(WakeSession.self, from: Data(contentsOf: url))
++    }
++    func save(_ session: WakeSession) throws {
++        try JSONEncoder().encode(session).write(to: url, options: .atomic)
++    }
++}
+--- /dev/null
++++ b/OLO/Features/Wake/WakeDemoView.swift
+@@ -0,0 +1,110 @@
++import SwiftUI
++
++struct WakeDemoView: View {
++    @Environment(OLOCenter.self) private var center
++    @State private var confirmingReset = false
++    private var demo: WakeDemoController { center.wakeDemo }
++    private var session: WakeSession { demo.session }
++
++    var body: some View {
++        Form {
++            Section {
++                Label("模拟体验 · 不会设置闹钟", systemImage: "sunrise")
++                    .font(.headline)
++                Text("日程、交通与时钟均为模拟。仅在此页面显示提示，不播放声音、不读取睡眠、不在后台唤醒。")
++                    .font(.footnote).foregroundStyle(.secondary)
++            }
++            if let error = demo.storageError {
++                Section("记录需要处理") {
++                    Text(error)
++                    Button("重试") { Task { await demo.retry() } }
++                }
++            }
++            Section("此刻") {
++                LabeledContent("模拟时间", value: WakeSession.time(session.now))
++                Text(session.summary).font(.title3.weight(.semibold))
++                    .accessibilityIdentifier("wake.status")
++                if session.phase == .awake {
++                    Text("依据：你点击了「我醒了」。只确认 Awake；晨间准备尚未完成。")
++                } else if session.phase == .atRisk {
++                    Text("还没有收到醒来回应。继续休息可能影响到达目标；OLO 不会替你修改会议。")
++                } else if session.phase == .needsContext {
++                    Text("恢复有效日程和交通后才能重新判断。下面的时间仅为旧输入参考。")
++                }
++                if let until = session.snoozeUntil {
++                    LabeledContent("确认延后至", value: WakeSession.time(until))
++                }
++            }
++            Section("为什么是这个时间") {
++                LabeledContent("会议", value: "09:30 · 模拟日程")
++                LabeledContent("办公室准备", value: "10 分钟")
++                LabeledContent("通勤", value: "\(session.commute) 分钟 · 模拟")
++                LabeledContent("晨间准备", value: "47 分钟 · 示例")
++                LabeledContent("最晚离家", value: WakeSession.time(session.departure))
++                LabeledContent("起床窗口", value: "\(WakeSession.time(session.earliest))–\(WakeSession.time(session.latest))")
++                LabeledContent("建议起床", value: WakeSession.time(session.preferred))
++                Text("最晚起床 = 会议 − 办公室准备 − 通勤 − 晨间准备。建议时间提前 10 分钟，窗口再提前 5 分钟；这是本次原型策略。")
++                    .font(.footnote).foregroundStyle(.secondary)
++            }
++            Section("回应") {
++                if !session.started {
++                    Button("开始模拟，允许页面内提示") { send(.start) }
++                        .accessibilityIdentifier("wake.start")
++                } else if session.canRespond {
++                    Button("我醒了") { send(.acknowledge) }
++                        .accessibilityIdentifier("wake.awake")
++                    Button("再睡十分钟") { send(.requestSnooze) }
++                        .disabled(!session.authorized || !session.contextValid)
++                    if let proposal = session.proposedSnooze {
++                        Text("在当前计划下可以再睡 \(proposal - session.now) 分钟，至 \(WakeSession.time(proposal))。")
++                        Button("确认延后") { send(.acceptSnooze) }
++                        Button("不延后") { send(.declineSnooze) }
++                    } else if session.now >= session.latest && session.contextValid {
++                        Text("当前没有可用的延后时间。")
++                    }
++                    Button("取消本次模拟", role: .destructive) { send(.cancel) }
++                }
++            }
++            if !session.isTerminal {
++                Section("模拟控制") {
++                    HStack {
++                        Button("前进 1 分钟") { send(.advance(1)) }
++                        Spacer()
++                        Button("前进 5 分钟") { send(.advance(5)) }
++                    }.buttonStyle(.bordered).disabled(!session.started)
++                    Button("交通变慢 8 分钟") { send(.traffic(session.commute + 8)) }
++                        .disabled(session.commute > 232)
++                    Button("刷新当前模拟交通") { send(.traffic(session.commute)) }
++                    Button("让交通数据过期") { send(.invalidateTraffic) }
++                    Toggle("模拟日程可用", isOn: Binding(get: { session.hasCalendar }, set: { send(.calendarAvailable($0)) }))
++                    if session.started {
++                        Toggle("允许页面内提示", isOn: Binding(get: { session.authorized }, set: { send(.permission($0)) }))
++                    }
++                }
++            }
++            Section("本次判断记录") {
++                if session.entries.isEmpty { Text("开始后记录重要判断与回应。") }
++                ForEach(session.entries.reversed()) { entry in
++                    VStack(alignment: .leading, spacing: 4) {
++                        Text(WakeSession.time(entry.minute)).font(.caption).foregroundStyle(.secondary)
++                        Text(entry.text).font(.footnote)
++                    }
++                }
++            }
++            Section {
++                Button("清除记录，重新模拟", role: .destructive) { confirmingReset = true }
++            }
++        }
++        .navigationTitle("起床 · SR-001")
++        .disabled(demo.isBusy)
++        .overlay { if demo.isBusy { ProgressView() } }
++        .task { await demo.load() }
++        .confirmationDialog("清除本次模拟记录？", isPresented: $confirmingReset, titleVisibility: .visible) {
++            Button("清除并重新开始", role: .destructive) { Task { await demo.reset() } }
++        }
++    }
++
++    private func send(_ input: WakeSession.Input) {
++        Task { await demo.send(input) }
++    }
++}
+--- /dev/null
++++ b/OLOTests/WakeSessionTests.swift
+@@ -0,0 +1,191 @@
++import XCTest
++@testable import OLO
++
++final class WakeSessionTests: XCTestCase {
++    func testBackwardPlanningAndQuietWindow() {
++        var s = WakeSession()
++        XCTAssertEqual(s.latest, 460)
++        XCTAssertEqual(s.departure, 507)
++        XCTAssertEqual(s.preferred, 450)
++        s.apply(.start)
++        XCTAssertEqual(s.phase, .quiet)
++        s.apply(.advance(12))
++        XCTAssertEqual(s.phase, .ambient)
++        s.apply(.advance(2))
++        XCTAssertEqual(s.phase, .prompt)
++        s.apply(.advance(8))
++        XCTAssertEqual(s.phase, .atRisk)
++        XCTAssertNil(s.awakeAt)
++    }
++    func testTrafficReplanDoesNotChangeMeeting() {
++        var s = WakeSession()
++        s.apply(.start)
++        s.apply(.traffic(61))
++        XCTAssertEqual(s.latest, 452)
++        XCTAssertEqual(s.preferred, 442)
++        XCTAssertEqual(s.meeting, 570)
++        s.apply(.advance(6))
++        XCTAssertEqual(s.phase, .prompt)
++    }
++    func testSnoozeRequiresConfirmationAndBoundsDelay() {
++        var s = WakeSession()
++        s.apply(.start)
++        s.apply(.advance(19)) // 07:37, three feasible minutes remain.
++        s.apply(.requestSnooze)
++        XCTAssertNil(s.snoozeUntil)
++        XCTAssertEqual(s.proposedSnooze, 460)
++        s.apply(.acceptSnooze)
++        XCTAssertEqual(s.phase, .snoozing)
++        s.apply(.advance(3))
++        XCTAssertEqual(s.phase, .atRisk)
++        s.apply(.requestSnooze)
++        XCTAssertNil(s.proposedSnooze)
++    }
++    func testTrafficInvalidatesAcceptedSnooze() {
++        var s = WakeSession()
++        s.apply(.start)
++        s.apply(.advance(14))
++        s.apply(.requestSnooze)
++        s.apply(.acceptSnooze)
++        XCTAssertEqual(s.phase, .snoozing)
++        s.apply(.traffic(61))
++        XCTAssertEqual(s.phase, .atRisk)
++        XCTAssertNil(s.snoozeUntil)
++    }
++    func testChangedEvidenceCannotAcceptOldProposal() {
++        var s = WakeSession()
++        s.apply(.start)
++        s.apply(.requestSnooze)
++        s.apply(.traffic(61))
++        s.apply(.acceptSnooze)
++        XCTAssertNil(s.snoozeUntil)
++        s.apply(.requestSnooze)
++        s.apply(.permission(false))
++        s.apply(.acceptSnooze)
++        XCTAssertEqual(s.phase, .permissionRequired)
++    }
++    func testMissingStaleAndRevokedContext() {
++        var s = WakeSession()
++        s.apply(.start)
++        s.apply(.advance(30)) // validity boundary is exclusive.
++        XCTAssertEqual(s.phase, .needsContext)
++        s.apply(.traffic(53))
++        XCTAssertEqual(s.phase, .atRisk)
++        s.apply(.calendarAvailable(false))
++        XCTAssertEqual(s.phase, .needsContext)
++        s.apply(.permission(false))
++        XCTAssertEqual(s.phase, .permissionRequired)
++        s.apply(.calendarAvailable(true))
++        XCTAssertEqual(s.phase, .permissionRequired)
++        s.apply(.permission(true))
++        XCTAssertEqual(s.phase, .atRisk)
++    }
++    func testExplicitAwakeStopsAllFurtherIntervention() {
++        var s = WakeSession()
++        s.apply(.start)
++        s.apply(.invalidateTraffic)
++        s.apply(.acknowledge) // Explicit human evidence does not require inferred context.
++        let complete = s
++        s.apply(.advance(30))
++        s.apply(.traffic(61))
++        s.apply(.requestSnooze)
++        s.apply(.acknowledge)
++        XCTAssertEqual(s, complete)
++        XCTAssertEqual(s.awakeAt, 438)
++    }
++    func testCancellationAndDuplicateStartAreIdempotent() {
++        var s = WakeSession()
++        s.apply(.start)
++        let count = s.entries.count
++        s.apply(.start)
++        XCTAssertEqual(s.entries.count, count)
++        s.apply(.cancel)
++        let cancelled = s
++        s.apply(.advance(5))
++        s.apply(.acknowledge)
++        XCTAssertEqual(s, cancelled)
++        XCTAssertNil(s.awakeAt)
++    }
++    func testInvalidDurationsDoNotCorruptPlan() {
++        var s = WakeSession()
++        s.apply(.start)
++        let original = s
++        s.apply(.traffic(-1))
++        s.apply(.traffic(241))
++        s.apply(.advance(-1))
++        XCTAssertEqual(s, original)
++    }
++    func testSnapshotRoundTripPreservesSnoozeAndEvidence() throws {
++        var s = WakeSession()
++        s.apply(.start)
++        s.apply(.requestSnooze)
++        s.apply(.acceptSnooze)
++        let restored = try JSONDecoder().decode(WakeSession.self, from: JSONEncoder().encode(s))
++        XCTAssertEqual(restored, s)
++    }
++}
++
++@MainActor
++final class WakeControllerTests: XCTestCase {
++    actor Store: WakeSessionStoring {
++        enum Failure: Error { case unavailable }
++        var snapshot: WakeSession?
++        var failing = false
++        func setFailing(_ value: Bool) { failing = value }
++        func load() throws -> WakeSession? {
++            if failing { throw Failure.unavailable }
++            return snapshot
++        }
++        func save(_ session: WakeSession) throws {
++            if failing { throw Failure.unavailable }
++            snapshot = session
++        }
++    }
++    func testFailedSaveIsVisibleAndBlocksFurtherInputUntilRetry() async {
++        let store = Store()
++        let controller = WakeDemoController(store: store)
++        await controller.load()
++        await store.setFailing(true)
++        await controller.send(.start)
++        XCTAssertNotNil(controller.storageError)
++        let now = controller.session.now
++        await controller.send(.advance(5))
++        XCTAssertEqual(controller.session.now, now)
++        await store.setFailing(false)
++        await controller.retry()
++        XCTAssertNil(controller.storageError)
++        let restored = WakeDemoController(store: store)
++        await restored.load()
++        XCTAssertEqual(restored.session, controller.session)
++    }
++    func testLoadFailureRequiresExplicitRetryOrReset() async {
++        let store = Store()
++        await store.setFailing(true)
++        let controller = WakeDemoController(store: store)
++        await controller.load()
++        XCTAssertFalse(controller.loaded)
++        await controller.send(.start)
++        XCTAssertFalse(controller.session.started)
++        await store.setFailing(false)
++        await controller.reset()
++        XCTAssertTrue(controller.loaded)
++        XCTAssertNil(controller.storageError)
++        XCTAssertFalse(controller.session.started)
++    }
++    func testFileStorePersistsAndReportsCorruption() async throws {
++        let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
++        defer { try? FileManager.default.removeItem(at: url) }
++        let store = WakeSessionStore(url: url)
++        var session = WakeSession()
++        session.apply(.start)
++        session.apply(.acknowledge)
++        try await store.save(session)
++        let restored = try await store.load()
++        XCTAssertEqual(restored, session)
++        try Data("corrupt".utf8).write(to: url)
++        do {
++            _ = try await store.load()
++            XCTFail("Corrupt data must not be silently reset")
++        } catch { /* A visible recovery path is required. */ }
++    }
++}
+--- a/OLO/App/OLOCenter.swift
++++ b/OLO/App/OLOCenter.swift
+@@ -13,6 +13,7 @@
+ @Observable
+ @MainActor
+ final class OLOCenter {
++    let wakeDemo = WakeDemoController()
+     let identity: OLOIdentity
+ 
+     /// Current presentation state of OLO on this body. Drives the entity animation.
+--- a/OLO/Features/Home/HomeView.swift
++++ b/OLO/Features/Home/HomeView.swift
+@@ -222,19 +222,17 @@
+     }
+ 
+     private var contextCard: some View {
+-        VStack(alignment: .leading, spacing: 0) {
+-            Text("CONTEXT".uppercased())
+-                .font(.caption2)
+-                .tracking(1.4)
+-                .foregroundStyle(.secondary)
+-                .padding(.bottom, 10)
+-            contextRow("bolt", "OLO 感知到你正在准备出门", "天气、日程、出行与时间已经关联。")
+-            Divider().opacity(0.5)
+-            contextRow("circle", "没有需要你处理的紧急事项", "所以 OLO 保持安静。")
+-        }
+-        .padding(18)
+-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
++        NavigationLink {
++            WakeDemoView()
++        } label: {
++            entryCard(
++                eyebrow: "SR-001 · 模拟体验",
++                title: "从起床开始。",
++                detail: "体验起床规划、交通变化和你的回应。不会设置闹钟。",
++                icon: "sunrise"
++            )
++        }
++        .accessibilityIdentifier("wake.entry")
+     }
+ 
+     // MARK: - Rows / buttons
+--- a/project.yml
++++ b/project.yml
+@@ -1,4 +1,7 @@
+ name: OLO
++include:
++  - path: project.local.yml
++    optional: true
+ options:
+   bundleIdPrefix: app.olo
+   deploymentTarget:
+@@ -24,6 +27,7 @@
+     type: application
+     platform: iOS
+     sources:
++      # Includes the SR-001 Core, persistence adapter and foreground demo.
+       - path: OLO
+         excludes:
+           - "Resources/Info.plist"
+@@ -64,6 +68,23 @@
+     sources:
+       - path: OLOWatch
+         excludes: [Info.plist]
++      # Preserve the existing Watch Core membership when regenerating.
++      - path: OLO/Core/OLO/OLOIdentity.swift
++      - path: OLO/Core/Agent/AgentRequest.swift
++      - path: OLO/Core/Agent/AgentRuntime.swift
++      - path: OLO/Core/Agent/AgentTask.swift
++      - path: OLO/Core/Agent/AgentUnderstanding.swift
++      - path: OLO/Core/Agent/ReminderIntent.swift
++      - path: OLO/Core/Context/ContextProvider.swift
++      - path: OLO/Core/Conversation/ConversationTurn.swift
++      - path: OLO/Core/Memory/MemoryImportance.swift
++      - path: OLO/Core/Memory/MemoryKind.swift
++      - path: OLO/Core/Memory/MemoryStore.swift
++      - path: OLO/Core/Tools/PermissionLevel.swift
++      - path: OLO/Core/Tools/Tool.swift
++      - path: OLO/Core/Tools/ToolExecution.swift
++      - path: OLO/Core/Tools/ToolRegistry.swift
++      - path: OLO/Core/Voice/VoiceService.swift
+     settings:
+       base:
+         INFOPLIST_FILE: OLOWatch/Info.plist
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,3 +6,5 @@
+ *.xccheckout
+ *.xcscmblueprint
+ 
++# Machine-local signing settings retained during project generation.
++project.local.yml
+--- a/OLO.xcodeproj/project.pbxproj
++++ b/OLO.xcodeproj/project.pbxproj
+@@ -8,29 +8,45 @@
+ 
+ /* Begin PBXBuildFile section */
+ 		01826F2491DEC0D0F551DA23 /* Tool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E7386FC376FC8CDE4E862AF /* Tool.swift */; };
++		05E75F8E61CE25F0D8D17725 /* WakeSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CACE66D79498D0A679B1B2B /* WakeSessionTests.swift */; };
++		0C6D845D5E7C0C418A1FDE19 /* AgentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A88E4800ACBD5F9B54D0CD3 /* AgentRequest.swift */; };
++		19A7C47B3B63F44BCF808993 /* WatchVoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0B743B46BB6FF0C4B7E846 /* WatchVoiceService.swift */; };
+ 		1EFE6D226E1C99CECF2FA578 /* AgentTaskRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8114A9547E7E8B65C1973DAC /* AgentTaskRecord.swift */; };
+ 		222046C9D58B69DDB4BEEECC /* ToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A6FA35E50989A4CA35FB87 /* ToolRegistry.swift */; };
++		25C42AA47A15C85C2B43A97E /* OLOIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A36E966DD92ED68A747F749A /* OLOIdentity.swift */; };
+ 		25FA5F2439976907BA8552B9 /* TextInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 513F211D4D2C642FE5A2CDD0 /* TextInputSheet.swift */; };
+ 		262F06733056942C8D71ECE0 /* OLOModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 801AC18F1C200BC09DBAB0B1 /* OLOModelContainer.swift */; };
++		2CE02248BEFD93B63821452A /* ConversationTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 253B662CF806C50DA2D59B52 /* ConversationTurn.swift */; };
+ 		2DEADB93CF64BE91BF7D8037 /* WorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE79550F6C0D09503299AC26 /* WorldView.swift */; };
+ 		383AE86E37D68C73CC3F8299 /* WatchOLOEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3138D07424084AAF4E1B5D6B /* WatchOLOEntity.swift */; };
+ 		47A196640845C3ECF4392CED /* OLOCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18118C76F1C645B25200C49 /* OLOCenter.swift */; };
++		496E831A7AD43AFD6F76C2D8 /* PermissionLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68A75751A3221EE316DE8F1 /* PermissionLevel.swift */; };
+ 		5CD9B75183075774860DCB2F /* AgentRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE27990ECD3AFDC44A7C46F /* AgentRuntime.swift */; };
+ 		643D8EBED438C9149BE4017F /* ReminderIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F20AD07EF2AEA9DBA90517 /* ReminderIntent.swift */; };
+ 		664F3AA79BF15B0E254BB216 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06EF256B069BEAE18BDFF787 /* HomeView.swift */; };
+ 		66CF99E4924EF19FA58EF0D5 /* FoundationModelAgentUnderstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD9F9527F2C4D7DF5E27B59 /* FoundationModelAgentUnderstanding.swift */; };
++		691FBAF86D83BC928D417217 /* WakeDemoController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26DB9A451603B508CC8AB8AB /* WakeDemoController.swift */; };
+ 		694EF3DE61B3372AF7A5B77A /* ReminderConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56C73BA7EEB2A282BB7F803 /* ReminderConfirmationView.swift */; };
+ 		6BA3C2733A7F35B649517229 /* ConversationTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 253B662CF806C50DA2D59B52 /* ConversationTurn.swift */; };
+ 		71DA023D2183FE92D3272F32 /* PermissionLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68A75751A3221EE316DE8F1 /* PermissionLevel.swift */; };
+ 		75308642A28353CACD71620B /* AgentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596E2A0EA6F6FD0395CF0D4 /* AgentActivityView.swift */; };
++		77C79C0D2009843314603E5D /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C098E55B611B28575E6C8C /* VoiceService.swift */; };
++		7B43ED886DB4AE8ADE74A926 /* WakeDemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4208E0D475D04AD20667CC /* WakeDemoView.swift */; };
+ 		7C4E01E77906507BFC0840DB /* MemoryKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6521B60511351245AF39FBB6 /* MemoryKind.swift */; };
++		8001C2FEB33708F029A60EDF /* WakeSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5237D4752D57847EF9798329 /* WakeSessionStore.swift */; };
++		8420D2DBF05B4D633F64B531 /* Tool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E7386FC376FC8CDE4E862AF /* Tool.swift */; };
+ 		8563FB4886170BAB101926A1 /* AgentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A88E4800ACBD5F9B54D0CD3 /* AgentRequest.swift */; };
++		85E4D090D2172493F7FED382 /* ContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49255DE1E57C534CF728E48 /* ContextProvider.swift */; };
+ 		871EE63F39B9FDBE2F2EABB7 /* OLOApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82BFE8355A41534AFFD21FBD /* OLOApp.swift */; };
+ 		8725F3CCB9655BBCB660A643 /* AVVoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7C1E5D04D22B248AC69DC2 /* AVVoiceService.swift */; };
++		88B902369D1A265F9EFDDC77 /* MemoryImportance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55ED4E382B122D707FE3AEE /* MemoryImportance.swift */; };
++		89997F1707A6D7B19EAF3D10 /* ToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A6FA35E50989A4CA35FB87 /* ToolRegistry.swift */; };
+ 		89C791087BB27229782D9AF0 /* OLOToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = A623FD87A49BF89200117395 /* OLOToast.swift */; };
+ 		8BD82B51F34769534FE7E87D /* ToolExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C34B716906A8EAC20E0208 /* ToolExecution.swift */; };
+ 		8C759C69F3603715E28A6FF3 /* AgentUnderstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98921320110E94DF001B9FF3 /* AgentUnderstanding.swift */; };
+ 		8DF6C600199C16298B45E216 /* ControlledAgentRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08263E9D09530271E9F20D58 /* ControlledAgentRuntime.swift */; };
++		935A42B0957CAE6DD9F7B2E0 /* MemoryKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6521B60511351245AF39FBB6 /* MemoryKind.swift */; };
++		9363CFDD9A94D97A15B14FBD /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA3C5F84BE69C21EAD9F380 /* MemoryStore.swift */; };
+ 		969F86583FB6F84D979292B8 /* ReminderTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C40D602E67DCE7B2D203F7 /* ReminderTool.swift */; };
+ 		98A6DFCF0AB7602EDE5ECA7F /* MemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF302B98D7C62992FB12299 /* MemoryView.swift */; };
+ 		9C7A02B8EBC894E040458C07 /* OLOWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3408B0CEFBC848A760FC9DA2 /* OLOWatchApp.swift */; };
+@@ -38,39 +54,28 @@
+ 		A45D183B077C3A6B66B6BE5B /* PlaceholderPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 055A0CBC6A27AD8D987AF2BE /* PlaceholderPage.swift */; };
+ 		A77528CFE20A8982332B41CC /* ReminderExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A86A28AC4AC0AB5F9391B9C /* ReminderExecutor.swift */; };
+ 		AD836D85A5EB9D949BD0DA8A /* ActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC62A25BA78B1C4C04DBDE0F /* ActionsView.swift */; };
++		B90E43D31BB5248816CB97CA /* AgentTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A6B9BBF9DD4DA56AE9825 /* AgentTask.swift */; };
+ 		BBABF6A9A8D330FAB29756AC /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 163728D45EA30EA5E6B42DF0 /* SettingsView.swift */; };
+ 		C59132A5A60564ADB94F079F /* ReminderAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F590785BE06EA5B49BE213 /* ReminderAgentTests.swift */; };
+ 		D58F74A48C73CE58C4D64CA1 /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA3C5F84BE69C21EAD9F380 /* MemoryStore.swift */; };
++		D936D14A6FD3A364002CAA3D /* ToolExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C34B716906A8EAC20E0208 /* ToolExecution.swift */; };
+ 		DA8EB92975D3AC3F002939CE /* VoiceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD893CA8C02C1D2FB74E02F /* VoiceLifecycleTests.swift */; };
+ 		DAF2260D7CD7F152F62233A8 /* AgentTaskRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269CF8DE2C2199970416EEE3 /* AgentTaskRepository.swift */; };
++		DD091F0FC97FF51BD58CC3FD /* WakeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD4AAB2CA0F7BCB11814ED14 /* WakeSession.swift */; };
+ 		DD133F3B90C271AF59AD5D31 /* MemoryRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1AAD3B8806C977B8C4F0E0A /* MemoryRecord.swift */; };
+ 		DD1EFD219A17B7E6EF02E9A3 /* MemoryImportance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55ED4E382B122D707FE3AEE /* MemoryImportance.swift */; };
+ 		DE2F342F86CBB35E9AD3AD1D /* AgentTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A6B9BBF9DD4DA56AE9825 /* AgentTask.swift */; };
++		E6114A6557244BB32224C251 /* AgentRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE27990ECD3AFDC44A7C46F /* AgentRuntime.swift */; };
+ 		E6C930499711BF4271A2D962 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 64424B3E872BD4D58F5867D3 /* Assets.xcassets */; };
+ 		E77A79A7CD4CA35E00FCE712 /* ContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49255DE1E57C534CF728E48 /* ContextProvider.swift */; };
++		F03D0BACD71737F9A90C799D /* AgentUnderstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98921320110E94DF001B9FF3 /* AgentUnderstanding.swift */; };
+ 		F63D23FAD4C40CA97A381E73 /* OLOIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A36E966DD92ED68A747F749A /* OLOIdentity.swift */; };
+ 		F9ECAD521EE9601D5491A5EE /* RootShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FD16C0C482E81455D7502F /* RootShell.swift */; };
+ 		FC9A2D9B6C479F0E823CE34A /* OLOEntityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267C2C0C8607F4D28FDC7DF9 /* OLOEntityView.swift */; };
+ 		FD196949C650A57FECF33296 /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C098E55B611B28575E6C8C /* VoiceService.swift */; };
+ 		FD4E401507087B1D12870CD7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84A6BF1E97ABF9159C784399 /* Assets.xcassets */; };
++		FD94162FF472FAC3749C3B16 /* ReminderIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F20AD07EF2AEA9DBA90517 /* ReminderIntent.swift */; };
+ 		FE233DA1E8A8335F42AEDCAE /* WatchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22B76AE662F1B23C9D02B1D /* WatchHomeView.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0001 /* OLOIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A36E966DD92ED68A747F749A /* OLOIdentity.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0002 /* AgentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A88E4800ACBD5F9B54D0CD3 /* AgentRequest.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0003 /* AgentRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE27990ECD3AFDC44A7C46F /* AgentRuntime.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0004 /* AgentTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A6B9BBF9DD4DA56AE9825 /* AgentTask.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0005 /* AgentUnderstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98921320110E94DF001B9FF3 /* AgentUnderstanding.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0006 /* ReminderIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F20AD07EF2AEA9DBA90517 /* ReminderIntent.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0007 /* ContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49255DE1E57C534CF728E48 /* ContextProvider.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0008 /* ConversationTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 253B662CF806C50DA2D59B52 /* ConversationTurn.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0009 /* MemoryImportance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55ED4E382B122D707FE3AEE /* MemoryImportance.swift */; };
+-		F1A2B3C4D5E6F7A8B9C000A /* MemoryKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6521B60511351245AF39FBB6 /* MemoryKind.swift */; };
+-		F1A2B3C4D5E6F7A8B9C000B /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA3C5F84BE69C21EAD9F380 /* MemoryStore.swift */; };
+-		F1A2B3C4D5E6F7A8B9C000C /* PermissionLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68A75751A3221EE316DE8F1 /* PermissionLevel.swift */; };
+-		F1A2B3C4D5E6F7A8B9C000D /* Tool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E7386FC376FC8CDE4E862AF /* Tool.swift */; };
+-		F1A2B3C4D5E6F7A8B9C000E /* ToolExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C34B716906A8EAC20E0208 /* ToolExecution.swift */; };
+-		F1A2B3C4D5E6F7A8B9C000F /* ToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A6FA35E50989A4CA35FB87 /* ToolRegistry.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0010 /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C098E55B611B28575E6C8C /* VoiceService.swift */; };
+-		F1A2B3C4D5E6F7A8B9C0011 /* WatchVoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0012 /* WatchVoiceService.swift */; };
+ /* End PBXBuildFile section */
+ 
+ /* Begin PBXContainerItemProxy section */
+@@ -95,6 +100,7 @@
+ 		253B662CF806C50DA2D59B52 /* ConversationTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTurn.swift; sourceTree = "<group>"; };
+ 		267C2C0C8607F4D28FDC7DF9 /* OLOEntityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOEntityView.swift; sourceTree = "<group>"; };
+ 		269CF8DE2C2199970416EEE3 /* AgentTaskRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTaskRepository.swift; sourceTree = "<group>"; };
++		26DB9A451603B508CC8AB8AB /* WakeDemoController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeDemoController.swift; sourceTree = "<group>"; };
+ 		2A7C1E5D04D22B248AC69DC2 /* AVVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVVoiceService.swift; sourceTree = "<group>"; };
+ 		3138D07424084AAF4E1B5D6B /* WatchOLOEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchOLOEntity.swift; sourceTree = "<group>"; };
+ 		33C34B716906A8EAC20E0208 /* ToolExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolExecution.swift; sourceTree = "<group>"; };
+@@ -103,18 +109,20 @@
+ 		3A86A28AC4AC0AB5F9391B9C /* ReminderExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderExecutor.swift; sourceTree = "<group>"; };
+ 		3E7386FC376FC8CDE4E862AF /* Tool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tool.swift; sourceTree = "<group>"; };
+ 		513F211D4D2C642FE5A2CDD0 /* TextInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInputSheet.swift; sourceTree = "<group>"; };
++		5237D4752D57847EF9798329 /* WakeSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeSessionStore.swift; sourceTree = "<group>"; };
+ 		5654AC0E8C9C1FBDBF2E5210 /* OLOWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OLOWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+ 		5A88E4800ACBD5F9B54D0CD3 /* AgentRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRequest.swift; sourceTree = "<group>"; };
+-		601C4D2237A04B03E777064A /* OLOTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OLOTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
++		601C4D2237A04B03E777064A /* OLOTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OLOTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+ 		64424B3E872BD4D58F5867D3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+ 		6521B60511351245AF39FBB6 /* MemoryKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryKind.swift; sourceTree = "<group>"; };
++		6CACE66D79498D0A679B1B2B /* WakeSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeSessionTests.swift; sourceTree = "<group>"; };
+ 		71FD16C0C482E81455D7502F /* RootShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootShell.swift; sourceTree = "<group>"; };
+ 		801AC18F1C200BC09DBAB0B1 /* OLOModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOModelContainer.swift; sourceTree = "<group>"; };
+ 		8114A9547E7E8B65C1973DAC /* AgentTaskRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTaskRecord.swift; sourceTree = "<group>"; };
+ 		82BFE8355A41534AFFD21FBD /* OLOApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOApp.swift; sourceTree = "<group>"; };
+ 		84A6BF1E97ABF9159C784399 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+ 		84A6FA35E50989A4CA35FB87 /* ToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRegistry.swift; sourceTree = "<group>"; };
+-		84DA8F79627864CB5461F22C /* OLO.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OLO.app; sourceTree = BUILT_PRODUCTS_DIR; };
++		84DA8F79627864CB5461F22C /* OLO.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OLO.app; sourceTree = BUILT_PRODUCTS_DIR; };
+ 		8DD893CA8C02C1D2FB74E02F /* VoiceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceLifecycleTests.swift; sourceTree = "<group>"; };
+ 		8FF302B98D7C62992FB12299 /* MemoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryView.swift; sourceTree = "<group>"; };
+ 		90C40D602E67DCE7B2D203F7 /* ReminderTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderTool.swift; sourceTree = "<group>"; };
+@@ -122,6 +130,8 @@
+ 		A36E966DD92ED68A747F749A /* OLOIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOIdentity.swift; sourceTree = "<group>"; };
+ 		A56C73BA7EEB2A282BB7F803 /* ReminderConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderConfirmationView.swift; sourceTree = "<group>"; };
+ 		A623FD87A49BF89200117395 /* OLOToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOToast.swift; sourceTree = "<group>"; };
++		AC4208E0D475D04AD20667CC /* WakeDemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeDemoView.swift; sourceTree = "<group>"; };
++		AD4AAB2CA0F7BCB11814ED14 /* WakeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeSession.swift; sourceTree = "<group>"; };
+ 		AE79550F6C0D09503299AC26 /* WorldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldView.swift; sourceTree = "<group>"; };
+ 		BAE27990ECD3AFDC44A7C46F /* AgentRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRuntime.swift; sourceTree = "<group>"; };
+ 		C0F20AD07EF2AEA9DBA90517 /* ReminderIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderIntent.swift; sourceTree = "<group>"; };
+@@ -134,7 +144,7 @@
+ 		E596E2A0EA6F6FD0395CF0D4 /* AgentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentActivityView.swift; sourceTree = "<group>"; };
+ 		F22B76AE662F1B23C9D02B1D /* WatchHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHomeView.swift; sourceTree = "<group>"; };
+ 		F49255DE1E57C534CF728E48 /* ContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextProvider.swift; sourceTree = "<group>"; };
+-		F1A2B3C4D5E6F7A8B9C0012 /* WatchVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchVoiceService.swift; path = OLOWatch/WatchVoiceService.swift; sourceTree = "<group>"; };
++		FF0B743B46BB6FF0C4B7E846 /* WatchVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceService.swift; sourceTree = "<group>"; };
+ /* End PBXFileReference section */
+ 
+ /* Begin PBXGroup section */
+@@ -145,6 +155,7 @@
+ 				3408B0CEFBC848A760FC9DA2 /* OLOWatchApp.swift */,
+ 				F22B76AE662F1B23C9D02B1D /* WatchHomeView.swift */,
+ 				3138D07424084AAF4E1B5D6B /* WatchOLOEntity.swift */,
++				FF0B743B46BB6FF0C4B7E846 /* WatchVoiceService.swift */,
+ 			);
+ 			path = OLOWatch;
+ 			sourceTree = "<group>";
+@@ -191,11 +202,20 @@
+ 			);
+ 			sourceTree = "<group>";
+ 		};
++		43AA4467AD6FAD8DC230D443 /* Wake */ = {
++			isa = PBXGroup;
++			children = (
++				AC4208E0D475D04AD20667CC /* WakeDemoView.swift */,
++			);
++			path = Wake;
++			sourceTree = "<group>";
++		};
+ 		5970719C9B18D83EDF876546 /* OLOTests */ = {
+ 			isa = PBXGroup;
+ 			children = (
+ 				05F590785BE06EA5B49BE213 /* ReminderAgentTests.swift */,
+ 				8DD893CA8C02C1D2FB74E02F /* VoiceLifecycleTests.swift */,
++				6CACE66D79498D0A679B1B2B /* WakeSessionTests.swift */,
+ 			);
+ 			path = OLOTests;
+ 			sourceTree = "<group>";
+@@ -208,6 +228,14 @@
+ 				0FA3C5F84BE69C21EAD9F380 /* MemoryStore.swift */,
+ 			);
+ 			path = Memory;
++			sourceTree = "<group>";
++		};
++		6F859C5A0AD6267B7717FF17 /* Wake */ = {
++			isa = PBXGroup;
++			children = (
++				AD4AAB2CA0F7BCB11814ED14 /* WakeSession.swift */,
++			);
++			path = Wake;
+ 			sourceTree = "<group>";
+ 		};
+ 		7408DCD744015BA81BE8A570 /* Features */ = {
+@@ -219,6 +247,7 @@
+ 				A44A468228B10FF49482D8A3 /* Memory */,
+ 				BF8FE0A86122BB4A1868B028 /* Settings */,
+ 				87E8BD1C0FC3D36E8DEA54C9 /* Voice */,
++				43AA4467AD6FAD8DC230D443 /* Wake */,
+ 				CF35B893044CB740EF872E4A /* World */,
+ 			);
+ 			path = Features;
+@@ -267,6 +296,7 @@
+ 				82BFE8355A41534AFFD21FBD /* OLOApp.swift */,
+ 				E18118C76F1C645B25200C49 /* OLOCenter.swift */,
+ 				71FD16C0C482E81455D7502F /* RootShell.swift */,
++				26DB9A451603B508CC8AB8AB /* WakeDemoController.swift */,
+ 			);
+ 			path = App;
+ 			sourceTree = "<group>";
+@@ -371,6 +401,7 @@
+ 				D6D32102BE65C9400DA31A1A /* OLO */,
+ 				1F5A95EA4D3739E3D8E01155 /* Tools */,
+ 				E463614D4A9B44828322B252 /* Voice */,
++				6F859C5A0AD6267B7717FF17 /* Wake */,
+ 			);
+ 			path = Core;
+ 			sourceTree = "<group>";
+@@ -390,6 +421,7 @@
+ 				269CF8DE2C2199970416EEE3 /* AgentTaskRepository.swift */,
+ 				D1AAD3B8806C977B8C4F0E0A /* MemoryRecord.swift */,
+ 				801AC18F1C200BC09DBAB0B1 /* OLOModelContainer.swift */,
++				5237D4752D57847EF9798329 /* WakeSessionStore.swift */,
+ 			);
+ 			path = Persistence;
+ 			sourceTree = "<group>";
+@@ -461,12 +493,15 @@
+ 				LastUpgradeCheck = 1430;
+ 				TargetAttributes = {
+ 					0C7B67E36CC7FACC2407560B = {
++						DevelopmentTeam = 336T6QZLR5;
+ 						ProvisioningStyle = Automatic;
+ 					};
+ 					6A98CBF2CC138928CD4D5C65 = {
++						DevelopmentTeam = 336T6QZLR5;
+ 						ProvisioningStyle = Automatic;
+ 					};
+ 					886BB55C27641F3981C96280 = {
++						DevelopmentTeam = 336T6QZLR5;
+ 						ProvisioningStyle = Automatic;
+ 					};
+ 				};
+@@ -518,6 +553,7 @@
+ 			files = (
+ 				C59132A5A60564ADB94F079F /* ReminderAgentTests.swift in Sources */,
+ 				DA8EB92975D3AC3F002939CE /* VoiceLifecycleTests.swift in Sources */,
++				05E75F8E61CE25F0D8D17725 /* WakeSessionTests.swift in Sources */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+@@ -564,6 +600,10 @@
+ 				222046C9D58B69DDB4BEEECC /* ToolRegistry.swift in Sources */,
+ 				FD196949C650A57FECF33296 /* VoiceService.swift in Sources */,
+ 				A3EB38E291DE4D4AD219E84B /* VoiceView.swift in Sources */,
++				691FBAF86D83BC928D417217 /* WakeDemoController.swift in Sources */,
++				7B43ED886DB4AE8ADE74A926 /* WakeDemoView.swift in Sources */,
++				DD091F0FC97FF51BD58CC3FD /* WakeSession.swift in Sources */,
++				8001C2FEB33708F029A60EDF /* WakeSessionStore.swift in Sources */,
+ 				2DEADB93CF64BE91BF7D8037 /* WorldView.swift in Sources */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+@@ -572,26 +612,26 @@
+ 			isa = PBXSourcesBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
++				0C6D845D5E7C0C418A1FDE19 /* AgentRequest.swift in Sources */,
++				E6114A6557244BB32224C251 /* AgentRuntime.swift in Sources */,
++				B90E43D31BB5248816CB97CA /* AgentTask.swift in Sources */,
++				F03D0BACD71737F9A90C799D /* AgentUnderstanding.swift in Sources */,
++				85E4D090D2172493F7FED382 /* ContextProvider.swift in Sources */,
++				2CE02248BEFD93B63821452A /* ConversationTurn.swift in Sources */,
++				88B902369D1A265F9EFDDC77 /* MemoryImportance.swift in Sources */,
++				935A42B0957CAE6DD9F7B2E0 /* MemoryKind.swift in Sources */,
++				9363CFDD9A94D97A15B14FBD /* MemoryStore.swift in Sources */,
++				25C42AA47A15C85C2B43A97E /* OLOIdentity.swift in Sources */,
+ 				9C7A02B8EBC894E040458C07 /* OLOWatchApp.swift in Sources */,
++				496E831A7AD43AFD6F76C2D8 /* PermissionLevel.swift in Sources */,
++				FD94162FF472FAC3749C3B16 /* ReminderIntent.swift in Sources */,
++				8420D2DBF05B4D633F64B531 /* Tool.swift in Sources */,
++				D936D14A6FD3A364002CAA3D /* ToolExecution.swift in Sources */,
++				89997F1707A6D7B19EAF3D10 /* ToolRegistry.swift in Sources */,
++				77C79C0D2009843314603E5D /* VoiceService.swift in Sources */,
+ 				FE233DA1E8A8335F42AEDCAE /* WatchHomeView.swift in Sources */,
+ 				383AE86E37D68C73CC3F8299 /* WatchOLOEntity.swift in Sources */,
+-			F1A2B3C4D5E6F7A8B9C0011 /* WatchVoiceService.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0001 /* OLOIdentity.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0002 /* AgentRequest.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0003 /* AgentRuntime.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0004 /* AgentTask.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0005 /* AgentUnderstanding.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0006 /* ReminderIntent.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0007 /* ContextProvider.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0008 /* ConversationTurn.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0009 /* MemoryImportance.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C000A /* MemoryKind.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C000B /* MemoryStore.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C000C /* PermissionLevel.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C000D /* Tool.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C000E /* ToolExecution.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C000F /* ToolRegistry.swift in Sources */,
+-				F1A2B3C4D5E6F7A8B9C0010 /* VoiceService.swift in Sources */,
++				19A7C47B3B63F44BCF808993 /* WatchVoiceService.swift in Sources */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+@@ -672,9 +712,9 @@
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+-				CODE_SIGN_IDENTITY = "iPhone Developer";
+ 				CODE_SIGNING_ALLOWED = YES;
+ 				CODE_SIGNING_REQUIRED = YES;
++				CODE_SIGN_IDENTITY = "iPhone Developer";
+ 				CODE_SIGN_STYLE = Automatic;
+ 				DEVELOPMENT_TEAM = 336T6QZLR5;
+ 				INFOPLIST_FILE = OLOWatch/Info.plist;
+@@ -690,9 +730,9 @@
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+-				CODE_SIGN_IDENTITY = "iPhone Developer";
+ 				CODE_SIGNING_ALLOWED = YES;
+ 				CODE_SIGNING_REQUIRED = YES;
++				CODE_SIGN_IDENTITY = "iPhone Developer";
+ 				CODE_SIGN_STYLE = Automatic;
+ 				DEVELOPMENT_TEAM = 336T6QZLR5;
+ 				INFOPLIST_FILE = OLOWatch/Info.plist;
+@@ -737,8 +777,8 @@
+ 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+ 				CLANG_WARN_UNREACHABLE_CODE = YES;
+ 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+-				
+-				
++				CODE_SIGNING_ALLOWED = NO;
++				CODE_SIGNING_REQUIRED = NO;
+ 				CODE_SIGN_STYLE = Automatic;
+ 				COPY_PHASE_STRIP = NO;
+ 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+@@ -801,8 +841,8 @@
+ 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+ 				CLANG_WARN_UNREACHABLE_CODE = YES;
+ 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+-				
+-				
++				CODE_SIGNING_ALLOWED = NO;
++				CODE_SIGNING_REQUIRED = NO;
+ 				CODE_SIGN_STYLE = Automatic;
+ 				COPY_PHASE_STRIP = NO;
+ 				DEBUG_INFORMATION_FORMAT = dwarf;
+--- a/OLO.xcodeproj/xcshareddata/xcschemes/OLO.xcscheme
++++ b/OLO.xcodeproj/xcshareddata/xcschemes/OLO.xcscheme
+@@ -1,10 +1,11 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <Scheme
+    LastUpgradeVersion = "1430"
+-   version = "1.3">
++   version = "1.7">
+    <BuildAction
+       parallelizeBuildables = "YES"
+-      buildImplicitDependencies = "YES">
++      buildImplicitDependencies = "YES"
++      runPostActionsOnFailure = "NO">
+       <BuildActionEntries>
+          <BuildActionEntry
+             buildForTesting = "YES"
+@@ -26,7 +27,8 @@
+       buildConfiguration = "Debug"
+       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+-      shouldUseLaunchSchemeArgsEnv = "YES">
++      shouldUseLaunchSchemeArgsEnv = "YES"
++      onlyGenerateCoverageForSpecifiedTargets = "NO">
+       <MacroExpansion>
+          <BuildableReference
+             BuildableIdentifier = "primary"
+@@ -49,6 +51,8 @@
+             </BuildableReference>
+          </TestableReference>
+       </Testables>
++      <CommandLineArguments>
++      </CommandLineArguments>
+    </TestAction>
+    <LaunchAction
+       buildConfiguration = "Debug"
+--- a/OLO.xcodeproj/xcshareddata/xcschemes/OLOWatch.xcscheme
++++ b/OLO.xcodeproj/xcshareddata/xcschemes/OLOWatch.xcscheme
+@@ -1,10 +1,11 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <Scheme
+    LastUpgradeVersion = "1430"
+-   version = "1.3">
++   version = "1.7">
+    <BuildAction
+       parallelizeBuildables = "YES"
+-      buildImplicitDependencies = "YES">
++      buildImplicitDependencies = "YES"
++      runPostActionsOnFailure = "NO">
+       <BuildActionEntries>
+          <BuildActionEntry
+             buildForTesting = "YES"
+@@ -26,7 +27,8 @@
+       buildConfiguration = "Debug"
+       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+-      shouldUseLaunchSchemeArgsEnv = "YES">
++      shouldUseLaunchSchemeArgsEnv = "YES"
++      onlyGenerateCoverageForSpecifiedTargets = "NO">
+       <MacroExpansion>
+          <BuildableReference
+             BuildableIdentifier = "primary"
+@@ -55,6 +57,7 @@
+             BuildableIdentifier = "primary"
+             BlueprintIdentifier = "6A98CBF2CC138928CD4D5C65"
+             BuildableName = "OLOWatch.app"
++            BlueprintName = "OLOWatch"
+             ReferencedContainer = "container:OLO.xcodeproj">
+          </BuildableReference>
+       </BuildableProductRunnable>
+@@ -71,6 +74,7 @@
+             BuildableIdentifier = "primary"
+             BlueprintIdentifier = "6A98CBF2CC138928CD4D5C65"
+             BuildableName = "OLOWatch.app"
++            BlueprintName = "OLOWatch"
+             ReferencedContainer = "container:OLO.xcodeproj">
+          </BuildableReference>
+       </BuildableProductRunnable>
+--- /dev/null
++++ b/docs/scenarios/SR-001-Wake-Up-v0.1.md
+@@ -0,0 +1,60 @@
++# SR-001 Wake Up · Executable Prototype v0.1
++
++日期：2026-09-09  
++状态：前台模拟原型；日程 / 交通 / 时钟为 fixture，真实感知和后台唤醒未接入。  
++母版：[PRD v1.1](../product/OLO_Product_PRD_v1.1.md) §4、§5、§7、§12、§15–16。  
++授权来源：产品负责人明确要求先开发 SR-001，并于本次要求“开发吧”。此前 SR-003 为架构压力测试，不代表开发顺序。
++
++## 用户目标与范围
++
++以最低打扰帮助用户从 Sleeping / 未确认醒来进入 Awake。初期仅以用户点击“我醒了”作为明确回应，不能把提示已显示、时间已到或没有响应当作已醒。到达 Awake 后停止唤醒，并显示等待 SR-002；不宣称已经 Ready。
++
++入口：Home → SR-001 模拟体验。独立页面验证完整决策循环，不改变原语音 / 提醒事项流程或 OLO One 外观。不会设置系统闹钟、播放语音、控制灯光、读取 HealthKit 或日历，也不请求新的系统权限。前台页面提示授权仅作用于本次模拟。
++
++## 一致的时间 fixture
++
++单一模拟日，用当日分钟表示时间，手动推进；不使用真实日期、时区或后台计时。09:30 会议 − 10 分钟办公室准备 − 53 分钟通勤 − 47 分钟晨间准备 = **07:40 最晚起床**；最晚离家 **08:27**。
++
++本原型的策略参数：建议时间比最晚时间早 10 分钟；窗口起点再早 5 分钟。因此默认窗口为 **07:25–07:40**，建议 **07:30**。这些是本次可测试的明确规则，不是已验证的最佳睡眠策略。交通增至 61 分钟后最晚起床为 **07:32**，建议 **07:22**。解决原讨论中未说明额外缓冲造成的算例冲突，原讨论仍保留。
++
++交通 fixture 有效期为更新后 30 个模拟分钟，边界时刻即失效；日程可切换为缺失。通勤输入限定 1–240 分钟，时钟只允许向前推进，模拟时钟不跨日。这些限制只适用于本 demo。
++
++## 状态和回应契约
++
++| 条件 / 输入 | 行为 |
++| --- | --- |
++| 尚未开始 | 不推进时钟，不声称获得授权 |
++| 点击开始 | 授予本次页面提示权限，开始判断并记录 |
++| 缺失日程 / 交通过期 | 暂停判断，旧时间标为参考；刷新后重算 |
++| 撤销页面提示权限 | 暂停介入、清除延后及待确认提案 |
++| 早于建议时间 | 保持安静；窗口起点仅说明可选范围 |
++| 建议时间至其后 2 分钟 | 轻量视觉提示 |
++| 其后且早于最晚时间 | 简短起床提示，不重复自动播报 |
++| 到达最晚时间且无回应 | 标记目标风险，等待决定，不改会议或伪造醒来 |
++| 再睡十分钟 | 提议 min(10, 最晚起床 − 当前时间)，用户确认前不生效；无余量则明确说明 |
++| 提案之后时钟 / 交通 / 日程 / 授权变化 | 废弃旧提案，防止确认过期条件 |
++| 已确认延后但交通恶化 | 若不再可行则撤销延后并重算，记录原因 |
++| 点击“我醒了” | 记录明确回应、进入 Awake、停止一切后续模拟介入 |
++| 取消 | 进入 Cancelled，不创造完成记录或真实副作用 |
++| 清除重开 | 需明确确认；只覆盖这一份模拟记录 |
++
++窗口、升级间隔和记录上限为原型策略。既无自动传感器，也无临床睡眠判断；“保持安静”仅在当前输入假设下针对计划可行性成立。
++
++## 最小技术架构
++
++- `Core/Wake/WakeSession`：可编码、可传递的值类型，确定性处理输入、时间规划、状态与原因；不依赖 UI 或平台服务。
++- `App/WakeDemoController`：MainActor 唯一可变会话所有者，经 OLOCenter 注入；UI 调用这一层。保存期间阻止并发输入，错误可见且提供重试。
++- `Persistence/WakeSessionStore`：actor 隔离文件读写，原子替换单一模拟快照，不在主线程进行文件操作。
++- `Features/Wake/WakeDemoView`：仅显示和接受明确模拟输入；不配置系统框架、不发真实副作用、不复用真实 Agent 的 Done 状态。
++
++本次不把纯计算注册成有现实副作用的 Tool。未来若接闹钟、通知、Home 或语音输出，必须通过现有 Tool / Trust / Verification 边界，并重新定义平台能力和生命周期。
++
++## 持久化与生命周期
++
++保存单一 `sr001-demo.json`：当前模拟时钟、输入、授权、延后、回应和最近 100 条重要判断。不会写入长期 Routine Memory。离开页面或后台时不会产生新输入或真实提醒；重开页面 / App 恢复冻结的模拟时钟，不把离线时间伪装成已执行唤醒。
++
++读取损坏时不静默覆盖；提示重试或明确清除。写入失败显示“尚未保存”，保留内存状态并暂停后续输入，重试成功后继续。终态重复输入无副作用。
++
++## 验收
++
++[实现与测试记录](../engineering/SR-001-IMPLEMENTATION.md)记录实际执行的测试及未完成项。下一阶段优先验证交互，随后才选择真实 Context 来源、可靠后台唤醒能力、时间 / 时区模型及跨身体反馈，不直接进入 SR-003 开发。
+--- /dev/null
++++ b/docs/engineering/SR-001-IMPLEMENTATION.md
+@@ -0,0 +1,33 @@
++# SR-001 implementation · 2026-09-09
++
++实现边界见 [SR-001 v0.1](../scenarios/SR-001-Wake-Up-v0.1.md)。此版是可操作的前台模拟，不是可用于真实起床的闹钟。
++
++## 使用
++
++1. 在 iOS App 的 Home 向下滚动，进入“SR-001 · 模拟体验”。
++2. 点击“开始模拟，允许页面内提示”。默认 07:18，最晚起床 07:40。
++3. 用“前进 1 / 5 分钟”观察安静、轻量提示、起床提示与目标风险；用“交通变慢 8 分钟”观察重算。
++4. 点击“再睡十分钟”，检查可行分钟数后“确认延后”。数据变化会使旧确认失效。
++5. 点击“我醒了”，查看明确回应记录，后续模拟停止。
++6. 数据过期、日程缺失、撤销授权、取消和保存失败均有独立处理；重新模拟需确认清除。
++
++## 工程变更
++
++新增 WakeSession、WakeDemoController、WakeSessionStore、WakeDemoView 与 WakeSessionTests。OLOCenter 持有本次会话，Home 原有静态 Context 文案改为明确标记的模拟入口。语音 / 提醒事项 / Watch 源代码保持原样。
++
++重新生成工程前发现 Watch Core 源文件成员只存在于旧 pbxproj；现已回填 project.yml，保证生成不会丢失既有依赖。机器签名配置保留于被 .gitignore 排除的 project.local.yml，主 project.yml 可选包含该文件；不要提交本机配置。共享 scheme 的格式变化由当前 XcodeGen 生成。
++
++## 验证记录
++
++- iPhone 17 Pro / iOS 27.0 模拟器：第一轮 30 项单元测试通过，包含新增 13 项。最终重新生成后的结果在本记录末尾补充。
++- iOS 真机目标 Debug、禁用签名：编译通过。这不是实际真机运行。
++- Watch Simulator Debug、禁用签名：编译通过，用于核对已有依赖未丢失。
++- 新增 Swift 代码无编译警告。构建日志仍有工具链 AppIntents 元数据提示、既有 iPad 方向配置警告、WatchVoiceService 的既有 watchOS 27 API 废弃警告；本次没有修改这些无关行为。
++- 原型界面实际点击 / 视觉验收未完成：界面控制工具无法读取模拟器，Device Hub 两次超时。没有把自动测试当作实际点击通过。
++- 无真实闹钟、后台通知、睡眠传感或 Home 操作，因此未进行这些真机能力验收。
++
++测试覆盖：反向时间计算、安静至升级、交通重规划、延后确认与上界、接受后失效、过期提案拒绝、数据缺失 / 过期 / 撤权、明确 Awake 终止、重复输入 / 取消、非法时长、快照往返、持久化错误 / 重试 / 损坏恢复。
++
++最终回归：2026-09-09 18:02，重新生成后的工程在 iPhone 17 Pro / iOS 27.0 上以串行方式执行 **30 项测试，0 失败**；此前并行测试卡在启动阶段，终止本次测试进程后串行重跑成功。测试包：`Test-OLO-2026.09.09_18-02-17-+0800.xcresult`。
++
++[本次实现 diff](../changes/2026-09-09-sr001-implementation.patch)包含代码、配置与文档变更，排除机器本地签名配置和 patch 自身。既有未提交 / 已暂存工作保留，没有新增 Git 提交或暂存操作。
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -21,6 +21,8 @@
+ | [Product PRD v1.0](product/OLO_Product_PRD_v1.0.md) | 原始完整 PRD | 历史冻结，保留原文 |
+ | [DECISIONS](product/DECISIONS.md) | 批准决定与版本落点 | 决策账本 |
+ | [Scenario Specification](scenarios/OLO-Scenario-Specification.md) | SR-001–005、人的状态变化 | 已认可的体验方向；验收仍需验证 |
++| [SR-001 起床原型](scenarios/SR-001-Wake-Up-v0.1.md) | 首个开发闭环、时间规则与验收 | 前台模拟；真实感知 / 闹钟未接入 |
++| [SR-001 实现记录](engineering/SR-001-IMPLEMENTATION.md) | 使用说明与实际验证 | 当前开发切片 |
+ | [SR-003 Leaving / Cybercab](scenarios/SR-003-Leaving-Cybercab.md) | 第二轮压力测试 | Living spec / 桌面推演完成，工程未验证 |
+ | [SR-003 推演记录](scenarios/SR-003-Desktop-Stress-Test-01.md) | 9 项 fixture / 轨迹 / 缺口 | 桌面分析，非工程通过 |
+ | [Context v0.3 候选差异](context/OLO-Context-Model-v0.3-Candidate.md) | SR-003 导出的语义扩展 | 未批准，v0.2 仍为基线 |
+--- a/docs/product/DECISIONS.md
++++ b/docs/product/DECISIONS.md
+@@ -43,3 +43,13 @@
+ - No approval of a Context v0.3 schema, complete Action state machine, L0–L4 mapping, numerical confidence thresholds, Cybercab integration, delivery timeline, or code changes is implied.
+ 
+ Earlier entries above are preserved verbatim as history. The current authority rule is in [docs/README](../README.md).
++
++## 2026 09 09 Development begins with SR-001
++
++Status: approved scope / implementation authorized by product owner  
++Source: direct correction “应该先 SR-001” followed by “开发吧”.
++
++- Development begins with SR-001 Wake Up; SR-003 remains a design stress test.
++- Implement the minimal foreground simulated context → wake plan → intervention decision → explicit human response loop, with labeled fixture inputs.
++- This does not authorize real autonomous waking, Home control or inferred sleep detection. Runtime details remain living specs.
++- See [SR-001 executable specification](../scenarios/SR-001-Wake-Up-v0.1.md) and [implementation record](../engineering/SR-001-IMPLEMENTATION.md).

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { render, Box, Text, useInput, useApp, useStdin } from 'ink';
 import TextInput from 'ink-text-input';
 import type { ModelMessage } from 'ai';
@@ -6,9 +6,12 @@ import type { CliConfig, LoadedSkill, ModelProvider, ToolContext } from '../type
 import { createModelRouter } from '../llm/model-router.js';
 import { buildSystemPrompt, runChatLoop } from '../llm/chat.js';
 import { createGatewayApprovalHandler } from '../approval/gateway-approval.js';
-import { getTools } from '../tools/index.js';
+import { toAgentToolSet } from '../tools/index.js';
 import { loadSkillsFromDir } from '../skills/loader.js';
 import { McpClientManager } from '../mcp/client.js';
+import { SessionStore, type StoredSession } from '../utils/session-store.js';
+import { formatTaskPlan } from '../utils/task-manager.js';
+import { PermissionPolicy } from '../utils/permission-policy.js';
 import { StatusBar } from './status-bar.js';
 import { MessageList } from './message-list.js';
 import { ToolCallDisplay } from './tool-call-display.js';
@@ -26,6 +29,8 @@ export interface InkAppProps {
   modelRouter: ReturnType<typeof createModelRouter>;
   mcpManager: McpClientManager;
   mcpTools: Array<{ name: string; description: string }>;
+  sessionStore: SessionStore;
+  activeSession: { session: StoredSession };
   systemPrompt: string;
   /** 审批门：CLI 负责执行、对话窗口弹审批（无 API Key 时 undefined） */
   approvalHandler?: (
@@ -45,16 +50,17 @@ export function InkApp(props: InkAppProps) {
   const { exit } = useApp();
 
   const [userId, setUserId] = useState(props.userId);
-  const [messages, setMessages] = useState<ModelMessage[]>([]);
+  const [messages, setMessages] = useState<ModelMessage[]>(props.activeSession.session.messages);
   const [isThinking, setIsThinking] = useState(false);
   const [isWaitingInput, setIsWaitingInput] = useState(true);
   const [currentToolCalls, setCurrentToolCalls] = useState<Array<{ name: string; args: any }>>([]);
   const [currentToolResults, setCurrentToolResults] = useState<Array<{ name: string; result: any }>>([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [commandOutput, setCommandOutput] = useState<string | null>(null);
-  const [commandType, setCommandType] = useState<'help' | 'model' | 'skills' | 'tools' | 'mcp' | 'error' | null>(null);
+  const [commandType, setCommandType] = useState<'help' | 'model' | 'skills' | 'tools' | 'mcp' | 'tasks' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string>('');
+  const activeAbortController = useRef<AbortController | null>(null);
 
   const models = props.modelRouter.listModels();
 
@@ -81,16 +87,20 @@ export function InkApp(props: InkAppProps) {
     setMessages(prev => [...prev, userMsg]);
     setIsThinking(true);
     setIsWaitingInput(false);
+    const abortController = new AbortController();
+    activeAbortController.current = abortController;
 
     try {
       const model = props.modelRouter.getModel(selectedModel);
       const allMessages = [...messages, userMsg];
+      await props.sessionStore.save(props.activeSession.session.id, props.workspace, allMessages);
 
       const result = await runChatLoop(allMessages, {
         model,
         systemPrompt: props.systemPrompt,
         tools: props.tools,
         approvalHandler: props.approvalHandler,
+        signal: abortController.signal,
         onText: (text: string) => {
           setStreamingText(prev => prev + text);
         },
@@ -102,16 +112,23 @@ export function InkApp(props: InkAppProps) {
         },
       });
 
-      setMessages(prev => [...prev, { role: 'assistant', content: result.text }]);
+      const nextMessages = [...allMessages, ...result.responseMessages];
+      setMessages(nextMessages);
+      props.activeSession.session = await props.sessionStore.save(
+        props.activeSession.session.id,
+        props.workspace,
+        nextMessages,
+      );
       setStreamingText('');
       setCurrentToolCalls([]);
       setCurrentToolResults([]);
     } catch (err: any) {
-      setError(err.message || 'Unknown error occurred');
+      setError(abortController.signal.aborted ? 'Stopped current turn.' : (err.message || 'Unknown error occurred'));
       setStreamingText('');
       setCurrentToolCalls([]);
       setCurrentToolResults([]);
     } finally {
+      if (activeAbortController.current === abortController) activeAbortController.current = null;
       setIsThinking(false);
       setIsWaitingInput(true);
     }
@@ -131,6 +148,11 @@ export function InkApp(props: InkAppProps) {
           '  /logout            - Remove local credentials\n' +
           '  /whoami            - Show current identity\n' +
           '  /clear             - Clear conversation history\n' +
+          '  /new               - Start a new persistent session\n' +
+          '  /sessions          - List saved sessions\n' +
+          '  /resume <id>       - Resume a saved session\n' +
+          '  /tasks             - Show the current plan and task status\n' +
+          '  /permissions [mode] - Show or set the permission mode\n' +
           '  /model [name]      - Switch model\n' +
           '  /skills            - List available skills\n' +
           '  /tools             - List available tools\n' +
@@ -180,9 +202,72 @@ export function InkApp(props: InkAppProps) {
 
       case 'clear':
         setMessages([]);
+        props.activeSession.session = await props.sessionStore.save(
+          props.activeSession.session.id,
+          props.workspace,
+          [],
+        );
         setCommandOutput('Conversation cleared');
         setCommandType('help');
         break;
+
+      case 'new':
+        props.activeSession.session = await props.sessionStore.create(props.workspace);
+        setMessages([]);
+        setCommandOutput(`Started session ${props.activeSession.session.id}`);
+        setCommandType('help');
+        break;
+
+      case 'sessions': {
+        const saved = await props.sessionStore.list(props.workspace);
+        setCommandOutput(saved.length
+          ? saved.slice(0, 20).map((session) => `${session.id}  ${session.title}`).join('\n')
+          : 'No saved sessions');
+        setCommandType('help');
+        break;
+      }
+
+      case 'resume':
+        if (!args) {
+          setCommandOutput('Usage: /resume <session-id>');
+          setCommandType('error');
+          break;
+        }
+        props.activeSession.session = await props.sessionStore.load(args, props.workspace);
+        setMessages(props.activeSession.session.messages);
+        setCommandOutput(`Resumed ${props.activeSession.session.title}`);
+        setCommandType('help');
+        break;
+
+      case 'tasks': {
+        const session = await props.sessionStore.load(props.activeSession.session.id, props.workspace);
+        setCommandOutput(formatTaskPlan(session.plan));
+        setCommandType('tasks');
+        break;
+      }
+
+      case 'permissions':
+      case 'mode': {
+        const policy = new PermissionPolicy(props.workspace);
+        const modes = ['default', 'acceptEdits', 'plan', 'dontAsk', 'bypassPermissions'] as const;
+        if (!args) {
+          setCommandOutput(`Permission mode: ${policy.getMode()}\nAvailable: ${modes.join(', ')}`);
+          setCommandType('help');
+        } else if (!modes.includes(args as typeof modes[number])) {
+          setCommandOutput(`Unknown mode: ${args}. Available: ${modes.join(', ')}`);
+          setCommandType('error');
+        } else {
+          try {
+            await policy.setWorkspaceMode(args as typeof modes[number]);
+            setCommandOutput(`Permission mode set to ${args}`);
+            setCommandType('help');
+          } catch (err: any) {
+            setCommandOutput(`Could not change permission mode: ${err.message}`);
+            setCommandType('error');
+          }
+        }
+        break;
+      }
 
       case 'model':
         if (args) {
@@ -215,11 +300,17 @@ export function InkApp(props: InkAppProps) {
         setCommandOutput(
           '⚙ Available Tools:\n' +
           '  bash              - Execute shell commands\n' +
+          '  powershell        - Execute PowerShell commands when installed\n' +
           '  file_read         - Read file contents\n' +
           '  file_write        - Create/overwrite files\n' +
           '  file_edit         - Edit specific text in files\n' +
+          '  file_patch        - Apply multiple exact edits atomically\n' +
           '  grep              - Search file contents with regex\n' +
-          '  glob              - Match file paths with glob patterns',
+          '  glob              - Match file paths with glob patterns\n' +
+          '  local_git         - Inspect and change Git state\n' +
+          '  task_plan         - Create and track a plan with read-only plan mode\n' +
+          '  activate_skill    - Load a listed skill\n' +
+          '  MCP tools         - Call approved tools from enabled servers',
         );
         setCommandType('tools');
         break;
@@ -246,10 +337,14 @@ export function InkApp(props: InkAppProps) {
   }, [models, props.skills, props.mcpTools, exit]);
 
   useInput((input, key) => {
+    if (key.escape && isThinking) {
+      activeAbortController.current?.abort(new Error('Stopped by user'));
+      return;
+    }
     if (input === 'd' && key.ctrl) {
       exit();
     }
-  });
+  }, { isActive: true });
 
   return (
     <Box flexDirection="column" width="100%">
@@ -325,23 +420,19 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
     mcpTools = await mcpManager.getAllTools();
   } catch { /* skip */ }
 
+  const sessionStore = new SessionStore();
+  const activeSession: { session: StoredSession } = {
+    session: await sessionStore.latestOrCreate(options.workspace),
+  };
+
   const toolContext: ToolContext = {
     cwd: options.workspace,
     userId: options.userId,
-    sessionId: Math.random().toString(36).substring(2, 15),
+    sessionId: activeSession.session.id,
+    getSessionId: () => activeSession.session.id,
   };
 
-  const coreTools = getTools(toolContext);
-  const tools: Record<string, any> = {};
-  for (const [name, toolDef] of Object.entries(coreTools)) {
-    const tool = toolDef as any;
-    tools[name] = {
-      description: tool.description,
-      parameters: tool.inputSchema,
-      requiresApproval: tool.requiresApproval === true,
-      execute: async (args: any) => tool.execute(args, toolContext),
-    };
-  }
+  const tools: Record<string, any> = await toAgentToolSet(toolContext, mcpManager, skills, sessionStore);
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
 
@@ -351,7 +442,7 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
     ? createGatewayApprovalHandler({
         gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
         apiKey,
-        sessionId: toolContext.sessionId,
+        sessionId: () => activeSession.session.id,
       })
     : undefined;
 
@@ -366,6 +457,8 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
       modelRouter={modelRouter}
       mcpManager={mcpManager}
       mcpTools={mcpTools}
+      sessionStore={sessionStore}
+      activeSession={activeSession}
       systemPrompt={systemPrompt}
       approvalHandler={approvalHandler}
     />,

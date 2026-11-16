@@ -490,18 +490,21 @@ export function Sidebar({
   onRenameConversation,
   onDeleteConversation,
   onFavoriteConversation,
+  initialProjects,
   user,
   onLogout,
   token
 }: any) {
   const { t, i18n } = useTranslation();
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const { projects, fetchProjects: fetchProjectsData } = useProjects();
+  const { projects, fetchProjects: fetchProjectsData } = useProjects(initialProjects);
   const { activeProject, setActiveProjectId } = useWorkspace();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const isElectron = typeof window !== 'undefined' && !!(window as any).electron;
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [isElectron, setIsElectron] = useState(false);
 
   useEffect(() => {
+    setIsElectron(!!(window as any).electron);
     let mounted = true;
     const ipc = (window as any).electron?.ipcRenderer;
     
@@ -540,10 +543,18 @@ export function Sidebar({
     }
   }, []);
 
+  // 桌面端视口检测（避免 SSR 时读取 window.innerWidth 导致 hydration mismatch）
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 768);
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
   // 动态获取项目列表（供全局命令菜单使用）
   useEffect(() => {
-    if (token) fetchProjectsData();
-  }, [fetchProjectsData, token]);
+    if (token && initialProjects === undefined) fetchProjectsData();
+  }, [fetchProjectsData, initialProjects, token]);
 
 
   // Cmd+K / Ctrl+K 快捷键打开搜索
@@ -646,7 +657,7 @@ export function Sidebar({
           isCollapsed ? "md:border-r-0" : ""
         )}
         style={{
-          width: typeof window !== 'undefined' && window.innerWidth >= 768
+          width: isDesktop
             ? (isCollapsed ? '0px' : '256px')
             : undefined
         }}

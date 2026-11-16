@@ -1,6 +1,7 @@
 // Core types for Ocean CLI
 
 import type { UIMessage, ModelMessage } from 'ai';
+import type { SecurityAuditResult } from './utils/security.js';
 
 // ─── Tool System ──────────────────────────────────────────────
 
@@ -15,11 +16,14 @@ export interface ToolContext {
   cwd: string;
   userId: string;
   sessionId: string;
+  /** Resolves the active id after /new or /resume changes the conversation. */
+  getSessionId?: () => string;
   signal?: AbortSignal;
 }
 
 export interface ToolResult<T = any> {
   data: T;
+  audit?: SecurityAuditResult;
   ui?: {
     uiType: string;
     props: Record<string, any>;

@@ -22,6 +22,7 @@ function createTxMock(
     agentRun: {
       findUnique: jest.fn().mockResolvedValue(run),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     runEvent: {
       findFirst: jest.fn().mockResolvedValue(null),
@@ -112,6 +113,37 @@ describe('RunRunner', () => {
   afterEach(() => {
     process.env.WORKER_SIM_MS = originalSimMs;
     jest.restoreAllMocks();
+  });
+
+  it('does not restart a cancelled Run or call the model', async () => {
+    const { runner, gateway, tx } = createRunner({ id: 'run_1', userId: 'user_1', status: 'cancelled', input: 'stop' });
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(gateway.generate).not.toHaveBeenCalled();
+    expect(tx.agentRun.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('drops late model deltas and tool calls after cancellation wins the status update', async () => {
+    const { runner, gateway, tx, outbox } = createRunner({ id: 'run_1', userId: 'user_1', status: 'queued', input: 'work' });
+    gateway.generate.mockImplementation(async ({ onDelta }: any) => {
+      tx.agentRun.updateMany.mockResolvedValue({ count: 0 });
+      await onDelta('x'.repeat(100));
+      return { text: 'late', toolCalls: [{ id: 'call', name: 'local_notebook_edit', input: {} }] };
+    });
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+    expect(eventTypes(tx)).not.toContain('run.output_delta');
+    expect(tx.agentRun.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'queued' } }));
+    expect(tx.agentRun.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'succeeded' } }));
+  });
+
+  it('does not requeue a cancelled Run after a late model error', async () => {
+    const { runner, gateway, tx } = createRunner({ id: 'run_1', userId: 'user_1', status: 'queued', input: 'work' });
+    gateway.generate.mockImplementation(async () => {
+      tx.agentRun.updateMany.mockResolvedValue({ count: 0 });
+      throw new Error('late error');
+    });
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(tx.agentRun.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'queued' } }));
   });
 
   it('executes a queued run: model_call step + output_delta + succeeded events', async () => {
@@ -240,7 +272,10 @@ describe('RunRunner', () => {
       {
         generateResult: {
           text: '我来查：',
-          toolCalls: [{ id: 'tc_1', name: 'echo', input: { text: '查一下' } }],
+          toolCalls: [
+            { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
+            { id: 'tc_2', name: 'echo', input: { text: '再查一次' } },
+          ],
         },
       },
     );
@@ -263,6 +298,7 @@ describe('RunRunner', () => {
       }),
       expect.anything(),
     );
+    expect(outbox.enqueueToolRequested).toHaveBeenCalledTimes(1);
     const statusEvents = tx.runEvent.create.mock.calls
       .map((call) => call[0].data.payload)
       .filter((p) => p.type === 'run.status_changed');

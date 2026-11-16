@@ -1,28 +1,3 @@
-import OceanShell from '../../../../App';
-import { getOceanServerBootstrap } from '../../../../lib/server-session';
-import { redirect } from 'next/navigation';
-
-export const dynamic = 'force-dynamic';
-
-export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const bootstrap = await getOceanServerBootstrap({
-    sessionId: id,
-    includeModels: true,
-  });
-  if (!bootstrap) redirect('/auth');
-  return (
-    <OceanShell
-      key={id}
-      sessionId={id}
-      initialAuthenticated
-      initialUser={bootstrap.user}
-      initialConversations={bootstrap.conversations}
-      initialMessages={bootstrap.messages}
-      initialModels={bootstrap.models}
-      initialProjects={bootstrap.projects}
-      initialSkills={bootstrap.skills}
-      initialSkillStats={bootstrap.skillStats}
-    />
-  );
+export default function ChatPage() {
+  return null;
 }

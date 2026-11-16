@@ -682,6 +682,7 @@
     "saved": "Saved",
     "save_failed": "Save failed",
     "load_failed": "Failed to load",
+    "retry": "Retry",
     "loading": "Loading…",
     "mode_title": "How should Ocean approve operations?",
     "mode_ask_title": "Always ask",

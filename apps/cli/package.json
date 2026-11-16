@@ -9,10 +9,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prebuild": "pnpm --filter @ocean/core build",
     "build": "tsc",
+    "pretypecheck": "pnpm --filter @ocean/core build",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
     "start:daemon": "node dist/index.js daemon",
+    "pretest": "pnpm --filter @ocean/core build",
     "test": "vitest run"
   },
   "dependencies": {

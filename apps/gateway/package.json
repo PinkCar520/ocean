@@ -6,7 +6,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "prebuild": "pnpm --filter @ocean/core build",
     "build": "nest build",
+    "pretypecheck": "pnpm --filter @ocean/core build",
     "typecheck": "tsc --noEmit",
     "worker:dev": "nest build && node --watch dist/apps/gateway/src/worker/main.js",
     "worker:start": "node dist/apps/gateway/src/worker/main",
@@ -115,6 +117,7 @@
     },
     "moduleNameMapper": {
       "^@ocean/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts",
+      "^@ocean/core$": "<rootDir>/../../../packages/shared/core/src/index.ts",
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "collectCoverageFrom": [

@@ -1,0 +1,127 @@
+name: OLO
+include:
+  - path: project.local.yml
+    optional: true
+options:
+  bundleIdPrefix: app.olo
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  base:
+    SWIFT_VERSION: "6.2"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    # Normal Xcode builds must remain signable for installation on a real device.
+    # CI or simulator-only checks can override these settings per command.
+    CODE_SIGNING_REQUIRED: YES
+    CODE_SIGNING_ALLOWED: YES
+    TARGETED_DEVICE_FAMILY: "1,2"
+    GENERATE_INFOPLIST_FILE: NO
+targets:
+  OLO:
+    type: application
+    platform: iOS
+    sources:
+      # Includes the SR-001 Core, persistence adapter and real system integrations.
+      - path: OLO
+        excludes:
+          - "Resources/Info.plist"
+    info:
+      path: OLO/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: OLO
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: ""
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSSpeechRecognitionUsageDescription: "OLO listens to you to understand what you want."
+        NSMicrophoneUsageDescription: "OLO uses the microphone for voice conversations."
+        NSCalendarsUsageDescription: "OLO can read and create calendar events for you."
+        NSCalendarsFullAccessUsageDescription: "OLO reads your upcoming commitments to calculate when you need to wake up."
+        NSAlarmKitUsageDescription: "OLO schedules the wake-up alarm you review and confirm."
+        NSRemindersFullAccessUsageDescription: "OLO creates and verifies reminders you request."
+        NSRemindersUsageDescription: "OLO can read and create reminders for you."
+        NSLocationWhenInUseUsageDescription: "OLO uses your location to give relevant context like weather."
+        NSContactsUsageDescription: "OLO references people you know to keep memory about them."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.olo.OLO
+        PRODUCT_NAME: OLO
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+  OLOWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: '27.0'
+    sources:
+      - path: OLOWatch
+        excludes: [Info.plist]
+      # Preserve the existing Watch Core membership when regenerating.
+      - path: OLO/Core/OLO/OLOIdentity.swift
+      - path: OLO/Core/Agent/AgentRequest.swift
+      - path: OLO/Core/Agent/AgentRuntime.swift
+      - path: OLO/Core/Agent/AgentTask.swift
+      - path: OLO/Core/Agent/AgentUnderstanding.swift
+      - path: OLO/Core/Agent/ReminderIntent.swift
+      - path: OLO/Core/Context/ContextProvider.swift
+      - path: OLO/Core/Conversation/ConversationTurn.swift
+      - path: OLO/Core/Memory/MemoryImportance.swift
+      - path: OLO/Core/Memory/MemoryKind.swift
+      - path: OLO/Core/Memory/MemoryStore.swift
+      - path: OLO/Core/Tools/PermissionLevel.swift
+      - path: OLO/Core/Tools/Tool.swift
+      - path: OLO/Core/Tools/ToolExecution.swift
+      - path: OLO/Core/Tools/ToolRegistry.swift
+      - path: OLO/Core/Voice/VoiceService.swift
+      - path: OLO/Core/Wake/WakeVoiceIntent.swift
+    settings:
+      base:
+        INFOPLIST_FILE: OLOWatch/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: app.olo.OLO.watchkitapp
+        TARGETED_DEVICE_FAMILY: '4'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  OLOTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [OLOTests]
+    dependencies:
+      - target: OLO
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+  OLOUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [OLOUITests]
+    dependencies:
+      - target: OLO
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  OLO:
+    build:
+      targets:
+        OLO: all
+    test:
+      targets: [OLOTests, OLOUITests]
+  OLOWatch:
+    build:
+      targets:
+        OLOWatch: all

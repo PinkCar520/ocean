@@ -18,13 +18,19 @@ function notifyListeners(projects: Project[]) {
   listeners.forEach(listener => listener(projects));
 }
 
-export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>(globalProjectsCache || []);
-  const [isLoading, setIsLoading] = useState(!globalProjectsCache);
+export function useProjects(initialProjects?: Project[]) {
+  const hasInitialProjects = initialProjects !== undefined;
+  // Keep the hydration frame deterministic; apply the module cache after mount.
+  const [projects, setProjects] = useState<Project[]>(initialProjects ?? []);
+  const [isLoading, setIsLoading] = useState(!hasInitialProjects);
 
   useEffect(() => {
     listeners.push(setProjects);
-    if (globalProjectsCache) {
+    if (hasInitialProjects) {
+      globalProjectsCache = initialProjects;
+      notifyListeners(initialProjects);
+      setIsLoading(false);
+    } else if (globalProjectsCache) {
       setProjects(globalProjectsCache);
       setIsLoading(false);
     } else {
@@ -33,7 +39,7 @@ export function useProjects() {
     return () => {
       listeners = listeners.filter(l => l !== setProjects);
     };
-  }, []);
+  }, [hasInitialProjects, initialProjects]);
 
   const fetchProjects = useCallback(() => {
     if (!isFetching) {

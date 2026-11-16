@@ -1,5 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { createOpenAI } from '@ai-sdk/openai';
+import { wrapLanguageModel } from 'ai';
+import { chatImageMiddleware } from './chat-image-middleware';
 
 /**
  * 多 Provider 聊天模型构造（唯一来源）。
@@ -110,5 +112,5 @@ export function createChatModel(config: ConfigService, modelId?: string): any {
       : {}),
   });
 
-  return provider.chat(selectedModelId);
+  return wrapLanguageModel({ model: provider.chat(selectedModelId), middleware: chatImageMiddleware });
 }

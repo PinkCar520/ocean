@@ -4,6 +4,7 @@ import { join } from 'path';
 import { ArtifactStore } from '../artifact/artifact.store';
 import { EgressPolicy } from '../sandbox/egress-policy';
 import { ToolRegistry, TOOL_REGISTRY } from './tool.registry';
+import { DeviceRpcBroker } from './device-rpc.broker';
 
 /**
  * ToolModule —— 工具注册表（幂等工具调用基础设施，Phase 4 第 4 项）。
@@ -25,6 +26,7 @@ import { ToolRegistry, TOOL_REGISTRY } from './tool.registry';
       inject: ['PRISMA_CLIENT'],
     },
     ToolRegistry,
+    DeviceRpcBroker,
     { provide: TOOL_REGISTRY, useExisting: ToolRegistry },
   ],
   exports: [ToolRegistry, TOOL_REGISTRY, ArtifactStore],

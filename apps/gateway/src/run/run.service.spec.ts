@@ -15,6 +15,7 @@ describe('RunService', () => {
     stepInput?: any;
   }) {
     const id = `appr_${nextRun}`;
+    if (opts.status === 'pending' && runs.has(opts.runId)) runs.get(opts.runId).status = 'waiting_for_approval';
     const step = {
       id,
       runId: opts.runId,
@@ -28,6 +29,7 @@ describe('RunService', () => {
     approvals.set(id, {
       id,
       runId: opts.runId,
+      userId: 'user_1',
       toolCallId: 'tc_1',
       toolName: 'notify.send',
       args: { to: 'alice' },
@@ -74,6 +76,12 @@ describe('RunService', () => {
       runs.set(run.id, run);
       return run;
     }),
+    updateMany: jest.fn(async ({ where, data }: any) => {
+      const run = runs.get(where.id);
+      if (!run || (where.userId && run.userId !== where.userId) || (typeof where.status === 'string' && run.status !== where.status) || (where.status?.in && !where.status.in.includes(run.status))) return { count: 0 };
+      runs.set(where.id, { ...run, ...data, updatedAt: new Date() });
+      return { count: 1 };
+    }),
   };
   const runEvent = {
     create: jest.fn(async ({ data }: any) => {
@@ -101,6 +109,7 @@ describe('RunService', () => {
     runEvent,
     outboxEvent: {
       findFirst: jest.fn().mockResolvedValue(null),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     runApproval: {
       findUnique: jest.fn(async ({ where }: any) => {
@@ -110,6 +119,15 @@ describe('RunService', () => {
         const row = { ...approvals.get(where.id), ...data };
         approvals.set(row.id, row);
         return row;
+      }),
+      updateMany: jest.fn(async ({ where, data }: any) => {
+        let count = 0;
+        for (const [id, row] of approvals) {
+          if ((where.id && id !== where.id) || (where.userId && row.userId !== where.userId) || (where.status && row.status !== where.status) || (where.runId !== undefined && (row.runId ?? null) !== where.runId)) continue;
+          approvals.set(id, { ...row, ...data });
+          count++;
+        }
+        return { count };
       }),
     },
     runStep: {
@@ -172,6 +190,62 @@ describe('RunService', () => {
       { version: 1, runId: snapshot.run.id, userId: 'user_1' },
       1, // interactive 默认档
     );
+  });
+
+  it('resumes a Run when its approval is decided through the shared approval panel endpoint', async () => {
+    const snapshot = await service.create('user_1', { space: { id: 'work', type: 'work' }, input: 'edit notebook' });
+    const runId = snapshot.run.id;
+    runs.get(runId).status = 'waiting_for_approval';
+    const toolCall = { id: 'tc_1', name: 'local_notebook_edit', input: { path: 'n.ipynb', cell_id: 'c', new_source: 'x' }, idempotencyKey: 'tc_1' };
+    const approvalId = seedApproval({ runId, status: 'pending', stepInput: toolCall });
+    const result = await service.decideExternalApproval(approvalId, 'user_1', 'approved');
+    expect(result.status).toBe('approved');
+    expect(runs.get(runId).status).toBe('queued');
+    expect(outbox.enqueueToolRequested).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ runId, userId: 'user_1', toolCall }), expect.any(Number));
+  });
+
+  it('cancels a Run on rejection and refuses another user’s approval decision', async () => {
+    const snapshot = await service.create('user_1', { space: { id: 'work', type: 'work' }, input: 'edit notebook' });
+    const runId = snapshot.run.id;
+    runs.get(runId).status = 'waiting_for_approval';
+    const approvalId = seedApproval({ runId, status: 'pending', stepInput: { id: 'tc_1', name: 'local_notebook_edit', input: { path: 'n.ipynb' } } });
+    await expect(service.decideExternalApproval(approvalId, 'other', 'approved')).rejects.toThrow('not found');
+    const result = await service.decideExternalApproval(approvalId, 'user_1', 'rejected');
+    expect(result.status).toBe('rejected');
+    expect(runs.get(runId).status).toBe('cancelled');
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+  });
+
+  it('allows only one concurrent Run approval decision and never resumes a cancelled Run', async () => {
+    const snapshot = await service.create('user_1', { space: { id: 'work', type: 'work' }, input: 'edit notebook' });
+    const runId = snapshot.run.id;
+    const approvalId = seedApproval({ runId, status: 'pending', stepInput: { id: 'tc_1', name: 'local_notebook_edit', input: { path: 'n.ipynb' } } });
+    await Promise.all([
+      service.decideApproval(runId, approvalId, 'user_1', 'approved'),
+      service.decideApproval(runId, approvalId, 'user_1', 'rejected'),
+    ]);
+    expect(approvals.get(approvalId).status).toBe('approved');
+    expect(runs.get(runId).status).toBe('queued');
+    expect(outbox.enqueueToolRequested).toHaveBeenCalledTimes(1);
+
+    const second = await service.create('user_1', { space: { id: 'work', type: 'work' }, input: 'another' });
+    const secondApproval = seedApproval({ runId: second.run.id, status: 'pending' });
+    runs.get(second.run.id).status = 'cancelled';
+    await service.decideApproval(second.run.id, secondApproval, 'user_1', 'approved');
+    expect(runs.get(second.run.id).status).toBe('cancelled');
+    expect(outbox.enqueueToolRequested).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels pending approvals and undispatched device requests with the Run', async () => {
+    const snapshot = await service.create('user_1', { space: { id: 'work', type: 'work' }, input: 'edit notebook' });
+    const runId = snapshot.run.id;
+    const approvalId = seedApproval({ runId, status: 'pending' });
+    await service.cancel(runId, 'user_1');
+    expect(approvals.get(approvalId).status).toBe('rejected');
+    expect(prisma.outboxEvent.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ topic: 'device.rpc', aggregateId: runId, status: 'pending' }) }));
+    await service.decideApproval(runId, approvalId, 'user_1', 'approved');
+    expect(runs.get(runId).status).toBe('cancelled');
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
   });
 
   it('persists priority and maps critical to outbox rank 0 (Phase 4.6)', async () => {

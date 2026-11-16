@@ -14,7 +14,9 @@ import { security } from './utils/security.js';
 import { FileEditTool } from './tools/local/file-edit.js';
 import { GitTool } from './tools/local/git.js';
 import { PlanTool } from './tools/local/plan.js';
+import { createPowerShellTool } from './tools/powershell.js';
 import { TaskManager } from './utils/task-manager.js';
+import { createNotebookRpc } from './tools/notebook-rpc.js';
 
 const execAsync = promisify(exec);
 
@@ -24,20 +26,22 @@ const tools = {
   git: new GitTool(),
   plan: new PlanTool(),
 };
+const powerShellTool = createPowerShellTool();
 
 interface DaemonOptions {
   userId: string;
 }
 
 export async function runDaemon(options: DaemonOptions) {
-  const effectiveUserId = process.env.OCEAN_WORK_ID || process.env.OCEAN_USER_ID || options.userId;
+  let effectiveUserId = process.env.OCEAN_WORK_ID || process.env.OCEAN_USER_ID || options.userId;
   const apiKey = await resolveApiKey();
+  const notebookRpc = createNotebookRpc(process.cwd());
 
   console.log(chalk.green(LOG.DAEMON) + ` Identity: ${chalk.bold(effectiveUserId)}`);
   console.log(chalk.green(LOG.DAEMON) + ` Connecting to Gateway (${CONFIG.GATEWAY_URL})...`);
 
   const socket = io(CONFIG.GATEWAY_URL, {
-    query: { userId: effectiveUserId },
+    query: { clientType: 'cli' },
     auth: { token: apiKey || undefined },
     transports: ['websocket'], // 强制使用 WebSocket，跳过轮询升级
     extraHeaders: apiKey ? {
@@ -60,8 +64,15 @@ export async function runDaemon(options: DaemonOptions) {
   });
 
   socket.on('connect', () => {
-    console.log(chalk.green('✓ [SUCCESS]') + ` Connected as node: ${effectiveUserId}`);
+    console.log(chalk.gray('[Ocean Daemon] Connected; authenticating...'));
   });
+  socket.on('rpc_identity', (identity: { workId?: unknown }) => {
+    if (typeof identity?.workId === 'string' && identity.workId) {
+      effectiveUserId = identity.workId;
+      console.log(chalk.green('✓ [SUCCESS]') + ` Connected as node: ${effectiveUserId}`);
+    }
+  });
+  socket.on('rpc_auth_error', (error: { message?: string }) => console.error(chalk.red('[Authentication]'), error.message || 'Gateway authentication failed.'));
 
   socket.on('rpc_request', async (data: RPCMessage) => {
     console.log(chalk.cyan(LOG.RPC) + ` ID: ${data.id}, Method: ${data.method}`);
@@ -69,20 +80,30 @@ export async function runDaemon(options: DaemonOptions) {
     let result: any = null;
     let error: string | null = null;
     let uiHint: string = 'text';
+    let resolvedTargetPath: string | undefined;
 
     try {
       const { sessionId } = data.params || {};
       if (sessionId) currentSessionId = sessionId;
 
       // 1. Path Security Check
-      const targetPath = data.params?.path || data.params?.dir;
+      const targetPath = data.params?.path || data.params?.dir || data.params?.cwd;
       if (targetPath) {
-        const { isValid } = security.validatePath(targetPath);
-        if (!isValid) throw new Error(`Security Violation: Path "${targetPath}" is outside workspace.`);
+        resolvedTargetPath = await security.resolveWorkspacePath(targetPath);
       }
 
       // 2. Dispatch to New Atomic Tools or Legacy Switch
       switch (data.method) {
+        case 'notebook_read':
+        case 'notebook_edit':
+        case 'file_read':
+        case 'file_write':
+        case 'file_edit':
+        case 'file_patch':
+          result = await notebookRpc(data.method, data.params || {}, effectiveUserId);
+          uiHint = ['notebook_edit', 'file_write', 'file_edit', 'file_patch'].includes(data.method) ? 'diff' : 'code';
+          break;
+
         case 'create_local_project':
           const { name, category } = data.params;
           const safeName = name.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_');
@@ -139,12 +160,15 @@ export async function runDaemon(options: DaemonOptions) {
 
         // Legacy / Standard methods
         case 'ls':
-          result = await fs.readdir(process.cwd());
+          result = await fs.readdir(resolvedTargetPath || process.cwd());
           uiHint = 'tree';
           break;
         case 'read_file':
           if (!data.params?.path) throw new Error('Path required');
-          result = await fs.readFile(data.params.path, 'utf-8');
+          result = await fs.readFile(
+            await security.resolveReadablePath(data.params.path),
+            'utf-8',
+          );
           uiHint = 'code';
           break;
         case 'bash':
@@ -158,14 +182,33 @@ export async function runDaemon(options: DaemonOptions) {
           }
           
           const { stdout, stderr } = await execAsync(data.params.command, {
+            cwd: resolvedTargetPath || process.cwd(),
+            timeout: 120_000,
+            maxBuffer: 5 * 1024 * 1024,
             env: { 
               ...process.env, 
               GIT_TERMINAL_PROMPT: '0',
-              GIT_SSH_COMMAND: 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
             }
           });
           result = stdout || stderr;
           break;
+
+        case 'powershell': {
+          if (!data.params?.command) throw new Error('PowerShell command required');
+          const execution = await powerShellTool.execute({
+            command: data.params.command,
+            cwd: resolvedTargetPath,
+            timeout_ms: data.params.timeout_ms,
+          }, {
+            cwd: process.cwd(),
+            userId: effectiveUserId,
+            sessionId: sessionId || 'daemon',
+          });
+          if (execution.error) throw new Error(execution.error);
+          result = execution.data;
+          uiHint = 'code';
+          break;
+        }
 
         default:
           result = `Method ${data.method} not implemented.`;

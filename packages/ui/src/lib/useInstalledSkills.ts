@@ -20,8 +20,9 @@ function notifyListeners(skills: SkillCard[]) {
 }
 
 export function useInstalledSkills() {
-  const [installedSkills, setInstalledSkills] = useState<SkillCard[]>(globalInstalledSkillsCache || []);
-  const [isLoading, setIsLoading] = useState(!globalInstalledSkillsCache);
+  // Keep the hydration frame deterministic; apply the module cache after mount.
+  const [installedSkills, setInstalledSkills] = useState<SkillCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     listeners.push(setInstalledSkills);

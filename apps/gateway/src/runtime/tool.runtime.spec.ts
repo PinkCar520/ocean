@@ -63,9 +63,47 @@ describe('ToolRuntime (Agent Runtime 拆分)', () => {
     });
     expect(tools.getBugInfo).toBeDefined();
     expect(tools.local_bash).toBeDefined();
+    expect(tools.local_powershell).toBeDefined();
     expect(tools.agp_intent_clarify).toBe('clarify');
     expect(tools.mcp_alpha).toBe('mcp-alpha');
     expect(deps.policyEvaluator.wrap).not.toHaveBeenCalled();
+  });
+
+  it('PowerShell requires a session and routes structured command arguments to the local CLI', async () => {
+    const { runtime, deps } = create();
+    const withoutSession = await runtime.buildTools({ userId: 'u1', source: 'web', userMessage: 'run ps' });
+    await expect(withoutSession.local_powershell.execute({ command: 'Get-ChildItem' })).resolves.toMatchObject({
+      error: expect.stringContaining('authenticated session'),
+    });
+    expect(deps.rpcGateway.sendToCli).not.toHaveBeenCalled();
+
+    const withSession = await runtime.buildTools(
+      { userId: 'u1', source: 'web', userMessage: 'run ps' },
+      'sess_1',
+    );
+    await withSession.local_powershell.execute({ command: 'Get-ChildItem', cwd: 'src', timeout_ms: 30_000 });
+    expect(deps.rpcGateway.sendToCli).toHaveBeenCalledWith('u1', 'powershell', {
+      command: 'Get-ChildItem', cwd: 'src', timeout_ms: 30_000, sessionId: 'sess_1',
+    });
+    expect(deps.policyEvaluator.shouldWrap).toHaveBeenCalledWith('local_powershell', false);
+  });
+
+  it('routes notebook operations with a session and exposes ordered multimodal results', async () => {
+    const { runtime, deps } = create();
+    const withoutSession = await runtime.buildTools({ userId: 'u1', source: 'web', userMessage: 'read notebook' });
+    await expect(withoutSession.local_notebook_read.execute({ path: 'n.ipynb' })).resolves.toMatchObject({ error: expect.stringContaining('session') });
+    await expect(withoutSession.local_notebook_edit.execute({ path: 'n.ipynb' })).resolves.toMatchObject({ error: expect.stringContaining('session') });
+    expect(deps.rpcGateway.sendToCli).not.toHaveBeenCalled();
+
+    const withSession = await runtime.buildTools({ userId: 'u1', source: 'web', userMessage: 'read notebook' }, 'sess_1');
+    const notebook = { kind: 'notebook', parts: [{ type: 'text', text: 'source' }, { type: 'image', mediaType: 'image/png', base64: 'aGVsbG8=' }] };
+    deps.rpcGateway.sendToCli.mockResolvedValueOnce(notebook);
+    const read = await withSession.local_notebook_read.execute({ path: 'n.ipynb' });
+    expect(deps.rpcGateway.sendToCli).toHaveBeenCalledWith('u1', 'notebook_read', { path: 'n.ipynb', sessionId: 'sess_1' });
+    expect(withSession.local_notebook_read.toModelOutput({ output: read })).toMatchObject({ type: 'content', value: [{ type: 'text', text: 'source' }, { type: 'file', mediaType: 'image/png', data: { type: 'data', data: 'aGVsbG8=' } }] });
+    await withSession.local_notebook_edit.execute({ path: 'n.ipynb', cell_id: 'c1', mode: 'replace', new_source: 'x' });
+    expect(deps.rpcGateway.sendToCli).toHaveBeenCalledWith('u1', 'notebook_edit', { path: 'n.ipynb', cell_id: 'c1', mode: 'replace', new_source: 'x', sessionId: 'sess_1' });
+    expect(deps.policyEvaluator.shouldWrap).toHaveBeenCalledWith('local_notebook_edit', false);
   });
 
   it('会话模式：MCP 工具按策略判定走审批包装', async () => {

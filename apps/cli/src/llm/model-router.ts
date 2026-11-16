@@ -1,4 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
+import { wrapLanguageModel } from 'ai';
+import { chatImageMiddleware } from './chat-image-middleware.js';
 import type { ModelConfig, ModelProvider, CliConfig } from '../types.js';
 import type { LanguageModel } from 'ai';
 
@@ -105,7 +107,7 @@ export function createModelRouter(config: CliConfig): ModelRouter {
 
     const isDeepseekCompatible = resolved.provider === 'dashscope' || resolved.provider === 'deepseek';
 
-    return createOpenAI({
+    const model = createOpenAI({
       baseURL: resolved.baseURL,
       apiKey: resolved.apiKey || 'empty',
       ...(isDeepseekCompatible && resolved.id.includes('deepseek') ? {
@@ -126,6 +128,7 @@ export function createModelRouter(config: CliConfig): ModelRouter {
         },
       } : {}),
     }).chat(resolved.id);
+    return wrapLanguageModel({ model, middleware: chatImageMiddleware });
   }
 
   return {

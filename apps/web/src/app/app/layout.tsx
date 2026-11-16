@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
-import { getOceanServerUser } from '../../lib/server-session';
+import ServerOceanShell from '../../components/ServerOceanShell';
 
 export const metadata: Metadata = {
   title: {
@@ -10,7 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const user = await getOceanServerUser();
-  if (!user) redirect('/auth');
-  return children;
+  return (
+    <>
+      <ServerOceanShell preloadAll />
+      {children}
+    </>
+  );
 }

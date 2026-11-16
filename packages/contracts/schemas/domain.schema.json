@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://olo.app/contracts/domain.schema.json",
+  "title": "OLO Domain Contracts v1",
+  "type": "object",
+  "x-swift-order": [
+    "Sensitivity",
+    "Source",
+    "Observation",
+    "Intent",
+    "Capability",
+    "PermissionDecision",
+    "ActionCreate",
+    "ActionResult",
+    "ActionReceipt"
+  ],
+  "$defs": {
+    "Sensitivity": {
+      "type": "string",
+      "enum": ["public", "personal", "sensitive", "restricted"],
+      "x-swift-name": "OLOContractSensitivity",
+      "x-swift-cases": {"public": "publicValue"}
+    },
+    "Source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "bodyId", "sourceRef"],
+      "x-swift-name": "OLOObservationSourceContract",
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "bodyId": {"type": "string", "minLength": 1},
+        "sourceRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "Observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "schemaVersion", "subjectId", "kind", "payload", "source", "observedAt", "receivedAt", "confidence", "sensitivity", "permissionScope"],
+      "x-swift-name": "OLOObservationContract",
+      "properties": {
+        "id": {"type": "string", "pattern": "^obs_"},
+        "schemaVersion": {"const": 1},
+        "subjectId": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "payload": {"type": "object", "additionalProperties": {"type": "string"}},
+        "source": {"$ref": "#/$defs/Source"},
+        "observedAt": {"type": "string", "format": "date-time"},
+        "receivedAt": {"type": "string", "format": "date-time"},
+        "validUntil": {"type": ["string", "null"], "format": "date-time"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "sensitivity": {"$ref": "#/$defs/Sensitivity"},
+        "permissionScope": {"type": "string", "minLength": 1}
+      }
+    },
+    "Intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "subjectId", "rawIntent"],
+      "x-swift-name": "OLOIntentContract",
+      "properties": {
+        "id": {"type": "string", "pattern": "^task_"},
+        "subjectId": {"type": "string", "minLength": 1},
+        "rawIntent": {"type": "string", "minLength": 1}
+      }
+    },
+    "Capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability", "execution", "sideEffect", "supportsIdempotency", "supportsQuery", "supportsCancel"],
+      "x-swift-name": "OLOCapabilityContract",
+      "properties": {
+        "capability": {"type": "string"},
+        "execution": {"type": "string", "enum": ["device", "server"]},
+        "sideEffect": {"type": "string", "enum": ["read", "reversible_write", "irreversible_write"]},
+        "supportsIdempotency": {"type": "boolean"},
+        "supportsQuery": {"type": "boolean"},
+        "supportsCancel": {"type": "boolean"}
+      }
+    },
+    "PermissionDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subjectId", "capability", "purpose", "planRevision", "decision", "reason"],
+      "x-swift-name": "OLOPermissionDecisionContract",
+      "properties": {
+        "subjectId": {"type": "string"},
+        "capability": {"type": "string"},
+        "purpose": {"type": "string"},
+        "planRevision": {"type": "integer", "minimum": 1},
+        "decision": {"type": "string", "enum": ["allow", "confirmed", "authenticated", "deny"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "ActionCreate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requestId", "subjectId", "taskId", "planId", "planRevision", "capability", "arguments", "permissionDecision"],
+      "x-swift-name": "OLOActionCreateContract",
+      "properties": {
+        "id": {"type": "string", "pattern": "^act_"},
+        "requestId": {"type": "string"},
+        "subjectId": {"type": "string"},
+        "taskId": {"type": "string", "pattern": "^task_"},
+        "planId": {"type": "string", "pattern": "^plan_"},
+        "planRevision": {"type": "integer", "minimum": 1},
+        "capability": {"type": "string"},
+        "arguments": {"type": "object", "additionalProperties": {"type": "string"}},
+        "permissionDecision": {"type": "string"}
+      }
+    },
+    "ActionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence", "summary"],
+      "x-swift-name": "OLOActionResultContract",
+      "properties": {
+        "status": {"type": "string"},
+        "providerRef": {"type": ["string", "null"]},
+        "evidence": {"type": "object", "additionalProperties": {"type": "string"}},
+        "summary": {"type": "string"}
+      }
+    },
+    "ActionReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actionId", "requestId", "capability", "status", "summary", "evidence"],
+      "x-swift-name": "OLOActionReceiptContract",
+      "properties": {
+        "actionId": {"type": "string", "pattern": "^act_"},
+        "requestId": {"type": "string", "minLength": 1},
+        "capability": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "enum": ["prepared", "submitted", "accepted", "rejected", "outcome_unknown", "completed", "verified"]},
+        "summary": {"type": "string"},
+        "evidence": {"type": "object", "additionalProperties": {"type": "string"}},
+        "providerRef": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

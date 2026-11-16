@@ -1,3 +1,14 @@
+# Ocean 服务编排
+#
+# 默认：核心平台栈（gateway / worker / web / postgres / redis / jaeger / fastapi）
+#   docker compose up -d
+#
+# 需要本地集成演示环境（GitLab / Jenkins / 禅道）时：
+#   docker compose --profile integrations up -d
+#
+# 注意：GitLab / Jenkins / 禅道是「被集成的目标系统」，不是平台运行依赖。
+# 生产/日常开发请通过 .env 或工作区集成配置指向真实 SaaS 地址；未配置时相关
+# 能力自动进入 mock / 禁用状态。
 services:
   # Ocean AI 网关总线 (NestJS + Prisma)
   gateway:
@@ -20,10 +31,11 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
-      # TODO: 既然已剥离本地 DevOps 服务，请在 .env 文件中配置这些云端第三方 SaaS 的真实地址
-      - ZENTAO_BASE_URL=${ZENTAO_BASE_URL:-http://zentao:80}
-      - JENKINS_BASE_URL=${JENKINS_BASE_URL:-http://jenkins:8080}
-      - GITLAB_BASE_URL=${GITLAB_BASE_URL:-http://gitlab:80}
+      # 集成目标地址：在 .env 中配置真实 SaaS 地址；留空则相关能力自动 mock / 禁用。
+      # 只有启动本地集成演示栈（--profile integrations）时才应指向本地容器。
+      - ZENTAO_BASE_URL=${ZENTAO_BASE_URL:-}
+      - JENKINS_BASE_URL=${JENKINS_BASE_URL:-}
+      - GITLAB_BASE_URL=${GITLAB_BASE_URL:-}
       - FASTAPI_URL=http://fastapi-backend:8000
     depends_on:
       postgres:
@@ -151,8 +163,9 @@ services:
       retries: 3
       start_period: 10s
 
-  # Jenkins CI/CD
+  # Jenkins CI/CD（本地集成演示用，非平台运行依赖）
   jenkins:
+    profiles: ["integrations"]
     image: jenkins/jenkins:lts-jdk17
     container_name: ocean-jenkins
     restart: always
@@ -165,8 +178,9 @@ services:
       - ocean_jenkins_data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
 
-  # GitLab 代码托管
+  # GitLab 代码托管（本地集成演示用，非平台运行依赖）
   gitlab:
+    profiles: ["integrations"]
     image: gitlab/gitlab-ce:latest
     container_name: ocean-gitlab
     restart: always
@@ -184,8 +198,9 @@ services:
       - ocean_gitlab_data:/var/opt/gitlab
     shm_size: '256m'
 
-  # 禅道 Web 服务
+  # 禅道 Web 服务（本地集成演示用，非平台运行依赖）
   zentao:
+    profiles: ["integrations"]
     image: easysoft/zentao:latest
     container_name: ocean-zentao
     restart: always
@@ -204,8 +219,9 @@ services:
       zentao-db:
         condition: service_healthy
 
-  # 禅道专用数据库 (显式拉出来，确保稳定性)
+  # 禅道专用数据库（仅 integrations profile 需要）
   zentao-db:
+    profiles: ["integrations"]
     image: mariadb:10.6
     container_name: ocean-zentao-db
     restart: always

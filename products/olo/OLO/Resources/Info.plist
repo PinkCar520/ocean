@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>OLO</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>OLO schedules the wake-up alarm you review and confirm.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>OLO reads your upcoming commitments to calculate when you need to wake up.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>OLO can read and create calendar events for you.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>OLO references people you know to keep memory about them.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>OLO uses your location to give relevant context like weather.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OLO uses the microphone for voice conversations.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>OLO creates and verifies reminders you request.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>OLO can read and create reminders for you.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>OLO listens to you to understand what you want.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string></string>
+	</dict>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>

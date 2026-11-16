@@ -1,12 +1,12 @@
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Plus, FileText, X as CloseIcon,
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines, Shield, Hand, Radar, AlertCircle
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
-import { ApprovalCenter } from '../ApprovalCenter';
+import { ApprovalCenter, PERMISSION_TIERS } from '../ApprovalCenter';
 import { beautifyModelName } from '../../lib/chat-utils';
 import { useProjects } from '../../lib/useProjects';
 import { useInstalledSkills } from '../../lib/useInstalledSkills';
@@ -71,6 +71,8 @@ interface ChatInputProps {
   isPredicting?: boolean;
   isEmpty?: boolean;
   onMainTabChange?: (id: string) => void;
+  /** 权限模式初值（SSR 读 cookie，避免刷新丢状态/闪烁） */
+  initialPermissionMode?: string;
 }
 
 const ICON_MAP: Record<string, any> = {
@@ -111,6 +113,7 @@ export const ChatInput = React.memo(({
   isPredicting = false,
   isEmpty = false,
   onMainTabChange,
+  initialPermissionMode = 'acceptEdits',
 }: ChatInputProps) => {
   const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: 'Globe', color: 'text-slate-400' };
   const activeDisplayName = beautifyModelName(activeModel.name);
@@ -122,16 +125,25 @@ export const ChatInput = React.memo(({
   const preRecordTextRef = React.useRef(localInput);
 
   const [isPermissionOpen, setIsPermissionOpen] = useState(false);
-  const [permissionMode, setPermissionMode] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'acceptEdits';
-    return localStorage.getItem('ocean_permission_mode') ?? 'acceptEdits';
-  });
-  const handlePermissionModeChange = (mode: string) => {
+  const [permissionMode, setPermissionMode] = useState<string>(initialPermissionMode);
+  // plan 在 UI 上归入 acceptEdits 展示
+  const permissionTier =
+    PERMISSION_TIERS.find((m) => m.mode === permissionMode || (m.mode === 'acceptEdits' && permissionMode === 'plan')) ?? PERMISSION_TIERS[1];
+  const PermissionIcon = permissionTier.icon;
+  const handlePermissionModeChange = async (mode: string) => {
     setPermissionMode(mode);
+    // 写 cookie 供下次 SSR 读取，刷新即保持（前端选择的真相源）
+    document.cookie = 'ocean_permission_mode=' + mode + '; path=/; max-age=31536000; samesite=lax';
+    // 同步后端，失败仅提示不回滚——前端选择已记入 cookie，不应因后端瞬时不可用而“消失”
     try {
-      localStorage.setItem('ocean_permission_mode', mode);
+      const res = await fetch('/api/permissions/settings', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
     } catch {
-      /* 不可用时静默 */
+      globalToast(t('approval_center.save_failed'));
     }
   };
   const { isRecording, isSupported, audioVolumes, toggle, stop } = useVoiceInput({
@@ -604,19 +616,14 @@ export const ChatInput = React.memo(({
                     className="flex h-9 items-center gap-1.5 rounded-full px-2.5 text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground transition-all shrink-0"
                     title={t('chat.approval_center')}
                   >
-                    {permissionMode === 'bypassPermissions' ? (
-                      <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
-                    ) : permissionMode === 'default' ? (
-                      <Hand className="w-4 h-4 sm:w-5 sm:h-5" />
-                    ) : (
-                      <Radar className="w-4 h-4 sm:w-5 sm:h-5" />
-                    )}
+                    <PermissionIcon
+                      className={cn(
+                        'w-4 h-4 sm:w-5 sm:h-5',
+                        permissionTier.warn && 'text-orange-500',
+                      )}
+                    />
                     <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">
-                      {permissionMode === 'bypassPermissions'
-                        ? t('approval_center.mode_allow_title')
-                        : permissionMode === 'default'
-                          ? t('approval_center.mode_ask_title')
-                          : t('approval_center.mode_ondemand_title')}
+                      {t(`approval_center.mode_${permissionTier.key}_title`)}
                     </span>
                   </button>
                 </DropdownMenuTrigger>
@@ -628,8 +635,9 @@ export const ChatInput = React.memo(({
                 >
                   <div className="max-h-[70vh] overflow-y-auto">
                     <ApprovalCenter
+                      mode={permissionMode}
+                      onSelectMode={handlePermissionModeChange}
                       onClose={() => setIsPermissionOpen(false)}
-                      onModeChange={handlePermissionModeChange}
                     />
                   </div>
                 </DropdownMenuContent>

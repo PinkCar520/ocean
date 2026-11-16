@@ -1,6 +1,23 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+} from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 import { PermissionService } from './permission.service';
-import { PermissionSettings, PermissionAction } from './permission.types';
+import { PermissionSettings, PermissionMode } from './permission.types';
+
+const PERMISSION_MODES: PermissionMode[] = [
+  'default',
+  'acceptEdits',
+  'plan',
+  'dontAsk',
+  'bypassPermissions',
+];
 
 @Controller('api/permissions')
 export class PermissionController {
@@ -61,12 +78,9 @@ export class PermissionController {
    */
   @Post('settings')
   saveSettings(
-    @Body() settings: PermissionSettings,
+    @Body() patch: PermissionSettings,
     @Query('workspacePath') workspacePath?: string,
   ) {
-    const fs = require('fs');
-    const path = require('path');
-
     const targetDir = workspacePath
       ? path.join(workspacePath, '.ocean')
       : path.join(process.cwd(), '.ocean');
@@ -75,10 +89,19 @@ export class PermissionController {
       fs.mkdirSync(targetDir, { recursive: true });
     }
 
+    if (patch.mode && !PERMISSION_MODES.includes(patch.mode)) {
+      throw new BadRequestException(`Invalid permission mode: ${patch.mode}`);
+    }
+
+    // The mode picker sends a partial update. Preserve project/user rules instead
+    // of replacing the complete policy with an empty rules array.
+    const current = this.permissionService.loadSettings(workspacePath);
+    const settings: PermissionSettings = { ...current, ...patch };
     const filePath = path.join(targetDir, 'settings.json');
     fs.writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
+    this.permissionService.invalidateCache();
 
-    return { success: true, path: filePath };
+    return { success: true, path: filePath, settings };
   }
 
   /**

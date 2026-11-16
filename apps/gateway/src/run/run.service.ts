@@ -265,35 +265,41 @@ export class RunService {
     const snapshot = await this.get(id, userId);
     if (!CANCELLABLE_STATUSES.has(snapshot.run.status)) return snapshot;
 
-    return this.prisma.$transaction(async (transaction) => {
-      const run = await transaction.agentRun.update({
-        where: { id },
+    await this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.agentRun.updateMany({
+        where: { id, userId, status: { in: [...CANCELLABLE_STATUSES] } },
         data: { status: 'cancelled' },
       });
-      const sequence = snapshot.events.at(-1)?.sequence ?? -1;
+      if (!updated.count) return;
+      await transaction.runApproval.updateMany({
+        where: { runId: id, userId, status: 'pending' },
+        data: { status: 'rejected', decidedBy: userId, decidedAt: new Date() },
+      });
+      await transaction.outboxEvent.updateMany({
+        where: { topic: 'device.rpc', aggregateType: 'AgentRun', aggregateId: id, status: 'pending' },
+        data: { status: 'cancelled', lastError: 'Run cancelled before dispatch.' },
+      });
+      const sequence = await this.nextRunSequence(transaction, id);
       const event = runEventSchema.parse({
         id: crypto.randomUUID(),
-        runId: run.id,
-        sequence: sequence + 1,
-        occurredAt: run.updatedAt.toISOString(),
+        runId: id,
+        sequence,
+        occurredAt: new Date().toISOString(),
         type: 'run.status_changed',
         status: 'cancelled',
       });
       await transaction.runEvent.create({
         data: {
           id: event.id,
-          runId: run.id,
+          runId: id,
           sequence: event.sequence,
           type: event.type,
           payload: event as Prisma.InputJsonValue,
           occurredAt: new Date(event.occurredAt),
         },
       });
-      return runSnapshotSchema.parse({
-        run: this.toContract(run),
-        events: [...snapshot.events, event],
-      });
     });
+    return this.get(id, userId);
   }
 
   /**
@@ -413,7 +419,7 @@ export class RunService {
   ): Promise<RunSnapshot> {
     const run = await this.prisma.agentRun.findUnique({
       where: { id: runId },
-      select: { id: true, userId: true, priority: true },
+      select: { id: true, userId: true, priority: true, status: true },
     });
     if (!run) throw new NotFoundException(`Run ${runId} not found`);
     if (run.userId !== userId)
@@ -431,17 +437,19 @@ export class RunService {
     if (approval.status !== 'pending') {
       return this.get(runId, userId); // 幂等：已决策
     }
+    if (run.status !== 'waiting_for_approval') return this.get(runId, userId);
     if (approval.expiresAt && approval.expiresAt.getTime() < Date.now()) {
       // 审批超时：标记 expired 并取消 Run，避免 pending 审批永久悬挂。
       await this.prisma.$transaction(async (transaction) => {
-        await transaction.runApproval.update({
-          where: { id: approvalId },
+        const transitioned = await transaction.agentRun.updateMany({
+          where: { id: runId, userId, status: 'waiting_for_approval' }, data: { status: 'cancelled' },
+        });
+        if (!transitioned.count) return;
+        const claimed = await transaction.runApproval.updateMany({
+          where: { id: approvalId, runId, userId, status: 'pending' },
           data: { status: 'expired', decidedAt: new Date() },
         });
-        await transaction.agentRun.update({
-          where: { id: runId },
-          data: { status: 'cancelled' },
-        });
+        if (!claimed.count) throw new Error('Approval changed during decision.');
         const now = new Date();
         await transaction.runEvent.create({
           data: {
@@ -466,6 +474,11 @@ export class RunService {
 
     await this.prisma.$transaction(async (transaction) => {
       const now = new Date();
+      const transitioned = await transaction.agentRun.updateMany({
+        where: { id: runId, userId, status: 'waiting_for_approval' },
+        data: { status: decision === 'approved' ? 'queued' : 'cancelled' },
+      });
+      if (!transitioned.count) return;
       const stepRow = await transaction.runStep.findUnique({
         where: { id: approvalId },
       });
@@ -473,10 +486,11 @@ export class RunService {
         throw new Error(`Approval step ${approvalId} not found`);
       }
 
-      await transaction.runApproval.update({
-        where: { id: approvalId },
+      const claimed = await transaction.runApproval.updateMany({
+        where: { id: approvalId, runId, userId, status: 'pending' },
         data: { status: decision, decidedBy: userId, decidedAt: now },
       });
+      if (!claimed.count) throw new Error('Approval changed during decision.');
 
       // approval 步骤收尾（step id = approval id）+ checkpoint（resume 数据基础）
       const stepStatus = decision === 'approved' ? 'succeeded' : 'failed';
@@ -528,10 +542,6 @@ export class RunService {
             `Approval ${approvalId} has no toolCall input to resume`,
           );
         }
-        await transaction.agentRun.update({
-          where: { id: runId },
-          data: { status: 'queued' },
-        });
         await transaction.runEvent.create({
           data: {
             id: crypto.randomUUID(),
@@ -560,10 +570,6 @@ export class RunService {
           priorityRankOf(run.priority),
         );
       } else {
-        await transaction.agentRun.update({
-          where: { id: runId },
-          data: { status: 'cancelled' },
-        });
         await transaction.runEvent.create({
           data: {
             id: crypto.randomUUID(),
@@ -668,21 +674,27 @@ export class RunService {
     if (!approval || approval.userId !== userId) {
       throw new NotFoundException(`Approval ${approvalId} not found`);
     }
+    if (approval.runId) {
+      await this.decideApproval(approval.runId, approvalId, userId, decision);
+      return this.getExternalApproval(approvalId, userId);
+    }
     if (approval.status !== 'pending') return approval;
     if (approval.expiresAt && approval.expiresAt.getTime() < Date.now()) {
-      return this.prisma.runApproval.update({
-        where: { id: approvalId },
+      await this.prisma.runApproval.updateMany({
+        where: { id: approvalId, userId, runId: null, status: 'pending' },
         data: { status: 'expired', decidedAt: new Date() },
       });
+      return this.getExternalApproval(approvalId, userId);
     }
-    return this.prisma.runApproval.update({
-      where: { id: approvalId },
+    await this.prisma.runApproval.updateMany({
+      where: { id: approvalId, userId, runId: null, status: 'pending' },
       data: {
         status: decision === 'approved' ? 'approved' : 'rejected',
         decidedBy: userId,
         decidedAt: new Date(),
       },
     });
+    return this.getExternalApproval(approvalId, userId);
   }
 }
 

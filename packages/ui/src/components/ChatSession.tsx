@@ -71,6 +71,8 @@ interface ChatSessionProps {
   spaceTabs?: Array<{ id: string; label: string }>;
   onSpaceTabChange?: (id: string) => void;
   t: (key: string, options?: any) => string;
+  /** 权限模式初值（SSR 读 cookie） */
+  initialPermissionMode?: string;
   navigation: {
     navigate: (path: string, options?: any) => void;
     pathname: string;
@@ -98,6 +100,7 @@ export function ChatSession({
   onSpaceTabChange,
   t,
   navigation,
+  initialPermissionMode = 'acceptEdits',
 }: ChatSessionProps) {
   const reducedMotion = useReducedMotion();
 
@@ -112,20 +115,22 @@ export function ChatSession({
   const navigate = navigation.navigate;
 
   // ── Session Configuration State ──
-  const [isSearchMode, setIsSearchMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('ocean_search_mode') === '1';
-  });
-  const [isKnowledgeMode, setIsKnowledgeMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('ocean_knowledge_mode') === '1';
-  });
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
+  const [sessionModesHydrated, setSessionModesHydrated] = useState(false);
   useEffect(() => {
+    setIsSearchMode(sessionStorage.getItem('ocean_search_mode') === '1');
+    setIsKnowledgeMode(sessionStorage.getItem('ocean_knowledge_mode') === '1');
+    setSessionModesHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (!sessionModesHydrated) return;
     sessionStorage.setItem('ocean_search_mode', isSearchMode ? '1' : '0');
-  }, [isSearchMode]);
+  }, [isSearchMode, sessionModesHydrated]);
   useEffect(() => {
+    if (!sessionModesHydrated) return;
     sessionStorage.setItem('ocean_knowledge_mode', isKnowledgeMode ? '1' : '0');
-  }, [isKnowledgeMode]);
+  }, [isKnowledgeMode, sessionModesHydrated]);
 
   // ── Hooks ──
   const {
@@ -661,6 +666,7 @@ export function ChatSession({
           setGhostText={setGhostText}
           isPredicting={isPredicting}
           onMainTabChange={onMainTabChange}
+          initialPermissionMode={initialPermissionMode}
         />
       </div>
 

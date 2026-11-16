@@ -6,6 +6,7 @@ import {
   PermissionAction,
   PermissionMode,
   NormalizedRule,
+  isPermissionSettings,
   normalizeRules,
   evaluateTool,
 } from './permission.types';
@@ -24,10 +25,8 @@ const DEFAULT_SETTINGS: PermissionSettings = {
  * PermissionService
  *
  * Loads and evaluates permission rules from settings.json files.
- * Supports 3-layer configuration (Claude Code compatible):
- *   1. Local (workspace/.claude/settings.json) - highest priority
- *   2. Project (.claude/settings.json in git) - medium priority
- *   3. User (~/.ocean/settings.json) - lowest priority
+ * Supports user, workspace and workspace-local configuration layers.
+ * Workspace-local rules override project and user rules; deny matches always win.
  *
  * Rules are evaluated top-down, first match wins.
  * Supports wildcard patterns: `mcp__zentao:*`, `Bash(git:*)`, `Edit(src/**)`
@@ -36,10 +35,11 @@ const DEFAULT_SETTINGS: PermissionSettings = {
 export class PermissionService {
   private readonly logger = new Logger(PermissionService.name);
 
-  /** Cached merged settings */
-  private cachedSettings: PermissionSettings | null = null;
-  private cachedRules: NormalizedRule[] | null = null;
-  private lastLoadTime = 0;
+  /** Cache is isolated per workspace so one project's policy cannot leak into another. */
+  private readonly cache = new Map<
+    string,
+    { settings: PermissionSettings; rules: NormalizedRule[]; loadedAt: number }
+  >();
   private readonly CACHE_TTL_MS = 5_000; // 5 second cache
 
   /**
@@ -48,44 +48,57 @@ export class PermissionService {
    */
   loadSettings(workspacePath?: string): PermissionSettings {
     const now = Date.now();
-    if (this.cachedSettings && now - this.lastLoadTime < this.CACHE_TTL_MS) {
-      return this.cachedSettings;
+    const cacheKey = workspacePath
+      ? path.resolve(workspacePath)
+      : '__default__';
+    const cached = this.cache.get(cacheKey);
+    if (cached && now - cached.loadedAt < this.CACHE_TTL_MS) {
+      return cached.settings;
     }
 
     const layers: PermissionSettings[] = [];
 
-    // Layer 1: User-level (~/.ocean/settings.json) - lowest priority
+    // User-level settings are the lowest-priority layer.
     const userHome = process.env.HOME || process.env.USERPROFILE || '';
     if (userHome) {
-      const userSettings = this.tryLoadJson(
+      for (const filePath of [
+        path.join(userHome, '.claude', 'settings.json'),
         path.join(userHome, '.ocean', 'settings.json'),
-      );
-      if (userSettings) {
-        this.logger.debug(`Loaded user settings from: ~/.ocean/settings.json`);
-        layers.unshift(userSettings);
+      ]) {
+        const userSettings = this.tryLoadJson(filePath);
+        if (userSettings) {
+          this.logger.debug(`Loaded user permission settings from ${filePath}`);
+          layers.push(userSettings);
+        }
       }
     }
 
-    // Layer 2: Project-level (.claude/settings.json or .ocean/settings.json in workspace)
+    // Project-level settings are shared with the workspace.
     if (workspacePath) {
-      const projectSettings =
-        this.tryLoadJson(
-          path.join(workspacePath, '.claude', 'settings.json'),
-        ) ||
-        this.tryLoadJson(path.join(workspacePath, '.ocean', 'settings.json'));
-      if (projectSettings) {
-        this.logger.debug(`Loaded project settings from workspace`);
-        layers.unshift(projectSettings);
+      for (const filePath of [
+        path.join(workspacePath, '.claude', 'settings.json'),
+        path.join(workspacePath, '.ocean', 'settings.json'),
+      ]) {
+        const projectSettings = this.tryLoadJson(filePath);
+        if (projectSettings) {
+          this.logger.debug(`Loaded project permission settings from ${filePath}`);
+          layers.push(projectSettings);
+        }
       }
     }
 
-    // Layer 3: Local-level (cwd/.claude/settings.json) - highest priority
-    const localSettings =
-      this.tryLoadJson(path.join(process.cwd(), '.claude', 'settings.json')) ||
-      this.tryLoadJson(path.join(process.cwd(), '.ocean', 'settings.json'));
-    if (localSettings) {
-      this.logger.debug(`Loaded local settings from cwd`);
-      layers.unshift(localSettings);
+    // Local overrides live inside the active workspace, never in the Gateway cwd.
+    if (workspacePath) {
+      for (const filePath of [
+        path.join(workspacePath, '.claude', 'settings.local.json'),
+        path.join(workspacePath, '.ocean', 'settings.local.json'),
+      ]) {
+        const localSettings = this.tryLoadJson(filePath);
+        if (localSettings) {
+          this.logger.debug(`Loaded workspace-local permission settings from ${filePath}`);
+          layers.push(localSettings);
+        }
+      }
     }
 
     // Merge layers (later overrides earlier)
@@ -94,13 +107,13 @@ export class PermissionService {
       merged = this.mergeSettings(merged, layer);
     }
 
-    // Normalize rules for efficient evaluation
-    this.cachedRules = normalizeRules(merged);
-    this.cachedSettings = merged;
-    this.lastLoadTime = now;
+    // Keep source priority: workspace-local, project, then user. A matching deny
+    // is checked across the entire set before any allow/ask rule is considered.
+    const rules = layers.slice().reverse().flatMap((layer) => normalizeRules(layer));
+    this.cache.set(cacheKey, { settings: merged, rules, loadedAt: now });
 
     this.logger.log(
-      `Permission settings loaded. Mode: ${merged.mode}, Rules: ${this.cachedRules.length}`,
+      `Permission settings loaded. Mode: ${merged.mode}, Rules: ${rules.length}`,
     );
     return merged;
   }
@@ -114,10 +127,8 @@ export class PermissionService {
     workspacePath?: string,
     args?: any,
   ): PermissionAction {
-    if (!this.cachedRules) {
-      this.loadSettings(workspacePath);
-    }
-    return evaluateTool(toolName, this.cachedRules!, args);
+    const settings = this.loadSettings(workspacePath);
+    return evaluateTool(toolName, this.rulesFor(workspacePath), args, settings.mode ?? 'default');
   }
 
   /**
@@ -125,7 +136,7 @@ export class PermissionService {
    */
   isAutoAllowed(toolName: string, workspacePath?: string, args?: any): boolean {
     const action = this.evaluateTool(toolName, workspacePath, args);
-    return action === 'allow' || this.getMode() === 'bypassPermissions';
+    return action === 'allow';
   }
 
   /**
@@ -152,30 +163,34 @@ export class PermissionService {
    * Get current permission mode.
    */
   getMode(workspacePath?: string): PermissionMode {
-    if (!this.cachedSettings) {
-      this.loadSettings(workspacePath);
-    }
-    return this.cachedSettings?.mode ?? 'acceptEdits';
+    return this.loadSettings(workspacePath).mode ?? 'acceptEdits';
   }
 
   /**
    * Get max MCP output tokens setting.
    */
   getMaxMcpOutputTokens(workspacePath?: string): number {
-    if (!this.cachedSettings) {
-      this.loadSettings(workspacePath);
-    }
-    return this.cachedSettings?.maxMcpOutputTokens ?? 25_000;
+    return this.loadSettings(workspacePath).maxMcpOutputTokens ?? 25_000;
   }
 
   /**
    * Get the raw rules for inspection/debugging.
    */
   getRules(workspacePath?: string): NormalizedRule[] {
-    if (!this.cachedRules) {
-      this.loadSettings(workspacePath);
-    }
-    return this.cachedRules || [];
+    this.loadSettings(workspacePath);
+    return this.rulesFor(workspacePath);
+  }
+
+  /** Clear the in-memory projection after settings are changed on disk. */
+  invalidateCache(): void {
+    this.cache.clear();
+  }
+
+  private rulesFor(workspacePath?: string): NormalizedRule[] {
+    const cacheKey = workspacePath
+      ? path.resolve(workspacePath)
+      : '__default__';
+    return this.cache.get(cacheKey)?.rules ?? [];
   }
 
   // ──────────────────────────────────────────────
@@ -186,9 +201,16 @@ export class PermissionService {
     try {
       if (!fs.existsSync(filePath)) return null;
       const raw = fs.readFileSync(filePath, 'utf-8');
-      return JSON.parse(raw) as PermissionSettings;
-    } catch {
-      return null;
+      const value: unknown = JSON.parse(raw);
+      if (!isPermissionSettings(value)) throw new Error('settings schema is invalid');
+      return value;
+    } catch (error) {
+      this.logger.error(`Failed to load permission settings from ${filePath}: ${(error as Error).message}`);
+      // A broken policy file must not silently fall back to a more permissive layer.
+      return {
+        mode: 'default',
+        rules: [{ action: 'deny', pattern: '*', comment: 'Invalid settings file; repair it before running tools.' }],
+      };
     }
   }
 
@@ -202,11 +224,11 @@ export class PermissionService {
     return {
       ...target,
       ...source,
-      // Merge rule arrays (source rules come after target for precedence)
-      rules: [...(target.rules || []), ...(source.rules || [])],
-      allow: [...(target.allow || []), ...(source.allow || [])],
-      deny: [...(target.deny || []), ...(source.deny || [])],
-      ask: [...(target.ask || []), ...(source.ask || [])],
+      // Source is higher priority, so its non-deny rules appear first.
+      rules: [...(source.rules || []), ...(target.rules || [])],
+      allow: [...(source.allow || []), ...(target.allow || [])],
+      deny: [...(source.deny || []), ...(target.deny || [])],
+      ask: [...(source.ask || []), ...(target.ask || [])],
       // Deep merge MCP server settings
       mcp: {
         servers: {

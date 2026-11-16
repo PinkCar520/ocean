@@ -64,6 +64,7 @@ interface AppProps {
   initialActiveProject?: any;
   initialKnowledgeDocuments?: any[];
   initialKnowledgeStats?: any;
+  initialPermissionMode?: string;
 }
 
 function AppContent({
@@ -80,6 +81,7 @@ function AppContent({
   initialActiveProject = null,
   initialKnowledgeDocuments,
   initialKnowledgeStats,
+  initialPermissionMode = 'acceptEdits',
 }: AppProps) {
 
   // ── Global Authentication & Identity State ──
@@ -105,6 +107,7 @@ function AppContent({
           initialActiveProject={initialActiveProject}
           initialKnowledgeDocuments={initialKnowledgeDocuments}
           initialKnowledgeStats={initialKnowledgeStats}
+          initialPermissionMode={initialPermissionMode}
         />
       </WorkspaceProvider>
     </TooltipProvider>
@@ -127,10 +130,14 @@ function AppInternal({
   initialActiveProject,
   initialKnowledgeDocuments,
   initialKnowledgeStats,
+  initialPermissionMode,
 }: any) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
+  const routeSessionId = pathname.match(/^\/app\/chat\/([^/]+)$/)?.[1];
+  const routeProjectId = pathname.match(/^\/app\/projects\/([^/]+)$/)?.[1];
+  const activeSessionId = sessionIdFromUrl ?? routeSessionId;
   const activeTab = initialTab ?? (
     pathname.startsWith('/app/chats') ? 'all_chats'
       : pathname.startsWith('/app/skills/studio') ? 'skill_studio'
@@ -140,12 +147,12 @@ function AppInternal({
               : 'chat'
   );
   const navigationStateKey = `ocean_navigation_state:${pathname}`;
-  const [navigationState, setNavigationState] = useState<unknown>(() => {
-    if (typeof window === 'undefined') return undefined;
+  const [navigationState, setNavigationState] = useState<unknown>(undefined);
+  useEffect(() => {
     const value = sessionStorage.getItem(navigationStateKey);
-    if (!value) return undefined;
-    try { return JSON.parse(value); } catch { return undefined; }
-  });
+    if (!value) return;
+    try { setNavigationState(JSON.parse(value)); } catch { setNavigationState(undefined); }
+  }, [navigationStateKey]);
   const navigate = useCallback((path: string, options?: { replace?: boolean; state?: unknown }) => {
     const nextPath = path === '/chat' || path.startsWith('/chat/')
       ? `/app${path}`
@@ -161,13 +168,17 @@ function AppInternal({
     navigate,
     pathname,
     state: navigationState,
-    key: `${pathname}:${sessionIdFromUrl ?? 'new'}`,
+    key: `${pathname}:${activeSessionId ?? 'new'}`,
     clearState: () => {
       sessionStorage.removeItem(navigationStateKey);
       setNavigationState(undefined);
     },
-  }), [navigate, navigationState, navigationStateKey, pathname, sessionIdFromUrl]);
+  }), [navigate, navigationState, navigationStateKey, pathname, activeSessionId]);
   const { activeProject, setActiveProjectId } = useWorkspace();
+
+  useEffect(() => {
+    if (routeProjectId) setActiveProjectId(routeProjectId);
+  }, [routeProjectId, setActiveProjectId]);
 
   const handleMainTabChange = useCallback((tab: string) => {
     const routes: Record<string, string> = {
@@ -178,28 +189,33 @@ function AppInternal({
       projects: '/app/projects',
       workflows: '/app/workflows',
     };
+    if (tab === 'projects') setActiveProjectId(null);
     navigate(routes[tab] ?? '/app');
-  }, [navigate]);
+  }, [navigate, setActiveProjectId]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Used for UserMenu Popover
   const [isMainSettingsOpen, setIsMainSettingsOpen] = useState(false); // Used for Settings Dialog Modal
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  useEffect(() => {
     const saved = localStorage.getItem('ocean_sidebar_collapsed');
-    return saved === 'true';
-  });
+    if (saved === 'true') setIsSidebarCollapsed(true);
+  }, []);
   const [models, setModels] = useState<any[]>(() => formatModels(initialModels));
-  const [selectedModelId, setSelectedModelId] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    const savedModelId = localStorage.getItem('ocean_selected_model') || '';
-    if (initialModels.some((model: any) => model.id === savedModelId)) return savedModelId;
+  const initialModelId = (() => {
     const preferredModelId = user?.preferences?.defaultModel;
     return initialModels.some((model: any) => model.id === preferredModelId)
       ? preferredModelId
       : initialModels[0]?.id || '';
-  });
+  })();
+  const [selectedModelId, setSelectedModelId] = useState(initialModelId);
+  useEffect(() => {
+    const savedModelId = localStorage.getItem('ocean_selected_model') || '';
+    if (initialModels.some((model: any) => model.id === savedModelId)) {
+      setSelectedModelId(savedModelId);
+    }
+  }, [initialModels]);
 
   const toggleSidebar = () => {
     const newState = !isSidebarCollapsed;
@@ -213,17 +229,15 @@ function AppInternal({
 
   // ── Phase 6：Space 切换与当前身份（顶部居中「工作 | 生活」Tab，主区保持原空间投影逻辑） ──
   type SpaceView = 'work' | 'life';
-  const [spaceView, setSpaceView] = useState<SpaceView>(() => {
-    if (typeof window === 'undefined') return 'work';
+  const [spaceView, setSpaceView] = useState<SpaceView>('work');
+  const [activeSpaceId, setActiveSpaceId] = useState<string>('work');
+  const [spacePreferenceHydrated, setSpacePreferenceHydrated] = useState(false);
+  useEffect(() => {
     const saved = localStorage.getItem('ocean_active_space') ?? 'work';
-    if (saved.startsWith('life-')) return 'life';
-    return 'work';
-  });
-  const [activeSpaceId, setActiveSpaceId] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'work';
-    const saved = localStorage.getItem('ocean_active_space') ?? 'work';
-    return saved;
-  });
+    setActiveSpaceId(saved);
+    setSpaceView(saved.startsWith('life-') ? 'life' : 'work');
+    setSpacePreferenceHydrated(true);
+  }, []);
   const SPACE_TABS: Array<{ id: SpaceView; label: string }> = [
     { id: 'work', label: t('space.tabs.work', '工作') },
     { id: 'life', label: t('space.tabs.life', '生活') },
@@ -231,8 +245,9 @@ function AppInternal({
   const [spaces, setSpaces] = useState<SpaceOption[]>([]);
 
   useEffect(() => {
+    if (!spacePreferenceHydrated) return;
     localStorage.setItem('ocean_active_space', activeSpaceId);
-  }, [activeSpaceId]);
+  }, [activeSpaceId, spacePreferenceHydrated]);
 
   // 显式创建 Life Space（Space Switcher 菜单「创建生活空间」入口）
   const handleCreateLifeSpace = useCallback(async () => {
@@ -316,7 +331,7 @@ function AppInternal({
     refreshConversations,
   } = useConversations({
     token,
-    sessionId: sessionIdFromUrl ?? null,
+    sessionId: activeSessionId ?? null,
     navigate,
     onAuthExpired: handleLogout,
     onUserProfile: setUser,
@@ -448,11 +463,12 @@ function AppInternal({
         onOpenSettings={() => { setIsSettingsOpen(true); }}
         onNewChat={handleNewChatAndActivate}
         conversations={spaceConversations}
-        currentChatId={sessionIdFromUrl ?? null}
+        currentChatId={activeSessionId ?? null}
         onLoadConversation={loadConversationAndActivate}
         onRenameConversation={handleRenameChat}
         onDeleteConversation={handleDeleteChat}
         onFavoriteConversation={() => { }} // Favorite 功能可后续实现
+        initialProjects={initialProjects}
         user={user}
         onLogout={handleLogout}
         token={token}
@@ -487,7 +503,7 @@ function AppInternal({
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession
                 navigation={navigation}
-                sessionId={sessionIdFromUrl ?? null}
+                sessionId={activeSessionId ?? null}
                 initialMessages={currentMessages}
                 models={models}
                 selectedModelId={selectedModelId}
@@ -502,6 +518,7 @@ function AppInternal({
                 onRenameConversation={handleRenameChat}
                 isLoadingHistory={isLoadingMessages}
                 t={t}
+                initialPermissionMode={initialPermissionMode}
               />
             </div>
           ) : activeTab === 'all_chats' ? (
@@ -594,6 +611,7 @@ function App({
   initialActiveProject,
   initialKnowledgeDocuments,
   initialKnowledgeStats,
+  initialPermissionMode,
 }: AppProps) {
   return (
     <AppContent
@@ -610,6 +628,7 @@ function App({
       initialActiveProject={initialActiveProject}
       initialKnowledgeDocuments={initialKnowledgeDocuments}
       initialKnowledgeStats={initialKnowledgeStats}
+      initialPermissionMode={initialPermissionMode}
     />
   );
 }

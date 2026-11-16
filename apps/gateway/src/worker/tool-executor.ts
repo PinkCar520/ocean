@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { isDeepStrictEqual } from 'node:util';
 import {
   runEventSchema,
   runStepSchema,
@@ -87,7 +88,7 @@ export class ToolExecutor {
       //    业务错误直接终态，不把 Run 置 running 后再失败
       const runCheck = await this.prisma.agentRun.findUnique({
         where: { id: runId },
-        select: { id: true, userId: true, priority: true, spaceId: true },
+        select: { id: true, userId: true, priority: true, spaceId: true, status: true },
       });
       if (!runCheck) {
         return {
@@ -107,6 +108,7 @@ export class ToolExecutor {
           error: `Run ${runId} does not belong to user ${userId}`,
         };
       }
+      if (!['queued', 'running'].includes(runCheck.status)) return { jobId: job.id, runId, status: 'succeeded' };
       const tool = this.registry.get(toolCall.name);
       if (!tool) {
         throw new TerminalToolError(`Unknown tool: ${toolCall.name}`);
@@ -125,11 +127,14 @@ export class ToolExecutor {
       }
 
       // 3) 接管：置 running（幂等处理崩溃遗留）
-      await this.prisma.$transaction(async (tx) => {
+      const active = await this.prisma.$transaction(async (tx) => {
         const run = await tx.agentRun.findUnique({
           where: { id: runId },
           select: { status: true },
         });
+        if (!run || !['queued', 'running'].includes(run.status)) return false;
+        const claimed = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
+        if (!claimed.count) return false;
         if (run && run.status !== 'running') {
           await tx.agentRun.update({
             where: { id: runId },
@@ -144,10 +149,13 @@ export class ToolExecutor {
             status: 'running',
           });
         }
+        return true;
       });
+      if (!active) return { jobId: job.id, runId, status: 'succeeded' };
 
       // 4) 步骤 started（崩溃续跑复用 started 步骤，不重复写 step_started）
       const step = await this.ensureStepStarted(runId, toolCall);
+      if (!step) return { jobId: job.id, runId, status: 'succeeded' };
 
       // 5) 执行工具（先审计：谁/哪个 Space/因何授权/什么输入）
       await this.audit.record({
@@ -159,13 +167,15 @@ export class ToolExecutor {
         inputJson: toolCall.input,
         authorization: tool.requiresApproval ? 'approval' : 'auto',
       });
-      const output = await tool.execute(toolCall.input, { runId, userId });
+      const output = await tool.execute(toolCall.input, { runId, userId, toolCallId: toolCall.id });
 
       // 6) 完成：step succeeded + step_completed + tool.completed；
       //    Agent Loop 驱动的 Run（存在 model_call 步骤）→ Run queued + 重投
       //    run.requested 回喂模型续跑；纯工具 Run → Run succeeded（现状）。
       const outputJson = output as Prisma.InputJsonValue;
       await this.prisma.$transaction(async (tx) => {
+        const active = await tx.agentRun.updateMany({ where: { id: runId, userId, status: 'running' }, data: { status: 'running' } });
+        if (!active.count) return;
         await tx.runStep.update({
           where: { id: step.id },
           data: {
@@ -199,6 +209,9 @@ export class ToolExecutor {
           toolCallId: toolCall.id,
           result: output,
         });
+
+        const currentRun = await tx.agentRun.findUnique({ where: { id: runId }, select: { status: true } });
+        if (currentRun?.status === 'cancelled') return;
 
         const loop = await this.continueLoopIfModelDriven(
           tx,
@@ -286,10 +299,26 @@ export class ToolExecutor {
       orderBy: { createdAt: 'desc' },
     });
     if (existing) {
+      if (existing.toolName !== toolCall.name || !isDeepStrictEqual(existing.args, JSON.parse(JSON.stringify(toolCall.input)))) {
+        throw new TerminalToolError('Approval does not match the requested tool and arguments.');
+      }
       return { executable: existing.status === 'approved' };
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
+      const active = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'waiting_for_approval' } });
+      if (!active.count) return { executable: false };
+      const fresh = await tx.runApproval.findFirst({ where: { runId, toolCallId: toolCall.id }, orderBy: { createdAt: 'desc' } });
+      if (fresh) {
+        if (fresh.toolName !== toolCall.name || !isDeepStrictEqual(fresh.args, JSON.parse(JSON.stringify(toolCall.input)))) {
+          throw new TerminalToolError('Approval does not match the requested tool and arguments.');
+        }
+        if (fresh.status === 'approved') {
+          await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
+          return { executable: true };
+        }
+        return { executable: false };
+      }
       const approvalId = randomUUID();
       const seq = await this.nextStepSeq(tx, runId);
       const inputJson = JSON.parse(
@@ -357,8 +386,8 @@ export class ToolExecutor {
         type: 'run.status_changed',
         status: 'waiting_for_approval',
       });
+      return { executable: false };
     });
-    return { executable: false };
   }
 
   /**
@@ -397,8 +426,10 @@ export class ToolExecutor {
   private async ensureStepStarted(
     runId: string,
     toolCall: ToolCall,
-  ): Promise<{ id: string; seq: number }> {
+  ): Promise<{ id: string; seq: number } | null> {
     return this.prisma.$transaction(async (tx) => {
+      const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
+      if (!active.count) return null;
       const existing = await tx.runStep.findFirst({
         where: { runId, kind: 'tool_call' },
         orderBy: { seq: 'desc' },
@@ -446,9 +477,13 @@ export class ToolExecutor {
     const { runId } = job.payload;
     const message = error instanceof Error ? error.message : String(error);
     const terminal = error instanceof TerminalToolError;
+    let cancelled = false;
 
     try {
       await this.prisma.$transaction(async (tx) => {
+        const active = await tx.agentRun.updateMany({ where: { id: runId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
+        cancelled = !active.count;
+        if (cancelled) return;
         const latest = await tx.runStep.findFirst({
           where: { runId, kind: 'tool_call' },
           orderBy: { seq: 'desc' },
@@ -502,6 +537,7 @@ export class ToolExecutor {
       };
     }
 
+    if (cancelled) return { jobId: job.id, runId, status: 'succeeded' };
     return {
       jobId: job.id,
       runId,

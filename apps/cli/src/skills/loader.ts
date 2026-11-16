@@ -89,11 +89,18 @@ function loadSkill(skillPath: string): LoadedSkill | null {
     return null;
   }
 
+  const fileInfo = fs.lstatSync(skillMd);
+  if (!fileInfo.isFile() || fileInfo.isSymbolicLink() || fileInfo.size > 256 * 1024) {
+    console.warn(`[SkillLoader] Skipping unsafe or oversized skill file: ${skillMd}`);
+    return null;
+  }
+
   const content = fs.readFileSync(skillMd, 'utf-8');
   const { manifest, body } = parseFrontmatter(content);
 
-  if (!manifest) {
-    console.warn(`[SkillLoader] No frontmatter found in ${skillMd}`);
+  if (!manifest || typeof manifest.name !== 'string' || !manifest.name.trim()
+    || typeof manifest.description !== 'string' || !manifest.description.trim()) {
+    console.warn(`[SkillLoader] Skill frontmatter must define name and description: ${skillMd}`);
     return null;
   }
 
@@ -113,6 +120,8 @@ export function loadSkillsFromDir(skillsDir: string): LoadedSkill[] {
   if (!fs.existsSync(skillsDir)) {
     return skills;
   }
+  const directoryInfo = fs.lstatSync(skillsDir);
+  if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) return skills;
 
   const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
 

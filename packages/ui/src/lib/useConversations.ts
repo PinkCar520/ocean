@@ -91,7 +91,9 @@ export function useConversations({
   }, [token, isServerBootstrapped]);
 
   const justCreatedSessionIdRef = useRef<string | null>(null);
-  const hasConsumedServerMessagesRef = useRef(isServerBootstrapped && Boolean(sessionId));
+  const hasConsumedServerMessagesRef = useRef(
+    isServerBootstrapped && Boolean(sessionId) && initialMessages.length > 0,
+  );
 
   // ── 刷新会话列表 ──────────────────────────────────────────────
   const refreshConversations = useCallback(async () => {

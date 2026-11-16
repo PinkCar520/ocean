@@ -2,6 +2,7 @@ import type { LeasedRunJob } from '@ocean/contracts';
 import { EgressPolicy } from '../sandbox/egress-policy';
 import { ToolRegistry } from '../tool/tool.registry';
 import { TerminalToolError, ToolExecutor } from './tool-executor';
+import { createDeviceTools } from '../tool/device.tools';
 
 function toolJob(
   options: {
@@ -38,7 +39,7 @@ function createExecutor(
       status: string;
       input: { idempotencyKey?: string };
     }>;
-    approval?: { status: 'pending' | 'approved' | 'rejected' } | null;
+    approval?: { status: 'pending' | 'approved' | 'rejected'; toolName?: string; args?: Record<string, unknown> } | null;
     toolError?: Error;
   } = {},
 ) {
@@ -47,6 +48,7 @@ function createExecutor(
     agentRun: {
       findUnique: jest.fn().mockResolvedValue(options.run ?? defaultRun),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     runEvent: {
       findFirst: jest.fn().mockResolvedValue(null),
@@ -61,7 +63,7 @@ function createExecutor(
       findFirst: jest
         .fn()
         .mockResolvedValue(
-          options.approval === undefined ? null : options.approval,
+          options.approval ? { toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
         ),
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
@@ -86,7 +88,7 @@ function createExecutor(
       findFirst: jest
         .fn()
         .mockResolvedValue(
-          options.approval === undefined ? null : options.approval,
+          options.approval ? { toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
         ),
     },
   };
@@ -121,6 +123,70 @@ function createExecutor(
 }
 
 describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
+  it('does not create an approval when cancellation wins the state transition', async () => {
+    const { executor, tx, toolExecute } = createExecutor();
+    tx.agentRun.updateMany.mockResolvedValue({ count: 0 });
+    expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'succeeded' });
+    expect(tx.runApproval.create).not.toHaveBeenCalled();
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+  it('does not dispatch a tool on a cancelled Run', async () => {
+    const { executor, toolExecute, tx } = createExecutor({ run: { id: 'run_1', userId: 'user_1', status: 'cancelled' } });
+    expect(await executor.execute(toolJob())).toMatchObject({ status: 'succeeded' });
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(tx.agentRun.update).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite a cancellation when an in-flight tool returns', async () => {
+    const { executor, toolExecute, tx } = createExecutor();
+    toolExecute.mockImplementation(async () => {
+      tx.agentRun.findUnique.mockResolvedValue({ id: 'run_1', userId: 'user_1', status: 'cancelled' });
+      tx.agentRun.updateMany.mockResolvedValue({ count: 0 });
+      return { ok: true, echo: {} };
+    });
+    await executor.execute(toolJob());
+    expect(tx.agentRun.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'succeeded' } }));
+    expect(tx.agentRun.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'queued' } }));
+  });
+
+  it('requests approval before dispatching a notebook write and preserves tool-call identity after approval', async () => {
+    const broker = { request: jest.fn().mockResolvedValue({ path: 'n.ipynb', mode: 'replace' }) };
+    const pending = createExecutor();
+    for (const tool of createDeviceTools(broker as never)) pending.registry.register(tool);
+    const job = toolJob({ name: 'local_notebook_edit', idempotencyKey: 'notebook-1', input: { path: 'n.ipynb', cell_id: 'c1', new_source: 'x' } });
+    await pending.executor.execute(job);
+    expect(pending.tx.runApproval.create).toHaveBeenCalled();
+    expect(broker.request).not.toHaveBeenCalled();
+    const approved = createExecutor({ approval: { status: 'approved', toolName: 'local_notebook_edit', args: { path: 'n.ipynb', cell_id: 'c1', new_source: 'x' } } });
+    for (const tool of createDeviceTools(broker as never)) approved.registry.register(tool);
+    await approved.executor.execute(job);
+    expect(broker.request).toHaveBeenCalledWith('notebook_edit', { path: 'n.ipynb', mode: 'replace', cell_id: 'c1', new_source: 'x' }, { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1' });
+  });
+
+  it.each([
+    ['local_file_write', 'file_write', { path: 'a.txt', content: 'new' }],
+    ['local_file_edit', 'file_edit', { path: 'a.txt', old_string: 'old', new_string: 'new' }],
+    ['local_file_patch', 'file_patch', { path: 'a.txt', edits: [{ old_string: 'old', new_string: 'new' }] }],
+  ])('requires matching approval before dispatching %s', async (name, method, input) => {
+    const broker = { request: jest.fn().mockResolvedValue({ ok: true }) };
+    const job = toolJob({ name, input });
+    const pending = createExecutor();
+    for (const tool of createDeviceTools(broker as never)) pending.registry.register(tool);
+    await pending.executor.execute(job);
+    expect(pending.tx.runApproval.create).toHaveBeenCalled();
+    expect(broker.request).not.toHaveBeenCalled();
+    const approved = createExecutor({ approval: { status: 'approved', toolName: name, args: input } });
+    for (const tool of createDeviceTools(broker as never)) approved.registry.register(tool);
+    await approved.executor.execute(job);
+    expect(broker.request).toHaveBeenCalledWith(method, input, { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1' });
+  });
+
+  it('does not reuse an approval for different tool arguments', async () => {
+    const { executor, toolExecute } = createExecutor({ approval: { status: 'approved', args: { text: 'different' } } });
+    const result = await executor.execute(toolJob({ name: 'approval.tool' }));
+    expect(result).toMatchObject({ status: 'failed', retryable: false, error: expect.stringContaining('does not match') });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
   it('executes a tool call: tool_call step + step/tool events + run succeeded', async () => {
     const { executor, tx } = createExecutor();
 
@@ -376,6 +442,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
           status: 'queued',
         }),
         update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       runEvent: {
         findFirst: jest.fn().mockResolvedValue(null),

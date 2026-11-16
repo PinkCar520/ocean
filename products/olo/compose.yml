@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: olo
+      POSTGRES_USER: olo
+      POSTGRES_PASSWORD: olo-local-only
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U olo -d olo"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    volumes:
+      - olo-postgres:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      OLO_DATABASE_URL: postgresql://olo:olo-local-only@postgres:5432/olo
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  olo-postgres:

@@ -1,0 +1,253 @@
+--- OLO_Product_PRD_v1.0.md
++++ OLO_Product_PRD_v1.1.md
+@@ -1,11 +1,16 @@
+-# OLO Product PRD v1.0
+-
+-**产品类别：** Personal AI Hardware / Ambient Agent\
++# OLO Product PRD v1.1
++
++**产品类别：** Persistent Personal Agent / Personal Intelligence Layer\
+ **核心硬件：** OLO One\
+ **当前阶段：** Product Definition → Prototype Validation\
+ **当前原型基线：** OLO One v16 · Glass Light Bar\
+ **验证界面：** iOS Companion Prototype（验证工具，不是产品本体）\
+-**核心原则：** One Identity · Many Bodies
++**核心原则：** Human Pull → World Push · One AI · Many Bodies · Reduce Cognitive Load
++
++**版本日期：** 2026-09-09  
++**状态：** 产品定义基线 v1.1；系统设计另见 living specs，未承诺实现。  
++**来源：** [v1.0 原文](OLO_Product_PRD_v1.0.md)、[决策记录](DECISIONS.md)与本次产品负责人授权。  
++**阅读入口：** [文档索引](../README.md)。v1.0 永久保留；本版完整承接其未被新决策取代的要求。
+ 
+ > **OLO 不是一个 App。OLO
+ > 是一个在现实世界中持续存在、理解、行动和记忆的个人 AI。**
+@@ -14,17 +19,15 @@
+ 
+ ## 0. Executive Summary
+ 
+-OLO 旨在创造一种新的个人 AI 产品形态：AI 不再主要存在于聊天窗口，而通过
+-OLO One 获得现实世界中的物理存在，并通过持续 Identity、Memory 与 Agent
+-能力理解用户目标、规划行动、调用不同设备与服务完成任务。
+-
+-OLO One 是核心硬件与第一交互入口；iPhone、Robot、Vehicle、Home 等是 OLO
+-在特定任务中可调用的能力载体。当前 iOS App
+-的定位仅是验证屏幕型交互、复杂确认、管理与调试，不应成为 OLO
+-的产品中心。
+-
+-长期目标是：随着 OLO One 与 Agent
+-能力成熟，用户为了完成日常目标而主动打开 Companion App 的需求应下降。
++OLO 是持续存在的个人智能体与 Personal Intelligence Layer：理解人与世界的 Context，预判需求，判断何时介入，并在授权范围内协调设备、服务与现实世界，验证结果并按规则学习。
++
++**Human Pull → World Push** 是产品范式：把原本由人承担的寻找信息、判断、跨 App 切换和协调，转交给 OLO；让合适的信息与行动在合适的情境下找到人。主动行为包括保持安静、准备、询问与获授权行动，不能等同于增加通知。
++
++**OLO 与 OLO One 分层。** OLO 负责 Context / Memory / Planning / Intervention / Orchestration / Identity；OLO One 是主要的现实 Physical Presence，负责 Sense / Presence / Ambient Interaction / Privacy。OLO 的身份与任务连续性跨身体存在，用户无需全天携带同一设备。
++
++**One AI · Many Bodies** 与既有 One Identity · Many Bodies 一致：同一个 OLO 根据情境通过 One、iPhone、Watch、AirPods、Mac、Home、Vehicle 等身体感知、交互与执行。它们是角色与能力方向，不代表现阶段已接通。
++
++北极星是 **Reduce Human Cognitive Load（少操心）**。AI 使用时长和完成任务数量不能单独代表成功。iOS Companion 保持验证与辅助窗口定位。
+ 
+ ------------------------------------------------------------------------
+ 
+@@ -36,8 +39,9 @@
+ 
+ ### 1.2 产品定义
+ 
+-**OLO = OLO Identity + OLO Intelligence + OLO One + OLO World +
+-Companion Interfaces**
++**OLO = 持续的个人智能层；OLO One = 主要物理 Presence。**
++
++下面的 Identity / Intelligence / World / Companion 仍是产品职责分解，并非要求所有智能集中在 OLO One 上。软件、云端及设备间的部署方式留给系统架构验证。
+ 
+   --------------------------------------------------------------------------------------------
+   层                      定义                    产品职责
+@@ -47,7 +51,7 @@
+   OLO Intelligence        理解与行动系统          Observe → Understand → Think → Plan → Act →
+                                                   Verify → Remember
+ 
+-  OLO One                 核心 AI 硬件            Presence / Intent / Sensing / Ambient
++  OLO One                 主要物理 Presence            Presence / Intent / Sensing / Ambient
+                                                   Feedback
+ 
+   OLO World               能力网络                将 iPhone、Home、Vehicle、Robot 等作为可调用
+@@ -69,6 +73,12 @@
+ ------------------------------------------------------------------------
+ 
+ ## 2. 产品原则
++
++- **Human Pull → World Push**：减少人主动寻找和组织服务的需要；明确命令仍是有效输入。
++- **Reduce Cognitive Load**：减少无谓操作、重复决定和打扰，同时不遗漏重要事件。
++- **One AI · Many Bodies**：跨身体保持身份、Context 和任务连续性；感知许可与行动权限逐域判断。
++- **Confidence 不等于 Authority**：推断再确定也不能扩大用户授权；缺失或过期证据不能冒充事实。
++
+ 
+   ----------------------------------------------------------------------------------------
+   原则                                要求
+@@ -111,12 +121,14 @@
+ 
+ ## 4. OLO Product Loop
+ 
+-**存在 → 感知 → 理解 → 规划 → 行动 → 验证 → 记忆**
++**Presence → Sense → Understand → Anticipate → Decide → Intervene when needed → Orchestrate → Act → Verify → Learn**
++
++这是产品闭环，具体执行顺序、并发与生命周期由 [Agent Runtime living spec](../runtime/OLO-Agent-Runtime.md)验证。SILENT 是合法决策；准备与产生现实影响的行动需要区分。下表保留既有职责，其中 Understand 扩展为 Context 理解和预判，Plan 纳入介入与授权判断。
+ 
+   -----------------------------------------------------------------------------------------------
+   阶段                    系统行为                                 用户体验
+   ----------------------- ---------------------------------------- ------------------------------
+-  Presence                OLO One 随用户存在于现实环境             无需先打开 App
++  Presence                OLO 通过合适 Body 存在于现实环境             无需先打开 App
+ 
+   Observe                 按权限获取语音、视觉、时间、设备上下文   自然表达或环境触发
+ 
+@@ -133,7 +145,11 @@
+ 
+ ------------------------------------------------------------------------
+ 
+-## 5. Golden Path：我去机场
++## 5. Golden Path 与场景规格
++
++保留“我去机场”作为显式 Intent 验证路径。主动场景按人的状态变化组织：SR-001 Wake Up、SR-002 Morning Ready、SR-003 Leaving、SR-004 In Transit、SR-005 Work，详见 [Scenario Specification](../scenarios/OLO-Scenario-Specification.md)。这些是期望体验与设计推演，不能当作已实现的服务承诺。
++
++### 5.1 我去机场
+ 
+ 1.  用户对 OLO One 说："我今天下午去机场。"
+ 2.  OLO One 进入 Listening，并将 Intent 交给 OLO Intelligence。
+@@ -161,7 +177,7 @@
+   模块          当前需求 / 概念
+   ------------- ---------------------------------------------------------
+   形态          小型圆润独立 AI 硬件；前部黑色 Glass 区域 + 金属机身
+-  概念尺寸      ≈ 50 × 12 mm（未冻结）
++  概念尺寸      50 mm × 12.7 mm（外观目标，工程待验证）
+   概念重量      ≈ 78 g（未冻结）
+   视觉          前置广角摄像头概念
+   语音输入      6-Mic Array 概念
+@@ -185,6 +201,8 @@
+ 
+ ### 6.3 Hardware State Language
+ 
++Generation 1 保留 Display / Presence Surface，采用 Context-driven 的克制表达；不采用 App 网格、键盘或复杂信息架构。可表达 Agent 状态、重要行动、确认、恢复与此刻必要的信息。以下为原型语义；[Ambient Display L0–L4](../interaction/OLO-Ambient-Display.md)的分级和映射尚未定义，不能从此表推断已冻结。
++
+ -   **Standby** --- OLO 标识；低亮/常亮；安静但可感知存在。
+ -   **Listening** --- 输入反馈；Light Bar / Ring 呼吸。
+ -   **Thinking** --- 三点思考态，与 Listening 明确区分。
+@@ -209,7 +227,9 @@
+ 
+ ## 7. OLO Intelligence & Agent
+ 
+-### 7.1 Agent 状态机
++### 7.1 Agent 状态语义
++
++以下保留 v1.0 的体验状态参考，不构成完整 Runtime 状态转移契约。重试、取消、部分失败与补偿由独立 living spec 验证。
+ 
+ `Captured → Understanding → Planning → Need Information / Need Confirmation → Executing → Verifying → Done`
+ 
+@@ -231,7 +251,7 @@
+   L3 · Authenticate       支付、安全、身份、敏感数据     付款、门锁、身份确认
+   -------------------------------------------------------------------------------------
+ 
+-具体动作的风险映射需形成独立 **Action Permission Matrix**。
++具体动作的风险映射需形成独立 **Action Permission Matrix**。L1–L3 为信任分层，不是 Ambient Display L0–L4。自动行为仍须匹配能力、目的、情境、费用、有效期与用户授权；通勤授权不自动覆盖机场出行。具体策略字段与阈值待 SR-003 验证。
+ 
+ ### 7.3 Agent 可解释性与验证
+ 
+@@ -358,6 +378,8 @@
+ ------------------------------------------------------------------------
+ 
+ ## 13. 系统数据对象
++
++本节为产品层责任清单，不是数据库 Schema。核心语义另见 [Context Architecture](../context/OLO-Context-Architecture.md)与 [Context Model v0.2](../context/OLO-Context-Model-v0.2.md)：14 个核心实体 + Context / Plan 两个系统对象。v0.2 由 SR-001 设计推演修订，仍为 living spec，未通过 SR-003。
+ 
+   对象          核心字段（产品层）
+   ------------- ---------------------------------------------------
+@@ -377,7 +399,9 @@
+ 
+ MVP 的目标不是完成全部生态，而是验证：
+ 
+-> **"个人 AI 硬件 + Agent 闭环"是否成立。**
++> **OLO 是否能够在有权限、可验证的条件下理解 Context、恰当介入、协调行动，并减少用户的认知负担。**
++
++下面 P0 保留已有验证范围，不因本次文档更新自动增加开发任务。场景范围的 Must / Should / Future 分级、实现方式和上线指标仍需独立评审。
+ 
+ ### P0
+ 
+@@ -403,7 +427,7 @@
+ 
+ ## 15. MVP 验收闭环
+ 
+-1.  OLO One 能成为用户 Intent 的第一入口。
++1.  OLO One 能成为自然的物理 Intent 入口，其他身体可按情境接力。
+ 2.  用户无需先打开 iPhone 即可开始核心交互。
+ 3.  Listening → Thinking → Acting 能通过硬件被理解，并与 Companion
+     状态一致。
+@@ -420,6 +444,10 @@
+ 
+ ## 16. 产品成功指标
+ 
++**North Star：Reduce Human Cognitive Load。** 在可比较的场景下观察 App Opens、Context Switching、Repetitive Decisions、Manual Coordination、Unnecessary Notifications 是否减少，以及 Missed Important Events 是否减少。结合用户主观“少操心”反馈，避免用通知量或自动任务数代替体验价值。
++
++这些是测量方向；采样周期、对照方式、指标定义与目标数值尚未冻结。误判、误行动、纠正成本和重要事件遗漏必须与节省操作一起评估。
++
+ 当前尚未冻结量化阈值。
+ 
+ 建议指标：
+@@ -438,6 +466,9 @@
+ 
+ ## 17. Roadmap
+ 
++当前 Foundation 顺序：整理既有产品结论 → SR-003 Stress Test → 根据发现修订 Context Model（候选 v0.3）→ Agent Runtime → Ambient Display L0–L4 → Hardware Requirements → Core Prototype。此顺序是研究依赖，不是已经完成的里程碑或交付日期。
++
++
+   ------------------------------------------------------------------------------
+   阶段                                目标
+   ----------------------------------- ------------------------------------------
+@@ -463,7 +494,7 @@
+ 
+ ## 18. 待验证 / 未冻结事项
+ 
+--   ≈ 50 × 12 mm 与 ≈ 78 g 为概念目标。
++-   50 mm × 12.7 mm 为外观目标，≈ 78 g 为旧概念参考；工程可行性与舒适性未验证。
+ -   Camera、6-Mic、Speaker、Type-C、磁吸 / 无线充电和配件结构未冻结。
+ -   是否需要独立 Cellular 尚未确定。
+ -   On-device Model 与 Cloud 推理边界未确定。
+@@ -471,14 +502,16 @@
+ -   Memory 数据架构、加密、同步、保留与删除机制未冻结。
+ -   Agent Action Permission Matrix 未冻结。
+ -   Home / Vehicle / Robot 首批真实集成对象未确定。
+--   最终产品是否包含显示屏、投影或其他视觉输出未确定。
++-   Generation 1 保留 Ambient Display；显示技术、功耗、信息密度与 L0–L4 映射未冻结。
+ -   商业模式、定价、订阅和服务成本尚未形成正式需求。
+ 
+ ------------------------------------------------------------------------
+ 
+ ## 19. 子 PRD 结构
+ 
+-本 Product PRD 是最高层产品基线。后续研发建议拆分：
++产品文档权威顺序见 [docs/README](../README.md)。Scenario、Context Architecture、Context Model、Runtime 与 Ambient Display 已独立建档。Hardware 与 Companion 沿用现有文档；系统部署架构和 Capability / Integration 的正式契约后续建立，不以空壳文档冒充完成。
++
++以下保留后续可按需求建立的子领域：
+ 
+ 1.  **OLO One Hardware PRD**
+ 2.  **OLO Physical UX & Industrial Design Spec**
+@@ -514,10 +547,9 @@
+ 
+ ------------------------------------------------------------------------
+ 
+-## 21. PRD v1.0 冻结结论
+-
+-> **OLO 的产品中心是 OLO One + OLO Identity + OLO Intelligence，而不是
+-> iOS App。**
++## 21. PRD v1.1 产品基线
++
++> **OLO 是持续个人智能层；OLO One 是主要物理 Presence。One AI · Many Bodies 的目标是让世界在恰当时机围绕人协调，降低认知负担。**
+ 
+ iOS 在当前阶段承担验证与 Companion 角色。
+ 
+@@ -525,7 +557,7 @@
+ 
+ 1.  这项能力是否属于 OLO 本身？
+ 2.  是否必须依赖屏幕？
+-3.  OLO One 能否自然完成？
++3.  哪个身体能以最低认知成本完成，是否需要 OLO One 的物理能力？
+ 4.  需要哪个 Body？
+ 5.  风险等级是什么？
+ 6.  结果如何验证？

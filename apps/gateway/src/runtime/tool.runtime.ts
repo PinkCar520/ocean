@@ -123,6 +123,34 @@ export class ToolRuntime {
         },
       }),
 
+      local_notebook_read: tool({
+        description: '读取本地 Jupyter Notebook 的单元及输出，供后续编辑使用。',
+        inputSchema: z.object({ path: z.string().min(1).describe('Notebook 路径') }),
+        execute: async ({ path }: { path: string }): Promise<any> => {
+          if (!sessionId) return { error: 'Notebook access requires an authenticated session.' };
+          return this.rpcGateway.sendToCli(currentUserId, 'notebook_read', { path, sessionId });
+        },
+        toModelOutput: ({ output }: { output: any }) => {
+          if (output?.kind !== 'notebook') return { type: 'json', value: output ?? null };
+          if (!output.parts?.length) return { type: 'text', value: 'Notebook contains no cells.' };
+          return { type: 'content', value: output.parts.map((part: any) => part.type === 'text'
+            ? { type: 'text', text: part.text }
+            : { type: 'file', mediaType: part.mediaType, data: { type: 'data', data: part.base64 } }) };
+        },
+      } as any),
+
+      local_notebook_edit: tool({
+        description: '替换、插入或删除本地 Notebook 单元；先读取文件，并按权限策略审批。',
+        inputSchema: z.object({
+          path: z.string().min(1), mode: z.enum(['replace', 'insert', 'delete']).optional(),
+          cell_id: z.string().optional(), cell_type: z.enum(['code', 'markdown']).optional(), new_source: z.string().optional(),
+        }).strict(),
+        execute: async (input: any): Promise<any> => {
+          if (!sessionId) return { error: 'Notebook editing requires an authenticated session and approval context.' };
+          return this.rpcGateway.sendToCli(currentUserId, 'notebook_edit', { ...input, sessionId });
+        },
+      } as any),
+
       rag_search: tool({
         description:
           '在 Ocean 知识库（RAG）中搜索相关文档。适用于回答银行业务规则、系统使用说明、代码库规范等问题。',
@@ -194,21 +222,37 @@ export class ToolRuntime {
 
       local_git: tool({
         description:
-          '操作本地 Git 仓库（status, add, commit, push, log, diff, branch）。',
+          '查看和修改本地 Git 仓库，可查询状态、差异、日志、分支与工作树，也可暂存、提交和推送。',
         inputSchema: z.object({
           action: z
-            .enum(['status', 'add', 'commit', 'push', 'log', 'diff', 'branch'])
+            .enum([
+              'status',
+              'add',
+              'commit',
+              'push',
+              'log',
+              'diff',
+              'branch',
+              'worktree_list',
+              'worktree_add',
+              'worktree_remove',
+            ])
             .describe('Git 动作'),
           args: z
             .string()
             .optional()
-            .describe('动作参数，如 "." 或 \'-m "message"\' '),
+            .describe('只读动作的兼容参数；写操作使用下方结构化字段'),
+          paths: z.array(z.string()).optional().describe('add/diff 的仓库内路径'),
+          message: z.string().optional().describe('commit 提交说明'),
+          remote: z.string().optional().describe('push 目标远程仓库'),
+          branch: z.string().optional().describe('push 目标分支或 worktree 新分支'),
+          name: z.string().optional().describe('工作树名称'),
         }) as any,
-        execute: async ({ action, args }) => {
+        execute: async ({ action, args, paths, message, remote, branch, name }) => {
           const result = await this.rpcGateway.sendToCli(
             currentUserId,
             'local_git',
-            { action, args, sessionId },
+            { action, args, paths, message, remote, branch, name, sessionId },
           );
 
           const response: any = {
@@ -265,6 +309,33 @@ export class ToolRuntime {
           };
         },
       }),
+
+      local_powershell: tool({
+        description:
+          '在开发者本地工作站的 workspace 中执行 PowerShell 指令；每次执行都需要审批。',
+        inputSchema: z.object({
+          command: z.string().min(1).max(100_000).describe('PowerShell 命令'),
+          cwd: z.string().optional().describe('workspace 内的工作目录'),
+          timeout_ms: z.number().int().min(1_000).max(600_000).optional(),
+        }),
+        execute: async (input: any): Promise<any> => {
+          if (!sessionId) return { error: 'PowerShell requires an authenticated session and approval context.' };
+          const { command, cwd, timeout_ms } = input;
+          const result = await this.rpcGateway.sendToCli(
+            currentUserId,
+            'powershell',
+            { command, cwd, timeout_ms, sessionId },
+          );
+          return {
+            status: 'Success',
+            output: result,
+            ui: {
+              uiType: 'code_block',
+              props: { command, output: result, status: 'success', language: 'powershell' },
+            },
+          };
+        },
+      } as any),
 
       local_plan: tool({
         description: '管理复杂任务的执行计划（编排工作流）。',

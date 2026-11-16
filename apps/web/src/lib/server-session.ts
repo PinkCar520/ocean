@@ -12,6 +12,7 @@ export interface OceanServerBootstrap {
   knowledgeProject: Record<string, unknown> | null;
   knowledgeDocuments: unknown[];
   knowledgeStats: Record<string, unknown>;
+  permissionMode: string;
 }
 
 interface GatewayPayload {
@@ -53,6 +54,8 @@ export async function getOceanServerBootstrap(options: {
 } = {}): Promise<OceanServerBootstrap | null> {
   const cookieStore = await cookies();
   if (!cookieStore.has('ocean_session')) return null;
+  // SSR 读 cookie 作为 permissionMode 初值，避免客户端 useEffect 读 localStorage 造成的刷新闪烁
+  const permissionMode = cookieStore.get('ocean_permission_mode')?.value ?? 'acceptEdits';
   const request = oceanServerFetch;
 
   try {
@@ -100,6 +103,7 @@ export async function getOceanServerBootstrap(options: {
       knowledgeStats: knowledgeStatsPayload?.data && !Array.isArray(knowledgeStatsPayload.data)
         ? knowledgeStatsPayload.data
         : {},
+      permissionMode,
     };
   } catch (error) {
     throw new Error('Ocean Gateway is unavailable during server rendering.', { cause: error });

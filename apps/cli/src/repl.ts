@@ -11,10 +11,13 @@ import {
   runChatLoopViaGateway,
 } from './llm/chat.js';
 import { resolveApiKey } from './utils/auth.js';
-import { getTools } from './tools/index.js';
+import { toAgentToolSet } from './tools/index.js';
 import { createGatewayApprovalHandler } from './approval/gateway-approval.js';
 import { loadSkillsFromDir } from './skills/loader.js';
 import { McpClientManager } from './mcp/client.js';
+import { SessionStore, type StoredSession } from './utils/session-store.js';
+import { formatTaskPlan } from './utils/task-manager.js';
+import { PermissionPolicy } from './utils/permission-policy.js';
 import { runInkApp } from './ui/app.js';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
@@ -139,23 +142,22 @@ async function runSingleQuery(options: ReplOptions) {
     } catch { /* skip */ }
   }
 
+  // MCP tools
+  const mcpManager = new McpClientManager(cliConfig);
+  try {
+    await mcpManager.loadConfig();
+    await mcpManager.connectAll();
+  } catch (error) {
+    console.warn(`[MCP] MCP setup failed: ${(error as Error).message}`);
+  }
+
   // Build tools
   const toolContext: ToolContext = {
     cwd: options.workspace,
     userId: options.userId,
     sessionId: Math.random().toString(36).substring(2, 15),
   };
-  const coreTools = getTools(toolContext);
-  const tools: Record<string, any> = {};
-  for (const [name, toolDef] of Object.entries(coreTools)) {
-    const tool = toolDef as any;
-    tools[name] = {
-      description: tool.description,
-      parameters: tool.inputSchema,
-      requiresApproval: tool.requiresApproval === true,
-      execute: async (args: any) => tool.execute(args, toolContext),
-    };
-  }
+  const tools: Record<string, any> = await toAgentToolSet(toolContext, mcpManager, skills);
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
   const messages: ModelMessage[] = [{ role: 'user', content: query }];
@@ -193,6 +195,8 @@ async function runSingleQuery(options: ReplOptions) {
     spinner.stop();
     console.error(chalk.red(`\n✗ Error: ${err.message}`));
     if (process.env.DEBUG) console.error(err.stack);
+  } finally {
+    await mcpManager.disconnectAll();
   }
 }
 
@@ -251,26 +255,23 @@ async function runReadlineRepl(options: ReplOptions) {
     mcpTools = await mcpManager.getAllTools();
   } catch { /* skip */ }
 
+  const sessionStore = new SessionStore();
+  const activeSession: { session: StoredSession } = {
+    session: await sessionStore.latestOrCreate(options.workspace),
+  };
+  console.log(chalk.gray(`[Session] ${activeSession.session.id} · ${activeSession.session.title}`));
+
   // Build tools
   const toolContext: ToolContext = {
     cwd: options.workspace,
     userId: options.userId,
-    sessionId: Math.random().toString(36).substring(2, 15),
+    sessionId: activeSession.session.id,
+    getSessionId: () => activeSession.session.id,
   };
-  const coreTools = getTools(toolContext);
-  const tools: Record<string, any> = {};
-  for (const [name, toolDef] of Object.entries(coreTools)) {
-    const tool = toolDef as any;
-    tools[name] = {
-      description: tool.description,
-      parameters: tool.inputSchema,
-      requiresApproval: tool.requiresApproval === true,
-      execute: async (args: any) => tool.execute(args, toolContext),
-    };
-  }
+  const tools: Record<string, any> = await toAgentToolSet(toolContext, mcpManager, skills, sessionStore);
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
-  const messages: ModelMessage[] = [];
+  const messages: ModelMessage[] = [...activeSession.session.messages];
 
   // 审批门：CLI 负责执行，审批弹在对话窗口（Web 审批面板）——有 API Key 时启用
   const apiKey = await resolveApiKey();
@@ -278,7 +279,7 @@ async function runReadlineRepl(options: ReplOptions) {
     ? createGatewayApprovalHandler({
         gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
         apiKey,
-        sessionId: toolContext.sessionId,
+        sessionId: () => activeSession.session.id,
       })
     : undefined;
 
@@ -301,12 +302,17 @@ async function runReadlineRepl(options: ReplOptions) {
       if (!trimmed) { prompt(); return; }
 
       if (trimmed.startsWith('/')) {
-        handleCommand(trimmed, rl, modelRouter, mcpTools, skills, messages);
+        await handleCommand(trimmed, rl, modelRouter, mcpTools, skills, messages, {
+          store: sessionStore,
+          activeSession,
+          workspace: options.workspace,
+        });
         prompt();
         return;
       }
 
       messages.push({ role: 'user', content: trimmed });
+      await sessionStore.save(activeSession.session.id, options.workspace, messages);
       const spinner = ora(chalk.cyan('Thinking...')).start();
 
       try {
@@ -321,7 +327,12 @@ async function runReadlineRepl(options: ReplOptions) {
           },
         });
         if (streamedText) process.stdout.write('\n');
-        messages.push({ role: 'assistant', content: result.text });
+        messages.push(...result.responseMessages);
+        activeSession.session = await sessionStore.save(
+          activeSession.session.id,
+          options.workspace,
+          messages,
+        );
       } catch (err: any) {
         spinner.stop();
         console.error(chalk.red(`\n✗ Error: ${err.message}`));
@@ -334,14 +345,19 @@ async function runReadlineRepl(options: ReplOptions) {
   prompt();
 }
 
-function handleCommand(
+async function handleCommand(
   cmd: string,
   rl: readline.Interface,
   modelRouter: ReturnType<typeof createModelRouter>,
   mcpTools: Array<{ name: string; description: string }>,
   skills: LoadedSkill[],
   messages: ModelMessage[],
-) {
+  sessions: {
+    store: SessionStore;
+    activeSession: { session: StoredSession };
+    workspace: string;
+  },
+): Promise<void> {
   const parts = cmd.slice(1).split(' ');
   const command = parts[0].toLowerCase();
   const args = parts.slice(1).join(' ');
@@ -351,6 +367,11 @@ function handleCommand(
       console.log(chalk.bold('\n▤ Available Commands:'));
       console.log(chalk.cyan('  /help              ') + chalk.white('- Show this help'));
       console.log(chalk.cyan('  /clear             ') + chalk.white('- Clear conversation history'));
+      console.log(chalk.cyan('  /new               ') + chalk.white('- Start a new persistent session'));
+      console.log(chalk.cyan('  /sessions          ') + chalk.white('- List saved sessions'));
+      console.log(chalk.cyan('  /resume <id>       ') + chalk.white('- Resume a saved session'));
+      console.log(chalk.cyan('  /tasks             ') + chalk.white('- Show the current plan and task status'));
+      console.log(chalk.cyan('  /permissions [mode]') + chalk.white('- Show or set the permission mode'));
       console.log(chalk.cyan('  /model [name]      ') + chalk.white('- Switch model'));
       console.log(chalk.cyan('  /skills            ') + chalk.white('- List available skills'));
       console.log(chalk.cyan('  /tools             ') + chalk.white('- List available tools'));
@@ -359,14 +380,70 @@ function handleCommand(
       break;
     case 'clear':
       messages.length = 0;
+      sessions.activeSession.session = await sessions.store.save(
+        sessions.activeSession.session.id,
+        sessions.workspace,
+        messages,
+      );
       console.log(chalk.gray('Conversation cleared'));
       break;
+    case 'new':
+      sessions.activeSession.session = await sessions.store.create(sessions.workspace);
+      messages.length = 0;
+      console.log(chalk.gray(`[Session] Started ${sessions.activeSession.session.id}`));
+      break;
+    case 'sessions': {
+      const saved = await sessions.store.list(sessions.workspace);
+      if (saved.length === 0) console.log(chalk.gray('No saved sessions'));
+      else {
+        console.log(chalk.bold('\n▤ Saved sessions:'));
+        for (const session of saved.slice(0, 20)) {
+          console.log(`  ${chalk.green(session.id)}  ${session.title}`);
+        }
+      }
+      break;
+    }
+    case 'resume': {
+      if (!args) {
+        console.log(chalk.yellow('Usage: /resume <session-id>'));
+        break;
+      }
+      sessions.activeSession.session = await sessions.store.load(args, sessions.workspace);
+      messages.splice(0, messages.length, ...sessions.activeSession.session.messages);
+      console.log(chalk.gray(`[Session] Resumed ${sessions.activeSession.session.id} · ${sessions.activeSession.session.title}`));
+      break;
+    }
     case 'model': {
       const models = modelRouter.listModels();
       if (args) console.log(chalk.gray(`Selected model: ${args}`));
       else {
         console.log(chalk.bold('\n▸ Available Models:'));
         for (const m of models) console.log(`  ${m.id} (${m.provider})`);
+      }
+      break;
+    }
+    case 'tasks': {
+      const session = await sessions.store.load(sessions.activeSession.session.id, sessions.workspace);
+      console.log(chalk.bold('\n▤ Current plan:'));
+      console.log(formatTaskPlan(session.plan));
+      break;
+    }
+    case 'permissions':
+    case 'mode': {
+      const policy = new PermissionPolicy(sessions.workspace);
+      const modes = ['default', 'acceptEdits', 'plan', 'dontAsk', 'bypassPermissions'] as const;
+      if (!args) {
+        console.log(chalk.bold('\n▤ Permission mode: ') + chalk.cyan(policy.getMode()));
+        console.log(chalk.gray(`Available: ${modes.join(', ')}`));
+      } else if (!modes.includes(args as typeof modes[number])) {
+        console.log(chalk.yellow(`Unknown mode: ${args}. Available: ${modes.join(', ')}`));
+      } else {
+        try {
+          await policy.setWorkspaceMode(args as typeof modes[number]);
+          console.log(chalk.green(`Permission mode set to ${args}`));
+        } catch (error) {
+          console.log(chalk.red(`Could not change permission mode: ${(error as Error).message}`));
+        }
       }
       break;
     }
@@ -379,7 +456,7 @@ function handleCommand(
       break;
     case 'tools':
       console.log(chalk.bold('\n⚙ Available Tools:'));
-      console.log('  bash, file_read, file_write, file_edit, grep, glob');
+      console.log('  bash, powershell, file_read, file_write, file_edit, file_patch, notebook_edit, grep, glob, local_git, task_plan, Skills, MCP tools');
       break;
     case 'mcp':
       if (mcpTools.length === 0) console.log(chalk.yellow('No MCP tools available'));

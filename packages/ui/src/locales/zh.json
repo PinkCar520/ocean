@@ -704,6 +704,7 @@
     "saved": "已保存",
     "save_failed": "保存失败",
     "load_failed": "加载失败",
+    "retry": "重试",
     "loading": "加载中…",
     "mode_title": "应如何批准 Ocean 操作？",
     "mode_ask_title": "始终询问",
