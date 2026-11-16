@@ -118,7 +118,7 @@ export class SessionTaskManager {
   }
 
   exit(): TaskPlanSnapshot {
-    this.plan = { ...this.plan, revision: this.plan.revision + 1, mode: 'auto' };
+    this.plan = { ...this.plan, revision: this.plan.revision + 1, mode: 'auto', tasks: [] };
     return this.snapshot();
   }
 

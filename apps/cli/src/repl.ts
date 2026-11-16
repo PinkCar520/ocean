@@ -1,3 +1,4 @@
+import { LifecycleHooks } from './utils/lifecycle-hooks.js';
 /**
  * Ocean REPL - Entry point for interactive mode
  * Uses Ink UI for rich terminal experience
@@ -13,7 +14,7 @@ import {
 import { resolveApiKey } from './utils/auth.js';
 import { toAgentToolSet } from './tools/index.js';
 import { createGatewayApprovalHandler } from './approval/gateway-approval.js';
-import { loadSkillsFromDir } from './skills/loader.js';
+import { discoverSkills } from './skills/loader.js';
 import { McpClientManager } from './mcp/client.js';
 import { SessionStore, type StoredSession } from './utils/session-store.js';
 import { formatTaskPlan } from './utils/task-manager.js';
@@ -133,14 +134,7 @@ async function runSingleQuery(options: ReplOptions) {
   const modelRouter = createModelRouter(cliConfig);
 
   // Load skills
-  const skillsDir = findSkillsDir(options.workspace);
-  const skills: LoadedSkill[] = [];
-  if (skillsDir) {
-    try {
-      const loaded = loadSkillsFromDir(skillsDir);
-      skills.push(...loaded);
-    } catch { /* skip */ }
-  }
+  const skills: LoadedSkill[] = discoverSkills(options.workspace);
 
   // MCP tools
   const mcpManager = new McpClientManager(cliConfig);
@@ -179,6 +173,8 @@ async function runSingleQuery(options: ReplOptions) {
     let streamedText = '';
 
     const result = await runChatLoop(messages, {
+      delegation: { workspace: options.workspace },
+      hooks: LifecycleHooks.load(options.workspace),
       model,
       systemPrompt,
       tools,
@@ -234,17 +230,7 @@ async function runReadlineRepl(options: ReplOptions) {
   console.log(chalk.gray(`[LLM] Available models: ${models.map((m: any) => m.id).join(', ')}`));
 
   // Load skills
-  const skillsDir = findSkillsDir(options.workspace);
-  const skills: LoadedSkill[] = [];
-  if (skillsDir) {
-    try {
-      const loaded = loadSkillsFromDir(skillsDir);
-      skills.push(...loaded);
-      if (loaded.length > 0) {
-        console.log(chalk.gray(`[Skills] Loaded ${loaded.length} skills: ${loaded.map((s: LoadedSkill) => s.manifest.name).join(', ')}`));
-      }
-    } catch { /* skip */ }
-  }
+  const skills: LoadedSkill[] = discoverSkills(options.workspace);
 
   // MCP
   const mcpManager = new McpClientManager(cliConfig);
@@ -301,7 +287,7 @@ async function runReadlineRepl(options: ReplOptions) {
       const trimmed = input.trim();
       if (!trimmed) { prompt(); return; }
 
-      if (trimmed.startsWith('/')) {
+      if (trimmed.startsWith('/') && !skills.some((skill) => skill.manifest.name === trimmed.slice(1).split(/\s+/)[0])) {
         await handleCommand(trimmed, rl, modelRouter, mcpTools, skills, messages, {
           store: sessionStore,
           activeSession,
@@ -319,7 +305,17 @@ async function runReadlineRepl(options: ReplOptions) {
         const model = modelRouter.getModel();
         let streamedText = '';
         const result = await runChatLoop(messages, {
+      delegation: { workspace: options.workspace },
+      hooks: LifecycleHooks.load(options.workspace),
           model, systemPrompt, tools, approvalHandler,
+        compaction: {
+          previous: activeSession.session.compaction,
+          persist: async (snapshot) => {
+            await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
+            activeSession.session.compaction = snapshot;
+          },
+        },
+
           onText: (text: string) => {
             if (!streamedText) spinner.stop();
             process.stdout.write(text);

@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ToolContext, ToolResult } from '../types.js';
-import { atomicWriteFile } from '../utils/file-system.js';
+import { Checkpoints } from '../utils/checkpoints.js';
 import { notebookDigest, NotebookSnapshots } from '../utils/notebook-snapshots.js';
 import { SecurityEngine } from '../utils/security.js';
 
@@ -96,14 +96,11 @@ export function createNotebookEditTool(snapshots: NotebookSnapshots) {
           let updated = JSON.stringify(notebook, null, 1).replace(/\n/g, newline);
           if (raw.endsWith('\n')) updated += newline;
           if (Buffer.byteLength(updated) > MAX_BYTES) throw new Error('Edited notebook exceeds the 2 MB editing limit.');
-          await atomicWriteFile(filePath, updated, { beforeCommit: async () => {
-            ctx.signal?.throwIfAborted();
-            if (await security.resolveReadablePath(input.path) !== filePath || notebookDigest(await readBounded(filePath, ctx.signal)) !== expected) {
-              throw new Error('Notebook changed during editing. Read it again before retrying.');
-            }
-          } });
+          ctx.signal?.throwIfAborted();
+          if (await security.resolveReadablePath(input.path) !== filePath) throw new Error('Notebook path changed during editing.');
+          const checkpointId = await new Checkpoints(ctx).change([{ path: filePath, content: updated, expectedBefore: raw }]);
           snapshots.set(ctx.sessionId, filePath, notebookDigest(updated));
-          return { data: { path: filePath, mode: input.mode, cell_id: cellId, cellCount: notebook.cells.length } };
+          return { data: { checkpointId, path: filePath, mode: input.mode, cell_id: cellId, cellCount: notebook.cells.length } };
         });
       } catch (error) { return { data: null, error: (error as Error).message }; }
     },

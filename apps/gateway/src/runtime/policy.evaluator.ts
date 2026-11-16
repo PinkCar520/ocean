@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { InteractiveManager } from '../skill/interactive.manager';
-import { defaultDecisionFor } from '../tool/capability.registry';
 
 /**
  * PolicyEvaluator —— 工具执行策略判定（Agent Runtime 第 5/6 模块）。
@@ -19,10 +18,11 @@ export class PolicyEvaluator {
   /**
    * 判定工具是否需要审批拦截。
    * MCP 工具默认拦截（保守策略）；已注册工具使用其 defaultDecision；
-   * 未注册的非 MCP 工具保持原有放行行为。
+   * 未注册工具默认要求审批。
    */
   shouldWrap(toolName: string, isMcp: boolean): boolean {
-    return defaultDecisionFor(toolName, isMcp) !== 'allow';
+    // Every tool needs a runtime check: even read-only tools can be denied.
+    return true;
   }
 
   /** 委托 InteractiveManager 生成审批拦截包装。 */

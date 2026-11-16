@@ -4,6 +4,11 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.ts$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@ocean/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts",
+    "^@ocean/core$": "<rootDir>/../../../packages/shared/core/src/index.ts",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }

@@ -1,3 +1,4 @@
+import { evaluateTool } from '@ocean/core';
 import { capabilitySchema, type CapabilityContract } from '@ocean/contracts';
 
 /**
@@ -211,12 +212,14 @@ for (const [toolName, registration] of Object.entries(OCEAN_CAPABILITIES)) {
  * Resolve the default permission decision for a tool.
  * - MCP tools are conservative by default (confirmed).
  * - Registered tools use their declared default.
- * - Unregistered non-MCP tools preserve the existing allow behavior.
+ * - Unregistered tools require confirmation.
  */
 export function defaultDecisionFor(
   toolName: string,
   isMcp: boolean,
 ): CapabilityDecision {
   if (isMcp) return 'confirmed';
-  return OCEAN_CAPABILITIES[toolName]?.defaultDecision ?? 'allow';
+  if (OCEAN_CAPABILITIES[toolName]?.defaultDecision === 'deny') return 'deny';
+  const decision = evaluateTool(toolName, []);
+  return decision === 'ask' ? 'confirmed' : decision;
 }

@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import {
   evaluateTool,
+  evaluatePermission,
   isPermissionSettings,
   normalizeRules,
   type PermissionAction,
@@ -37,18 +38,7 @@ export class PermissionPolicy {
     const policy = this.load();
     if (policy.invalid) return 'deny';
 
-    const action = evaluateTool(toolName, policy.rules, args, policy.settings.mode ?? 'default');
-    if (action === 'deny') return 'deny';
-
-    if (mcpServer) {
-      const server = policy.settings.mcp?.servers?.[mcpServer];
-      if (server?.enabled === false) return 'deny';
-      if (server?.permissions === 'deny') return 'deny';
-      if (server?.permissions === 'allow') return 'allow';
-      if (server?.permissions === 'ask') return 'ask';
-    }
-
-    return action;
+    return evaluatePermission(toolName, policy.settings, policy.rules, args, mcpServer);
   }
 
   requiresApproval(toolName: string, args?: Record<string, unknown>, options: { alwaysAskInBypass?: boolean } = {}): boolean {

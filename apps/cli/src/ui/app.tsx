@@ -1,3 +1,4 @@
+import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { render, Box, Text, useInput, useApp, useStdin } from 'ink';
 import TextInput from 'ink-text-input';
@@ -7,7 +8,7 @@ import { createModelRouter } from '../llm/model-router.js';
 import { buildSystemPrompt, runChatLoop } from '../llm/chat.js';
 import { createGatewayApprovalHandler } from '../approval/gateway-approval.js';
 import { toAgentToolSet } from '../tools/index.js';
-import { loadSkillsFromDir } from '../skills/loader.js';
+import { discoverSkills } from '../skills/loader.js';
 import { McpClientManager } from '../mcp/client.js';
 import { SessionStore, type StoredSession } from '../utils/session-store.js';
 import { formatTaskPlan } from '../utils/task-manager.js';
@@ -78,7 +79,7 @@ export function InkApp(props: InkAppProps) {
     setError(null);
     setStreamingText('');
 
-    if (trimmed.startsWith('/')) {
+    if (trimmed.startsWith('/') && !props.skills.some((skill) => skill.manifest.name === trimmed.slice(1).split(/\s+/)[0])) {
       handleCommand(trimmed);
       return;
     }
@@ -96,7 +97,17 @@ export function InkApp(props: InkAppProps) {
       await props.sessionStore.save(props.activeSession.session.id, props.workspace, allMessages);
 
       const result = await runChatLoop(allMessages, {
+        delegation: { workspace: props.workspace },
+        hooks: LifecycleHooks.load(props.workspace),
         model,
+
+        compaction: {
+          previous: props.activeSession.session.compaction,
+          persist: async (snapshot) => {
+            await props.sessionStore.saveCompaction(props.activeSession.session.id, props.workspace, snapshot);
+            props.activeSession.session.compaction = snapshot;
+          },
+        },
         systemPrompt: props.systemPrompt,
         tools: props.tools,
         approvalHandler: props.approvalHandler,
@@ -403,14 +414,7 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
 
   const modelRouter = createModelRouter(cliConfig);
 
-  const skillsDir = findSkillsDir(options.workspace);
-  const skills: LoadedSkill[] = [];
-  if (skillsDir) {
-    try {
-      const loaded = loadSkillsFromDir(skillsDir);
-      skills.push(...loaded);
-    } catch { /* skip */ }
-  }
+  const skills: LoadedSkill[] = discoverSkills(options.workspace);
 
   const mcpManager = new McpClientManager(cliConfig);
   let mcpTools: Array<{ name: string; description: string }> = [];

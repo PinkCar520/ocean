@@ -1,3 +1,7 @@
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
+import type { JsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/types.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { homedir } from 'node:os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import * as fs from 'node:fs';
@@ -8,6 +12,8 @@ export interface McpServerEntry {
   id: string;
   name: string;
   command: string;
+  type?: 'stdio' | 'http';
+  url?: string;
   args: string[];
   env?: Record<string, string>;
   enabled?: boolean;
@@ -31,6 +37,7 @@ export interface McpToolDefinition {
 export class McpClientManager {
   private clients = new Map<string, Client>();
   private toolRoutes = new Map<string, { serverId: string; toolName: string }>();
+  private validators = new Map<string, JsonSchemaValidator<unknown>>();
   private config: McpConfigFile | null = null;
 
   constructor(private cliConfig: CliConfig) { }
@@ -39,21 +46,29 @@ export class McpClientManager {
    * Load MCP config from config file
    */
   async loadConfig(configPath?: string) {
-    const oceanRoot = findRoot(process.cwd());
+    await this.disconnectAll();
+    const workspace = path.resolve(this.cliConfig.workspacePath ?? process.cwd());
+    const oceanRoot = findRoot(workspace);
     const pathsToTry = [
       configPath,
-      path.join(process.cwd(), '.mcp.json'),
-      path.join(process.cwd(), '.claude', 'mcp.json'),
-      path.join(process.cwd(), '.ocean', 'mcp.json'),
+      path.join(homedir(), '.ocean', 'mcp.json'),
+      path.join(workspace, '.mcp.json'),
+      path.join(workspace, '.claude', 'mcp.json'),
+      path.join(workspace, '.ocean', 'mcp.json'),
       oceanRoot ? path.join(oceanRoot, '.ocean', 'mcp.json') : null,
-      // Fallback to gateway mcp.config.json
-      path.resolve(process.cwd(), 'apps/gateway/mcp.config.json'),
     ].filter(Boolean) as string[];
 
     for (const p of pathsToTry) {
       if (fs.existsSync(p!)) {
+        const info = fs.lstatSync(p);
+        if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024) throw new Error('Unsafe MCP configuration');
+        if (path.resolve(p) === path.join(homedir(), '.ocean', 'mcp.json') && (info.mode & 0o077)) throw new Error('Personal MCP credentials require private file permissions');
         const raw = fs.readFileSync(p!, 'utf-8');
         this.config = normalizeMcpConfig(JSON.parse(raw));
+        // Repository enabled flags cannot grant trust to executable configuration.
+        if (!configPath && path.resolve(p) !== path.join(homedir(), '.ocean', 'mcp.json')) {
+          this.config.mcpServers = this.config.mcpServers.map((server) => ({ ...server, enabled: false }));
+        }
         // Resolve ${OCEAN_ROOT} in paths
         if (oceanRoot && this.config) {
           this.config.mcpServers = this.config.mcpServers.map((s: McpServerEntry) => ({
@@ -116,10 +131,14 @@ export class McpClientManager {
       resolvedEnv[key] = replaceEnvVars(value, process.env);
     }
 
-    const transport = new StdioClientTransport({
+    if (this.clients.has(server.id)) return;
+    const transport = server.type === 'http'
+      ? new StreamableHTTPClientTransport(new URL(server.url!))
+      : new StdioClientTransport({
       command: replaceEnvVars(server.command, process.env),
       args: resolvedArgs,
       env: resolvedEnv,
+      cwd: this.cliConfig.workspacePath ?? process.cwd(),
     });
 
     const client = new Client(
@@ -127,10 +146,15 @@ export class McpClientManager {
       { capabilities: {} }
     );
 
-    await client.connect(transport);
-    this.clients.set(server.id, client);
-
-    const tools = await client.listTools();
+    try {
+      await client.connect(transport, { timeout: 10_000 });
+      await client.listTools({}, { timeout: 10_000 });
+      this.clients.set(server.id, client);
+    } catch (error) {
+      await client.close().catch(() => {});
+      throw error;
+    }
+    const tools = await client.listTools({}, { timeout: 10_000 });
     console.log(`[MCP] Connected to ${server.name}: ${tools.tools.length} tools`);
   }
 
@@ -140,13 +164,17 @@ export class McpClientManager {
   async getAllTools(): Promise<McpToolDefinition[]> {
     const tools: McpToolDefinition[] = [];
     this.toolRoutes.clear();
+    this.validators.clear();
 
     for (const [serverId, client] of this.clients) {
       try {
-        const result = await client.listTools();
+        const result = await client.listTools({}, { timeout: 10_000 });
         for (const tool of result.tools) {
           const toolName = tool.name;
-          if (!toolName) continue;
+          if (!/^[a-zA-Z0-9_-]+$/.test(toolName) || tool.inputSchema?.type !== 'object') throw new Error('Invalid MCP tool schema or name');
+          const publicName = `mcp__${serverId}__${toolName}`;
+          if (this.toolRoutes.has(publicName)) throw new Error('Ambiguous MCP tool name');
+          this.validators.set(publicName, new AjvJsonSchemaValidator().getValidator(tool.inputSchema));
           tools.push({
             name: `mcp__${serverId}__${toolName}`,
             description: tool.description || '',
@@ -167,20 +195,27 @@ export class McpClientManager {
    * Call a tool on an MCP server
    */
   async callTool(toolName: string, args: Record<string, any>, options: { signal?: AbortSignal } = {}) {
+    options.signal?.throwIfAborted();
     const route = this.toolRoutes.get(toolName);
     if (!route) throw new Error(`Unknown MCP tool: ${toolName}`);
+    const validation = this.validators.get(toolName)?.(args);
+    if (validation && !validation.valid) throw new Error(`Invalid MCP tool arguments: ${validation.errorMessage}`);
     const { serverId, toolName: remoteToolName } = route;
     const client = this.clients.get(serverId);
     if (!client) {
       throw new Error(`MCP server not connected: ${serverId}`);
     }
 
+    try {
     const result = await client.callTool({
       name: remoteToolName,
       arguments: args,
     }, undefined, { signal: options.signal, timeout: 60_000 });
 
     return result;
+    } catch (error) {
+      throw new Error(`MCP execution outcome unknown; do not automatically retry ${toolName}: ${(error as Error).message}`);
+    }
   }
 
   /**
@@ -197,20 +232,10 @@ export class McpClientManager {
       }
     }
     this.clients.clear();
+    this.validators.clear();
     this.toolRoutes.clear();
 
-    // Force unref any lingering ChildProcess handles from the MCP SDK.
-    // The SDK's close() doesn't always properly unref the underlying process,
-    // causing Node.js to keep the event loop alive.
-    setImmediate(() => {
-      const handles = (process as any)._getActiveHandles?.() || [];
-      for (const h of handles) {
-        if (h && typeof h.unref === 'function' && h.spawnfile) {
-          // This is a dead or lingering ChildProcess — unref it
-          h.unref();
-        }
-      }
-    });
+
   }
 }
 
@@ -239,7 +264,12 @@ export function normalizeMcpConfig(value: unknown): McpConfigFile {
       throw new Error(`MCP server id is invalid or duplicated: ${id}`);
     }
     ids.add(id);
-    if (typeof raw?.command !== 'string' || !raw.command.trim()) {
+    if (raw?.type !== undefined && !['stdio', 'http'].includes(raw.type)) throw new Error('Unsupported MCP transport');
+    if (raw?.type === 'http') {
+      const url = new URL(raw.url);
+      if (url.username || url.password || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))) throw new Error('Unsafe MCP HTTP URL');
+    }
+    if (raw?.type !== 'http' && (typeof raw?.command !== 'string' || !raw.command.trim())) {
       throw new Error(`MCP server ${id} must define a stdio command`);
     }
     if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') {
@@ -256,7 +286,9 @@ export function normalizeMcpConfig(value: unknown): McpConfigFile {
     return {
       id,
       name: typeof raw.name === 'string' && raw.name.trim() ? raw.name : id,
-      command: raw.command,
+      type: raw.type ?? 'stdio',
+      url: raw.url,
+      command: raw.command ?? '',
       args: raw.args ?? [],
       env: env as Record<string, string>,
       enabled: raw.enabled,

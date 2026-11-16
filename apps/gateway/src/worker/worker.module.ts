@@ -1,3 +1,4 @@
+import { PermissionModule } from '../skill/permission.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
@@ -32,6 +33,7 @@ import { WorkerService } from './worker.service';
     AuditModule, // ToolExecutor 审计
     AiModule,
     ToolModule,
+    PermissionModule,
   ],
   providers: [WorkerService, RunRunner, ToolExecutor],
 })

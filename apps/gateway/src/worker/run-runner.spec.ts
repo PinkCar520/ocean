@@ -115,6 +115,19 @@ describe('RunRunner', () => {
     jest.restoreAllMocks();
   });
 
+  it.each(['NaN', 'Infinity', '0', '-1', '1.5'])('fails closed for invalid turn limit %s', async (limit) => {
+    const previous = process.env.WORKER_MAX_TURNS;
+    process.env.WORKER_MAX_TURNS = limit;
+    try {
+      const { runner, gateway } = createRunner({ id: 'run_1', userId: 'user_1', status: 'queued', input: 'hello' });
+      expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false });
+      expect(gateway.generate).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.WORKER_MAX_TURNS;
+      else process.env.WORKER_MAX_TURNS = previous;
+    }
+  });
+
   it('does not restart a cancelled Run or call the model', async () => {
     const { runner, gateway, tx } = createRunner({ id: 'run_1', userId: 'user_1', status: 'cancelled', input: 'stop' });
     expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });

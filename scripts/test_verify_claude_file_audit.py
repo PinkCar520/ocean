@@ -18,6 +18,9 @@ spec.loader.exec_module(audit)
 
 
 class AuditValidationTest(unittest.TestCase):
+    def test_default_source_uses_ocean_restored_tree(self):
+        self.assertEqual(audit.SOURCE, SCRIPT.resolve().parents[1] / 'restored-src/src')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -58,6 +61,10 @@ class AuditValidationTest(unittest.TestCase):
     def test_missing_and_duplicate_entries_fail(self):
         self.assertEqual(self.run_audit([]), 1)
         self.assertEqual(self.run_audit([self.row, self.row]), 1)
+
+    def test_missing_source_directory_fails_even_with_empty_ledger(self):
+        self.source = self.source / 'missing'
+        self.assertEqual(self.run_audit([]), 1)
 
 
 if __name__ == '__main__':

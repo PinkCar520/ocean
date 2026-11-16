@@ -1,3 +1,5 @@
+import { isReadOnlyTool } from '@ocean/core';
+import { PermissionService } from '../skill/permission.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -44,6 +46,7 @@ export class ToolExecutor {
     private readonly outbox: OutboxService,
     private readonly metrics: MetricsService,
     private readonly audit: AuditService,
+    private readonly permissions: PermissionService = new PermissionService(),
   ) {}
 
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
@@ -52,12 +55,14 @@ export class ToolExecutor {
     }
     const { runId, userId, toolCall } = job.payload;
     this.metrics.inc('tool.executed', { tool: toolCall?.name ?? 'unknown' });
+    let invocationStarted = false;
     try {
       // 1) 幂等检查：同 run + 同 idempotencyKey 的 succeeded tool_call 步骤 → 缓存命中
       if (toolCall.idempotencyKey) {
         const cached = await this.findSucceededByIdempotencyKey(
           runId,
           toolCall.idempotencyKey,
+          toolCall,
         );
         if (cached) {
           // 缓存命中：工具此前已成功执行，不产生二次副作用。
@@ -114,10 +119,17 @@ export class ToolExecutor {
         throw new TerminalToolError(`Unknown tool: ${toolCall.name}`);
       }
 
+      if (tool.inputSchema) {
+        const validated = await tool.inputSchema.safeParseAsync(toolCall.input);
+        if (!validated.success) throw new TerminalToolError(`Invalid tool input: ${validated.error.message}`);
+      }
+
       // 审批门（Phase 4.5）：需要审批的工具先创建审批，Run → waiting_for_approval
       // （不置 running）；审批通过后由 RunService 重新投递 tool.requested，
       // 本执行器从检查点（已 approved 的审批记录）续跑执行。
-      if (tool.requiresApproval) {
+      const decision = this.permissions.evaluateTool(toolCall.name, undefined, toolCall.input);
+      if (decision === 'deny') throw new TerminalToolError(`Permission Denied: ${toolCall.name}`);
+      if (tool.requiresApproval || decision === 'ask') {
         const gate = await this.ensureApproval(runId, userId, toolCall);
         if (!gate.executable) {
           // pending → 等待人工决策（消息确认，不重试，决策后重新投递）；
@@ -167,6 +179,7 @@ export class ToolExecutor {
         inputJson: toolCall.input,
         authorization: tool.requiresApproval ? 'approval' : 'auto',
       });
+      invocationStarted = true;
       const output = await tool.execute(toolCall.input, { runId, userId, toolCallId: toolCall.id });
 
       // 6) 完成：step succeeded + step_completed + tool.completed；
@@ -250,7 +263,9 @@ export class ToolExecutor {
 
       return { jobId: job.id, runId, status: 'succeeded' };
     } catch (error) {
-      return this.handleFailure(job, toolCall, error);
+      const failure = invocationStarted && !isReadOnlyTool(toolCall.name, toolCall.input)
+        ? new TerminalToolError(`Tool result unknown; automatic replay prohibited: ${error instanceof Error ? error.message : String(error)}`) : error;
+      return this.handleFailure(job, toolCall, failure);
     }
   }
 
@@ -258,6 +273,7 @@ export class ToolExecutor {
   private async findSucceededByIdempotencyKey(
     runId: string,
     idempotencyKey: string,
+    toolCall: ToolCall,
   ): Promise<{ id: string } | null> {
     const steps = await this.prisma.runStep.findMany({
       where: { runId, kind: 'tool_call' },
@@ -268,6 +284,12 @@ export class ToolExecutor {
         step.status === 'succeeded' &&
         this.inputKey(step.input) === idempotencyKey,
     );
+    if (hit) {
+      const prior = hit.input as unknown as ToolCall;
+      if (prior.name !== toolCall.name || !isDeepStrictEqual(prior.input, toolCall.input)) {
+        throw new TerminalToolError('Idempotency key conflicts with tool or arguments.');
+      }
+    }
     return hit ? { id: hit.id } : null;
   }
 
@@ -289,6 +311,19 @@ export class ToolExecutor {
    * Run → waiting_for_approval；已有审批记录则按状态决定是否可执行（approved 续跑）。
    * 崩溃续跑（消息回队列重试）时已有 pending 记录 → 不再重复创建。
    */
+  private validateApproval(
+    approval: { runId: string | null; userId: string | null; toolCallId: string | null; expiresAt: Date | null },
+    runId: string, userId: string, toolCall: ToolCall,
+  ): void {
+    if (approval.runId !== runId || approval.userId !== userId || approval.toolCallId !== toolCall.id) {
+      throw new TerminalToolError('Approval identity does not match the requested call.');
+    }
+    if (approval.expiresAt !== null && (!(approval.expiresAt instanceof Date)
+      || !Number.isFinite(approval.expiresAt.getTime()) || approval.expiresAt.getTime() <= Date.now())) {
+      throw new TerminalToolError('Approval expired or has an invalid expiry.');
+    }
+  }
+
   private async ensureApproval(
     runId: string,
     userId: string,
@@ -299,6 +334,7 @@ export class ToolExecutor {
       orderBy: { createdAt: 'desc' },
     });
     if (existing) {
+      this.validateApproval(existing, runId, userId, toolCall);
       if (existing.toolName !== toolCall.name || !isDeepStrictEqual(existing.args, JSON.parse(JSON.stringify(toolCall.input)))) {
         throw new TerminalToolError('Approval does not match the requested tool and arguments.');
       }
@@ -310,6 +346,7 @@ export class ToolExecutor {
       if (!active.count) return { executable: false };
       const fresh = await tx.runApproval.findFirst({ where: { runId, toolCallId: toolCall.id }, orderBy: { createdAt: 'desc' } });
       if (fresh) {
+        this.validateApproval(fresh, runId, userId, toolCall);
         if (fresh.toolName !== toolCall.name || !isDeepStrictEqual(fresh.args, JSON.parse(JSON.stringify(toolCall.input)))) {
           throw new TerminalToolError('Approval does not match the requested tool and arguments.');
         }
@@ -434,6 +471,9 @@ export class ToolExecutor {
         where: { runId, kind: 'tool_call' },
         orderBy: { seq: 'desc' },
       });
+      if (existing && ['started', 'failed'].includes(existing.status) && !isReadOnlyTool(toolCall.name, toolCall.input)) {
+        throw new TerminalToolError('Prior tool result unknown; automatic replay prohibited.');
+      }
       if (existing && existing.status === 'started') {
         return { id: existing.id, seq: existing.seq };
       }

@@ -1,3 +1,4 @@
+import { Checkpoints } from '../utils/checkpoints.js';
 // Core tool implementations
 
 import { z } from 'zod';
@@ -8,7 +9,6 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { glob as globFn } from 'glob';
 import { SecurityEngine } from '../utils/security.js';
-import { atomicWriteFile } from '../utils/file-system.js';
 import { readLargeTextRange } from '../utils/read-large-text.js';
 import { imageMediaType } from '../utils/image-formats.js';
 import { readNotebook } from '../utils/read-notebook.js';
@@ -244,10 +244,10 @@ export function createFileWriteTool() {
         const dir = path.dirname(filePath);
         await fs.mkdir(dir, { recursive: true });
         throwIfAborted(ctx);
-        await atomicWriteFile(filePath, input.content);
+        const checkpointId = await new Checkpoints(ctx).change([{ path: filePath, content: input.content }]);
         
         return {
-          data: { path: filePath, bytesWritten: input.content.length },
+          data: { checkpointId, path: filePath, bytesWritten: input.content.length },
           ui: {
             uiType: 'file_preview',
             props: {
@@ -327,10 +327,10 @@ export function createFileEditTool() {
           : content.replace(input.old_string, input.new_string);
 
         throwIfAborted(ctx);
-        await atomicWriteFile(filePath, newContent);
+        const checkpointId = await new Checkpoints(ctx).change([{ path: filePath, content: newContent, expectedBefore: content }]);
 
         return {
-          data: { path: filePath, replaced: true },
+          data: { checkpointId, path: filePath, replaced: true },
           ui: {
             uiType: 'file_preview',
             props: {
@@ -408,9 +408,9 @@ export function createFilePatchTool() {
           updated = updated.slice(0, match.start) + match.new_string + updated.slice(match.end);
         }
         throwIfAborted(ctx);
-        await atomicWriteFile(filePath, updated);
+        const checkpointId = await new Checkpoints(ctx).change([{ path: filePath, content: updated, expectedBefore: original }]);
         return {
-          data: { path: filePath, appliedEdits: matches.length },
+          data: { checkpointId, path: filePath, appliedEdits: matches.length },
           ui: {
             uiType: 'diff_viewer',
             props: {

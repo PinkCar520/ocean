@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / 'claude-code-sourcemap/restored-src/src'
+SOURCE = ROOT / 'ocean/restored-src/src'
 LEDGER = ROOT / 'CLAUDE_CODE_FILE_MANIFEST.tsv'
 REQUIRED_REVIEW = (
     'entry_behavior', 'inputs_outputs', 'state_side_effects', 'dependencies',
@@ -20,6 +20,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--require-complete', action='store_true')
     args = parser.parse_args()
+    if not SOURCE.is_dir():
+        print(f'Source directory not found: {SOURCE}', file=sys.stderr)
+        return 1
     with LEDGER.open(encoding='utf-8', newline='') as stream:
         rows = list(csv.DictReader(stream, delimiter='\t'))
     expected = {p.relative_to(SOURCE).as_posix() for p in SOURCE.rglob('*') if p.is_file()}

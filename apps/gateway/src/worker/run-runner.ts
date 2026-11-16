@@ -300,6 +300,7 @@ export class RunRunner {
     }
 
     const maxTurns = Number(process.env.WORKER_MAX_TURNS ?? '20');
+    if (!Number.isSafeInteger(maxTurns) || maxTurns < 1) throw new Error('Invalid WORKER_MAX_TURNS');
     if (modelTurns >= maxTurns) {
       throw new Error(
         `max_turns_exceeded: run ${runId} used ${modelTurns} model turns (limit ${maxTurns})`,

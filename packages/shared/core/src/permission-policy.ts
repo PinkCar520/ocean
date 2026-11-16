@@ -75,6 +75,22 @@ export function normalizeRules(settings: PermissionSettings): NormalizedRule[] {
   return rules;
 }
 
+/** Deny is final; MCP grants may never override a tool-level ask rule. */
+export function evaluatePermission(
+  toolName: string, settings: PermissionSettings, rules: NormalizedRule[],
+  args?: unknown, mcpServer?: string,
+): PermissionAction {
+  if (!isPermissionSettings(settings)) return 'deny';
+  const action = evaluateTool(toolName, rules, args, settings.mode ?? 'default');
+  if (action === 'deny') return action;
+  const serverName = mcpServer ?? /^mcp__([^_:]+)(?:__|:)/.exec(toolName)?.[1];
+  const server = serverName ? settings.mcp?.servers?.[serverName] : undefined;
+  if (server?.enabled === false || server?.permissions === 'deny') return 'deny';
+  if (server?.permissions === 'ask') return settings.mode === 'dontAsk' ? 'deny' : 'ask';
+  if (server?.permissions === 'allow' && !rules.some(rule => rule.action === 'ask' && permissionRuleMatches(rule, toolName, args))) return 'allow';
+  return action;
+}
+
 export function evaluateTool(
   toolName: string,
   rules: NormalizedRule[],
@@ -193,12 +209,13 @@ function parseToolPattern(pattern: string): { toolName: string; content?: string
 }
 
 function isFileEditTool(toolName: string): boolean {
-  return ['local_file_edit', 'file_edit', 'file_write', 'file_patch', 'edit', 'write', 'notebook_edit', 'local_notebook_edit']
+  return ['local_file_edit', 'local_file_write', 'local_file_patch', 'file_edit', 'file_write', 'file_patch', 'edit', 'write', 'notebook_edit', 'local_notebook_edit']
     .includes(toolName.toLowerCase());
 }
 
 export function isReadOnlyTool(toolName: string, args?: any): boolean {
   if ([
+    'echo', 'web.get', 'artifact.load', 'rag_search', 'getBugInfo', 'searchBugs',
     'local_file_read', 'file_read', 'local_notebook_read', 'grep', 'glob', 'ls', 'cat', 'task_plan', 'activate_skill',
     'mcp__zentao:getBugInfo', 'mcp__zentao:searchBugs', 'mcp__zentao:getStoryInfo',
   ].includes(toolName)) return true;

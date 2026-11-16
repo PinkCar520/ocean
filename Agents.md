@@ -46,3 +46,56 @@ Final response:
 Avoid lengthy summaries, repeated explanations, and unnecessary recommendations.
 
 **Optimize for successful task completion per unit of time and token usage, not for response length or tool-call volume.**
+## 6. Execution Budget and Anti-Stall Rules
+
+### Investigation Budget
+
+- Start with the smallest relevant file set.
+- Use a soft budget of 5 exploratory tool calls before the first code edit.
+- If implementation remains unclear, identify the exact missing information and perform only the necessary additional investigation.
+- Do not restart repository exploration after context compaction or task continuation.
+- Do not repeatedly inspect unchanged files unless a test failure or new evidence justifies it.
+
+### First-Edit Requirement
+
+For implementation tasks:
+
+- Produce the first meaningful code change as soon as the implementation path is sufficiently understood.
+- Do not postpone straightforward edits to complete unrelated architecture analysis.
+- If no code has changed after the initial investigation, explicitly identify the blocking dependency.
+- A plan, summary, TODO, or documentation-only change does not satisfy this requirement unless specifically requested.
+
+### Anti-Stall Recovery
+
+If two consecutive investigation steps produce no new actionable information:
+
+1. Stop the current investigation approach.
+2. Use the best-supported implementation hypothesis.
+3. Make the smallest safe change and validate it.
+4. If a safe change is impossible, report the precise blocker.
+
+Never continue speculative investigation merely to consume more context.
+
+### Scope Discipline
+
+- Modify only files required by the current task.
+- Do not introduce unrelated refactoring.
+- Do not redesign established architecture without a demonstrated need.
+- Prefer incremental, testable changes over broad rewrites.
+
+### Evidence-Based Completion
+
+Before declaring completion:
+
+- Inspect the actual diff.
+- Run relevant tests when feasible.
+- Distinguish passing, failing, and unexecuted checks.
+- Report unresolved blockers without claiming success.
+
+### Task-Type Exception
+
+These execution requirements apply to implementation tasks.
+
+For explicitly read-only audits, research, debugging investigations, or planning requests, do not modify files. Deliver the requested evidence-based findings instead.
+
+**The goal is verified progress, not maximum tool activity or minimum reasoning at the expense of correctness.**

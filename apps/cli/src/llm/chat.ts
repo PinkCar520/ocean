@@ -1,3 +1,6 @@
+import { createDelegationTool, loadSubagents } from '../subagents/delegate.js';
+import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
+import { compactContext, type Compaction } from './compaction.js';
 import { streamText, type ModelMessage, type ToolResultPart, type ToolCallPart, stepCountIs, convertToModelMessages } from 'ai';
 import type { ModelConfig } from '../types.js';
 import type { LoadedSkill } from '../types.js';
@@ -190,6 +193,10 @@ export async function runChatLoop(
     signal?: AbortSignal;
     /** Maximum model/tool steps in one turn. */
     maxSteps?: number;
+    delegation?: { workspace: string };
+    hooks?: LifecycleHooks;
+    stopHookActive?: boolean;
+    compaction?: { previous?: Compaction; persist: (snapshot: Compaction) => Promise<void>; budget?: number };
     /**
      * 审批门（对齐 Codex/Claude：CLI 执行、对话窗口弹审批）。
      * 传入后，requiresApproval 工具执行前先调 handler，返回 'approved' 才放行。
@@ -202,21 +209,60 @@ export async function runChatLoop(
   toolResults: ToolResultPart[];
   responseMessages: ModelMessage[];
 }> {
+  options.signal?.throwIfAborted();
+  const maxSteps = options.maxSteps ?? 30;
+  if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid model step limit');
   let fullText = '';
   const toolCalls: ToolCallPart[] = [];
   const toolResults: ToolResultPart[] = [];
 
-  const tools = applyApprovalGate(options.tools, options.approvalHandler);
+  const promptHook = !options.stopHookActive && await options.hooks?.run('UserPromptSubmit', { prompt: messages.at(-1)?.content }, options.signal);
+  if (promptHook && promptHook.blocked) throw new Error(promptHook.reason);
+  const activationMessages: ModelMessage[] = [];
+  const last = messages.at(-1);
+  const explicit = !options.stopHookActive && last?.role === 'user' && typeof last.content === 'string' ? last.content.match(/^\/([\w-]+)(?:\s|$)/)?.[1] : undefined;
+  if (explicit && options.tools.activate_skill) {
+    const activated = await applyApprovalGate({ activate_skill: options.tools.activate_skill }, options.approvalHandler).activate_skill.execute({ skill_name: explicit }, { abortSignal: options.signal });
+    if (activated?.instructions) activationMessages.push({ role: 'user', content: `[Activated Skill: ${explicit}]\n${activated.instructions}\nResource directory: ${activated.sourcePath}` });
+  }
+  messages = [...messages, ...activationMessages];
+  if (options.delegation) {
+    const definitions = loadSubagents(options.delegation.workspace);
+    if (definitions.length) options = { ...options, tools: { ...options.tools, delegate_task: createDelegationTool(definitions, {
+      model: options.model, tools: options.tools, systemPrompt: options.systemPrompt,
+      signal: options.signal, approvalHandler: options.approvalHandler, run: runChatLoop, history: messages,
+    }) } };
+  }
+  const guardedTools = Object.fromEntries(Object.entries(options.tools).map(([name, definition]) => [name, {
+    ...definition,
+    ...(typeof definition.execute === 'function' ? { execute: async (...args: any[]) => {
+      options.signal?.throwIfAborted();
+      const input = { tool_name: name, tool_input: args[0], tool_use_id: args[1]?.toolCallId };
+      const pre = await options.hooks?.run('PreToolUse', input, options.signal);
+      if (pre?.blocked) return { error: pre.reason };
+      options.signal?.throwIfAborted();
+      const output = await definition.execute(...args);
+      const post = await options.hooks?.run('PostToolUse', { ...input, tool_response: output }, options.signal);
+      if (post?.blocked) return { result: output, hookFeedback: post.reason };
+      return output;
+    } } : {}),
+  }]));
+  const tools = applyApprovalGate(guardedTools, options.approvalHandler);
 
+  const context = options.compaction ? await compactContext(messages, {
+    model: options.model, systemPrompt: options.systemPrompt, signal: options.signal,
+    ...options.compaction,
+  }) : messages;
   const result = streamText({
     model: options.model,
-    messages,
-    system: options.systemPrompt,
+    messages: context,
+    system: options.systemPrompt + activeSkillInstructions(messages),
     tools,
     toolChoice: 'auto',
-    stopWhen: stepCountIs(options.maxSteps ?? 30),
+    stopWhen: stepCountIs(maxSteps),
     abortSignal: options.signal,
     onChunk: ({ chunk }) => {
+      if (options.signal?.aborted) return;
       if (chunk.type === 'text-delta') {
         fullText += chunk.text;
         options.onText?.(chunk.text);
@@ -238,13 +284,26 @@ export async function runChatLoop(
   // Consume the stream
   const finalResult = await result;
   const text = await finalResult.text;
+  const finishReason = await finalResult.finishReason;
+  if (finishReason === 'error' || finishReason === 'other') {
+    throw new Error('Model stream incomplete; turn was not completed.');
+  }
+  options.signal?.throwIfAborted();
 
+  const responseMessages = (await finalResult.responseMessages) as ModelMessage[];
+  const stop = await options.hooks?.run('Stop', { stop_hook_active: options.stopHookActive ?? false, last_assistant_message: text }, options.signal);
+  if (stop?.blocked) {
+    if (options.stopHookActive) throw new Error('Stop hook blocked twice; continuation limit reached');
+    const feedback: ModelMessage = { role: 'user', content: `Stop hook feedback: ${stop.reason}` };
+    const continued = await runChatLoop([...messages, ...responseMessages, feedback], { ...options, stopHookActive: true });
+    return { ...continued, toolCalls: [...toolCalls, ...continued.toolCalls], toolResults: [...toolResults, ...continued.toolResults], responseMessages: [...responseMessages, feedback, ...continued.responseMessages] };
+  }
   return {
     text: text || fullText,
     toolCalls,
     toolResults,
     // Keep the model/tool transcript so later turns can see which tools ran and what they returned.
-    responseMessages: (await finalResult.responseMessages) as ModelMessage[],
+    responseMessages: [...activationMessages, ...responseMessages],
   };
 }
 
@@ -261,4 +320,20 @@ export function activateSkill(skills: LoadedSkill[], skillName: string): { messa
     message: `Skill "${skillName}" has been successfully activated. Instructions are provided below. Please follow them strictly for all subsequent steps in this task.`,
     content: skill.content,
   };
+}
+
+/** Restore activated instructions from the original transcript, even after compaction. */
+export function activeSkillInstructions(messages: ModelMessage[]): string {
+  const active = new Map<string, string>();
+  for (const message of messages) {
+    if (message.role === 'user' && typeof message.content === 'string' && message.content.startsWith('[Activated Skill: ')) active.set(message.content.split(']')[0], message.content);
+    if (message.role !== 'tool' || !Array.isArray(message.content)) continue;
+    for (const part of message.content) {
+      if (part.type !== 'tool-result' || part.toolName !== 'activate_skill') continue;
+      const output = part.output as any;
+      const value = output?.value ?? output;
+      if (value && typeof value.skill === 'string' && typeof value.instructions === 'string') active.set(value.skill, `[Activated Skill: ${value.skill}]\n${value.instructions}\nResource directory: ${value.sourcePath}`);
+    }
+  }
+  return active.size ? '\nActivated skill guidance (subject to user instructions and tool permissions):\n' + [...active.values()].join('\n') : '';
 }

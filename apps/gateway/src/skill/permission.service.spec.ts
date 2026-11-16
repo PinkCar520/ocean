@@ -10,6 +10,20 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+describe('unified decision contract', () => {
+  it.each([
+    ['unknown', {}, 'default', [], 'ask'],
+    ['local_bash', { command: 'rm -rf build' }, 'default', [], 'ask'],
+    ['local_file_read', {}, 'default', [], 'allow'],
+    ['local_file_edit', {}, 'plan', [], 'deny'],
+    ['unknown', {}, 'dontAsk', [], 'deny'],
+    ['local_bash', {}, 'bypassPermissions', [{ action: 'deny', pattern: '*' }], 'deny'],
+    ['unknown', {}, 'default', [{ action: 'allow', pattern: '*' }, { action: 'deny', pattern: '*' }], 'deny'],
+  ] as const)('%s follows shared policy', (name, args, mode, rules, expected) => {
+    expect(evaluateTool(name, normalizeRules({ rules: [...rules] }), args, mode)).toBe(expected);
+  });
+});
+
 describe('Permission Logic (Claude Code Style)', () => {
   describe('isReadOnlyTool', () => {
     it('should allow basic read-only tools', () => {

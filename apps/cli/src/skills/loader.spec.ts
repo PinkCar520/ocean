@@ -2,13 +2,36 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadSkillsFromDir } from './loader.js';
+import { discoverSkills, loadSkillsFromDir } from './loader.js';
 
 describe('CLI skill loader', () => {
   let root: string;
 
   afterEach(async () => {
     if (root) await rm(root, { recursive: true, force: true });
+  });
+
+  it('merges user and project skills with project precedence and loads bodies on demand', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const home = path.join(root, 'home');
+    const workspace = path.join(root, 'workspace');
+    for (const [base, body] of [[home, 'user'], [workspace, 'project']]) {
+      const dir = path.join(base, '.ocean/skills/review');
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, 'SKILL.md'), `---
+name: review
+description: Review code
+---
+${body}`);
+    }
+    const skills = discoverSkills(workspace, home);
+    expect(skills).toHaveLength(1);
+    await writeFile(path.join(workspace, '.ocean/skills/review/SKILL.md'), `---
+name: review
+description: Review code
+---
+updated`);
+    expect(skills[0].content).toBe('updated');
   });
 
   it('loads valid skills and skips symlinked or oversized instruction files', async () => {

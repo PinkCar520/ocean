@@ -1,3 +1,7 @@
+import { SecurityEngine } from '../utils/security.js';
+import { GitTool } from './local/git.js';
+import * as path from 'node:path';
+import { createCheckpointTool } from './checkpoint.js';
 import { jsonSchema } from 'ai';
 import type { McpClientManager } from '../mcp/client.js';
 import { createBashTool, createFileReadTool, createFileWriteTool, createFileEditTool, createFilePatchTool, createGrepTool, createGlobTool } from './core-tools.js';
@@ -21,6 +25,7 @@ export function getTools(context: ToolContext, skills: LoadedSkill[] = [], planS
     storage: planStorage,
   });
   const tools: Record<string, any> = {
+    checkpoint: createCheckpointTool(),
     bash: createBashTool(),
     powershell: createPowerShellTool(),
     file_read: createFileReadTool(notebookSnapshots),
@@ -30,7 +35,7 @@ export function getTools(context: ToolContext, skills: LoadedSkill[] = [], planS
     notebook_edit: createNotebookEditTool(notebookSnapshots),
     grep: createGrepTool(),
     glob: createGlobTool(),
-    local_git: createGitAgentTool(context.cwd),
+    local_git: createGitAgentTool(context.cwd, planStorage),
     task_plan: taskPlan,
   };
   if (skills.length > 0) tools.activate_skill = createSkillActivationTool(skills);
@@ -46,6 +51,18 @@ export async function toAgentToolSet(
 ) {
   const localToolSet = getTools(context, skills, planStorage);
   const permissionPolicy = new PermissionPolicy(context.cwd);
+  const executionContext = async () => {
+    const sessionId = context.getSessionId?.() ?? context.sessionId;
+    const session = planStorage ? await planStorage.load(sessionId, context.cwd) : undefined;
+    if (!session?.worktree) return { ...context, sessionId };
+    const target = await new SecurityEngine(context.cwd).resolveWorkspacePath(session.worktree.path);
+    const managedRoot = path.join(await new SecurityEngine(context.cwd).resolveWorkspacePath('.ocean'), 'worktrees') + path.sep;
+    if (!target.startsWith(managedRoot)) throw new Error('Unsafe persisted worktree binding');
+    const listing = await new GitTool(context.cwd).execute({ action: 'worktree_list' });
+    if (!listing.success || !listing.data.some((item: any) => item.worktree === target && item.branch === session.worktree!.branch)) throw new Error('Persisted worktree is missing or its branch changed');
+    return { ...context, sessionId, cwd: target };
+  };
+
   const taskPlan = localToolSet.task_plan;
   const tools = Object.fromEntries(
     Object.entries(localToolSet).map(([name, definition]) => {
@@ -54,7 +71,7 @@ export async function toAgentToolSet(
         description: localTool.description,
         inputSchema: localTool.inputSchema,
         ...(localTool.toModelOutput ? { toModelOutput: localTool.toModelOutput } : {}),
-        requiresApproval: (input: any) => permissionPolicy.requiresApproval(name, input, {
+        requiresApproval: (input: any) => (name === 'checkpoint' && ['rollback', 'delete'].includes(input?.action)) || permissionPolicy.requiresApproval(name, input, {
           alwaysAskInBypass: name === 'powershell',
         }),
         beforeApproval: async (input: any) => {
@@ -65,14 +82,14 @@ export async function toAgentToolSet(
             ? `Permission policy denied ${name}. Check the active Ocean settings.`
             : undefined;
         },
-        execute: async (input: any, options: { abortSignal?: AbortSignal }) => {
+        execute: async (input: any, options: { abortSignal?: AbortSignal; toolCallId?: string }) => {
           if (name !== 'task_plan' && await taskPlan.isPlanMode() && !isAllowedDuringPlan(name, input)) {
             return { error: `Plan mode is active. ${name} is blocked until task_plan(action="exit") ends planning.` };
           }
           if (permissionPolicy.evaluate(name, input) === 'deny') {
             return { error: `Permission policy denied ${name}. Check the active Ocean settings.` };
           }
-          return localTool.execute(input, { ...context, sessionId: context.getSessionId?.() ?? context.sessionId, signal: options?.abortSignal });
+          return localTool.execute(input, { ...await executionContext(), signal: options?.abortSignal, toolCallId: options?.toolCallId });
         },
       }];
     }),
@@ -95,7 +112,7 @@ export async function toAgentToolSet(
           ? `Permission policy denied MCP server ${definition.server}. Check the active Ocean settings.`
           : undefined;
       },
-      execute: async (input: Record<string, any>, options: { abortSignal?: AbortSignal }) => {
+      execute: async (input: Record<string, any>, options: { abortSignal?: AbortSignal; toolCallId?: string }) => {
         if (await taskPlan.isPlanMode()) {
           return { error: `Plan mode is active. MCP tool ${definition.name} is blocked until task_plan(action="exit") ends planning.` };
         }

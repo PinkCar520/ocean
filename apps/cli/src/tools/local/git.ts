@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -16,6 +17,9 @@ export interface GitParams {
   remote?: string;
   branch?: string;
   name?: string;
+  expectedHead?: string;
+  expectedHashes?: Record<string, string | null>;
+  checkpointIds?: string[];
 }
 
 /** Split legacy argument strings without evaluating shell syntax or expansions. */
@@ -123,11 +127,35 @@ export class GitTool extends LocalTool<GitParams, any> {
           }
           gitArgs[1] = target;
         } else {
+          const listing = await this.execute({ action: 'worktree_list' }, context);
+          const existing = listing.success && listing.data.find((item: any) => item.worktree === target);
+          if (existing) {
+            if (existing.branch !== `refs/heads/${params.branch}`) throw new Error('Existing worktree belongs to another branch');
+            return { success: true, data: { path: target, branch: params.branch, existing: true }, uiHint: 'git' };
+          }
           await fs.mkdir(path.dirname(target), { recursive: true });
           gitArgs[gitArgs.length - 1] = target;
         }
         const { stdout, stderr } = await execFileAsync('git', ['worktree', ...gitArgs], { cwd, timeout: 30_000, signal: context?.signal });
         return { success: true, data: { raw: stdout || stderr, path: target }, uiHint: 'git' };
+      }
+      if (params.action === 'add' || params.action === 'commit') {
+        if (!params.paths?.length || !params.expectedHead || !params.expectedHashes) throw new Error('Git mutation requires an explicit reviewed file manifest, expectedHead and expectedHashes');
+        const { stdout: head } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd, signal: context?.signal });
+        if (head.trim() !== params.expectedHead) throw new Error('HEAD changed since review');
+        for (const item of params.paths) {
+          if (!item || item === '.' || item.startsWith(':') || path.isAbsolute(item) || item.split(/[\\/]/).some((part) => ['..', '.git', '.ocean'].includes(part))) throw new Error('Git manifest requires explicit repository-relative files');
+          try { if ((await fs.lstat(path.resolve(cwd, item))).isSymbolicLink()) throw new Error('Git manifest cannot include symlinks'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+          const file = await security.resolveWorkspacePath(item);
+          let hash: string | null;
+          try {
+            const info = await fs.lstat(file);
+            if (!info.isFile() || info.isSymbolicLink()) throw new Error('Git manifest cannot include directories or symlinks');
+            hash = createHash('sha256').update(await fs.readFile(file)).digest('hex');
+          } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; hash = null; }
+          if (!Object.hasOwn(params.expectedHashes, item) || params.expectedHashes[item] !== hash) throw new Error(`File changed since review: ${item}`);
+        }
+        if (params.action === 'commit') gitArgs.push('--only', '--', ...params.paths);
       }
       if (params.action === 'add') {
         const safePaths = await Promise.all((params.paths ?? []).map((item) => security.resolveWorkspacePath(item)));
@@ -140,13 +168,22 @@ export class GitTool extends LocalTool<GitParams, any> {
       if (params.action === 'status') {
         const [state, { stdout: rawStatus }] = await Promise.all([
           getGitStateFs(cwd),
-          execFileAsync('git', ['status', '--porcelain'], { cwd, signal: context?.signal })
+          execFileAsync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd, signal: context?.signal })
         ]);
 
         if (!state) {
           return { success: false, error: 'Not a git repository' };
         }
 
+        const entries = [];
+        const fields = rawStatus.split('\0');
+        for (let index = 0; index < fields.length; index++) {
+          const field = fields[index];
+          if (!field) continue;
+          const entry = { index: field[0], worktree: field[1], path: field.slice(3), originalPath: undefined as string | undefined };
+          if (/[RC]/.test(field.slice(0, 2))) entry.originalPath = fields[++index];
+          entries.push(entry);
+        }
         return {
           success: true,
           data: {
@@ -156,6 +193,9 @@ export class GitTool extends LocalTool<GitParams, any> {
             gitDir: state.gitDir,
             cwd: cwd,
             isShallow: state.isShallow,
+            staged: entries.filter((entry) => entry.index !== ' ' && entry.index !== '?'),
+            unstaged: entries.filter((entry) => entry.worktree !== ' ' && entry.index !== '?'),
+            untracked: entries.filter((entry) => entry.index === '?').map((entry) => entry.path),
             raw: rawStatus
           },
           uiHint: 'git'
@@ -167,7 +207,7 @@ export class GitTool extends LocalTool<GitParams, any> {
         cwd,
         timeout: 30_000,
         maxBuffer: 2 * 1024 * 1024,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' },
         signal: context?.signal,
       });
       

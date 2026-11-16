@@ -1,3 +1,4 @@
+import { homedir } from 'node:os';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { SkillManifest, LoadedSkill } from '../types.js';
@@ -6,6 +7,7 @@ import type { SkillManifest, LoadedSkill } from '../types.js';
  * Parse YAML frontmatter from SKILL.md
  */
 function parseFrontmatter(content: string): { manifest: SkillManifest | null; body: string } {
+  content = content.replace(/\r\n/g, '\n');
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) {
     return { manifest: null, body: content };
@@ -95,6 +97,7 @@ function loadSkill(skillPath: string): LoadedSkill | null {
     return null;
   }
 
+  const canonicalPath = fs.realpathSync(skillPath);
   const content = fs.readFileSync(skillMd, 'utf-8');
   const { manifest, body } = parseFrontmatter(content);
 
@@ -104,9 +107,19 @@ function loadSkill(skillPath: string): LoadedSkill | null {
     return null;
   }
 
+  for (const key of ['allowed-tools', 'requires-approval'] as const) {
+    const value = manifest[key];
+    if (typeof value === 'string') manifest[key] = (value as string).replace(/^\[|\]$/g, '').split(/[, ]+/).filter(Boolean);
+  }
   return {
     manifest,
-    content: body,
+    get content() {
+      const info = fs.lstatSync(skillMd);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024 || fs.realpathSync(skillPath) !== canonicalPath) throw new Error('Unsafe skill path');
+      const loaded = parseFrontmatter(fs.readFileSync(skillMd, 'utf8'));
+      if (loaded.manifest?.name !== manifest.name) throw new Error('Skill metadata changed; reload catalog');
+      return loaded.body;
+    },
     sourcePath: skillPath,
   };
 }
@@ -166,4 +179,15 @@ export function buildCatalogXml(skills: LoadedSkill[]): string {
  */
 export function getSkillByName(skills: LoadedSkill[], name: string): LoadedSkill | null {
   return skills.find(s => s.manifest.name === name) || null;
+}
+
+/** User defaults, legacy project directory, then project-specific overrides. */
+export function discoverSkills(workspace: string, home = homedir()): LoadedSkill[] {
+  const byName = new Map<string, LoadedSkill>();
+  for (const base of [home, workspace]) {
+    for (const directory of ['agents/skills', '.claude/skills', '.ocean/skills']) {
+      for (const skill of loadSkillsFromDir(path.join(fs.realpathSync(base), directory))) byName.set(skill.manifest.name, skill);
+    }
+  }
+  return [...byName.values()];
 }

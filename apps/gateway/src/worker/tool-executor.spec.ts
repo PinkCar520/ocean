@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { LeasedRunJob } from '@ocean/contracts';
 import { EgressPolicy } from '../sandbox/egress-policy';
 import { ToolRegistry } from '../tool/tool.registry';
@@ -21,7 +22,7 @@ function toolJob(
       userId: 'user_1',
       toolCall: {
         id: 'tc_1',
-        name: options.name ?? 'test.tool',
+        name: options.name ?? 'echo',
         input: options.input ?? { text: 'hi' },
         idempotencyKey: options.idempotencyKey,
       },
@@ -39,7 +40,7 @@ function createExecutor(
       status: string;
       input: { idempotencyKey?: string };
     }>;
-    approval?: { status: 'pending' | 'approved' | 'rejected'; toolName?: string; args?: Record<string, unknown> } | null;
+    approval?: { status: 'pending' | 'approved' | 'rejected'; runId?: string; userId?: string; toolCallId?: string; expiresAt?: Date | null; toolName?: string; args?: Record<string, unknown> } | null;
     toolError?: Error;
   } = {},
 ) {
@@ -63,7 +64,7 @@ function createExecutor(
       findFirst: jest
         .fn()
         .mockResolvedValue(
-          options.approval ? { toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
+          options.approval ? { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1', expiresAt: new Date(Date.now() + 60000), toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
         ),
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
@@ -88,7 +89,7 @@ function createExecutor(
       findFirst: jest
         .fn()
         .mockResolvedValue(
-          options.approval ? { toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
+          options.approval ? { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1', expiresAt: new Date(Date.now() + 60000), toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
         ),
     },
   };
@@ -99,7 +100,7 @@ function createExecutor(
     return { ok: true, echo: input };
   });
   registry.register({
-    name: 'test.tool',
+    name: 'echo',
     description: 'test tool',
     execute: toolExecute,
   });
@@ -123,6 +124,58 @@ function createExecutor(
 }
 
 describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
+  it.each([
+    { expiresAt: new Date(0) },
+    { expiresAt: new Date(NaN) },
+    { userId: 'other' },
+    { runId: 'other' },
+    { toolCallId: 'other' },
+  ])('rejects expired or corrupt approval %j', async (override) => {
+    const { executor, toolExecute } = createExecutor({ approval: { status: 'approved', ...override } });
+    expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'failed' });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid schema input before approval or execution', async () => {
+    const { executor, registry, toolExecute, tx } = createExecutor();
+    registry.register({ name: 'echo', description: 'validated', inputSchema: z.object({ text: z.string() }), execute: toolExecute });
+    expect(await executor.execute(toolJob({ input: { text: 42 } }))).toMatchObject({ status: 'failed', retryable: false });
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(tx.runApproval.create).not.toHaveBeenCalled();
+  });
+
+  it('does not replay a non-idempotent started operation after restart', async () => {
+    const { executor, toolExecute } = createExecutor({
+      approval: { status: 'approved' },
+      startedStep: { id: 'uncertain', seq: 1, status: 'started' },
+    });
+    expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'failed', retryable: false });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('rejects the same idempotency key with different input', async () => {
+    const { executor, toolExecute } = createExecutor({ succeededSteps: [
+      { status: 'succeeded', input: { idempotencyKey: 'conflict', name: 'echo', input: { text: 'other' } } } as any,
+    ] });
+    expect(await executor.execute(toolJob({ idempotencyKey: 'conflict' }))).toMatchObject({ status: 'failed', retryable: false });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('denies execution even with an approved record when policy denies', async () => {
+    const { executor, toolExecute } = createExecutor({ approval: { status: 'approved', toolName: 'echo' } });
+    jest.spyOn((executor as any).permissions, 'evaluateTool').mockReturnValue('deny');
+    expect(await executor.execute(toolJob())).toMatchObject({ status: 'failed' });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('asks for unknown registered tools without an approval flag', async () => {
+    const { executor, registry, toolExecute, tx } = createExecutor();
+    registry.register({ name: 'unknown.tool', description: 'unknown', execute: toolExecute });
+    await executor.execute(toolJob({ name: 'unknown.tool' }));
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(tx.runApproval.create).toHaveBeenCalled();
+  });
+
   it('does not create an approval when cancellation wins the state transition', async () => {
     const { executor, tx, toolExecute } = createExecutor();
     tx.agentRun.updateMany.mockResolvedValue({ count: 0 });
@@ -226,10 +279,25 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     );
   });
 
+  it('does not replay a write after side effect success and result persistence failure', async () => {
+    const first = createExecutor({ approval: { status: 'approved' } });
+    first.tx.runStep.update.mockRejectedValueOnce(new Error('database unavailable after side effect'));
+    const result = await first.executor.execute(toolJob({ name: 'approval.tool', idempotencyKey: 'side-effect-1' }));
+    expect(first.toolExecute).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ status: 'failed', retryable: false });
+    expect(result.error).toContain('result unknown; automatic replay prohibited');
+
+    // Reconstruct a Worker executor with only the durable started step surviving the crash.
+    const restarted = createExecutor({ startedStep: { id: 'started-write', seq: 1, status: 'started' }, approval: { status: 'approved' } });
+    const replay = await restarted.executor.execute(toolJob({ name: 'approval.tool', idempotencyKey: 'side-effect-1' }));
+    expect(replay).toMatchObject({ status: 'failed', retryable: false });
+    expect(restarted.toolExecute).not.toHaveBeenCalled();
+  });
+
   it('deduplicates by idempotencyKey: cached success, tool not executed again', async () => {
     const { executor, toolExecute } = createExecutor({
       succeededSteps: [
-        { status: 'succeeded', input: { idempotencyKey: 'k1' } },
+        { status: 'succeeded', input: { idempotencyKey: 'k1', name: 'echo', input: { text: 'hi' } } } as any,
       ],
     });
 

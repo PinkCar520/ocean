@@ -1,3 +1,4 @@
+import { evaluatePermission } from '@ocean/core';
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -13,11 +14,10 @@ import {
 
 /**
  * Default settings when no settings.json is found.
- * 统一默认「按需确认」(acceptEdits)：自动批准低风险操作、仅对风险操作询问，
- * 与前端输入框按钮默认值一致（Codex 等主流 Agent 同款默认）。
+ * 与 CLI 一致使用 default：只读操作自动批准，写入和未知工具需要确认。
  */
 const DEFAULT_SETTINGS: PermissionSettings = {
-  mode: 'acceptEdits',
+  mode: 'default',
   maxMcpOutputTokens: 25_000,
 };
 
@@ -126,9 +126,10 @@ export class PermissionService {
     toolName: string,
     workspacePath?: string,
     args?: any,
+    mcpServer?: string,
   ): PermissionAction {
     const settings = this.loadSettings(workspacePath);
-    return evaluateTool(toolName, this.rulesFor(workspacePath), args, settings.mode ?? 'default');
+    return evaluatePermission(toolName, settings, this.rulesFor(workspacePath), args, mcpServer);
   }
 
   /**
@@ -163,7 +164,7 @@ export class PermissionService {
    * Get current permission mode.
    */
   getMode(workspacePath?: string): PermissionMode {
-    return this.loadSettings(workspacePath).mode ?? 'acceptEdits';
+    return this.loadSettings(workspacePath).mode ?? 'default';
   }
 
   /**
@@ -199,12 +200,20 @@ export class PermissionService {
 
   private tryLoadJson(filePath: string): PermissionSettings | null {
     try {
-      if (!fs.existsSync(filePath)) return null;
+      const relative = path.relative(path.parse(filePath).root, filePath);
+      let current = path.parse(filePath).root;
+      for (const segment of relative.split(path.sep)) {
+        current = path.join(current, segment);
+        const stat = fs.lstatSync(current);
+        if (stat.isSymbolicLink() && current !== '/var' && current !== '/tmp') throw new Error('symlinked settings path');
+      }
+      if (fs.statSync(filePath).size > 256 * 1024) throw new Error('settings file too large');
       const raw = fs.readFileSync(filePath, 'utf-8');
       const value: unknown = JSON.parse(raw);
       if (!isPermissionSettings(value)) throw new Error('settings schema is invalid');
       return value;
     } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       this.logger.error(`Failed to load permission settings from ${filePath}: ${(error as Error).message}`);
       // A broken policy file must not silently fall back to a more permissive layer.
       return {

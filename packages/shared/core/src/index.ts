@@ -7,6 +7,7 @@ export interface OceanBaseEvent {
 export {
   IS_PUBLIC_KEY,
   evaluateTool,
+  evaluatePermission,
   isPermissionSettings,
   isReadOnlyTool,
   matchRule,

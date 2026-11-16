@@ -1,3 +1,4 @@
+import type { Compaction } from '../llm/compaction.js';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -18,6 +19,8 @@ export interface StoredSession {
   updatedAt: string;
   messages: ModelMessage[];
   plan?: TaskPlanSnapshot;
+  compaction?: Compaction;
+  worktree?: { path: string; branch: string; runId?: string };
 }
 
 export class SessionStore {
@@ -71,6 +74,7 @@ export class SessionStore {
 
   async save(id: string, workspace: string, messages: ModelMessage[]): Promise<StoredSession> {
     const session = await this.load(id, workspace);
+    validateTranscript(messages);
     const serialized = JSON.stringify(messages);
     if (Buffer.byteLength(serialized, 'utf-8') > MAX_SESSION_BYTES) {
       throw new Error(`Session exceeds the ${MAX_SESSION_BYTES / 1024 / 1024} MB local storage limit.`);
@@ -80,6 +84,18 @@ export class SessionStore {
     if (session.title === 'New session') session.title = firstUserText(messages) || session.title;
     await this.write(session);
     return session;
+  }
+
+  async saveWorktree(id: string, workspace: string, worktree: StoredSession['worktree']): Promise<void> {
+    const session = await this.load(id, workspace);
+    session.worktree = worktree;
+    await this.write(session);
+  }
+
+  async saveCompaction(id: string, workspace: string, compaction: Compaction): Promise<void> {
+    const session = await this.load(id, workspace);
+    session.compaction = compaction;
+    await this.write(session);
   }
 
   async savePlan(id: string, workspace: string, plan: TaskPlanSnapshot): Promise<StoredSession> {
@@ -119,6 +135,7 @@ export class SessionStore {
       || session.id !== path.basename(filePath, '.json')) {
       throw new Error('Invalid session file format.');
     }
+    validateTranscript(session.messages);
     if (session.plan !== undefined && !isTaskPlanSnapshot(session.plan)) {
       throw new Error('Invalid session task plan.');
     }
@@ -157,4 +174,24 @@ function firstUserText(messages: ModelMessage[]): string {
     return text.replace(/\s+/g, ' ').slice(0, 72);
   }
   return '';
+}
+
+/** Unfinished calls may survive interruption; orphan or duplicate results may not. */
+function validateTranscript(messages: ModelMessage[]): void {
+  const calls = new Map<string, string>();
+  const completed = new Set<string>();
+  for (const message of messages) {
+    if (!message || !['system', 'user', 'assistant', 'tool'].includes(message.role)) throw new Error('Invalid session message');
+    if (typeof message.content === 'string') continue;
+    if (!Array.isArray(message.content)) throw new Error('Invalid session message content');
+    for (const part of message.content) {
+      if (part.type === 'tool-call') {
+        if (!part.toolCallId || calls.has(part.toolCallId)) throw new Error('Duplicate session tool call');
+        calls.set(part.toolCallId, part.toolName);
+      } else if (part.type === 'tool-result') {
+        if (calls.get(part.toolCallId) !== part.toolName || completed.has(part.toolCallId)) throw new Error('Invalid session tool result association');
+        completed.add(part.toolCallId);
+      }
+    }
+  }
 }

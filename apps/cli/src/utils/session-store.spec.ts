@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -28,6 +29,26 @@ describe('CLI local session store', () => {
     expect(resumed.messages).toEqual(messages);
     expect(fileInfo.mode & 0o777).toBe(0o600);
     expect(await store.latestOrCreate(session.workspace)).toMatchObject({ id: session.id });
+  });
+
+  it('rejects a restored tool result belonging to another call', async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'ocean-sessions-'));
+    const store = new SessionStore(path.join(tempRoot, 'sessions'));
+    const session = await store.create(tempRoot);
+    await expect(store.save(session.id, tempRoot, [
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'missing', toolName: 'file_read', output: {} }] },
+    ] as any)).rejects.toThrow('tool result');
+  });
+
+  it('restores persisted context in a separate Node process', async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'ocean-sessions-'));
+    const root = path.join(tempRoot, 'sessions');
+    const store = new SessionStore(root);
+    const session = await store.create(tempRoot);
+    await store.save(session.id, tempRoot, [{ role: 'user', content: 'remember this' }]);
+    const script = `import { SessionStore } from './src/utils/session-store.ts'; const s = await new SessionStore(process.argv[1]).load(process.argv[2], process.argv[3]); console.log(JSON.stringify(s.messages));`;
+    const output = execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script, root, session.id, tempRoot], { cwd: process.cwd(), encoding: 'utf8' });
+    expect(JSON.parse(output)).toEqual([{ role: 'user', content: 'remember this' }]);
   });
 
   it('scopes session lookup to the workspace and rejects path-shaped ids', async () => {

@@ -15,7 +15,7 @@ it('isolates remote notebook snapshots by session and honors local denial rules'
     await expect(rpc('notebook_edit', { path: 'note.ipynb', sessionId: 'session-b', cell_id: 'a', new_source: 'forbidden' }, 'alice')).rejects.toThrow('current session');
     await rpc('notebook_edit', { path: 'note.ipynb', sessionId: 'session-a', cell_id: 'a', new_source: 'after' }, 'alice');
     expect(JSON.parse(await readFile(file, 'utf8')).cells[0].source).toBe('after');
-    await mkdir(path.join(workspace, '.ocean'));
+    await mkdir(path.join(workspace, '.ocean'), { recursive: true });
     await writeFile(path.join(workspace, '.ocean', 'settings.local.json'), JSON.stringify({ deny: ['NotebookEdit(note.ipynb)'] }));
     const deniedRpc = createNotebookRpc(workspace);
     await deniedRpc('notebook_read', { path: 'note.ipynb', sessionId: 'session-a' }, 'alice');
@@ -35,7 +35,7 @@ it('reads local files through the same session-scoped device handler and enforce
     await expect(rpc('file_read', { path: 'source.txt', limit: 1001, sessionId: 's' }, 'alice')).rejects.toThrow('Invalid file read');
     await expect(rpc('file_read', { path: '.env', sessionId: 's' }, 'alice')).rejects.toThrow();
     await expect(rpc('file_read', { path: '../outside', sessionId: 's' }, 'alice')).rejects.toThrow();
-    await mkdir(path.join(workspace, '.ocean'));
+    await mkdir(path.join(workspace, '.ocean'), { recursive: true });
     await writeFile(path.join(workspace, '.ocean', 'settings.local.json'), JSON.stringify({ deny: ['Read(source.txt)'] }));
     const denied = createNotebookRpc(workspace);
     await expect(denied('file_read', { path: 'source.txt', sessionId: 's' }, 'alice')).rejects.toThrow('Local permission policy denied');
@@ -53,7 +53,7 @@ it('uses the local write, exact edit and atomic patch implementations for device
     expect(await readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe('1\n2\n');
     await expect(rpc('file_patch', { path: 'a.txt', edits: [{ old_string: 'missing', new_string: 'x' }], sessionId }, 'alice')).rejects.toThrow();
     expect(await readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe('1\n2\n');
-    await mkdir(path.join(workspace, '.ocean'));
+    await mkdir(path.join(workspace, '.ocean'), { recursive: true });
     await writeFile(path.join(workspace, '.ocean', 'settings.local.json'), JSON.stringify({ deny: ['Edit(a.txt)'] }));
     const denied = createNotebookRpc(workspace);
     await expect(denied('file_edit', { path: 'a.txt', old_string: '1', new_string: 'x', sessionId }, 'alice')).rejects.toThrow('Local permission policy denied');

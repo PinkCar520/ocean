@@ -3,7 +3,8 @@ import type { StoredSession } from '../utils/session-store.js';
 import { SessionTaskManager, type Task, type TaskPlanSnapshot } from '../utils/task-manager.js';
 
 export interface PlanStorage {
-  load(id: string, workspace: string): Promise<Pick<StoredSession, 'plan'>>;
+  load(id: string, workspace: string): Promise<Pick<StoredSession, 'plan' | 'worktree'>>;
+  saveWorktree?(id: string, workspace: string, worktree: StoredSession['worktree']): Promise<void>;
   savePlan(id: string, workspace: string, plan: TaskPlanSnapshot): Promise<StoredSession>;
 }
 

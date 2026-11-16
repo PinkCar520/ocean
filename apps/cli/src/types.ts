@@ -18,6 +18,8 @@ export interface ToolContext {
   sessionId: string;
   /** Resolves the active id after /new or /resume changes the conversation. */
   getSessionId?: () => string;
+  runId?: string;
+  toolCallId?: string;
   signal?: AbortSignal;
 }
 

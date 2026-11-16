@@ -21,6 +21,18 @@ describe('CLI permission policy', () => {
     return { workspace, home };
   }
 
+  it('does not let MCP server allow override tool ask or deny', async () => {
+    const { workspace, home } = await createRoots();
+    await mkdir(path.join(workspace, '.ocean'));
+    await writeFile(path.join(workspace, '.ocean', 'settings.json'), JSON.stringify({
+      ask: ['mcp__docs__write'], deny: ['mcp__docs__delete'],
+      mcp: { servers: { docs: { permissions: 'allow' } } },
+    }));
+    const policy = new PermissionPolicy(workspace, home);
+    expect(policy.evaluate('mcp__docs__write', {}, 'docs')).toBe('ask');
+    expect(policy.evaluate('mcp__docs__delete', {}, 'docs')).toBe('deny');
+  });
+
   it('uses safe default decisions and argument-scoped rules', async () => {
     const { workspace, home } = await createRoots();
     const policy = new PermissionPolicy(workspace, home);

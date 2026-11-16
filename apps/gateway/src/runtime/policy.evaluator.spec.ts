@@ -24,7 +24,7 @@ describe('PolicyEvaluator (Agent Runtime 拆分)', () => {
     expect(evaluator.shouldWrap('local_bash', false)).toBe(true);
     expect(evaluator.shouldWrap('local_powershell', false)).toBe(true);
     expect(evaluator.shouldWrap('local_notebook_edit', false)).toBe(true);
-    expect(evaluator.shouldWrap('local_notebook_read', false)).toBe(false);
+    expect(evaluator.shouldWrap('local_notebook_read', false)).toBe(true);
   });
 
   it('MCP 工具默认全部拦截（保守策略）', () => {
@@ -34,9 +34,13 @@ describe('PolicyEvaluator (Agent Runtime 拆分)', () => {
 
   it('只读工具免审批，本地写/执行工具需要审批', () => {
     const { evaluator } = create();
-    expect(evaluator.shouldWrap('local_file_read', false)).toBe(false);
+    expect(evaluator.shouldWrap('local_file_read', false)).toBe(true);
     expect(evaluator.shouldWrap('local_git', false)).toBe(true);
     expect(evaluator.shouldWrap('local_powershell', false)).toBe(true);
+  });
+
+  it('unknown tools require approval', () => {
+    expect(create().evaluator.shouldWrap('unknown_tool', false)).toBe(true);
   });
 
   it('wrap 委托 InteractiveManager 生成阻断包装', () => {
