@@ -70,3 +70,34 @@ describe('Agent tool approval gate', () => {
     expect(gated.write).not.toHaveProperty('requiresApproval');
   });
 });
+
+it('blocks cancellation and parameter mutation while approval is pending', async () => {
+  for (const cancel of [false, true]) {
+    const execute = vi.fn();
+    const controller = new AbortController();
+    const args = { path: 'reviewed' };
+    const gate = applyApprovalGate({ write: { requiresApproval: true, execute } }, async () => {
+      if (cancel) controller.abort(); else args.path = 'unreviewed';
+      return 'approved';
+    });
+    await gate.write.execute(args, { abortSignal: controller.signal });
+    expect(execute).not.toHaveBeenCalled();
+  }
+});
+
+it.each(['rejected', 'expired'] as const)('never executes a %s approval', async (decision) => {
+  const execute = vi.fn();
+  const gate = applyApprovalGate({ write: { requiresApproval: true, execute } }, async () => decision);
+  await gate.write.execute({}, {});
+  expect(execute).not.toHaveBeenCalled();
+});
+
+it('rechecks policy after approval instead of using the stale preflight', async () => {
+  const execute = vi.fn();
+  let denied = false;
+  const gate = applyApprovalGate({ write: {
+    requiresApproval: true, execute, beforeApproval: async () => denied ? 'denied' : undefined,
+  } }, async () => { denied = true; return 'approved'; });
+  expect(await gate.write.execute({}, {})).toEqual({ error: 'denied' });
+  expect(execute).not.toHaveBeenCalled();
+});

@@ -1,9 +1,12 @@
+import { createGitRpc } from './tools/git-rpc.js';
+import { Checkpoints } from './utils/checkpoints.js';
+import { PermissionPolicy } from './utils/permission-policy.js';
+import { createBashTool } from './tools/core-tools.js';
+import { executeTool } from './tools/base.js';
 import { io } from 'socket.io-client';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import type { RPCMessage } from '@ocean/core';
@@ -12,18 +15,16 @@ import { CONFIG, LOG } from './utils/config.js';
 import { security } from './utils/security.js';
 
 import { FileEditTool } from './tools/local/file-edit.js';
-import { GitTool } from './tools/local/git.js';
 import { PlanTool } from './tools/local/plan.js';
 import { createPowerShellTool } from './tools/powershell.js';
 import { TaskManager } from './utils/task-manager.js';
 import { createNotebookRpc } from './tools/notebook-rpc.js';
 
-const execAsync = promisify(exec);
+
 
 // Initialize tool instances
 const tools = {
   fileEdit: new FileEditTool(),
-  git: new GitTool(),
   plan: new PlanTool(),
 };
 const powerShellTool = createPowerShellTool();
@@ -86,6 +87,19 @@ export async function runDaemon(options: DaemonOptions) {
       const { sessionId } = data.params || {};
       if (sessionId) currentSessionId = sessionId;
 
+      // Device RPC has no local approval handler: ask must fail closed.
+      const aliases: Record<string, string> = {
+        notebook_read: 'file_read', read_file: 'file_read', ls: 'glob',
+        local_file_edit: 'file_edit', git_status: 'local_git', git_add: 'local_git',
+        git_commit: 'local_git', git_push: 'local_git',
+      };
+      const permissionName = aliases[data.method] ?? data.method;
+      const permissionArgs = { ...(data.params || {}),
+        ...(data.method.startsWith('git_') ? { action: data.method.slice(4) } : {}),
+      };
+      const decision = new PermissionPolicy(process.cwd()).evaluate(permissionName, permissionArgs);
+      if (decision !== 'allow') throw new Error(`Permission ${decision}: ${data.method}; device RPC has no approval handler.`);
+
       // 1. Path Security Check
       const targetPath = data.params?.path || data.params?.dir || data.params?.cwd;
       if (targetPath) {
@@ -100,7 +114,7 @@ export async function runDaemon(options: DaemonOptions) {
         case 'file_write':
         case 'file_edit':
         case 'file_patch':
-          result = await notebookRpc(data.method, data.params || {}, effectiveUserId);
+          result = await notebookRpc(data.method, data.params || {}, effectiveUserId, data.id);
           uiHint = ['notebook_edit', 'file_write', 'file_edit', 'file_patch'].includes(data.method) ? 'diff' : 'code';
           break;
 
@@ -120,7 +134,7 @@ export async function runDaemon(options: DaemonOptions) {
           try {
             await fs.access(guidePath); // 检查是否已存在
           } catch {
-            await fs.writeFile(guidePath, guideContent);
+            await new Checkpoints({ cwd: projectPath, userId: effectiveUserId, sessionId: sessionId || 'daemon', toolCallId: data.id }).change([{ path: guidePath, content: guideContent }]);
           }
 
           result = { path: projectPath };
@@ -129,7 +143,7 @@ export async function runDaemon(options: DaemonOptions) {
           break;
 
         case 'local_file_edit':
-          const editRes = await tools.fileEdit.execute(data.params);
+          const editRes = await tools.fileEdit.execute(data.params, { cwd: process.cwd(), userId: effectiveUserId, sessionId: sessionId || 'daemon', toolCallId: data.id });
           if (!editRes.success) throw new Error(editRes.error);
           result = editRes.data;
           uiHint = editRes.uiHint || 'diff';
@@ -142,10 +156,10 @@ export async function runDaemon(options: DaemonOptions) {
         case 'git_push':
           // 统一路由到 GitTool
           const gitAction = data.method === 'local_git' ? data.params?.action : data.method.replace('git_', '');
-          const gitRes = await tools.git.execute({ ...data.params, action: gitAction });
-          if (!gitRes.success) throw new Error(gitRes.error);
-          result = gitRes.data;
-          uiHint = gitRes.uiHint || 'git';
+          result = await createGitRpc(process.cwd())(data.method, { ...data.params, action: gitAction }, {
+            cwd: process.cwd(), userId: effectiveUserId, sessionId: sessionId || 'daemon', toolCallId: data.id,
+          });
+          uiHint = 'git';
           break;
 
         case 'local_plan':
@@ -172,30 +186,16 @@ export async function runDaemon(options: DaemonOptions) {
           uiHint = 'code';
           break;
         case 'bash':
-          if (!data.params?.command) throw new Error('Command required');
-          // Audit Bash
-          const audit = security.auditCommand(data.params.command);
-          if (!audit.allowed) throw new Error(`Command Denied: ${audit.reason}`);
-          
-          if (audit.riskLevel === 'HIGH') {
-            console.log(chalk.yellow('[Security]') + ` High risk command detected: ${data.params.command}`);
-          }
-          
-          const { stdout, stderr } = await execAsync(data.params.command, {
-            cwd: resolvedTargetPath || process.cwd(),
-            timeout: 120_000,
-            maxBuffer: 5 * 1024 * 1024,
-            env: { 
-              ...process.env, 
-              GIT_TERMINAL_PROMPT: '0',
-            }
+          const bashExecution = await executeTool(createBashTool(), data.params || {}, {
+            cwd: process.cwd(), userId: effectiveUserId, sessionId: sessionId || 'daemon', toolCallId: data.id,
           });
-          result = stdout || stderr;
+          if (bashExecution.error) throw new Error(bashExecution.error);
+          result = bashExecution.data.stdout || bashExecution.data.stderr;
           break;
 
         case 'powershell': {
           if (!data.params?.command) throw new Error('PowerShell command required');
-          const execution = await powerShellTool.execute({
+          const execution = await executeTool(powerShellTool, {
             command: data.params.command,
             cwd: resolvedTargetPath,
             timeout_ms: data.params.timeout_ms,

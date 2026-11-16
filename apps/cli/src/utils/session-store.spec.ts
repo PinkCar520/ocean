@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -59,4 +59,31 @@ describe('CLI local session store', () => {
     await expect(store.load('../credentials', session.workspace)).rejects.toThrow('Invalid session id');
     expect(await readFile(path.join(tempRoot, 'sessions', `${session.id}.json`), 'utf-8')).toContain(session.id);
   });
+});
+
+it('rejects stale snapshot writes instead of silently losing another update', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-cas-'));
+ try {
+  const a = new SessionStore(root), b = new SessionStore(root);
+  const s = await a.create(root);
+  const stale = await b.load(s.id, root);
+  await a.save(s.id, root, [{ role: 'user', content: 'first' }]);
+  await expect((b as any).write({ ...stale, title: 'stale' })).rejects.toThrow('conflict');
+  expect((await a.load(s.id, root)).messages).toEqual([{ role: 'user', content: 'first' }]);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('loads legacy snapshots and ignores interrupted temporary and corrupt records', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-recovery-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  const legacy = { ...session }; delete legacy.revision;
+  await writeFile(path.join(root, `${session.id}.json`), JSON.stringify(legacy));
+  await writeFile(path.join(root, `${session.id}.json.crash.ocean-tmp`), '{');
+  await writeFile(path.join(root, 'broken.json'), '{');
+  await mkdir(path.join(root, `${session.id}.json.lock`));
+  expect((await store.load(session.id, root)).messages).toEqual([]);
+  expect(await store.list(root)).toHaveLength(1);
+  await expect(store.save(session.id, root, [])).rejects.toThrow('conflict');
+ } finally { await rm(root, { recursive: true, force: true }); }
 });

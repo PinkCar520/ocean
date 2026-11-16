@@ -1,7 +1,8 @@
 import * as fs from 'node:fs/promises';
 import { LocalTool, LocalToolResponse } from '../base.js';
 import { SecurityEngine } from '../../utils/security.js';
-import { atomicWriteFile } from '../../utils/file-system.js';
+import { Checkpoints } from '../../utils/checkpoints.js';
+import type { ToolContext } from '../../types.js';
 
 interface FileEditParams {
   path: string;
@@ -21,7 +22,7 @@ export class FileEditTool extends LocalTool<FileEditParams, string> {
     super();
   }
 
-  async execute(params: FileEditParams): Promise<LocalToolResponse<string>> {
+  async execute(params: FileEditParams, context: ToolContext = { cwd: this.workspaceRoot, userId: 'local', sessionId: 'local' }): Promise<LocalToolResponse<string>> {
     const { path: filePath, oldString, newString } = params;
 
     if (!oldString) return { success: false, error: 'oldString must not be empty.' };
@@ -49,7 +50,7 @@ export class FileEditTool extends LocalTool<FileEditParams, string> {
 
       // 3. Apply Edit
       const newContent = content.replace(oldString, newString);
-      await atomicWriteFile(safePath, newContent);
+      await new Checkpoints(context).change([{ path: safePath, content: newContent, expectedBefore: content }]);
 
       return {
         success: true,

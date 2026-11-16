@@ -36,3 +36,39 @@ describe('lifecycle command hooks', () => {
     await expect(hooks.run('Stop', {})).rejects.toThrow('timeout');
   });
 });
+
+it('runs structured prompt hooks with fail-closed blocking semantics', async () => {
+ const hooks = new LifecycleHooks({ PreToolUse: [{ hooks: [{ type: 'prompt', prompt: 'Check mutation' }] }] }, process.cwd(), {
+  evaluatePrompt: async (_prompt, input) => ({ decision: input.tool_name === 'write' ? 'block' : 'allow', reason: 'review required' }),
+ });
+ expect(await hooks.run('PreToolUse', { tool_name: 'write' })).toMatchObject({ blocked: true, reason: 'review required' });
+});
+
+it('fails closed when a prompt evaluator is unavailable', async () => {
+ const hooks = new LifecycleHooks({ Stop: [{ hooks: [{ type: 'prompt', prompt: 'Check' }] }] }, process.cwd());
+ await expect(hooks.run('Stop', {})).rejects.toThrow('evaluator');
+});
+
+import { createHash } from 'node:crypto';
+import { realpath } from 'node:fs/promises';
+it('authorizes only the exact project hook content approved in personal settings', async () => {
+ const root = await mkdtemp(join(tmpdir(), 'ocean-hook-trust-'));
+ try {
+  const home = join(root, 'home'), project = join(root, 'project');
+  await mkdir(join(home, '.ocean'), { recursive: true }); await mkdir(join(project, '.ocean'), { recursive: true });
+  const raw = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'exit 2' }] }] } });
+  await writeFile(join(project, '.ocean', 'hooks.json'), raw);
+  await writeFile(join(home, '.ocean', 'hooks.json'), JSON.stringify({ trustedProjects: { [await realpath(project)]: createHash('sha256').update(raw).digest('hex') } }));
+  expect((await LifecycleHooks.load(project, home).run('PreToolUse', {})).blocked).toBe(true);
+  await writeFile(join(project, '.ocean', 'hooks.json'), raw + ' ');
+  expect((await LifecycleHooks.load(project, home).run('PreToolUse', {})).blocked).toBe(false);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('cancels a pending prompt evaluation without accepting a late allow', async () => {
+ const controller = new AbortController();
+ const hooks = new LifecycleHooks({ PreToolUse: [{ hooks: [{ type: 'prompt', prompt: 'review' }] }] }, process.cwd(), { evaluatePrompt: async () => new Promise(() => {}) });
+ const pending = hooks.run('PreToolUse', {}, controller.signal);
+ controller.abort(new Error('cancelled'));
+ await expect(pending).rejects.toThrow('cancelled');
+});

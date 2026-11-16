@@ -100,3 +100,29 @@ it('rejects stale edits, symlink targets, and paths outside the workspace', asyn
     expect(await readFile(join(root, 'source'), 'utf8')).toBe('user edit');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+it('rejects a change made after atomic staging but before replacement', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-cp-window-'));
+  try {
+    const { atomicWriteFile } = await import('./file-system.js');
+    const file = join(root, 'a'); await writeFile(file, 'old');
+    await expect(atomicWriteFile(file, 'agent', { beforeCommit: async () => { await writeFile(file, 'user'); } })).rejects.toThrow('conflict');
+    expect(await readFile(file, 'utf8')).toBe('user');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('rejects a competing process while a workspace mutation holds the lock', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-cp-compete-'));
+  try {
+    const { withProcessFileLock } = await import('./file-system.js');
+    await mkdir(join(root, '.ocean', 'checkpoints'), { recursive: true });
+    await writeFile(join(root, 'a'), 'user');
+    await withProcessFileLock(join(root, '.ocean', 'checkpoints', '.workspace.lock'), async () => {
+      const script = `import {Checkpoints} from './src/utils/checkpoints.ts'; try {await new Checkpoints({cwd:process.argv[1],userId:'other',sessionId:'other'}).change([{path:'a',content:'overwritten'}]);process.exitCode=2;} catch(e){console.log(e.message);}`;
+      expect(execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script, root], { encoding: 'utf8' })).toContain('conflict');
+    });
+    expect(await readFile(join(root, 'a'), 'utf8')).toBe('user');
+    const cp = new Checkpoints({ cwd: root, userId: 'u', sessionId: 's' });
+    await cp.change([{ path: 'a', content: 'safe', expectedBefore: 'user' }]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

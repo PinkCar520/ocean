@@ -139,3 +139,20 @@ it('protects a pre-existing staged version of the selected file', async () => {
     expect(git(root, 'show', ':agent.ts')).toBe('user staged');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+it('P0: a concurrent HEAD change rejects the stale manifest without changing index or HEAD', async () => {
+ const root = await repository();
+ try {
+  const expectedHead = git(root, 'rev-parse', 'HEAD');
+  // Trigger: another writer advances HEAD after review.
+  git(root, 'commit', '--allow-empty', '-m', 'concurrent');
+  const currentHead = git(root, 'rev-parse', 'HEAD');
+  await writeFile(join(root, 'agent.ts'), 'agent change');
+  const result = await new GitTool(root).execute({ action: 'commit', message: 'must not commit', paths: ['agent.ts'], expectedHead, expectedHashes: { 'agent.ts': hash('agent change') } });
+  expect(result).toMatchObject({ success: false, error: expect.stringContaining('HEAD changed') });
+  // Forbidden: stale commit or index mutation. Recovery: re-review current HEAD.
+  expect(git(root, 'rev-parse', 'HEAD')).toBe(currentHead);
+  expect(git(root, 'diff', '--cached', '--name-only')).toBe('');
+  expect(await readFile(join(root, 'agent.ts'), 'utf8')).toBe('agent change');
+ } finally { await rm(root, { recursive: true, force: true }); }
+});

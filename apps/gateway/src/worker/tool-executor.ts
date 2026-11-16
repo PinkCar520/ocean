@@ -2,7 +2,7 @@ import { isReadOnlyTool } from '@ocean/core';
 import { PermissionService } from '../skill/permission.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
 import {
   runEventSchema,
@@ -23,6 +23,7 @@ import { TerminalToolError } from '../tool/tool.types';
 
 /** TerminalToolError 由 tool.types 定义并在此 re-export（spec/外部兼容）。 */
 export { TerminalToolError } from '../tool/tool.types';
+class UnknownToolResult extends TerminalToolError {}
 
 /**
  * ToolExecutor —— 单步工具执行器（Phase 4 第 4 项：幂等工具调用 + 失败分类）。
@@ -264,7 +265,7 @@ export class ToolExecutor {
       return { jobId: job.id, runId, status: 'succeeded' };
     } catch (error) {
       const failure = invocationStarted && !isReadOnlyTool(toolCall.name, toolCall.input)
-        ? new TerminalToolError(`Tool result unknown; automatic replay prohibited: ${error instanceof Error ? error.message : String(error)}`) : error;
+        ? new UnknownToolResult(`Tool result unknown; automatic replay prohibited: ${error instanceof Error ? error.message : String(error)}`) : error;
       return this.handleFailure(job, toolCall, failure);
     }
   }
@@ -281,7 +282,6 @@ export class ToolExecutor {
     });
     const hit = steps.find(
       (step) =>
-        step.status === 'succeeded' &&
         this.inputKey(step.input) === idempotencyKey,
     );
     if (hit) {
@@ -290,7 +290,8 @@ export class ToolExecutor {
         throw new TerminalToolError('Idempotency key conflicts with tool or arguments.');
       }
     }
-    return hit ? { id: hit.id } : null;
+    if (hit && hit.status !== 'succeeded' && !isReadOnlyTool(toolCall.name, toolCall.input)) throw new UnknownToolResult('Prior tool result unknown; automatic replay prohibited.');
+    return hit?.status === 'succeeded' ? { id: hit.id } : null;
   }
 
   private inputKey(input: Prisma.JsonValue | null): string | undefined {
@@ -471,8 +472,8 @@ export class ToolExecutor {
         where: { runId, kind: 'tool_call' },
         orderBy: { seq: 'desc' },
       });
-      if (existing && ['started', 'failed'].includes(existing.status) && !isReadOnlyTool(toolCall.name, toolCall.input)) {
-        throw new TerminalToolError('Prior tool result unknown; automatic replay prohibited.');
+      if (existing && ['started', 'failed', 'unknown'].includes(existing.status) && !isReadOnlyTool(toolCall.name, toolCall.input)) {
+        throw new UnknownToolResult('Prior tool result unknown; automatic replay prohibited.');
       }
       if (existing && existing.status === 'started') {
         return { id: existing.id, seq: existing.seq };
@@ -487,7 +488,7 @@ export class ToolExecutor {
           seq,
           kind: 'tool_call',
           status: 'started',
-          input: JSON.parse(JSON.stringify(toolCall)) as Prisma.InputJsonValue,
+          input: JSON.parse(JSON.stringify({ ...toolCall, inputDigest: createHash('sha256').update(JSON.stringify(toolCall.input)).digest('hex'), effect: this.registry.get(toolCall.name)?.effect ?? (isReadOnlyTool(toolCall.name, toolCall.input) ? 'read' : 'non-idempotent-write') })) as Prisma.InputJsonValue,
         },
       });
       await this.appendEvent(tx, runId, {
@@ -531,7 +532,7 @@ export class ToolExecutor {
         if (latest && latest.status === 'started') {
           await tx.runStep.update({
             where: { id: latest.id },
-            data: { status: 'failed', error: message, completedAt: new Date() },
+            data: { status: error instanceof UnknownToolResult ? 'unknown' : 'failed', error: message, completedAt: new Date() },
           });
         }
 

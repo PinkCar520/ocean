@@ -19,6 +19,7 @@ function createTxMock(
   startedStep: { id: string; seq: number; status: string } | null = null,
 ) {
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([{ id: "run_1" }]),
     agentRun: {
       findUnique: jest.fn().mockResolvedValue(run),
       update: jest.fn().mockResolvedValue({}),
@@ -63,6 +64,7 @@ function createRunner(
   } = opts;
   const tx = createTxMock(run, startedStep);
   const prisma = {
+    $executeRaw: jest.fn().mockResolvedValue(1),
     $transaction: jest.fn(async (cb: (t: typeof tx) => Promise<unknown>) =>
       cb(tx),
     ),

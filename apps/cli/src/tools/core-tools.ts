@@ -37,9 +37,10 @@ export function createBashTool() {
     requiresApproval: true, // 本地执行 shell 前需用户在对话窗口批准（对齐 Codex trust 模型）
     inputSchema: z.object({
       command: z.string().describe('The shell command to execute'),
+      timeout_ms: z.number().int().min(1).max(120000).optional(),
       cwd: z.string().optional().describe('Working directory (defaults to context cwd)'),
     }),
-    async execute(input: { command: string; cwd?: string }, ctx: ToolContext): Promise<ToolResult> {
+    async execute(input: { command: string; cwd?: string; timeout_ms?: number }, ctx: ToolContext): Promise<ToolResult> {
       const security = new SecurityEngine(ctx.cwd);
       let workDir: string;
       try {
@@ -53,7 +54,7 @@ export function createBashTool() {
       try {
         const { stdout, stderr } = await execAsync(input.command, {
           cwd: workDir,
-          timeout: 120000, // 2 min timeout
+          timeout: input.timeout_ms ?? 120000, // 2 min timeout
           maxBuffer: 1024 * 1024 * 5, // 5MB
           signal: ctx.signal,
         });

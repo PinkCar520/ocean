@@ -294,6 +294,24 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     expect(restarted.toolExecute).not.toHaveBeenCalled();
   });
 
+  it('persists unknown after a side effect whose result cannot be saved', async () => {
+    const { executor, tx } = createExecutor({ approval: { status: 'approved' } });
+    tx.runStep.update.mockImplementationOnce(async () => {
+      tx.runStep.findFirst.mockResolvedValue({ id: 'durable-started', seq: 1, status: 'started' } as any);
+      throw new Error('database unavailable');
+    });
+    await executor.execute(toolJob({ name: 'approval.tool' }));
+    expect(tx.runStep.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'unknown' }) }));
+  });
+
+  it('rejects key reuse with changed parameters even for unfinished records', async () => {
+    const { executor, toolExecute } = createExecutor({ succeededSteps: [
+      { status: 'started', input: { idempotencyKey: 'conflict', name: 'echo', input: { text: 'other' } } } as any,
+    ] });
+    expect(await executor.execute(toolJob({ idempotencyKey: 'conflict' }))).toMatchObject({ status: 'failed', retryable: false });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
   it('deduplicates by idempotencyKey: cached success, tool not executed again', async () => {
     const { executor, toolExecute } = createExecutor({
       succeededSteps: [

@@ -1,14 +1,30 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.ts$": "ts-jest"
+    "^.+\\.[cm]?[jt]s$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "allowJs": true,
+          "module": "CommonJS",
+          "moduleResolution": "Node",
+          "isolatedModules": true
+        },
+        "diagnostics": false
+      }
+    ]
   },
   "moduleNameMapper": {
     "^@ocean/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts",
     "^@ocean/core$": "<rootDir>/../../../packages/shared/core/src/index.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1"
-  }
+  },
+  "transformIgnorePatterns": []
 }

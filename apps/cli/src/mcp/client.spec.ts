@@ -130,3 +130,11 @@ it('isolates manager routes and never dispatches an already cancelled call', asy
   await expect(first.callTool('mcp__private__write', {}, { signal: controller.signal })).rejects.toThrow();
   expect(callTool).not.toHaveBeenCalled();
 });
+
+it('diagnoses discovery failures without exposing server tokens', async () => {
+ const manager = new McpClientManager({ userId: 'alice', workspacePath: '/alice' } as any);
+ (manager as any).clients.set('private', { listTools: async () => { throw Object.assign(new Error('Bearer secret-token'), { status: 401 }); } });
+ expect(await manager.getAllTools()).toEqual([]);
+ expect(manager.getDiagnostics()).toMatchObject([{ serverId: 'private', state: 'authentication_failed' }]);
+ expect(JSON.stringify(manager.getDiagnostics())).not.toContain('secret-token');
+});

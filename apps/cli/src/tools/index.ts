@@ -1,3 +1,4 @@
+import { executeTool } from './base.js';
 import { SecurityEngine } from '../utils/security.js';
 import { GitTool } from './local/git.js';
 import * as path from 'node:path';
@@ -89,7 +90,7 @@ export async function toAgentToolSet(
           if (permissionPolicy.evaluate(name, input) === 'deny') {
             return { error: `Permission policy denied ${name}. Check the active Ocean settings.` };
           }
-          return localTool.execute(input, { ...await executionContext(), signal: options?.abortSignal, toolCallId: options?.toolCallId });
+          return executeTool(localTool, input, { ...await executionContext(), signal: options?.abortSignal, toolCallId: options?.toolCallId });
         },
       }];
     }),

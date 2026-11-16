@@ -121,7 +121,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       fileConfig = JSON.parse(raw);
     } catch (err) {
       this.logger.error(
-        `Failed to parse mcp.config.json: ${(err as Error).message}`,
+        `Failed to parse mcp.config.json: remote operation failed`,
       );
       return;
     }
@@ -156,7 +156,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`[${id}] Disconnected`);
       } catch (err) {
         this.logger.warn(
-          `[${id}] Error during disconnect: ${(err as Error).message}`,
+          `[${id}] Error during disconnect: remote operation failed`,
         );
       }
     }
@@ -187,19 +187,20 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
                 properties: {},
               }) as any,
             ),
-            execute: async (params: any) => {
+            execute: async (params: any, options: any) => {
               return this.executeMcpToolWithRetry(
                 serverId,
                 toolDef,
                 params,
                 managed,
+                options?.abortSignal,
               );
             },
           });
         }
       } catch (err) {
         this.logger.warn(
-          `[${serverId}] Failed to list tools: ${(err as Error).message}`,
+          `[${serverId}] Failed to list tools: remote operation failed`,
         );
       }
     }
@@ -216,13 +217,15 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     toolDef: any,
     params: any,
     managed: ManagedMCPClient,
+    signal?: AbortSignal,
   ): Promise<any> {
     this.logger.debug(`[MCP:${serverId}] Calling tool: ${toolDef.name}`);
+    signal?.throwIfAborted();
     try {
       const result = await managed.client.callTool({
         name: toolDef.name,
         arguments: params,
-      });
+      }, undefined, { signal, timeout: 60_000 });
 
       const content = result.content as Array<{ type: string; text?: string }>;
       const textContent = content.find((c) => c.type === 'text');
@@ -279,7 +282,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
           return { content: cleanText, ui: uiData };
         } catch (parseErr) {
           this.logger.warn(
-            `[MCP:${serverId}] Failed to parse __UI__ marker: ${(parseErr as Error).message}`,
+            `[MCP:${serverId}] Failed to parse __UI__ marker: invalid remote UI data`,
           );
         }
       }
@@ -303,9 +306,9 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       }
 
       this.logger.error(
-        `[MCP:${serverId}] Tool call failed: ${(err as Error).message}`,
+        `[MCP:${serverId}] Tool call failed: remote operation failed`,
       );
-      throw err;
+      throw new Error('MCP execution outcome unknown; automatic replay prohibited.');
     }
   }
 
@@ -351,7 +354,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         );
       } catch (err) {
         this.logger.warn(
-          `[${serverId}] Failed to list resources: ${(err as Error).message}`,
+          `[${serverId}] Failed to list resources: remote operation failed`,
         );
       }
     }
@@ -369,7 +372,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         );
       } catch (err) {
         this.logger.warn(
-          `[${serverId}] Failed to list resource templates: ${(err as Error).message}`,
+          `[${serverId}] Failed to list resource templates: remote operation failed`,
         );
       }
     }
@@ -396,7 +399,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         if (contents) return contents;
       } catch (err) {
         this.logger.warn(
-          `[Resource:${sid}] Failed to read resource ${uri}: ${(err as Error).message}`,
+          `[Resource:${sid}] Failed to read resource ${uri}: remote operation failed`,
         );
       }
     }
@@ -417,7 +420,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         );
       } catch (err) {
         this.logger.warn(
-          `[${serverId}] Failed to list prompts: ${(err as Error).message}`,
+          `[${serverId}] Failed to list prompts: remote operation failed`,
         );
       }
     }
@@ -447,7 +450,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         return result;
       } catch (err) {
         this.logger.debug(
-          `[Prompt:${sid}] Prompt ${name} not found: ${(err as Error).message}`,
+          `[Prompt:${sid}] Prompt ${name} not found: remote operation failed`,
         );
       }
     }
@@ -554,7 +557,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       );
     } catch (err) {
       this.logger.error(
-        `[${resolvedConfig.id}] Failed to connect via ${transportType}: ${(err as Error).message}`,
+        `[${resolvedConfig.id}] Failed to connect via ${transportType}: remote operation failed`,
       );
       throw err;
     }
@@ -570,7 +573,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       this.cachedAITools = null;
     } catch (err) {
       this.logger.warn(
-        `[${serverId}] Error during disconnect: ${(err as Error).message}`,
+        `[${serverId}] Error during disconnect: remote operation failed`,
       );
     }
   }

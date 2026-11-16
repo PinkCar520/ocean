@@ -1,0 +1,47 @@
+name: Ocean Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Required types, unit, HTTP and recovery checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install locked dependencies once
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter gateway exec prisma generate
+      - name: Validate deployment gate
+        run: node --test scripts/ci-gate.test.mjs
+      - name: TypeScript checks
+        run: pnpm run ci:typecheck
+      - name: CLI and Gateway unit tests
+        run: pnpm run ci:unit
+      - name: Gateway HTTP E2E
+        run: pnpm run ci:e2e
+      - name: Permission and fault recovery regressions
+        run: pnpm run ci:faults
+      - name: Summarize quality result
+        if: always()
+        run: echo 'Quality gate result is recorded in the named steps above; all required steps must pass before image publication.' >> "$GITHUB_STEP_SUMMARY"

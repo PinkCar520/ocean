@@ -97,6 +97,7 @@ export function InkApp(props: InkAppProps) {
       await props.sessionStore.save(props.activeSession.session.id, props.workspace, allMessages);
 
       const result = await runChatLoop(allMessages, {
+        journal: { store: props.sessionStore, sessionId: props.activeSession.session.id, workspace: props.workspace },
         delegation: { workspace: props.workspace },
         hooks: LifecycleHooks.load(props.workspace),
         model,

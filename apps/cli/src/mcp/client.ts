@@ -40,7 +40,15 @@ export class McpClientManager {
   private validators = new Map<string, JsonSchemaValidator<unknown>>();
   private config: McpConfigFile | null = null;
 
-  constructor(private cliConfig: CliConfig) { }
+  private readonly diagnostics = new Map<string, { serverId: string; state: string }>();
+  private readonly cliConfig: CliConfig;
+  constructor(config: CliConfig) { this.cliConfig = structuredClone(config); }
+  getDiagnostics() { return [...this.diagnostics.values()].map(item => ({ ...item })); }
+  private diagnose(serverId: string, error: unknown, fallback: string) {
+    const status = (error as any)?.status ?? (error as any)?.code;
+    const state = status === 401 || status === 403 ? 'authentication_failed' : fallback;
+    this.diagnostics.set(serverId, { serverId, state });
+  }
 
   /**
    * Load MCP config from config file
@@ -113,7 +121,8 @@ export class McpClientManager {
       try {
         await this.connectServer(server);
       } catch (err: any) {
-        console.warn(`[MCP] Failed to connect to ${server.name}: ${err.message}`);
+        this.diagnose(server.id, err, 'connection_failed');
+        console.warn('[MCP] Connection failed; inspect getDiagnostics().');
       }
     }
   }
@@ -154,6 +163,7 @@ export class McpClientManager {
       await client.close().catch(() => {});
       throw error;
     }
+    this.diagnostics.set(server.id, { serverId: server.id, state: 'connected' });
     const tools = await client.listTools({}, { timeout: 10_000 });
     console.log(`[MCP] Connected to ${server.name}: ${tools.tools.length} tools`);
   }
@@ -183,8 +193,8 @@ export class McpClientManager {
           });
           this.toolRoutes.set(`mcp__${serverId}__${toolName}`, { serverId, toolName });
         }
-      } catch {
-        // ignore
+      } catch (error) {
+        this.diagnose(serverId, error, 'discovery_failed');
       }
     }
 
@@ -214,7 +224,7 @@ export class McpClientManager {
 
     return result;
     } catch (error) {
-      throw new Error(`MCP execution outcome unknown; do not automatically retry ${toolName}: ${(error as Error).message}`);
+      throw new Error(`MCP execution outcome unknown; do not automatically retry ${toolName}: remote connection failed`);
     }
   }
 

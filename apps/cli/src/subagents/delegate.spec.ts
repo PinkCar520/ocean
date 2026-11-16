@@ -71,3 +71,21 @@ it('bounds total child invocations and concurrent execution', async () => {
   await expect(tool.execute(input, { toolCallId: '5' })).rejects.toThrow('budget');
   expect(run).toHaveBeenCalledTimes(4);
 });
+
+import { SessionStore } from '../utils/session-store.js';
+it('persists child identity and returns completed results after recreating the delegation tool', async () => {
+ const root = await mkdtemp(join(tmpdir(), 'ocean-child-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  const run = vi.fn().mockResolvedValue({ text: 'done' });
+  const definition = [{ name: 'review', description: '', prompt: '', tools: [], maxSteps: 1 }];
+  const parent = { model: {}, tools: {}, systemPrompt: '', run, persistence: { store, sessionId: session.id, workspace: root } };
+  const input = { agent: 'review', task: 'inspect' };
+  await createDelegationTool(definition, parent).execute(input, { toolCallId: 'child' });
+  await createDelegationTool(definition, parent).execute(input, { toolCallId: 'child' });
+  expect(run).toHaveBeenCalledOnce();
+  const children = (await store.list(root)).filter(s => s.subagent);
+  expect(children).toHaveLength(1);
+  expect(children[0].subagent).toMatchObject({ parentSessionId: session.id, status: 'succeeded', toolCallId: 'child' });
+ } finally { await rm(root, { recursive: true, force: true }); }
+});

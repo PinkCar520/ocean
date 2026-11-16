@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { claimRun, verifyRun, LostRunOwnership } from './run-ownership';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -85,14 +87,39 @@ export class RunRunner {
     private readonly metrics: MetricsService,
   ) {}
 
+  private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
+
+  private fencedTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    const owner = this.ownership.getStore();
+    if (!owner) throw new LostRunOwnership('Missing execution ownership');
+    return this.prisma.$transaction(async (tx) => {
+      await verifyRun(tx, owner.job, owner.token, owner.leaseMs);
+      return fn(tx);
+    });
+  }
+
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
+    const token = randomUUID();
+    const leaseMs = Number(process.env.WORKER_LEASE_MS ?? 30000);
+    if (!Number.isSafeInteger(leaseMs) || leaseMs < 1000) throw new Error('Invalid WORKER_LEASE_MS');
+    const claimed = await this.prisma.$transaction(tx => claimRun(tx, job, token, leaseMs));
+    if (!claimed) return { jobId: job.id, runId: job.payload.runId, status: 'failed', retryable: true, error: 'Run ownership unavailable' };
+    return this.ownership.run({ job, token, leaseMs }, async () => {
+      try { return await this.executeOwned(job); }
+      finally {
+        await this.prisma.$executeRaw(Prisma.sql`UPDATE agent_runs SET "executionToken" = NULL, "executionJobId" = NULL WHERE id = ${job.payload.runId} AND "executionToken" = ${token}`);
+      }
+    });
+  }
+
+  private async executeOwned(job: LeasedRunJob): Promise<RunExecutionResult> {
     const { runId, userId } = job.payload;
 
     try {
       // 1) 接管：置 running（幂等处理崩溃遗留）
       //    Run 不存在 / 用户不匹配属于终态业务错误：直接返回，不写库、不可重试，
       //    由 Worker 确认消息（避免残留消息无限重试）。
-      const takeover = await this.prisma.$transaction(async (tx) => {
+      const takeover = await this.fencedTransaction(async (tx) => {
         const run = await tx.agentRun.findUnique({ where: { id: runId } });
         if (!run)
           return { ok: false as const, reason: `Run ${runId} not found` };
@@ -200,7 +227,7 @@ export class RunRunner {
       }
 
       // 6) 无工具 → 完成：step succeeded + step_completed + run succeeded（同一事务）
-      await this.prisma.$transaction(async (tx) => {
+      await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
         if (!active.count) return;
         const output = { text: fullText, toolCalls: [] as ModelToolCall[] };
@@ -340,7 +367,7 @@ export class RunRunner {
       toolCall,
     });
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.fencedTransaction(async (tx) => {
       const active = await tx.agentRun.updateMany({ where: { id: runId, userId, status: 'running' }, data: { status: 'running' } });
       if (!active.count) return;
       // 幂等：同 toolCallId 已有工具步骤（任何状态）或 pending 消息 → 不重复投递
@@ -425,7 +452,7 @@ export class RunRunner {
     runId: string,
     input: string,
   ): Promise<{ id: string; seq: number } | null> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.fencedTransaction(async (tx) => {
       const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
       if (!active.count) return null;
       const existing = await tx.runStep.findFirst({
@@ -469,7 +496,7 @@ export class RunRunner {
   /** 落一条 output_delta 事件；写入失败视为瞬时错误（可重试），避免 Run 卡死。 */
   private async flushDelta(runId: string, delta: string): Promise<void> {
     try {
-      await this.prisma.$transaction(async (tx) => {
+      await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
         if (!active.count) return;
         await this.appendEvent(tx, runId, {
@@ -498,7 +525,7 @@ export class RunRunner {
     let ignored = false;
 
     try {
-      await this.prisma.$transaction(async (tx) => {
+      await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
         if (!active.count) { ignored = true; return; }
         // 已创建的执行步骤标记 failed（存在则更新，幂等）

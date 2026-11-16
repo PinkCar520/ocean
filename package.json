@@ -20,6 +20,10 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test",
+    "ci:typecheck": "pnpm --filter @ocean/cli typecheck && pnpm --filter gateway typecheck",
+    "ci:unit": "pnpm --filter @ocean/cli test && pnpm --filter gateway test --runInBand",
+    "ci:e2e": "pnpm --filter gateway test:e2e",
+    "ci:faults": "pnpm --filter @ocean/cli test:faults && pnpm --filter gateway test:faults",
     "clean": "turbo run clean"
   },
 

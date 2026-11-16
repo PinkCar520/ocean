@@ -1,3 +1,5 @@
+import type { SessionStore } from '../utils/session-store.js';
+import { isDeepStrictEqual } from 'node:util';
 import { createDelegationTool, loadSubagents } from '../subagents/delegate.js';
 import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
 import { compactContext, type Compaction } from './compaction.js';
@@ -36,6 +38,7 @@ export function applyApprovalGate(
         {
           ...toolDefinition,
           execute: async (args: any, toolOptions: any) => {
+            if (toolOptions?.abortSignal?.aborted) return { error: 'Tool execution cancelled.' };
             if (definition.beforeApproval) {
               const blocked = await definition.beforeApproval(args);
               if (blocked) return { error: blocked };
@@ -47,7 +50,15 @@ export function applyApprovalGate(
                 text: `[审批不可用] 工具 ${name} 需要人工批准；当前会话没有审批通道，因此未执行。`,
               };
             }
-            const decision = await approvalHandler(name, args);
+            const snapshot = structuredClone(args);
+            const deadline = Date.now() + 5 * 60_000;
+            const decision = await approvalHandler(name, structuredClone(snapshot));
+            if (toolOptions?.abortSignal?.aborted || Date.now() >= deadline) return { error: 'Approval cancelled or expired.' };
+            if (!isDeepStrictEqual(args, snapshot)) return { error: 'Tool arguments changed; a new approval is required.' };
+            if (definition.beforeApproval) {
+              const blocked = await definition.beforeApproval(args);
+              if (blocked) return { error: blocked };
+            }
             if (decision !== 'approved') {
               return {
                 type: 'text',
@@ -188,6 +199,7 @@ export async function runChatLoop(
     systemPrompt: string;
     tools: Record<string, any>;
     onText?: (text: string) => void;
+    journal?: { store: SessionStore; sessionId: string; workspace: string };
     onToolCall?: (toolName: string, args: any) => void;
     onToolResult?: (toolName: string, result: any) => void;
     signal?: AbortSignal;
@@ -196,7 +208,7 @@ export async function runChatLoop(
     delegation?: { workspace: string };
     hooks?: LifecycleHooks;
     stopHookActive?: boolean;
-    compaction?: { previous?: Compaction; persist: (snapshot: Compaction) => Promise<void>; budget?: number };
+    compaction?: { previous?: Compaction; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string };
     /**
      * 审批门（对齐 Codex/Claude：CLI 执行、对话窗口弹审批）。
      * 传入后，requiresApproval 工具执行前先调 handler，返回 'approved' 才放行。
@@ -230,6 +242,7 @@ export async function runChatLoop(
     const definitions = loadSubagents(options.delegation.workspace);
     if (definitions.length) options = { ...options, tools: { ...options.tools, delegate_task: createDelegationTool(definitions, {
       model: options.model, tools: options.tools, systemPrompt: options.systemPrompt,
+      persistence: options.journal,
       signal: options.signal, approvalHandler: options.approvalHandler, run: runChatLoop, history: messages,
     }) } };
   }
@@ -241,7 +254,14 @@ export async function runChatLoop(
       const pre = await options.hooks?.run('PreToolUse', input, options.signal);
       if (pre?.blocked) return { error: pre.reason };
       options.signal?.throwIfAborted();
-      const output = await definition.execute(...args);
+      let output;
+      try { output = options.journal
+        ? await options.journal.store.executeToolCall(options.journal.sessionId, options.journal.workspace, args[1]?.toolCallId, name, args[0], () => definition.execute(...args))
+        : await definition.execute(...args);
+      } catch (error) {
+        await options.hooks?.run('ToolUseFailure', { ...input, error: String(error) }, options.signal);
+        throw error;
+      }
       const post = await options.hooks?.run('PostToolUse', { ...input, tool_response: output }, options.signal);
       if (post?.blocked) return { result: output, hookFeedback: post.reason };
       return output;
@@ -251,6 +271,7 @@ export async function runChatLoop(
 
   const context = options.compaction ? await compactContext(messages, {
     model: options.model, systemPrompt: options.systemPrompt, signal: options.signal,
+    scope: options.journal?.sessionId,
     ...options.compaction,
   }) : messages;
   const result = streamText({

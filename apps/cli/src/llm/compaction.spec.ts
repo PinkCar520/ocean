@@ -67,3 +67,29 @@ describe('automatic context compaction', () => {
     await expect(compactContext(history(), { model: {}, systemPrompt: '', budget: 5000, persist: async () => { throw new Error('disk unavailable'); } })).rejects.toThrow('disk unavailable');
   });
 });
+
+it('reserves model output and tool space from the configured context window', async () => {
+ const { contextBudget } = await import('./compaction.js');
+ expect(contextBudget({ contextWindow: 16000, outputReserve: 4000, toolReserve: 2000 })).toBe(10000);
+ expect(() => contextBudget({ contextWindow: 4000, outputReserve: 4000 })).toThrow('budget');
+});
+
+it('stops repeated failed compaction requests for the same session scope', async () => {
+ generate.mockClear(); generate.mockRejectedValue(new Error('upstream unavailable'));
+ const options = { model: {}, systemPrompt: '', budget: 5000, scope: 'failure-test', persist: vi.fn() };
+ await expect(compactContext(history(), options)).rejects.toThrow('upstream');
+ await expect(compactContext(history(), options)).rejects.toThrow('upstream');
+ await expect(compactContext(history(), options)).rejects.toThrow('failure limit');
+ expect(generate).toHaveBeenCalledTimes(2);
+ expect(options.persist).not.toHaveBeenCalled();
+});
+
+it('keeps an unresolved tool call on its original side of a compaction boundary', async () => {
+ generate.mockClear();
+ const messages = history();
+ messages.splice(2, 1); // Remove the first call result: a later user boundary is unsafe.
+ const persist = vi.fn();
+ const result = await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, scope: 'unresolved-pair', persist });
+ expect(result).toBe(messages);
+ expect(generate).not.toHaveBeenCalled(); expect(persist).not.toHaveBeenCalled();
+});

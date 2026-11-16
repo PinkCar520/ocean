@@ -16,7 +16,8 @@
     "start": "node dist/index.js",
     "start:daemon": "node dist/index.js daemon",
     "pretest": "pnpm --filter @ocean/core build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:faults": "vitest run src/llm/chat.security.spec.ts src/utils/permission-policy.spec.ts src/utils/tool-journal.spec.ts src/utils/session-store.spec.ts src/utils/checkpoints.spec.ts src/tools/local/git.workflow.spec.ts src/mcp/client.spec.ts src/subagents/delegate.spec.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.0",

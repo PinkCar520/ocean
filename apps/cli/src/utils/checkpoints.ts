@@ -2,17 +2,24 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { SecurityEngine } from './security.js';
-import { atomicWriteFile } from './file-system.js';
+import { atomicWriteFile, withProcessFileLock } from './file-system.js';
 import { NotebookSnapshots } from './notebook-snapshots.js';
 import type { ToolContext } from '../types.js';
 const locks = new NotebookSnapshots();
 const digest = (value: string | null) => value === null ? null : createHash('sha256').update(value).digest('hex');
-interface Entry { path: string; before: string | null; after: string | null; mode?: number }
+interface Entry { path: string; before: string | null; beforeHash?: string | null; after: string | null; mode?: number }
 interface Checkpoint { version: 1; id: string; sessionId: string; userId: string; runId?: string; toolCallId?: string; status: 'prepared' | 'applied' | 'rolling_back' | 'rolled_back'; files: Entry[] }
 
 /** Local journals reuse atomic file persistence; interrupted changes are inspected, never replayed. */
 export class Checkpoints {
   constructor(private readonly context: ToolContext) {}
+  private async coordinated<T>(action: () => Promise<T>): Promise<T> {
+    return locks.withLock(await fs.realpath(this.context.cwd), async () => {
+      await this.directory();
+      const root = await fs.realpath(this.context.cwd);
+      return withProcessFileLock(path.join(root, '.ocean', 'checkpoints', '.workspace.lock'), action);
+    });
+  }
   private async directory(): Promise<string> {
     const root = await fs.realpath(this.context.cwd);
     const scope = createHash('sha256').update(JSON.stringify([this.context.userId, this.context.sessionId])).digest('hex');
@@ -78,7 +85,7 @@ export class Checkpoints {
     return Promise.all(record.files.map(async (entry) => ({ path: entry.path, action: entry.before === null ? 'create' : entry.after === null ? 'delete' : 'modify', before: entry.before, afterDigest: entry.after, current: (await this.content(await this.target(entry.path))).text })));
   }
   async change(changes: Array<{ path: string; content: string | null; expectedBefore?: string }>): Promise<string> {
-    return locks.withLock(await fs.realpath(this.context.cwd), async () => {
+    return this.coordinated(async () => {
       this.context.signal?.throwIfAborted();
       if (!changes.length || changes.length > 20) throw new Error('Checkpoint requires 1–20 files');
       const files: Entry[] = [];
@@ -90,7 +97,7 @@ export class Checkpoints {
         seen.add(file);
         const before = await this.content(file);
         if (change.expectedBefore !== undefined && before.text !== change.expectedBefore) throw new Error('Checkpoint conflict: file changed since read');
-        files.push({ path: file, before: before.text, after: digest(change.content), mode: before.mode });
+        files.push({ path: file, before: before.text, beforeHash: digest(before.text), after: digest(change.content), mode: before.mode });
       }
       const record: Checkpoint = { version: 1, id: randomUUID(), sessionId: this.context.sessionId, userId: this.context.userId, runId: this.context.runId, toolCallId: this.context.toolCallId, status: 'prepared', files };
       await this.save(record); // Failure here prevents every controlled mutation.
@@ -107,7 +114,10 @@ export class Checkpoints {
   }
   private async write(file: string, text: string | null, mode?: number, expected?: string | null): Promise<void> {
     this.context.signal?.throwIfAborted();
-    if (text === null) { await fs.unlink(file); return; }
+    if (text === null) {
+      if (await this.target(file) !== file || (expected !== undefined && digest((await this.content(file)).text) !== expected)) throw new Error('Checkpoint conflict before deletion');
+      await fs.unlink(file); return;
+    }
     await fs.mkdir(path.dirname(file), { recursive: true });
     await atomicWriteFile(file, text, { defaultMode: mode ?? 0o666, beforeCommit: async () => {
       this.context.signal?.throwIfAborted();
@@ -115,7 +125,7 @@ export class Checkpoints {
     } });
   }
   async rollback(id: string): Promise<void> {
-    await locks.withLock(await fs.realpath(this.context.cwd), async () => {
+    await this.coordinated(async () => {
       const record = await this.get(id);
       if (record.status === 'rolled_back') return;
       // Preflight the entire set before touching any target, including interrupted journals.

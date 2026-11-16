@@ -141,6 +141,9 @@ model ContextGrant {
 
 // Ocean v2 持久化执行实例。Space 外键将在 Phase 5 引入 Space 模型后补齐。
 model AgentRun {
+  executionAttempt Int?
+  executionToken String?
+  executionJobId String?
   id             String        @id @default(uuid())
   userId         String
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
