@@ -58,17 +58,21 @@ export class PermissionController {
       return { error: 'toolName query parameter is required' };
     }
 
-    const action = this.permissionService.evaluateTool(
+    const decision = this.permissionService.evaluateToolDecision(
       toolName,
       workspacePath,
       null,
     );
     return {
       toolName,
-      action,
-      isAllowed: action === 'allow',
-      isDenied: action === 'deny',
-      requiresApproval: action === 'ask',
+      action: decision.action,
+      reason: decision.reason,
+      ruleId: decision.ruleId,
+      policyVersion: decision.policyVersion,
+      source: decision.source,
+      isAllowed: decision.action === 'allow',
+      isDenied: decision.action === 'deny',
+      requiresApproval: decision.action === 'ask',
     };
   }
 

@@ -24,6 +24,52 @@ describe('unified decision contract', () => {
   });
 });
 
+describe('permission decision metadata', () => {
+  it('reloads changed policy content before cache TTL even when the declared version is unchanged', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ocean-policy-refresh-'));
+    try {
+      fs.mkdirSync(path.join(root, '.ocean'));
+      const file = path.join(root, '.ocean', 'settings.json');
+      fs.writeFileSync(file, JSON.stringify({ version: 'fixed', allow: ['Bash(*)'] }));
+      const service = new PermissionService();
+      const before = service.evaluateToolDecision('local_bash', root, { command: 'echo hello' });
+      expect(before.action).toBe('allow');
+      fs.writeFileSync(file, JSON.stringify({ version: 'fixed', deny: ['Bash(*)'] }));
+      const after = service.evaluateToolDecision('local_bash', root, { command: 'echo hello' });
+      expect(after.action).toBe('deny');
+      expect(after.policyVersion).not.toBe(before.policyVersion);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it('returns deny reason, ruleId and a stable version used by audit', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ocean-decision-'));
+    try {
+      fs.mkdirSync(path.join(root, '.ocean'));
+      fs.writeFileSync(path.join(root, '.ocean', 'settings.json'), JSON.stringify({
+        mode: 'default', allow: ['Bash(*)'], deny: ['Bash(rm:*)'],
+      }));
+      const service = new PermissionService();
+      const denied = service.evaluateToolDecision('local_bash', root, { command: 'rm -rf build' });
+      expect(denied).toMatchObject({ action: 'deny', source: 'deny-rule' });
+      expect(denied.ruleId).toBe('rule:deny:Bash(rm:*)');
+      expect(denied.reason).toContain('Bash(rm:*)');
+      expect(denied.policyVersion).toMatch(/^sha256-[a-f0-9]{64}$/);
+      expect(service.evaluateTool('local_bash', root, { command: 'rm -rf build' })).toBe('deny');
+      const ask = service.evaluateToolDecision('local_file_write', root, { path: 'a.txt' });
+      expect(ask.action).toBe('ask');
+      expect(ask.policyVersion).toBe(denied.policyVersion);
+      expect(service.getPolicyVersion(root)).toBe(denied.policyVersion);
+      fs.writeFileSync(path.join(root, '.ocean', 'settings.json'), JSON.stringify({
+        mode: 'default', allow: ['Bash(*)'], deny: ['Bash(rm:*)', 'Bash(dd:*)'],
+      }));
+      service.invalidateCache();
+      expect(service.getPolicyVersion(root)).not.toBe(denied.policyVersion);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('Permission Logic (Claude Code Style)', () => {
   describe('isReadOnlyTool', () => {
     it('should allow basic read-only tools', () => {

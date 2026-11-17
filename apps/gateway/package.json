@@ -119,7 +119,8 @@
     "moduleNameMapper": {
       "^@ocean/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts",
       "^@ocean/core$": "<rootDir>/../../../packages/shared/core/src/index.ts",
-      "^(\\.{1,2}/.*)\\.js$": "$1"
+      "^(\\.{1,2}/.*)\\.js$": "$1",
+      "^@ocean/core/(checkpoints|file-system|security|notebook-snapshots)$": "<rootDir>/../../../packages/shared/core/src/filesystem/$1.ts"
     },
     "collectCoverageFrom": [
       "**/*.ts",

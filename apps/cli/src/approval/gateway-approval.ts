@@ -1,3 +1,4 @@
+import { PermissionPolicy } from '../utils/permission-policy.js';
 import chalk from 'chalk';
 
 /**
@@ -16,6 +17,8 @@ export function createGatewayApprovalHandler(options: {
   sessionId: string | (() => string);
   /** 对话窗口提示文案（默认指 Web 审批面板） */
   hint?: string;
+  workspacePath?: string;
+  policyVersion?: () => string;
   /** Poll cadence override for deterministic tests; defaults to 2 seconds. */
   pollIntervalMs?: number;
 }): (
@@ -31,6 +34,25 @@ export function createGatewayApprovalHandler(options: {
   const hintText = options.hint ?? '请在对话窗口（Web 审批面板）批准或拒绝';
 
   return async (toolName: string, args: any) => {
+    const currentVersion = () => options.policyVersion?.() ?? new PermissionPolicy(options.workspacePath ?? process.cwd()).evaluateDecision(toolName, args).policyVersion;
+    const policyVersion = currentVersion();
+    const sessionId = typeof options.sessionId === 'function'
+      ? options.sessionId()
+      : options.sessionId;
+    // A prior "allow for session" decision covers this exact call without a new prompt.
+    try {
+      const lookup = await fetch(`${base}/api/approvals/session-grant/lookup`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ sessionId, toolName, args: args ?? {}, policyVersion }),
+      });
+      if (lookup.ok && ((await lookup.json()) as { granted?: boolean }).granted === true) {
+        return currentVersion() === policyVersion ? 'approved' : 'rejected';
+      }
+    } catch {
+      // Lookup is an optimization; if unavailable, fall through to the normal approval.
+    }
+
     let approvalId: string;
     try {
       const res = await fetch(`${base}/api/approvals`, {
@@ -39,9 +61,8 @@ export function createGatewayApprovalHandler(options: {
         body: JSON.stringify({
           toolName,
           args: args ?? {},
-          sessionId: typeof options.sessionId === 'function'
-            ? options.sessionId()
-            : options.sessionId,
+          sessionId,
+          policyVersion,
         }),
       });
       if (!res.ok) {
@@ -74,6 +95,7 @@ export function createGatewayApprovalHandler(options: {
         });
         if (!res.ok) continue;
         const st = (await res.json()) as { status: string };
+        if (st.status === 'superseded' || currentVersion() !== policyVersion) return 'rejected';
         if (st.status === 'approved') {
           console.log(chalk.green(`✓ [审批] ${toolName} 已批准，继续执行。`));
           return 'approved';

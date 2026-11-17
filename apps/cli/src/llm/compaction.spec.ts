@@ -93,3 +93,91 @@ it('keeps an unresolved tool call on its original side of a compaction boundary'
  expect(result).toBe(messages);
  expect(generate).not.toHaveBeenCalled(); expect(persist).not.toHaveBeenCalled();
 });
+
+it('compacts a tool-only step boundary without splitting a call/result pair', async () => {
+  generate.mockClear();
+  generate.mockResolvedValue({ text: JSON.stringify(summary) });
+  const messages: ModelMessage[] = [{ role: 'user', content: 'Run the migration' }];
+  for (let i = 0; i < 12; i += 1) {
+    messages.push(
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `step-${i}`, toolName: 'bash', input: { command: `step ${i}` } }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: `step-${i}`, toolName: 'bash', output: { type: 'text', value: 'y'.repeat(3000) } }] },
+    );
+  }
+  const result = await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, boundary: 'any', scope: 'tool-boundary', persist: vi.fn() });
+  expect(contextTokens(result)).toBeLessThan(contextTokens(messages));
+  expect(result[0].content).toContain('No new dependencies');
+  expect(generate.mock.calls[0][0].messages[0].content).toContain('Run the migration');
+  const calls = new Set<string>();
+  const results = new Set<string>();
+  for (const message of result) {
+    if (!Array.isArray(message.content)) continue;
+    for (const part of message.content) {
+      if (part.type === 'tool-call') calls.add(part.toolCallId);
+      if (part.type === 'tool-result') results.add(part.toolCallId);
+    }
+  }
+  expect([...calls].every((id) => results.has(id))).toBe(true);
+  expect([...results].every((id) => calls.has(id))).toBe(true);
+});
+
+it('trusts provider usage over the byte estimate when it fits the budget', async () => {
+  generate.mockClear();
+  const messages = history();
+  const persist = vi.fn();
+  const result = await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, usage: { totalTokens: 100, messageCount: messages.length }, persist });
+  expect(result).toBe(messages);
+  expect(generate).not.toHaveBeenCalled();
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it('compacts when provider usage exceeds the budget even if bytes are below it', async () => {
+  generate.mockClear();
+  generate.mockResolvedValue({ text: JSON.stringify(summary) });
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'a'.repeat(300) },
+    { role: 'assistant', content: 'b'.repeat(300) },
+    { role: 'user', content: 'c'.repeat(300) },
+    { role: 'assistant', content: 'd'.repeat(300) },
+    { role: 'user', content: 'e'.repeat(300) },
+    { role: 'assistant', content: 'f'.repeat(300) },
+  ];
+  const persist = vi.fn();
+  await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, usage: { totalTokens: 6000, messageCount: messages.length }, scope: 'usage-over-budget', persist });
+  expect(generate).toHaveBeenCalledOnce();
+  expect(persist).toHaveBeenCalledOnce();
+});
+
+it('ignores a usage prefix that no longer fits the transcript', async () => {
+  const { tokenCountWithEstimation } = await import('./compaction.js');
+  const messages: ModelMessage[] = [{ role: 'user', content: 'short' }];
+  expect(tokenCountWithEstimation(messages, { totalTokens: 10, messageCount: 2 })).toBe(contextTokens(messages));
+  expect(tokenCountWithEstimation(messages, { totalTokens: 10, messageCount: 0 })).toBe(10 + contextTokens(messages));
+});
+
+it('adjusts provider usage across a persisted summary instead of ignoring it', async () => {
+  generate.mockClear();
+  generate.mockResolvedValue({ text: JSON.stringify(summary) });
+  const messages = history();
+  let snapshot: Compaction | undefined;
+  await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, scope: 'usage-snapshot-1', persist: async (value) => { snapshot = value; } });
+  expect(snapshot).toBeDefined();
+  generate.mockClear();
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000, scope: 'usage-snapshot-2', previous: snapshot,
+    usage: { totalTokens: 6000, messageCount: messages.length },
+    persist: vi.fn(),
+  });
+  expect(result[0].content).toContain('No new dependencies');
+  expect(generate).not.toHaveBeenCalled();
+});
+
+
+it('counts serialized context with the selected BPE tokenizer rather than byte division', async () => {
+ const { countTextTokens } = await import('@ocean/core');
+ const { contextTokens } = await import('./compaction.js');
+ const messages = [{ role: 'user', content: '你好，世界。Hello world!' }] as any;
+ expect(contextTokens(messages)).toBe(countTextTokens(JSON.stringify(messages)));
+ expect(countTextTokens('hello world', 'cl100k_base')).toBe(2);
+ expect(countTextTokens('')).toBe(0);
+});

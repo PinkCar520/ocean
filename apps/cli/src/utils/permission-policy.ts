@@ -1,18 +1,25 @@
 import * as fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
   evaluateTool,
-  evaluatePermission,
+  evaluatePermissionDecision,
   isPermissionSettings,
   normalizeRules,
+  uniquePermissionRuleIds,
+  SessionPermissionGrants,
   type PermissionAction,
+  type PermissionDecision,
   type PermissionSettings,
   type PermissionMode,
 } from '@ocean/core';
 import { atomicWriteFile } from './file-system.js';
 
 const DEFAULT_SETTINGS: PermissionSettings = { mode: 'default' };
+
+/** Shared by every PermissionPolicy instance in one CLI process; keys are session ids. */
+export const defaultSessionPermissionGrants = new SessionPermissionGrants();
 const MAX_SETTINGS_BYTES = 256 * 1024;
 const CACHE_TTL_MS = 1_000;
 
@@ -22,6 +29,7 @@ interface ResolvedPolicy {
   invalid: boolean;
   loadedAt: number;
   revision: number;
+  policyVersion: string;
 }
 
 /** Loads the same workspace policy format used by Gateway for local CLI tools. */
@@ -32,13 +40,48 @@ export class PermissionPolicy {
   constructor(
     private readonly workspacePath: string,
     private readonly homePath: string = os.homedir(),
+    private readonly options: {
+      grants?: SessionPermissionGrants;
+      sessionId?: string | (() => string | undefined);
+    } = {},
   ) {}
 
   evaluate(toolName: string, args?: Record<string, unknown>, mcpServer?: string): PermissionAction {
-    const policy = this.load();
-    if (policy.invalid) return 'deny';
+    return this.evaluateDecision(toolName, args, mcpServer).action;
+  }
 
-    return evaluatePermission(toolName, policy.settings, policy.rules, args, mcpServer);
+  /** Full decision with reason/ruleId/policyVersion and session-grant accounting. */
+  evaluateDecision(toolName: string, args?: Record<string, unknown>, mcpServer?: string): PermissionDecision {
+    const policy = this.load();
+    if (policy.invalid) {
+      return {
+        action: 'deny',
+        reason: 'Invalid or unsafe permission settings; denying by default.',
+        policyVersion: 'invalid',
+        source: 'invalid',
+      };
+    }
+    const sessionId = typeof this.options.sessionId === 'function'
+      ? this.options.sessionId()
+      : this.options.sessionId;
+    const sessionGrant = this.options.grants?.allows(sessionId, toolName, args) ?? false;
+    return evaluatePermissionDecision(toolName, policy.settings, policy.rules, args, mcpServer, {
+      sessionGrant,
+      policyVersion: policy.policyVersion,
+    });
+  }
+
+  /** Grant one exact tool call for this session; deny rules still win. */
+  grantSession(toolName: string, args: Record<string, unknown> = {}, ttlMs?: number): void {
+    const sessionId = typeof this.options.sessionId === 'function' ? this.options.sessionId() : this.options.sessionId;
+    if (!this.options.grants || !sessionId) throw new Error('Session permission grants are not configured for this policy.');
+    this.options.grants.grant(sessionId, toolName, args, ttlMs);
+  }
+
+  clearSessionGrants(): number {
+    const sessionId = typeof this.options.sessionId === 'function' ? this.options.sessionId() : this.options.sessionId;
+    if (!this.options.grants || !sessionId) return 0;
+    return this.options.grants.clearSession(sessionId);
   }
 
   requiresApproval(toolName: string, args?: Record<string, unknown>, options: { alwaysAskInBypass?: boolean } = {}): boolean {
@@ -129,12 +172,33 @@ export class PermissionPolicy {
 
     this.cached = {
       settings,
-      rules: layers.slice().reverse().flatMap((layer) => normalizeRules(layer)),
+      rules: uniquePermissionRuleIds(layers.slice().reverse().flatMap((layer) => normalizeRules(layer))),
       invalid,
       loadedAt: now,
       revision,
+      policyVersion: invalid ? 'invalid' : this.computePolicyVersion(paths, settings),
     };
     return this.cached;
+  }
+
+  /** Hash the exact files loaded so policy changes invalidate old approvals. */
+  private computePolicyVersion(paths: Array<{ root: string; file: string }>, settings: PermissionSettings): string {
+    if (settings.version) return settings.version;
+    const hash = createHash('sha256');
+    for (const { file } of [...paths].sort((a, b) => a.file.localeCompare(b.file))) {
+      try {
+        const info = fs.lstatSync(file);
+        if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SETTINGS_BYTES) {
+          hash.update(`unsafe\0${file}\0`);
+          continue;
+        }
+        hash.update(`${file}\0`);
+        hash.update(fs.readFileSync(file));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') hash.update(`error\0${file}\0`);
+      }
+    }
+    return `sha256-${hash.digest('hex')}`;
   }
 
   private cacheInvalid(now: number): ResolvedPolicy {
@@ -144,6 +208,7 @@ export class PermissionPolicy {
       invalid: true,
       loadedAt: now,
       revision: PermissionPolicy.revisions.get(path.resolve(this.workspacePath)) ?? 0,
+      policyVersion: 'invalid',
     };
     return this.cached;
   }

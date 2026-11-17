@@ -11,7 +11,7 @@ import { createSkillActivationTool } from './skill-tool.js';
 import { createGitAgentTool } from './local/git-agent.js';
 import { createTaskPlanTool, type PlanStorage } from './task-plan.js';
 import { createPowerShellTool } from './powershell.js';
-import { PermissionPolicy } from '../utils/permission-policy.js';
+import { PermissionPolicy, defaultSessionPermissionGrants } from '../utils/permission-policy.js';
 import { NotebookSnapshots } from '../utils/notebook-snapshots.js';
 import { createNotebookEditTool } from './notebook-edit.js';
 
@@ -51,7 +51,10 @@ export async function toAgentToolSet(
   planStorage?: PlanStorage,
 ) {
   const localToolSet = getTools(context, skills, planStorage);
-  const permissionPolicy = new PermissionPolicy(context.cwd);
+  const permissionPolicy = new PermissionPolicy(context.cwd, undefined, {
+    grants: defaultSessionPermissionGrants,
+    sessionId: () => context.getSessionId?.() ?? context.sessionId,
+  });
   const executionContext = async () => {
     const sessionId = context.getSessionId?.() ?? context.sessionId;
     const session = planStorage ? await planStorage.load(sessionId, context.cwd) : undefined;

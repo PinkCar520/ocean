@@ -1,3 +1,6 @@
+import { SubagentRunsService } from './subagent-runs.service';
+import { SubagentRunsController } from './subagent-runs.controller';
+import { ApprovalMaintenanceService } from './approval-maintenance.service';
 import { Module } from '@nestjs/common';
 
 import { ToolModule } from '../tool/tool.module';
@@ -8,8 +11,8 @@ import { OutboxService } from './outbox.service';
 
 @Module({
   imports: [ToolModule], // ArtifactStore（artifact 读取端点依赖，Phase 4.8）
-  controllers: [RunController, ExternalApprovalController],
-  providers: [RunService, OutboxService],
-  exports: [RunService, OutboxService],
+  controllers: [SubagentRunsController, RunController, ExternalApprovalController],
+  providers: [SubagentRunsService, RunService, OutboxService, ApprovalMaintenanceService],
+  exports: [SubagentRunsService, RunService, OutboxService],
 })
 export class RunModule {}

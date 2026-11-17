@@ -1,9 +1,11 @@
+import { SubagentRunsService } from '../run/subagent-runs.service';
 import {
   Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -36,6 +38,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly toolExecutor: ToolExecutor,
     private readonly outbox: OutboxService,
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    @Optional() private readonly subagents?: SubagentRunsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -70,6 +73,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
     const leaseMs = this.intEnv('WORKER_LEASE_MS', 30_000);
 
     try {
+      await this.subagents?.reconcilePending();
       const jobs = await this.outbox.claimRunRequests(
         this.workerId,
         claimLimit,
@@ -223,7 +227,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
 
       await tx.agentRun.update({
         where: { id: run.id },
-        data: { status: 'queued' },
+        data: { status: 'queued', executionToken: null, executionJobId: null, executionAttempt: null },
       });
 
       const lastEvent = await tx.runEvent.findFirst({

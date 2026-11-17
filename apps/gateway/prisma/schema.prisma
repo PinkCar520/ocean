@@ -141,6 +141,10 @@ model ContextGrant {
 
 // Ocean v2 持久化执行实例。Space 外键将在 Phase 5 引入 Space 模型后补齐。
 model AgentRun {
+  parentRunId String?
+  parentToolCallId String?
+  parentRun AgentRun? @relation("SubagentRuns", fields: [parentRunId], references: [id], onDelete: Cascade)
+  childRuns AgentRun[] @relation("SubagentRuns")
   executionAttempt Int?
   executionToken String?
   executionJobId String?
@@ -162,6 +166,7 @@ model AgentRun {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  @@unique([parentRunId, parentToolCallId])
   @@unique([userId, idempotencyKey])
   @@index([userId, status])
   @@index([spaceId, createdAt])
@@ -175,8 +180,9 @@ model RunStep {
   runId       String
   run         AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
   seq         Int
-  kind        String    @default("model_call") // model_call | tool_call | approval | artifact
-  status      String    @default("started") // started | succeeded | failed | interrupted
+  kind           String    @default("model_call") // model_call | tool_call | approval | artifact
+  status         String    @default("started") // started | succeeded | failed | unknown | interrupted
+  idempotencyKey String? // unique per Run for tool_call side effects
   input       Json?
   output      Json?
   error       String?   @db.Text
@@ -185,6 +191,7 @@ model RunStep {
   completedAt DateTime?
 
   @@unique([runId, seq])
+  @@unique([runId, idempotencyKey])
   @@index([runId, status])
   @@map("run_steps")
 }
@@ -217,17 +224,22 @@ model RunApproval {
   toolCallId String?
   toolName   String
   args       Json
-  sessionId  String? // 外部审批来源会话标识（CLI 本地执行）
-  source     String    @default("run") // run | cli
-  status     String    @default("pending") // pending | approved | rejected | expired
-  decidedBy  String?
-  decidedAt  DateTime?
-  expiresAt  DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  sessionId     String? // 外部审批来源会话标识（CLI 本地执行 / Run metadata.sessionId）
+  source        String    @default("run") // run | cli
+  status        String    @default("pending") // pending | approved | rejected | expired | superseded
+  scope         String    @default("once") // once | session
+  policyVersion String? // permission policy fingerprint at approval creation
+  policyRuleId  String? // matched permission rule, when any
+  argsHash      String? // sha256(canonicalPermissionInput(args))
+  decidedBy     String?
+  decidedAt     DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([runId, status])
   @@index([userId, status])
+  @@index([sessionId, toolName, status])
   @@map("run_approvals")
 }
 

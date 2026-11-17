@@ -6,6 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { createHash } from 'crypto';
+import { canonicalPermissionInput } from '@ocean/core';
 import {
   agentRunSchema,
   runEventSchema,
@@ -158,6 +160,7 @@ export class RunService {
     action: 'retry' | 'resume',
   ): Promise<RunSnapshot> {
     const snapshot = await this.get(id, userId);
+    if ((snapshot.run.metadata as any)?.subagentsPending) throw new BadRequestException('Subagents must settle before parent resume');
     if (!allowed.has(snapshot.run.status)) {
       throw new BadRequestException(
         `Cannot ${action} run in state '${snapshot.run.status}'`,
@@ -261,6 +264,55 @@ export class RunService {
     return record;
   }
 
+  private async cancelDescendants(tx: Prisma.TransactionClient, rootId: string, userId: string): Promise<void> {
+    const rows = await tx.$queryRaw<Array<{ id: string; status: string; metadata: Prisma.JsonValue }>>(Prisma.sql`
+      WITH RECURSIVE tree AS (
+        SELECT id FROM agent_runs WHERE id = ${rootId} AND "userId" = ${userId}
+        UNION ALL
+        SELECT child.id FROM agent_runs child JOIN tree ON child."parentRunId" = tree.id
+          WHERE child."userId" = ${userId}
+      )
+      SELECT run.id, run.status, run.metadata FROM agent_runs run JOIN tree ON run.id = tree.id
+      ORDER BY run.id FOR UPDATE OF run
+    `);
+    const affected = rows.filter(row => row.id === rootId || !['succeeded', 'failed', 'cancelled'].includes(row.status));
+    if (!affected.length) return;
+    const ids = affected.map(row => row.id);
+    await tx.agentRun.updateMany({ where: { id: { in: ids }, userId }, data: {
+      status: 'cancelled', executionToken: null, executionJobId: null, executionAttempt: null,
+    } });
+    await tx.runApproval.updateMany({ where: { runId: { in: ids }, userId, status: 'pending' },
+      data: { status: 'rejected', decidedBy: userId, decidedAt: new Date() } });
+    await tx.outboxEvent.updateMany({ where: { aggregateId: { in: ids }, topic: { in: ['run.requested', 'tool.requested'] }, status: 'pending' },
+      data: { status: 'processed', processedAt: new Date(), lockedAt: null, lockedBy: null, lastError: 'Run tree cancelled' } });
+    await tx.outboxEvent.updateMany({ where: { aggregateId: { in: ids }, topic: 'device.rpc', status: 'pending' },
+      data: { status: 'cancelled', lockedAt: null, lockedBy: null, lastError: 'Run tree cancelled before dispatch' } });
+    const steps = await tx.runStep.findMany({ where: { runId: { in: ids }, status: 'started' }, orderBy: { seq: 'asc' } });
+    for (const step of steps) {
+      const status = step.kind === 'model_call' ? 'interrupted' : step.kind === 'subagent' || step.kind === 'approval' ? 'failed' : 'unknown';
+      const completed = await tx.runStep.update({ where: { id: step.id }, data: {
+        status, completedAt: new Date(), error: status === 'unknown' ? 'Run cancelled; external outcome requires reconciliation' : 'Run cancelled',
+      } });
+      const event = runEventSchema.parse({ id: crypto.randomUUID(), runId: step.runId,
+        sequence: await this.nextRunSequence(tx, step.runId), occurredAt: new Date().toISOString(), type: 'run.step_completed',
+        step: { id: completed.id, runId: step.runId, seq: completed.seq, kind: completed.kind, status: completed.status,
+          input: completed.input, output: completed.output, error: completed.error,
+          ...(completed.checkpoint ? { checkpoint: completed.checkpoint } : {}),
+          startedAt: completed.startedAt.toISOString(), completedAt: completed.completedAt!.toISOString() },
+      });
+      await tx.runEvent.create({ data: { id: event.id, runId: event.runId, sequence: event.sequence, type: event.type, payload: event as any } });
+    }
+    for (const row of affected) {
+      if ((row.metadata as any)?.subagentsPending) await tx.agentRun.update({ where: { id: row.id }, data: {
+        metadata: { ...(row.metadata as any), subagentsPending: false },
+      } });
+      if (row.id === rootId) continue;
+      const event = runEventSchema.parse({ id: crypto.randomUUID(), runId: row.id,
+        sequence: await this.nextRunSequence(tx, row.id), occurredAt: new Date().toISOString(), type: 'run.status_changed', status: 'cancelled' });
+      await tx.runEvent.create({ data: { id: event.id, runId: row.id, sequence: event.sequence, type: event.type, payload: event as any } });
+    }
+  }
+
   async cancel(id: string, userId: string): Promise<RunSnapshot> {
     const snapshot = await this.get(id, userId);
     if (!CANCELLABLE_STATUSES.has(snapshot.run.status)) return snapshot;
@@ -271,6 +323,7 @@ export class RunService {
         data: { status: 'cancelled' },
       });
       if (!updated.count) return;
+      await this.cancelDescendants(transaction, id, userId);
       await transaction.runApproval.updateMany({
         where: { runId: id, userId, status: 'pending' },
         data: { status: 'rejected', decidedBy: userId, decidedAt: new Date() },
@@ -416,7 +469,9 @@ export class RunService {
     approvalId: string,
     userId: string,
     decision: 'approved' | 'rejected',
+    scope: 'once' | 'session' = 'once',
   ): Promise<RunSnapshot> {
+    if (scope !== 'once' && scope !== 'session') throw new BadRequestException('Invalid approval scope');
     const run = await this.prisma.agentRun.findUnique({
       where: { id: runId },
       select: { id: true, userId: true, priority: true, status: true },
@@ -436,6 +491,9 @@ export class RunService {
       );
     if (approval.status !== 'pending') {
       return this.get(runId, userId); // 幂等：已决策
+    }
+    if (scope === 'session' && !approval.sessionId) {
+      throw new BadRequestException('Session approval requires a session-scoped request');
     }
     if (run.status !== 'waiting_for_approval') return this.get(runId, userId);
     if (approval.expiresAt && approval.expiresAt.getTime() < Date.now()) {
@@ -488,7 +546,7 @@ export class RunService {
 
       const claimed = await transaction.runApproval.updateMany({
         where: { id: approvalId, runId, userId, status: 'pending' },
-        data: { status: decision, decidedBy: userId, decidedAt: now },
+        data: { status: decision, scope, decidedBy: userId, decidedAt: now },
       });
       if (!claimed.count) throw new Error('Approval changed during decision.');
 
@@ -501,6 +559,9 @@ export class RunService {
           completedAt: now,
           checkpoint: {
             approval: decision,
+            scope,
+            policyVersion: approval.policyVersion ?? null,
+            ruleId: approval.policyRuleId ?? null,
             decidedAt: now.toISOString(),
             seq: stepRow.seq,
           },
@@ -625,8 +686,15 @@ export class RunService {
    */
   async createExternalApproval(
     userId: string,
-    input: { toolName: string; args: Record<string, unknown>; sessionId?: string },
+    input: { toolName: string; args: Record<string, unknown>; sessionId?: string; policyVersion?: string },
   ) {
+    if (typeof input.toolName !== 'string' || !input.toolName || input.toolName.length > 512
+      || !input.args || typeof input.args !== 'object' || Array.isArray(input.args)
+      || (input.sessionId !== undefined && (typeof input.sessionId !== 'string' || !input.sessionId || input.sessionId.length > 200))
+      || (input.policyVersion !== undefined && (typeof input.policyVersion !== 'string' || !input.policyVersion || input.policyVersion.length > 256))) {
+      throw new BadRequestException('Invalid external approval binding');
+    }
+    const argsHash = createHash('sha256').update(canonicalPermissionInput(input.args)).digest('hex');
     return this.prisma.runApproval.create({
       data: {
         userId,
@@ -634,9 +702,39 @@ export class RunService {
         args: input.args as Prisma.InputJsonValue,
         sessionId: input.sessionId ?? null,
         source: 'cli',
+        policyVersion: input.policyVersion ?? null,
+        scope: 'once',
+        argsHash,
         expiresAt: new Date(Date.now() + EXTERNAL_APPROVAL_TTL_MS),
       },
     });
+  }
+
+  /** Exact-argument session grant lookup used by the CLI before creating an approval. */
+  async lookupSessionGrant(
+    userId: string,
+    input: { sessionId: string; toolName: string; args: Record<string, unknown>; policyVersion?: string },
+  ) {
+    if (typeof input.sessionId !== 'string' || !input.sessionId
+      || typeof input.toolName !== 'string' || !input.toolName) {
+      throw new BadRequestException('sessionId and toolName are required');
+    }
+    if (typeof input.policyVersion !== 'string' || !input.policyVersion) return { granted: false };
+    const argsHash = createHash('sha256').update(canonicalPermissionInput(input.args ?? {})).digest('hex');
+    const grant = await this.prisma.runApproval.findFirst({
+      where: {
+        userId,
+        sessionId: input.sessionId,
+        toolName: input.toolName,
+        argsHash,
+        scope: 'session',
+        policyVersion: input.policyVersion,
+        status: 'approved',
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { granted: !!grant };
   }
 
   /** 当前用户的待审批列表（Web 对话窗口审批面板轮询）。 */
@@ -667,7 +765,9 @@ export class RunService {
     approvalId: string,
     userId: string,
     decision: 'approved' | 'rejected',
+    scope: 'once' | 'session' = 'once',
   ) {
+    if (scope !== 'once' && scope !== 'session') throw new BadRequestException('Invalid approval scope');
     const approval = await this.prisma.runApproval.findUnique({
       where: { id: approvalId },
     });
@@ -675,8 +775,11 @@ export class RunService {
       throw new NotFoundException(`Approval ${approvalId} not found`);
     }
     if (approval.runId) {
-      await this.decideApproval(approval.runId, approvalId, userId, decision);
+      await this.decideApproval(approval.runId, approvalId, userId, decision, scope);
       return this.getExternalApproval(approvalId, userId);
+    }
+    if (scope === 'session' && !approval.sessionId) {
+      throw new BadRequestException('Session approval requires a session-scoped request');
     }
     if (approval.status !== 'pending') return approval;
     if (approval.expiresAt && approval.expiresAt.getTime() < Date.now()) {
@@ -690,6 +793,7 @@ export class RunService {
       where: { id: approvalId, userId, runId: null, status: 'pending' },
       data: {
         status: decision === 'approved' ? 'approved' : 'rejected',
+        scope,
         decidedBy: userId,
         decidedAt: new Date(),
       },

@@ -17,6 +17,7 @@ vi.mock('ai', async (importOriginal) => ({
 }));
 
 import { activeSkillInstructions, runChatLoop } from './chat.js';
+import { historyDigest } from './compaction.js';
 
 describe('CLI Agent loop transcript', () => {
   beforeEach(() => {
@@ -77,7 +78,8 @@ describe('CLI Agent loop transcript', () => {
 
   it('automatically compacts before continuing the model with executable tools', async () => {
     generateTextMock.mockResolvedValue({ text: JSON.stringify({ goal: 'fix login', constraints: ['no dependencies'], fileChanges: [], failedTests: ['login'], completedTools: [], pendingWork: ['test'] }) });
-    const messages = Array.from({ length: 12 }, (_, i) => ({ role: 'user' as const, content: `${i}: ${'x'.repeat(3000)}` }));
+    const messages = Array.from({ length: 12 }, (_, i) => ({ role: 'user' as const, content: `${i}: ${'x'.repeat(5000)}` }));
+    expect((await import('./compaction.js')).contextTokens(messages)).toBeGreaterThan(5000);
     const persist = vi.fn();
     const execute = vi.fn().mockResolvedValue('tests passed');
     streamTextMock.mockImplementation(async (options) => {
@@ -167,6 +169,92 @@ describe('CLI Agent loop transcript', () => {
       expect(write).not.toHaveBeenCalled();
       expect(streamTextMock).toHaveBeenCalledTimes(2);
     } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('compacts between tool steps before the next model request', async () => {
+    generateTextMock.mockResolvedValue({ text: JSON.stringify({ goal: 'migrate', constraints: ['keep pairing'], fileChanges: [], failedTests: [], completedTools: [], pendingWork: [] }) });
+    const persist = vi.fn();
+    const messages = [{ role: 'user' as const, content: 'migrate the schema' }];
+    const midTurn: any[] = [...messages];
+    for (let i = 0; i < 12; i += 1) {
+      midTurn.push(
+        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `call-${i}`, toolName: 'bash', input: { command: `step ${i}` } }] },
+        { role: 'tool', content: [{ type: 'tool-result', toolCallId: `call-${i}`, toolName: 'bash', output: { type: 'text', value: 'z'.repeat(3000) } }] },
+      );
+    }
+    streamTextMock.mockImplementation(async (options) => {
+      expect(typeof options.prepareStep).toBe('function');
+      const next = await options.prepareStep({ stepNumber: 1, messages: midTurn });
+      expect(next?.messages.length).toBeLessThan(midTurn.length);
+      expect(JSON.stringify(next.messages)).toContain('keep pairing');
+      const snapshot = persist.mock.calls[0][0];
+      expect(snapshot.digest).toBe(historyDigest(midTurn.slice(0, snapshot.covered)));
+      await options.prepareStep({ stepNumber: 2, messages: [...next.messages, { role: 'assistant', content: 'more' }] });
+      expect(generateTextMock).toHaveBeenCalledOnce();
+      expect(persist).toHaveBeenCalledOnce();
+      return { text: 'done', responseMessages: [{ role: 'assistant', content: 'done' }] };
+    });
+    const result = await runChatLoop(messages, { model: {}, systemPrompt: '', tools: {}, compaction: { budget: 5000, persist } });
+    expect(result.text).toBe('done');
+    expect(generateTextMock).toHaveBeenCalledOnce();
+    expect(persist).toHaveBeenCalledOnce();
+    expect(persist.mock.calls[0][0].covered).toBeGreaterThan(0);
+  });
+
+  it('skips the first step and leaves small mid-turn contexts untouched', async () => {
+    const persist = vi.fn();
+    streamTextMock.mockImplementation(async (options) => {
+      expect(await options.prepareStep({ stepNumber: 0, messages: [{ role: 'user', content: 'small' }] })).toBeUndefined();
+      expect(await options.prepareStep({ stepNumber: 1, messages: [{ role: 'user', content: 'small' }] })).toBeUndefined();
+      return { text: 'done', responseMessages: [] };
+    });
+    await runChatLoop([{ role: 'user', content: 'small' }], { model: {}, systemPrompt: '', tools: {}, compaction: { budget: 5000, persist } });
+    expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it('does not compact after cancellation and fails closed if the mid-turn summary fails', async () => {
+    const persist = vi.fn();
+    const big: any[] = [{ role: 'user', content: 'go' }];
+    for (let i = 0; i < 12; i += 1) {
+      big.push(
+        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `cancel-${i}`, toolName: 'bash', input: { command: `step ${i}` } }] },
+        { role: 'tool', content: [{ type: 'tool-result', toolCallId: `cancel-${i}`, toolName: 'bash', output: { type: 'text', value: 'q'.repeat(3000) } }] },
+      );
+    }
+    const controller = new AbortController();
+    streamTextMock.mockImplementation(async (options) => {
+      controller.abort();
+      await expect(options.prepareStep({ stepNumber: 1, messages: big })).rejects.toThrow();
+      return { text: 'done', responseMessages: [] };
+    });
+    await expect(runChatLoop([{ role: 'user', content: 'go' }], { model: {}, systemPrompt: '', tools: {}, signal: controller.signal, compaction: { budget: 5000, persist } })).rejects.toThrow();
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
+
+    generateTextMock.mockRejectedValue(new Error('summary unavailable'));
+    streamTextMock.mockImplementation(async (options) => {
+      await expect(options.prepareStep({ stepNumber: 1, messages: big })).rejects.toThrow('summary unavailable');
+      return { text: 'done', responseMessages: [] };
+    });
+    expect((await runChatLoop([{ role: 'user', content: 'go' }], { model: {}, systemPrompt: '', tools: {}, compaction: { budget: 5000, persist } })).text).toBe('done');
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('returns provider usage and prefers it over the byte estimate on the next turn', async () => {
+    streamTextMock.mockImplementation(async (options) => {
+      options.onStepFinish({ usage: { inputTokens: 100, outputTokens: 20 }, toolCalls: [], toolResults: [] });
+      return { text: 'done', responseMessages: [{ role: 'assistant', content: 'done' }] };
+    });
+    const result = await runChatLoop([{ role: 'user', content: 'small' }], { model: {}, systemPrompt: '', tools: {} });
+    expect(result.usage).toEqual({ totalTokens: 120, messageCount: 2 });
+
+    generateTextMock.mockClear();
+    const large = Array.from({ length: 12 }, (_, i) => ({ role: 'user' as const, content: `${i}: ${'x'.repeat(3000)}` }));
+    const persist = vi.fn();
+    streamTextMock.mockResolvedValue({ text: 'done', responseMessages: [] });
+    await runChatLoop(large, { model: {}, systemPrompt: '', tools: {}, compaction: { budget: 5000, usage: { totalTokens: 100, messageCount: large.length }, persist } });
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
   });
 
   it('supports a caller step limit', async () => {

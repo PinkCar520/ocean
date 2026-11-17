@@ -2,7 +2,7 @@
 FROM node:22-alpine AS pruner
 WORKDIR /app
 # 安装 turbo cli
-RUN npm install -g turbo
+RUN npm install -g turbo@2.9.16
 COPY . .
 # 剥离出仅 web 及其 workspace 依赖所需的文件
 RUN turbo prune web --docker
@@ -20,7 +20,7 @@ COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 
 # 安装依赖 (配置 ignore-scripts 跳过不必要的编译，如桌面端的 electron 依赖)
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm config set ignore-scripts true && pnpm install --no-frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts --store-dir=/pnpm/store
 
 # 拷贝源代码
 COPY --from=pruner /app/out/full/ .

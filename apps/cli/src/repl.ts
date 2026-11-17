@@ -18,7 +18,7 @@ import { discoverSkills } from './skills/loader.js';
 import { McpClientManager } from './mcp/client.js';
 import { SessionStore, type StoredSession } from './utils/session-store.js';
 import { formatTaskPlan } from './utils/task-manager.js';
-import { PermissionPolicy } from './utils/permission-policy.js';
+import { PermissionPolicy, defaultSessionPermissionGrants } from './utils/permission-policy.js';
 import { runInkApp } from './ui/app.js';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
@@ -163,6 +163,7 @@ async function runSingleQuery(options: ReplOptions) {
         gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
         apiKey,
         sessionId: toolContext.sessionId,
+        workspacePath: toolContext.cwd,
       })
     : undefined;
 
@@ -310,9 +311,9 @@ async function runReadlineRepl(options: ReplOptions) {
           model, systemPrompt, tools, approvalHandler,
         compaction: {
           previous: activeSession.session.compaction,
+          usage: activeSession.session.usage,
           persist: async (snapshot) => {
-            await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
-            activeSession.session.compaction = snapshot;
+            activeSession.session = await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
           },
         },
 
@@ -329,6 +330,9 @@ async function runReadlineRepl(options: ReplOptions) {
           options.workspace,
           messages,
         );
+        if (result.usage) {
+          activeSession.session = await sessionStore.saveUsage(activeSession.session.id, options.workspace, result.usage);
+        }
       } catch (err: any) {
         spinner.stop();
         console.error(chalk.red(`\n✗ Error: ${err.message}`));
@@ -367,7 +371,7 @@ async function handleCommand(
       console.log(chalk.cyan('  /sessions          ') + chalk.white('- List saved sessions'));
       console.log(chalk.cyan('  /resume <id>       ') + chalk.white('- Resume a saved session'));
       console.log(chalk.cyan('  /tasks             ') + chalk.white('- Show the current plan and task status'));
-      console.log(chalk.cyan('  /permissions [mode]') + chalk.white('- Show or set the permission mode'));
+      console.log(chalk.cyan('  /permissions [mode|allow <tool> [json]|reset]') + chalk.white('- Show/set mode or manage session grants'));
       console.log(chalk.cyan('  /model [name]      ') + chalk.white('- Switch model'));
       console.log(chalk.cyan('  /skills            ') + chalk.white('- List available skills'));
       console.log(chalk.cyan('  /tools             ') + chalk.white('- List available tools'));
@@ -426,9 +430,24 @@ async function handleCommand(
     }
     case 'permissions':
     case 'mode': {
-      const policy = new PermissionPolicy(sessions.workspace);
+      const policy = new PermissionPolicy(sessions.workspace, undefined, {
+        grants: defaultSessionPermissionGrants,
+        sessionId: sessions.activeSession.session.id,
+      });
       const modes = ['default', 'acceptEdits', 'plan', 'dontAsk', 'bypassPermissions'] as const;
-      if (!args) {
+      const allow = args.match(/^allow\s+(\S+)(?:\s+([\s\S]+))?$/);
+      if (allow) {
+        try {
+          const parsed = allow[2] ? JSON.parse(allow[2]) : {};
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Arguments must be a JSON object');
+          policy.grantSession(allow[1], parsed);
+          console.log(chalk.green(`Session grant added for ${allow[1]} with the exact arguments.`));
+        } catch (error) {
+          console.log(chalk.red(`Could not add session grant: ${(error as Error).message}`));
+        }
+      } else if (args === 'reset' || args === 'clear') {
+        console.log(chalk.green(`Cleared ${policy.clearSessionGrants()} session grant(s).`));
+      } else if (!args) {
         console.log(chalk.bold('\n▤ Permission mode: ') + chalk.cyan(policy.getMode()));
         console.log(chalk.gray(`Available: ${modes.join(', ')}`));
       } else if (!modes.includes(args as typeof modes[number])) {

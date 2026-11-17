@@ -1,0 +1,439 @@
+{
+  "version": 1,
+  "source": {
+    "name": "restored-src",
+    "root": "restored-src/src",
+    "license": "MIT (per repository records; reference is read-only)",
+    "behaviorBaseline": "Claude Code 2.1.88 restored sources"
+  },
+  "target": {
+    "name": "Ocean",
+    "root": ".",
+    "paths": [
+      "apps/cli/src",
+      "apps/gateway/src",
+      "packages/shared/core/src"
+    ]
+  },
+  "statusValues": [
+    "equivalent",
+    "partial",
+    "missing",
+    "intentional_difference",
+    "unverified"
+  ],
+  "nextCapabilityId": "CAP-GATEWAY-E2E",
+  "updatedAt": "2026-11-17T09:23:43.606665+08:00",
+  "capabilities": [
+    {
+      "id": "CAP-PERMISSION-DECISION",
+      "title": "Layered permission decision (deny/ask/allow) with rule matching",
+      "priority": "P0",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/types/permissions.ts:44",
+        "restored-src/src/utils/permissions/permissions.ts",
+        "restored-src/src/utils/permissions/permissionRuleParser.ts"
+      ],
+      "bEvidence": [
+        "packages/shared/core/src/permission-policy.ts",
+        "packages/shared/core/src/session-permission-grants.ts",
+        "packages/shared/core/src/index.ts",
+        "apps/cli/src/utils/permission-policy.ts",
+        "apps/cli/src/tools/index.ts",
+        "apps/cli/src/repl.ts",
+        "apps/gateway/src/skill/permission.service.ts",
+        "apps/gateway/src/skill/permission.controller.ts",
+        "apps/gateway/src/worker/tool-executor.ts",
+        "apps/cli/src/approval/gateway-approval.ts",
+        "apps/web/src/components/ApprovalPanel.tsx",
+        "apps/cli/src/utils/permission-policy.spec.ts",
+        "apps/gateway/src/skill/permission.service.spec.ts",
+        "apps/gateway/src/skill/permission-parity.spec.ts",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/run/approval-maintenance.service.ts",
+        "apps/gateway/src/run/approval-maintenance.service.spec.ts",
+        "migration/capabilities/acceptance-operations.md",
+        "packages/shared/core/src/shell-ast.ts",
+        "migration/capabilities/subagents-checkpoints-tokenizer.md"
+      ],
+      "contractTests": [
+        "apps/cli/src/utils/permission-policy.spec.ts",
+        "apps/gateway/src/skill/permission.service.spec.ts",
+        "apps/gateway/src/skill/permission-parity.spec.ts",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/cli/src/approval/gateway-approval.spec.ts"
+      ],
+      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Real Bash parser AST replaces whitespace/operator heuristics. Only literal single-command safe forms are auto-read-only; expansions/redirects/compound syntax and traversal fail closed. Duplicate rule IDs are unique across layers and suffix-like literal pattern collisions.",
+      "gaps": [
+        "Complex Bash ASTs/expansions remain conservatively non-read-only rather than fully semantically classified.",
+        "Lexical path classification does not replace runtime workspace/symlink validation.",
+        "Generated duplicate IDs are stable for a given policy ordering, not permanent editor UUIDs."
+      ],
+      "notes": "Permission decisions now expose stable reason/source/rule metadata, exact session grants and file-content policy versions. Approvals pin that version; a changed settings file supersedes an approved call and requests a fresh decision."
+    },
+    {
+      "id": "CAP-APPROVAL-BINDING",
+      "title": "Approval bound to tool call input, identity, policy and expiry",
+      "priority": "P0",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/hooks/useCanUseTool.tsx",
+        "restored-src/src/hooks/toolPermission/handlers/interactiveHandler.ts",
+        "restored-src/src/hooks/toolPermission/PermissionContext.ts"
+      ],
+      "bEvidence": [
+        "packages/contracts/src/run.ts",
+        "apps/gateway/prisma/schema.prisma",
+        "apps/gateway/prisma/migrations/20261116000002_approval_binding/migration.sql",
+        "apps/gateway/src/worker/tool-executor.ts",
+        "apps/gateway/src/run/run.service.ts",
+        "apps/gateway/src/run/run.controller.ts",
+        "apps/gateway/src/run/external-approval.controller.ts",
+        "apps/cli/src/approval/gateway-approval.ts",
+        "apps/web/src/components/ApprovalPanel.tsx",
+        "packages/ui/src/components/ApprovalCard.tsx",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/run/run.service.spec.ts",
+        "apps/cli/src/approval/gateway-approval.spec.ts",
+        "apps/gateway/test/app.e2e-spec.ts",
+        "apps/gateway/src/run/approval-maintenance.service.ts",
+        "apps/gateway/src/run/approval-maintenance.service.spec.ts",
+        "migration/capabilities/acceptance-operations.md"
+      ],
+      "contractTests": [
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/run/run.service.spec.ts",
+        "apps/cli/src/approval/gateway-approval.spec.ts",
+        "apps/gateway/test/app.e2e-spec.ts"
+      ],
+      "testResult": "2026-11-16: CLI approval create/lookup pin fresh local policyVersion; policy changes during polling reject execution. Gateway stores the fingerprint and only reuses exact-version external grants. Real HTTP/PostgreSQL acceptance covers version mismatch and cleanup. ApprovalMaintenanceService expires approved session grants every minute and removes expired/superseded rows after configured retention. Full isolated acceptance: Gateway 47 suites / 299 tests, E2E 23, CLI 174; zero skipped. CLI/Gateway typechecks, 21 migrations, Prisma validate, diff check passed. Final targeted checks: 24 Gateway approval tests and 17 CLI binding/journal tests passed.",
+      "gaps": [],
+      "notes": "Approvals now bind tool+args digest, policy version/rule and optional session scope. A policy change supersedes the old approval and requests a fresh one; session approvals cover only the same session/tool/args and expire with the approval TTL. CLI and Web both offer/session-consume the grant path."
+    },
+    {
+      "id": "CAP-RUN-OWNERSHIP",
+      "title": "Single execution owner per Run with lease fencing",
+      "priority": "P0",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/Task.ts",
+        "restored-src/src/tasks/stopTask.ts",
+        "restored-src/src/utils/task/TaskOutput.ts"
+      ],
+      "bEvidence": [
+        "apps/gateway/src/worker/run-ownership.ts",
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/tool-executor.ts",
+        "apps/gateway/src/worker/worker.service.ts",
+        "apps/gateway/prisma/migrations/20261116000001_run_ownership/migration.sql",
+        "apps/gateway/src/worker/run-ownership.spec.ts",
+        "apps/gateway/src/worker/run-ownership.postgres.integration.spec.ts",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "contractTests": [
+        "apps/gateway/src/worker/run-ownership.spec.ts",
+        "apps/gateway/src/worker/run-ownership.postgres.integration.spec.ts",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/worker/worker.service.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Two independent Worker processes compete for the same non-idempotent tool; after the owner is SIGKILLed following a filesystem side effect, the survivor acquires the expired lease and marks the original step unknown without replaying the effect. 2026-11-16: actual PG transaction pg_sleep fault injection reproduced stale NOW() lease acceptance; lease comparisons now use clock_timestamp(). Delayed verification after expiry rejects and transaction does not mutate Run. PG-enabled regression passed.",
+      "gaps": [],
+      "notes": "Both RunRunner and ToolExecutor now use claimRun/verifyRun fencing. Stale recovery clears executionToken/executionJobId/executionAttempt before requeueing, and a competing executor acks without executing."
+    },
+    {
+      "id": "CAP-TOOL-IDEMPOTENCY",
+      "title": "Idempotent tool execution and unknown-outcome replay refusal",
+      "priority": "P0",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/services/tools/toolExecution.ts:415",
+        "restored-src/src/services/tools/toolExecution.ts:683"
+      ],
+      "bEvidence": [
+        "apps/gateway/prisma/schema.prisma",
+        "apps/gateway/prisma/migrations/20261116000003_tool_idempotency/migration.sql",
+        "apps/gateway/src/worker/tool-executor.ts",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/worker/tool-idempotency.postgres.integration.spec.ts",
+        "apps/cli/src/utils/session-store.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "contractTests": [
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/worker/tool-idempotency.postgres.integration.spec.ts",
+        "apps/cli/src/utils/tool-journal.spec.ts",
+        "apps/cli/src/utils/session-store.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Two independent Worker processes compete for the same non-idempotent tool; after the owner is SIGKILLed following a filesystem side effect, the survivor acquires the expired lease and marks the original step unknown without replaying the effect.",
+      "gaps": [
+        "Legacy RunStep rows are not backfilled; they remain covered only by the JSON fallback scan.",
+        "No reconciliation job queries outcome-unknown steps against external providers."
+      ],
+      "notes": "RunStep now has a nullable idempotencyKey with a per-Run unique constraint. ToolExecutor writes it on creation, uses the unique column as the primary lookup, refuses concurrent-key writes for non-read-only tools, and retains the legacy JSON scan for pre-migration rows. SIGKILL acceptance now covers the effect-completed/result-not-persisted window using a real filesystem append and verifies unknown/replay refusal; no provider reconciliation is claimed."
+    },
+    {
+      "id": "CAP-SESSION-TOOL-DURABILITY",
+      "title": "Durable tool journal so a completed side effect is never replayed",
+      "priority": "P1",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/utils/sessionStorage.ts:204",
+        "restored-src/src/utils/sessionStorage.ts:257"
+      ],
+      "bEvidence": [
+        "apps/cli/src/utils/session-store.ts",
+        "apps/cli/src/utils/file-system.ts",
+        "apps/cli/src/utils/tool-journal.spec.ts",
+        "apps/cli/src/utils/session-store.spec.ts",
+        "apps/cli/src/subagents/delegate.ts"
+      ],
+      "contractTests": [
+        "apps/cli/src/utils/tool-journal.spec.ts",
+        "apps/cli/src/utils/session-store.spec.ts"
+      ],
+      "testResult": "2026-11-16: CLI 28 files / 174 tests passed. New actual SIGKILL after fsynced effect refuses replay after restart. Journal retention is configurable with validated OCEAN_TOOL_JOURNAL_RETENTION_MS. Query-only reconciliation validates exact provider-result identity, preserves unknown responses and stores proven terminal results without executing a tool. Final targeted CLI binding/journal regression 17 tests passed.",
+      "gaps": [
+        "No builtin external-provider reconciliation adapter is supplied; callers must implement a trusted query-only adapter.",
+        "Prepared/executing crash journals still require active-owner reconciliation; automatic reconciliation is limited to unknown records.",
+        "No actual power-loss/VM crash test: only real SIGKILL with fsync completed before the effect boundary."
+      ]
+    },
+    {
+      "id": "CAP-SUBAGENT-PERSISTENCE",
+      "title": "Persisted parent/child subagent identity and terminal result reuse",
+      "priority": "P1",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/tools/AgentTool/resumeAgent.ts:63",
+        "restored-src/src/tools/AgentTool/resumeAgent.ts:84"
+      ],
+      "bEvidence": [
+        "apps/cli/src/subagents/delegate.ts",
+        "apps/cli/src/utils/session-store.ts",
+        "apps/cli/src/subagents/delegate.spec.ts",
+        "apps/cli/src/utils/session-store.spec.ts",
+        "apps/gateway/src/run/subagent-runs.service.ts",
+        "apps/gateway/src/run/subagent-runs.controller.ts",
+        "apps/gateway/src/worker/worker.service.ts",
+        "apps/gateway/prisma/migrations/20261117000001_subagent_runs/migration.sql",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts",
+        "migration/capabilities/subagents-checkpoints-tokenizer.md"
+      ],
+      "contractTests": [
+        "apps/cli/src/subagents/delegate.spec.ts",
+        "apps/cli/src/utils/session-store.spec.ts",
+        "apps/gateway/src/run/subagent-runs.service.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Separate real Worker SIGKILL/resume now runs a persisted child Run, reuses the original child model step, completes the parent subagent step and requeues/completes the parent. Duplicate child creation returns the same Run; changed input and premature parent resume reject.",
+      "gaps": [
+        "CLI delegate_task remains locally persisted; automatic CLI-to-Gateway delegation routing is not wired.",
+        "Gateway agent names label work but do not yet select per-agent tool/policy templates.",
+        "Failure/cancellation reconciliation branches are implemented but have not received separate real-process fault injection."
+      ]
+    },
+    {
+      "id": "CAP-CHECKPOINT-CROSSPROCESS",
+      "title": "Cross-process checkpoint serialization and conflict refusal",
+      "priority": "P1",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/utils/fileHistory.ts:81",
+        "restored-src/src/utils/fileHistory.ts:120"
+      ],
+      "bEvidence": [
+        "apps/cli/src/utils/checkpoints.ts",
+        "apps/cli/src/utils/file-system.ts",
+        "apps/cli/src/utils/checkpoints.spec.ts",
+        "apps/cli/src/utils/file-system.spec.ts",
+        "packages/shared/core/src/filesystem/checkpoints.ts",
+        "packages/shared/core/src/filesystem/file-system.ts",
+        "apps/gateway/src/tool/checkpoint.service.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts",
+        "migration/capabilities/subagents-checkpoints-tokenizer.md"
+      ],
+      "contractTests": [
+        "apps/cli/src/utils/checkpoints.spec.ts",
+        "apps/cli/src/utils/file-system.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Gateway checkpoint.write/rollback tools require normal approval and administrator-mapped Space roots; real Worker E2E verifies no write before approval, persisted checkpoint ID, conflict refusal after an external edit and successful rollback after expected content is restored. CLI and Gateway now share the Node-only core checkpoint implementation.",
+      "gaps": [
+        "Existing-file replacement still has a final comparison-to-rename race against non-cooperating writers; atomic no-clobber creation is protected.",
+        "Stale lock reclamation still uses PID/age heuristics and does not completely exclude PID reuse."
+      ]
+    },
+    {
+      "id": "CAP-COMPACTION-MIDTURN",
+      "title": "Automatic context compaction before every model request in a turn",
+      "priority": "P1",
+      "status": "equivalent",
+      "aEvidence": [
+        "restored-src/src/query.ts:453",
+        "restored-src/src/services/compact/autoCompact.ts:160",
+        "restored-src/src/services/compact/autoCompact.ts:241"
+      ],
+      "bEvidence": [
+        "apps/cli/src/llm/chat.ts",
+        "apps/cli/src/llm/compaction.ts",
+        "apps/cli/src/llm/compaction.spec.ts",
+        "apps/cli/src/llm/chat.loop.spec.ts",
+        "apps/cli/src/llm/runtime.e2e.spec.ts"
+      ],
+      "contractTests": [
+        "apps/cli/src/llm/compaction.spec.ts",
+        "apps/cli/src/llm/chat.loop.spec.ts",
+        "apps/cli/src/llm/runtime.e2e.spec.ts"
+      ],
+      "testResult": "2026-11-16: apps/cli vitest 28 files / 160 tests passed; tsc --noEmit passed. Mid-turn trigger, balanced tool-step boundary, durable snapshot, usage accounting and failure/cancellation paths are covered.",
+      "gaps": [],
+      "scope": "Before each model step after the first, Ocean re-checks the context budget and compacts at a closed tool-call/tool-result boundary. The durable snapshot is computed over the reconstructed full transcript, so the next turn reuses it. Token estimation precision is tracked separately under CAP-CONTEXT-TOKEN-ACCOUNTING; no compaction boundary UI event is emitted."
+    },
+    {
+      "id": "CAP-CONTEXT-TOKEN-ACCOUNTING",
+      "title": "Token budget based on provider usage plus estimation",
+      "priority": "P1",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/utils/tokens.ts",
+        "restored-src/src/services/compact/autoCompact.ts:30"
+      ],
+      "bEvidence": [
+        "apps/cli/src/llm/compaction.ts",
+        "apps/cli/src/llm/chat.ts",
+        "apps/cli/src/utils/session-store.ts",
+        "apps/cli/src/llm/compaction.spec.ts",
+        "apps/cli/src/llm/chat.loop.spec.ts",
+        "apps/cli/src/utils/session-store.spec.ts",
+        "packages/shared/core/src/tokenizer.ts",
+        "apps/gateway/src/ai/ai-sdk-model-gateway.ts",
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/test/live-provider.live-spec.ts",
+        "migration/capabilities/subagents-checkpoints-tokenizer.md"
+      ],
+      "contractTests": [
+        "apps/cli/src/llm/compaction.spec.ts",
+        "apps/cli/src/llm/chat.loop.spec.ts",
+        "apps/cli/src/utils/session-store.spec.ts",
+        "apps/gateway/src/ai/ai-sdk-model-gateway.spec.ts",
+        "apps/gateway/test/live-provider.live-spec.ts"
+      ],
+      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. WASM BPE tokenizer supports o200k_base/cl100k_base and replaces bytes/3. ModelGateway preserves provider input/output/total/cache-read/cache-write counters and RunRunner persists model-step usage. Real configured DeepSeek/deepseek-flash provider acceptance passed with positive input/output/total assertions; cache-field mapping is separately contract-tested.",
+      "gaps": [
+        "Selected BPE encoding counts serialized input exactly but may differ from proprietary provider tokenizers and hidden chat templates.",
+        "Real provider acceptance verifies input/output/total; cache hit/write behavior has not been induced in a live request."
+      ],
+      "notes": "Provider usage is now preferred when it maps to the transcript; session snapshots persist it across turns and REPL/UI pass it back into compaction."
+    },
+    {
+      "id": "CAP-MCP-TENANT-ISOLATION",
+      "title": "MCP connections and credentials isolated per logical user/workspace",
+      "priority": "P1",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/services/mcp/client.ts",
+        "restored-src/src/services/mcp/config.ts",
+        "restored-src/src/services/mcp/normalization.ts"
+      ],
+      "bEvidence": [
+        "apps/gateway/src/mcp/mcp-client.pool.ts",
+        "apps/gateway/src/mcp/mcp-client.manager.ts",
+        "apps/gateway/src/mcp/mcp-config.loader.ts",
+        "apps/gateway/src/mcp/mcp.module.ts",
+        "apps/gateway/src/runtime/tool.runtime.ts",
+        "apps/gateway/src/mcp/mcp-client.pool.spec.ts",
+        "apps/gateway/src/mcp/mcp-config.loader.spec.ts",
+        "apps/gateway/src/mcp/mcp-client.manager.spec.ts",
+        "apps/gateway/src/mcp/mcp-credentials.service.ts",
+        "apps/gateway/src/mcp/mcp-credentials.controller.ts",
+        "apps/gateway/src/mcp/mcp-credentials.service.spec.ts",
+        "apps/gateway/src/mcp/mcp-oauth.service.ts",
+        "apps/gateway/src/mcp/mcp-oauth.controller.ts",
+        "apps/gateway/src/mcp/mcp-oauth.service.spec.ts",
+        "apps/gateway/src/mcp/mcp-transport.factory.ts",
+        "migration/capabilities/mcp-oauth.md"
+      ],
+      "contractTests": [
+        "apps/gateway/src/mcp/mcp-client.pool.spec.ts",
+        "apps/gateway/src/mcp/mcp-config.loader.spec.ts",
+        "apps/gateway/src/mcp/mcp-client.manager.spec.ts",
+        "apps/gateway/src/runtime/tool.runtime.spec.ts",
+        "apps/gateway/src/mcp/mcp-credentials.service.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts",
+        "apps/gateway/src/mcp/mcp-oauth.service.spec.ts"
+      ],
+      "testResult": "2026-11-16: pre-registered MCP OAuth implemented: authenticated authorization and disconnect; public callback bound to encrypted one-time state, PKCE S256, ten-minute TTL, provider configuration and persistent revocation epoch. AES-256-GCM per-principal/server records with AAD, private permissions, atomic writes/fsync. Cross-instance rotating refresh serialized with exclusive directory locks. HTTP/SSE transports resolve principal tokens on each request and reject cross-origin/resource mismatch/redirects without replaying tool requests. Real local OAuth/token server covers PKCE, callback replay, expired/config-changed state, tenant isolation, wrong key, restart, refresh deduplication/rotation and disconnect invalidating pending callbacks. Authenticated HTTP E2E covers public callback and identity spoof rejection. Full isolated acceptance passed: all 21 migrations; Gateway 46 suites / 297 tests, E2E 21, CLI 170; zero skipped; CLI/Gateway tsc, Prisma validate and diff check passed.",
+      "gaps": [
+        "OAuth providers require administrator-preconfigured endpoints and registered client IDs; RFC metadata discovery/dynamic client registration are not implemented.",
+        "Provider-side token revocation is not implemented; disconnect deletes local tokens and revokes pending local callbacks.",
+        "A process killed during a refresh leaves a fail-closed lock requiring operator verification/removal; refresh outcome reconciliation is not implemented.",
+        "No external live-provider OAuth acceptance; real network contracts use an isolated local OAuth endpoint."
+      ],
+      "notes": "Each logical user/workspace owns a separate MCPClientManager, per-user config home, env overlay, tool cache and lifecycle. Config priority is built-in < user < project < workspace-local; tool names align with the permission namespace. Environment refresh is lazy at the next tool-discovery request; no idle filesystem watcher is claimed. OAuth API and encryption-key/provider configuration are documented in migration/capabilities/mcp-oauth.md. New provisioning and OAuth flows do not return token/secret values through public APIs."
+    },
+    {
+      "id": "CAP-GATEWAY-HOOKS",
+      "title": "Lifecycle hooks in the Gateway Run/Worker path",
+      "priority": "P1",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/utils/hooks/execHttpHook.ts:45",
+        "restored-src/src/query.ts"
+      ],
+      "bEvidence": [
+        "apps/gateway/src/worker/gateway-hooks.ts",
+        "apps/gateway/src/worker/tool-executor.ts",
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/worker.module.ts",
+        "apps/gateway/src/worker/gateway-hooks.spec.ts",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts",
+        "apps/gateway/src/ai/model-gateway.ts",
+        "apps/gateway/src/ai/ai-sdk-model-gateway.ts"
+      ],
+      "contractTests": [
+        "apps/gateway/src/worker/gateway-hooks.spec.ts",
+        "apps/gateway/src/worker/tool-executor.spec.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "testResult": "2026-11-16: isolated pgvector PG16 acceptance: 21 migrations deployed; Gateway 44 suites / 292 tests; E2E 2 suites / 19 tests; CLI 28 files / 170 tests, zero skipped. CLI/Gateway tsc, Prisma validate and diff check passed. HTTP hooks POST actual lifecycle JSON to a real local server; redirects and non-success statuses fail closed. Prompt hooks use Worker ModelGateway without tools, require strict ok/reason verdicts, enforce deadlines and propagate abortSignal to AI SDK. Real PostgreSQL/Worker test proves PostToolUse feedback persists alongside the known succeeded tool result and reaches the next model turn without replay. HTTP policy follow-up: anchored literal/wildcard allowedHttpHookUrls enforced before any request (empty list denies all); httpHookAllowedEnvVars controls $VAR/${VAR} header interpolation; unknown variables are blanked and CR/LF/NUL stripped. Real HTTP red/green contract passed. Full acceptance rerun: Gateway 44 suites / 293 tests, E2E 19, CLI 170, zero skipped; 21 migrations, typechecks, Prisma validate, diff check passed. Live-model prerequisite acceptance was executed against configured default and DeepSeek providers on 2026-11-16; both selected the same DeepSeek provider and returned Insufficient Balance. Prompt-hook live acceptance remains blocked, not passed.",
+      "gaps": [
+        "Prompt verdict and cancellation are contract-tested with an injected model; direct ModelGateway live-provider acceptance now passes, but prompt-hook verdict acceptance is not yet exercised against it.",
+        "Standalone tool jobs without a model continuation still fail closed on PostToolUse block."
+      ],
+      "notes": "Administrator-owned private Hook configuration is hot-reloaded per invocation. Command, HTTP and prompt hooks share fail-closed structured decisions. Stop and model-driven PostToolUse feedback are durable and reconstructed into subsequent model context. Repository configuration never enables hooks automatically."
+    },
+    {
+      "id": "CAP-GATEWAY-E2E",
+      "title": "Real HTTP auth -> approval -> worker -> tool -> recovery path",
+      "priority": "P1",
+      "status": "partial",
+      "aEvidence": [
+        "restored-src/src/query.ts:307",
+        "restored-src/src/query.ts:554"
+      ],
+      "bEvidence": [
+        "apps/gateway/test/app.e2e-spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts",
+        "apps/gateway/scripts/verify-postgres.sh",
+        "apps/gateway/test/fixtures/crash-worker.cjs",
+        "apps/gateway/test/live-provider.live-spec.ts",
+        "migration/capabilities/acceptance-operations.md"
+      ],
+      "contractTests": [
+        "apps/gateway/test/app.e2e-spec.ts",
+        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+      ],
+      "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Real Worker tests cover actual settings-file change with unchanged declared version, immediate cache invalidation, superseded single-call approval and refusal to reuse an obsolete-policy session grant. 2026-11-16 follow-up: 19 E2E tests passed; real PostToolUse feedback reaches the continuation model while retaining the tool result and exactly one tool step. 2026-11-16: real UserService and ApiKeyService now query PostgreSQL in the HTTP/Worker suite. Valid persisted API keys authenticate, update lastUsedAt and bind Run user identity; revoked/expired keys reject. E2E 23 passed. Live provider acceptance executed twice (default and deepseek override), both selected DeepSeek (the default is deepseek) and failed with Insufficient Balance; no live pass is claimed. 2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Real configured provider acceptance passed on 2026-11-17 with actual input/output/total usage; earlier balance failures remain historical failures.",
+      "gaps": [
+        "Isolated HTTP/Worker scenarios still use production SimModelGateway; real-provider acceptance currently exercises ModelGateway separately."
+      ]
+    }
+  ]
+}

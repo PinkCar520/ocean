@@ -110,6 +110,8 @@ export interface MCPApprovalConfig {
 
 /** MCP Server 配置 */
 export interface MCPServerConfig {
+  /** Runtime-only principal-bound OAuth fetch; never accepted from JSON. */
+  oauthFetch?: typeof fetch;
   /** 唯一标识符 */
   id: string;
   /** 展示名称 */

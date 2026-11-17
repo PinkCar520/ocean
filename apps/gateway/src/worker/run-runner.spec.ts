@@ -15,7 +15,7 @@ const job: LeasedRunJob = {
 };
 
 function createTxMock(
-  run: { id: string; userId: string; status: string; input?: string } | null,
+  run: { id: string; userId: string; status: string; input?: string; spaceId?: string } | null,
   startedStep: { id: string; seq: number; status: string } | null = null,
 ) {
   const tx = {
@@ -43,7 +43,7 @@ function createTxMock(
 }
 
 function createRunner(
-  run: { id: string; userId: string; status: string; input?: string } | null,
+  run: { id: string; userId: string; status: string; input?: string; spaceId?: string } | null,
   opts: {
     startedStep?: { id: string; seq: number; status: string } | null;
     generateResult?: { text: string; toolCalls: ModelToolCall[] };
@@ -54,6 +54,7 @@ function createRunner(
       input?: unknown;
       output?: unknown;
     }>;
+    hooks?: { run: jest.Mock };
   } = {},
 ) {
   const {
@@ -94,6 +95,7 @@ function createRunner(
     outbox as never,
     registry as never,
     { inc: jest.fn() } as never,
+    (opts.hooks ?? { run: jest.fn().mockResolvedValue({ blocked: false, reason: '' }) }) as never,
   );
   return { runner, prisma, tx, gateway, outbox };
 }
@@ -130,6 +132,23 @@ describe('RunRunner', () => {
     }
   });
 
+  it('fails the Run before the model call when UserPromptSubmit is blocked', async () => {
+    const hooks = { run: jest.fn().mockResolvedValue({ blocked: true, reason: 'prompt denied' }) };
+    const { runner, gateway, tx } = createRunner(
+      { id: 'run_1', userId: 'user_1', status: 'queued', input: 'hello', spaceId: 'work' },
+      { hooks },
+    );
+    expect(await runner.execute(job)).toMatchObject({
+      status: 'failed', retryable: false, error: expect.stringContaining('prompt denied'),
+    });
+    expect(gateway.generate).not.toHaveBeenCalled();
+    expect(tx.agentRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'failed' } }));
+    expect(eventTypes(tx)).toContain('run.failed');
+    expect(hooks.run).toHaveBeenCalledWith('UserPromptSubmit', expect.objectContaining({
+      prompt: 'hello', run_id: 'run_1', user_id: 'user_1', space_id: 'work',
+    }), { spaceId: 'work' });
+  });
+
   it('does not restart a cancelled Run or call the model', async () => {
     const { runner, gateway, tx } = createRunner({ id: 'run_1', userId: 'user_1', status: 'cancelled', input: 'stop' });
     expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
@@ -159,6 +178,16 @@ describe('RunRunner', () => {
     });
     expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
     expect(tx.agentRun.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'queued' } }));
+  });
+
+  it('persists Stop hook feedback and requeues the Run instead of marking it succeeded', async () => {
+    const hooks = { run: jest.fn(async (event) => ({ blocked: event === 'Stop', reason: 'verify the result' })) };
+    const { runner, tx, outbox } = createRunner({ id: 'run_1', userId: 'user_1', status: 'queued', input: 'hello', spaceId: 'work' }, { hooks });
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(hooks.run).toHaveBeenCalledWith('Stop', expect.objectContaining({ run_id: 'run_1' }), { spaceId: 'work' });
+    expect(tx.runStep.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ output: expect.objectContaining({ hookFeedback: 'verify the result' }) }) }));
+    expect(outbox.enqueueRunRequested).toHaveBeenCalled();
+    expect(tx.agentRun.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'succeeded' } }));
   });
 
   it('executes a queued run: model_call step + output_delta + succeeded events', async () => {

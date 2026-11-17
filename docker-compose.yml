@@ -12,6 +12,7 @@
 services:
   # Ocean AI 网关总线 (NestJS + Prisma)
   gateway:
+    image: ocean-gateway:local
     build:
       context: .
       dockerfile: apps/gateway/Dockerfile
@@ -45,6 +46,7 @@ services:
 
   # Ocean Run Engine Worker（独立进程消费 outbox，ADR-002/003；Web 切 Run API 的执行前提）
   worker:
+    image: ocean-gateway:local
     build:
       context: .
       dockerfile: apps/gateway/Dockerfile

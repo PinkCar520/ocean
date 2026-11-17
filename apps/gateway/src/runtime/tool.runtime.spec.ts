@@ -30,7 +30,7 @@ describe('ToolRuntime (Agent Runtime 拆分)', () => {
       interactiveManager: {
         getClarifyTool: jest.fn(() => ({ agp_intent_clarify: 'clarify' })),
       },
-      mcpManager: {
+      mcpPool: {
         getAITools: jest.fn().mockResolvedValue({ mcp_alpha: 'mcp-alpha' }),
       },
       policyEvaluator: {
@@ -47,7 +47,7 @@ describe('ToolRuntime (Agent Runtime 拆分)', () => {
         deps.tracingService as never,
         deps.skillLoader as never,
         deps.interactiveManager as never,
-        deps.mcpManager as never,
+        deps.mcpPool as never,
         deps.policyEvaluator as never,
       ),
       deps,
@@ -67,6 +67,21 @@ describe('ToolRuntime (Agent Runtime 拆分)', () => {
     expect(tools.agp_intent_clarify).toBe('clarify');
     expect(tools.mcp_alpha).toBe('mcp-alpha');
     expect(deps.policyEvaluator.wrap).not.toHaveBeenCalled();
+  });
+
+  it('routes MCP tool discovery through the logical user/workspace scope', async () => {
+    const { runtime, deps } = create();
+    await runtime.buildTools({
+      userId: 'employee-1',
+      dbId: 'db-user-1',
+      workspacePath: '/workspace/alpha',
+      source: 'web',
+      userMessage: 'hi',
+    });
+    expect(deps.mcpPool.getAITools).toHaveBeenCalledWith({
+      userId: 'db-user-1',
+      workspacePath: '/workspace/alpha',
+    });
   });
 
   it('PowerShell requires a session and routes structured command arguments to the local CLI', async () => {

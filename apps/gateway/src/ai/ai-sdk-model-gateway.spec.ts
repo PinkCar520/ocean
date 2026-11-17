@@ -19,3 +19,13 @@ it('feeds device image reads back as multimodal tool content', () => {
     { type: 'text', text: 'Image: image.png' }, { type: 'file', mediaType: 'image/png', data: { type: 'data', data: 'aGVsbG8=' } },
   ] } });
 });
+
+it('preserves provider input/output and cache usage without inventing missing counters', async () => {
+ const { streamText } = require('ai');
+ const { AiSdkModelGateway } = await import('./ai-sdk-model-gateway.js');
+ const { ConfigService } = require('@nestjs/config');
+ streamText.mockReturnValue({ textStream: (async function* () { yield 'ok'; })(), toolCalls: Promise.resolve([]),
+  totalUsage: Promise.resolve({ inputTokens: 20, outputTokens: 3, totalTokens: 23, inputTokenDetails: { cacheReadTokens: 12, cacheWriteTokens: 4 } }) });
+ const result = await new AiSdkModelGateway(new ConfigService()).generate({ messages: [{ role: 'user', text: 'hello' }] });
+ expect(result.usage).toEqual({ inputTokens: 20, outputTokens: 3, totalTokens: 23, cacheReadTokens: 12, cacheWriteTokens: 4 });
+});

@@ -1,5 +1,6 @@
-import { evaluatePermission } from '@ocean/core';
-import { Injectable, Logger } from '@nestjs/common';
+import { uniquePermissionRuleIds, evaluatePermissionDecision, permissionPolicyVersion, type PermissionDecision } from '@ocean/core';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -35,10 +36,12 @@ const DEFAULT_SETTINGS: PermissionSettings = {
 export class PermissionService {
   private readonly logger = new Logger(PermissionService.name);
 
+  constructor(@Optional() @Inject('PERMISSION_USER_HOME') private readonly policyHome?: string) {}
+
   /** Cache is isolated per workspace so one project's policy cannot leak into another. */
   private readonly cache = new Map<
     string,
-    { settings: PermissionSettings; rules: NormalizedRule[]; loadedAt: number }
+    { settings: PermissionSettings; rules: NormalizedRule[]; loadedAt: number; policyVersion: string }
   >();
   private readonly CACHE_TTL_MS = 5_000; // 5 second cache
 
@@ -52,14 +55,15 @@ export class PermissionService {
       ? path.resolve(workspacePath)
       : '__default__';
     const cached = this.cache.get(cacheKey);
-    if (cached && now - cached.loadedAt < this.CACHE_TTL_MS) {
+    if (cached && now - cached.loadedAt < this.CACHE_TTL_MS
+      && cached.policyVersion === this.computePolicyVersion(workspacePath, cached.settings)) {
       return cached.settings;
     }
 
     const layers: PermissionSettings[] = [];
 
     // User-level settings are the lowest-priority layer.
-    const userHome = process.env.HOME || process.env.USERPROFILE || '';
+    const userHome = this.policyHome ?? process.env.HOME ?? process.env.USERPROFILE ?? '';
     if (userHome) {
       for (const filePath of [
         path.join(userHome, '.claude', 'settings.json'),
@@ -109,8 +113,8 @@ export class PermissionService {
 
     // Keep source priority: workspace-local, project, then user. A matching deny
     // is checked across the entire set before any allow/ask rule is considered.
-    const rules = layers.slice().reverse().flatMap((layer) => normalizeRules(layer));
-    this.cache.set(cacheKey, { settings: merged, rules, loadedAt: now });
+    const rules = uniquePermissionRuleIds(layers.slice().reverse().flatMap((layer) => normalizeRules(layer)));
+    this.cache.set(cacheKey, { settings: merged, rules, loadedAt: now, policyVersion: this.computePolicyVersion(workspacePath, merged) });
 
     this.logger.log(
       `Permission settings loaded. Mode: ${merged.mode}, Rules: ${rules.length}`,
@@ -128,8 +132,56 @@ export class PermissionService {
     args?: any,
     mcpServer?: string,
   ): PermissionAction {
+    return this.evaluateToolDecision(toolName, workspacePath, args, mcpServer).action;
+  }
+
+  /** Full decision used by Worker audit/denial messages. */
+  evaluateToolDecision(
+    toolName: string,
+    workspacePath?: string,
+    args?: any,
+    mcpServer?: string,
+  ): PermissionDecision {
     const settings = this.loadSettings(workspacePath);
-    return evaluatePermission(toolName, settings, this.rulesFor(workspacePath), args, mcpServer);
+    const cacheKey = workspacePath ? path.resolve(workspacePath) : '__default__';
+    return evaluatePermissionDecision(toolName, settings, this.rulesFor(workspacePath), args, mcpServer, {
+      policyVersion: this.cache.get(cacheKey)?.policyVersion,
+    });
+  }
+
+  getPolicyVersion(workspacePath?: string): string {
+    this.loadSettings(workspacePath);
+    const cacheKey = workspacePath ? path.resolve(workspacePath) : '__default__';
+    return this.cache.get(cacheKey)?.policyVersion ?? permissionPolicyVersion(this.loadSettings(workspacePath), this.rulesFor(workspacePath));
+  }
+
+  /** Fingerprint the exact policy files so approvals pin what the user saw. */
+  private computePolicyVersion(workspacePath: string | undefined, settings: PermissionSettings): string {
+    const userHome = this.policyHome ?? process.env.HOME ?? process.env.USERPROFILE ?? '';
+    const files = [
+      ...(userHome ? [path.join(userHome, '.claude', 'settings.json'), path.join(userHome, '.ocean', 'settings.json')] : []),
+      ...(workspacePath ? [
+        path.join(workspacePath, '.claude', 'settings.json'),
+        path.join(workspacePath, '.ocean', 'settings.json'),
+        path.join(workspacePath, '.claude', 'settings.local.json'),
+        path.join(workspacePath, '.ocean', 'settings.local.json'),
+      ] : []),
+    ].sort();
+    const hash = createHash('sha256');
+    for (const file of files) {
+      try {
+        const info = fs.lstatSync(file);
+        if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024) {
+          hash.update(`unsafe\0${file}\0`);
+          continue;
+        }
+        hash.update(`${file}\0`);
+        hash.update(fs.readFileSync(file));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') hash.update(`error\0${file}\0`);
+      }
+    }
+    return `sha256-${hash.digest('hex')}`;
   }
 
   /**

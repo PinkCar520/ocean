@@ -1,6 +1,6 @@
 import { useChat } from '@ai-sdk/react';
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
-import { authFetch } from './api-client';
+import { createChatTransport } from './chat-transport';
 interface UseChatSessionProps {
   sessionId: string | null;
   initialMessages: any[];
@@ -42,6 +42,7 @@ export function useChatSession({
     titleGeneratedRef.current = false;
     initializedRef.current = false;
     setFullTree([]);
+    setData([]);
     setCurrentLeafId(null);
   }, [sessionId]);
 
@@ -73,14 +74,8 @@ export function useChatSession({
     return path;
   }, [fullTree, currentLeafId]);
 
-  const emptyMessages = useMemo(() => [], []);
-  const chatBody = useMemo(() => ({
-    modelId: selectedModelId,
-    search: isSearchMode,
-    knowledge: isKnowledgeMode,
-    sessionId: sessionId,
-    spaceId,
-  }), [selectedModelId, isSearchMode, isKnowledgeMode, sessionId, spaceId]);
+  const [data, setData] = useState<unknown[]>([]);
+  const transport = useMemo(() => createChatTransport(value => setData(previous => [...previous, value])), []);
 
   const onFinishRef = useRef<any>(null);
   onFinishRef.current = async ({ message }: any) => {
@@ -96,12 +91,9 @@ export function useChatSession({
     return onFinishRef.current?.(...args);
   }, []);
 
-  const { messages, sendMessage, status, setMessages, stop, error, data } = (useChat as any)({
+  const { messages, sendMessage, status, setMessages, stop, error } = (useChat as any)({
     id: sessionId ?? 'new',
-    initialMessages: emptyMessages,
-    api: '/api/chat',
-    fetch: (url: RequestInfo | URL, options?: RequestInit) => authFetch(url, options),
-    body: chatBody,
+    transport,
     onFinish: handleFinish
   });
 
@@ -117,12 +109,15 @@ export function useChatSession({
     let base: any[] = [];
     // 1. 流式过程中，直接合并展示，此时 messages ID 是 chat-xxx 临时 ID，与历史不冲突
     if (status === 'streaming' || status === 'submitting') {
-      base = [...activeMessages, ...messages];
+      base = [...activeMessages, ...messages.map((m: any) => ({ ...m, content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '' }))];
     } else if (messages.length > 0) {
       // 2. 传输结束但 messages 还没来得及清空（等待 refresh 完成的瞬间）
-      const filtered = messages.filter((m: any) => {
+      const filtered = messages.map((m: any) => ({ ...m, content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '' })).filter((m: any) => {
         return !activeMessages.some(am => 
-          am.role === m.role && am.content === m.content && m.content.length > 0
+          am.id === m.id || (
+            am.role === m.role && typeof m.content === 'string' &&
+            m.content.length > 0 && am.content === m.content
+          )
         );
       });
       base = [...activeMessages, ...filtered];
@@ -211,14 +206,16 @@ export function useChatSession({
   const safeSendMessage = useCallback(async (message: any, options: any = {}) => {
     // 发送消息时，明确告知后端当前所在的父节点 ID
     // 如果是编辑，options.body 中通常会有专门的处理；如果是新消息，取当前叶子 ID
-    const parentId = options.body?.parentId || currentLeafId;
+    const parentId = options.body && Object.hasOwn(options.body, 'parentId')
+      ? options.body.parentId
+      : currentLeafId;
 
     const headers = new Headers(options.headers);
     if (token && token !== 'cookie') {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    return sendMessage(message, {
+    return sendMessage({ ...message, parts: message.parts ?? [{ type: 'text', text: message.content ?? '' }] }, {
       ...options,
       headers: Object.fromEntries(headers.entries()),
       body: {
@@ -227,10 +224,11 @@ export function useChatSession({
         search: isSearchMode,
         knowledge: isKnowledgeMode,
         sessionId: sessionId,
+        spaceId,
         parentId,
       }
     });
-  }, [sendMessage, token, selectedModelId, isSearchMode, isKnowledgeMode, sessionId, currentLeafId]);
+  }, [sendMessage, token, selectedModelId, isSearchMode, isKnowledgeMode, sessionId, spaceId, currentLeafId]);
 
   // 切换分支
   const switchBranch = useCallback((nodeId: string) => {

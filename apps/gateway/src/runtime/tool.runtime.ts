@@ -3,7 +3,7 @@ import { tool } from 'ai';
 import type { SkillContext } from '@ocean/core';
 import { z } from 'zod';
 import { RpcGateway } from '../chat/rpc.gateway';
-import { MCPClientManager } from '../mcp/mcp-client.manager';
+import { MCPClientPool } from '../mcp/mcp-client.pool';
 import { RAGService } from '../rag/rag.service';
 import { SkillLoader } from '../skill/skill.loader';
 import { InteractiveManager } from '../skill/interactive.manager';
@@ -27,7 +27,7 @@ export class ToolRuntime {
     private readonly tracingService: TracingService,
     private readonly skillLoader: SkillLoader,
     private readonly interactiveManager: InteractiveManager,
-    private readonly mcpManager: MCPClientManager,
+    private readonly mcpClientPool: MCPClientPool,
     private readonly policyEvaluator: PolicyEvaluator,
   ) {}
 
@@ -384,7 +384,10 @@ export class ToolRuntime {
       ...this.interactiveManager.getClarifyTool(),
     };
 
-    const mcpTools = await this.mcpManager.getAITools();
+    const mcpTools = await this.mcpClientPool.getAITools({
+      userId: ctx.dbId ?? ctx.userId,
+      workspacePath: ctx.workspacePath,
+    });
     if (sessionId) {
       // 高危判定统一走 PolicyEvaluator：MCP 工具全部拦截（保守），本地高危工具按策略
       for (const [name, toolDef] of Object.entries(mcpTools)) {

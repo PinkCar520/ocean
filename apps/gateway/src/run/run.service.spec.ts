@@ -13,6 +13,10 @@ describe('RunService', () => {
     runId: string;
     status: string;
     stepInput?: any;
+    sessionId?: string;
+    scope?: string;
+    policyVersion?: string;
+    argsHash?: string;
   }) {
     const id = `appr_${nextRun}`;
     if (opts.status === 'pending' && runs.has(opts.runId)) runs.get(opts.runId).status = 'waiting_for_approval';
@@ -34,6 +38,12 @@ describe('RunService', () => {
       toolName: 'notify.send',
       args: { to: 'alice' },
       status: opts.status,
+      scope: opts.scope ?? 'once',
+      policyVersion: opts.policyVersion ?? null,
+      policyRuleId: null,
+      argsHash: opts.argsHash ?? null,
+      sessionId: opts.sessionId ?? null,
+      expiresAt: new Date(Date.now() + 60000),
       decidedBy: null,
       decidedAt: null,
     });
@@ -105,6 +115,7 @@ describe('RunService', () => {
     }),
   };
   const prisma = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     agentRun,
     runEvent,
     outboxEvent: {
@@ -114,6 +125,25 @@ describe('RunService', () => {
     runApproval: {
       findUnique: jest.fn(async ({ where }: any) => {
         return approvals.get(where.id) ?? null;
+      }),
+      findFirst: jest.fn(async ({ where }: any) => {
+        for (const row of approvals.values()) {
+          if (where.userId && row.userId !== where.userId) continue;
+          if (where.sessionId && row.sessionId !== where.sessionId) continue;
+          if (where.toolName && row.toolName !== where.toolName) continue;
+          if (where.argsHash && row.argsHash !== where.argsHash) continue;
+          if (where.scope && row.scope !== where.scope) continue;
+          if (where.policyVersion && row.policyVersion !== where.policyVersion) continue;
+          if (where.status && row.status !== where.status) continue;
+          if (where.expiresAt?.gt && !(row.expiresAt > where.expiresAt.gt)) continue;
+          return row;
+        }
+        return null;
+      }),
+      create: jest.fn(async ({ data }: any) => {
+        const row = { id: `appr_${nextRun++}`, ...data };
+        approvals.set(row.id, row);
+        return row;
       }),
       update: jest.fn(async ({ where, data }: any) => {
         const row = { ...approvals.get(where.id), ...data };
@@ -202,6 +232,30 @@ describe('RunService', () => {
     expect(result.status).toBe('approved');
     expect(runs.get(runId).status).toBe('queued');
     expect(outbox.enqueueToolRequested).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ runId, userId: 'user_1', toolCall }), expect.any(Number));
+  });
+
+  it('stores session scope only for session-scoped approvals', async () => {
+    const snapshot = await service.create('user_1', { space: { id: 'work', type: 'work' }, input: 'edit notebook' });
+    const runId = snapshot.run.id;
+    runs.get(runId).status = 'waiting_for_approval';
+    const noSession = seedApproval({ runId, status: 'pending', stepInput: { id: 'tc_1', name: 'local_notebook_edit', input: { path: 'n.ipynb' } } });
+    await expect(service.decideApproval(runId, noSession, 'user_1', 'approved', 'session')).rejects.toThrow('session-scoped');
+    const withSession = seedApproval({ runId, status: 'pending', sessionId: 'session_1', stepInput: { id: 'tc_2', name: 'local_notebook_edit', input: { path: 'n.ipynb' } } });
+    await service.decideApproval(runId, withSession, 'user_1', 'approved', 'session');
+    expect(approvals.get(withSession).scope).toBe('session');
+  });
+
+  it('looks up an exact unexpired session grant and rejects different arguments', async () => {
+    const { createHash } = require('crypto');
+    const { canonicalPermissionInput } = require('@ocean/core');
+    const args = { to: 'alice' };
+    const argsHash = createHash('sha256').update(canonicalPermissionInput(args)).digest('hex');
+    const snapshot = await service.create('user_1', { space: { id: 'work', type: 'work' }, input: 'notify' });
+    const approvalId = seedApproval({ runId: snapshot.run.id, status: 'approved', sessionId: 'session_1', scope: 'session', argsHash, policyVersion: 'cli-v1' });
+    expect(approvalId).toBeDefined();
+    await expect(service.lookupSessionGrant('user_1', { sessionId: 'session_1', toolName: 'notify.send', args, policyVersion: 'cli-v1' })).resolves.toEqual({ granted: true });
+    await expect(service.lookupSessionGrant('user_1', { sessionId: 'session_1', toolName: 'notify.send', args: { to: 'bob' }, policyVersion: 'cli-v1' })).resolves.toEqual({ granted: false });
+    await expect(service.lookupSessionGrant('other', { sessionId: 'session_1', toolName: 'notify.send', args, policyVersion: 'cli-v1' })).resolves.toEqual({ granted: false });
   });
 
   it('cancels a Run on rejection and refuses another user’s approval decision', async () => {
@@ -562,6 +616,7 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
     findMany: jest.fn(async () => []),
   };
   const prisma = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     agentRun,
     runEvent,
     outboxEvent: { findFirst: jest.fn().mockResolvedValue(null) },

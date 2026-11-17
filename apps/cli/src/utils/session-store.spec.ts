@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile, mkdir, utimes, readdir } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -61,6 +61,89 @@ describe('CLI local session store', () => {
   });
 });
 
+it('persists provider usage and drops it when the transcript shrinks', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-usage-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  const messages = [{ role: 'user', content: 'first' }] as any;
+  await store.save(session.id, root, messages);
+  await store.saveUsage(session.id, root, { totalTokens: 120, messageCount: 1 });
+  expect((await store.load(session.id, root)).usage).toEqual({ totalTokens: 120, messageCount: 1 });
+  await expect(store.saveUsage(session.id, root, { totalTokens: -1, messageCount: 1 })).rejects.toThrow('usage');
+  await expect(store.saveUsage(session.id, root, { totalTokens: 1, messageCount: 2 })).rejects.toThrow('usage');
+  await store.save(session.id, root, []);
+  expect((await store.load(session.id, root)).usage).toBeUndefined();
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('rejects a corrupt persisted usage snapshot', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-usage-bad-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  const file = path.join(root, `${session.id}.json`);
+  const raw = JSON.parse(await readFile(file, 'utf8'));
+  await writeFile(file, JSON.stringify({ ...raw, usage: { totalTokens: 1, messageCount: 99 } }));
+  await expect(store.load(session.id, root)).rejects.toThrow('usage');
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('keeps the in-memory revision current after compaction and usage writes', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-meta-rev-'));
+ try {
+  const store = new SessionStore(root); let session = await store.create(root);
+  session = await store.save(session.id, root, [{ role: 'user', content: 'one' }] as any);
+  session = await store.saveCompaction(session.id, root, { covered: 0, digest: 'x', summary: 's' });
+  session = await store.saveUsage(session.id, root, { totalTokens: 5, messageCount: 1 });
+  await expect(store.save(session.id, root, [{ role: 'user', content: 'one' }, { role: 'assistant', content: 'two' }] as any)).resolves.toBeDefined();
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('recovers a completed tool journal when the turn snapshot was lost', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-journal-recover-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'write it' }] as any);
+  await store.executeToolCall(session.id, root, 'call-1', 'file_write', { path: 'a.txt' }, async () => ({ ok: true, path: 'a.txt' }));
+  const recovered = await new SessionStore(root).load(session.id, root);
+  expect(recovered.messages).toHaveLength(3);
+  expect(recovered.messages[1]).toMatchObject({ role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'call-1', toolName: 'file_write', input: { path: 'a.txt' } }] });
+  expect(recovered.messages[2]).toMatchObject({ role: 'tool', content: [{ type: 'tool-result', toolCallId: 'call-1', toolName: 'file_write', output: { ok: true, path: 'a.txt' } }] });
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('does not synthesize a result from an unknown journal and prunes only terminal old entries', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-journal-prune-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'write it' }] as any);
+  await expect(store.executeToolCall(session.id, root, 'call-unknown', 'file_write', { path: 'a' }, async () => { throw new Error('interrupted'); })).rejects.toThrow('interrupted');
+  expect((await new SessionStore(root).load(session.id, root)).messages).toHaveLength(1);
+  await store.executeToolCall(session.id, root, 'call-done', 'file_write', { path: 'b' }, async () => ({ ok: true }));
+  const old = Date.now() - 8 * 24 * 60 * 60 * 1000;
+  for (const name of await readdir(root)) {
+    if (name.startsWith('journal-')) await utimes(path.join(root, name), new Date(old), new Date(old));
+  }
+  expect(await store.pruneJournal()).toBe(1);
+  expect((await readdir(root)).filter((name) => name.startsWith('journal-'))).toHaveLength(1);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('marks a running subagent unknown when its heartbeat is stale despite a live PID', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-subagent-stale-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.saveSubagent(session.id, root, {
+   ownerPid: process.pid, parentSessionId: 'parent', toolCallId: 'call', agent: 'review',
+   inputDigest: 'digest', status: 'running',
+  });
+  const file = path.join(root, `${session.id}.json`);
+  const raw = JSON.parse(await readFile(file, 'utf8'));
+  raw.subagent.updatedAt = new Date(Date.now() - 60_000).toISOString();
+  await writeFile(file, JSON.stringify(raw));
+  expect((await store.load(session.id, root)).subagent?.status).toBe('unknown');
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 it('rejects stale snapshot writes instead of silently losing another update', async () => {
  const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-cas-'));
  try {
@@ -85,5 +168,31 @@ it('loads legacy snapshots and ignores interrupted temporary and corrupt records
   expect((await store.load(session.id, root)).messages).toEqual([]);
   expect(await store.list(root)).toHaveLength(1);
   await expect(store.save(session.id, root, [])).rejects.toThrow('conflict');
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('applies configured retention and rejects invalid retention values', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-retention-'));
+ try {
+  const store = new SessionStore(root, { journalRetentionMs: 1000 });
+  const session = await store.create(root);
+  await store.executeToolCall(session.id, root, 'done', 'write', {}, async () => ({ ok: true }));
+  for (const file of await readdir(root)) if (file.startsWith('journal-')) {
+   const old = new Date(Date.now() - 2000); await utimes(path.join(root, file), old, old);
+  }
+  expect(await store.pruneJournal()).toBe(1);
+  expect(() => new SessionStore(root, { journalRetentionMs: -1 })).toThrow('retention');
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('reconciles unknown journals only from an exact terminal provider result without executing again', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-reconcile-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await expect(store.executeToolCall(session.id, root, 'call', 'write', { a: 1 }, async () => { throw new Error('lost result'); })).rejects.toThrow();
+  expect(await store.reconcileToolCall(session.id, root, 'call', async identity => ({ ...identity, state: 'unknown' }))).toBe(false);
+  await expect(store.reconcileToolCall(session.id, root, 'call', async identity => ({ ...identity, inputDigest: 'wrong', state: 'succeeded', output: { ok: true } }))).rejects.toThrow('identity');
+  expect(await store.reconcileToolCall(session.id, root, 'call', async identity => ({ ...identity, state: 'succeeded', output: { ok: true } }))).toBe(true);
+  expect(await store.executeToolCall(session.id, root, 'call', 'write', { a: 1 }, async () => { throw new Error('must not execute'); })).toEqual({ ok: true });
  } finally { await rm(root, { recursive: true, force: true }); }
 });

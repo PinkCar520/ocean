@@ -1,4 +1,4 @@
-import type { Compaction } from '../llm/compaction.js';
+import type { Compaction, TokenUsageSnapshot } from '../llm/compaction.js';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -19,14 +19,20 @@ export interface StoredSession {
   createdAt: string;
   updatedAt: string;
   messages: ModelMessage[];
-  subagent?: { ownerPid?: number; parentSessionId: string; toolCallId: string; agent: string; inputDigest: string; status: 'prepared' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown'; result?: unknown; error?: string };
+  subagent?: { ownerPid?: number; updatedAt?: string; parentSessionId: string; toolCallId: string; agent: string; inputDigest: string; status: 'prepared' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown'; result?: unknown; error?: string };
   plan?: TaskPlanSnapshot;
   compaction?: Compaction;
+  /** Provider-reported context size for the saved transcript. */
+  usage?: TokenUsageSnapshot;
   worktree?: { path: string; branch: string; runId?: string };
 }
 
 export class SessionStore {
-  constructor(private readonly rootDir = path.join(os.homedir(), '.ocean', 'sessions')) {}
+  private readonly journalRetentionMs: number;
+  constructor(private readonly rootDir = path.join(os.homedir(), '.ocean', 'sessions'), options: { journalRetentionMs?: number } = {}) {
+    this.journalRetentionMs = options.journalRetentionMs ?? Number(process.env.OCEAN_TOOL_JOURNAL_RETENTION_MS ?? 7 * 86400000);
+    if (!Number.isSafeInteger(this.journalRetentionMs) || this.journalRetentionMs < 0) throw new Error('Invalid journal retention');
+  }
 
   async executeToolCall(id: string, workspace: string, toolCallId: string, toolName: string, input: unknown, execute: () => Promise<any>): Promise<any> {
     await this.load(id, workspace);
@@ -34,7 +40,17 @@ export class SessionStore {
     const inputDigest = createHash('sha256').update(JSON.stringify(input)).digest('hex');
     const key = createHash('sha256').update(JSON.stringify([id, toolCallId])).digest('hex');
     const file = path.join(this.rootDir, `journal-${key}.json`);
-    const record: any = { version: 1, sessionId: id, workspace: path.resolve(workspace), toolCallId, toolName, inputDigest, state: 'prepared' };
+    const record: any = {
+      version: 1,
+      sessionId: id,
+      workspace: path.resolve(workspace),
+      toolCallId,
+      toolName,
+      inputDigest,
+      input: safeJournalInput(input),
+      createdAt: new Date().toISOString(),
+      state: 'prepared',
+    };
     // Exclusive creation is the cross-process claim; an interrupted claim is never replayed.
     let handle;
     try { handle = await fs.open(file, 'wx', 0o600); }
@@ -58,6 +74,99 @@ export class SessionStore {
     return output;
   }
 
+  /** Query-only reconciliation: adapters must verify the external outcome, never re-execute. */
+  async reconcileToolCall(id: string, workspace: string, toolCallId: string,
+    query: (identity: { sessionId: string; toolCallId: string; toolName: string; inputDigest: string }) => Promise<{ sessionId: string; toolCallId: string; toolName: string; inputDigest: string; state: 'unknown' | 'succeeded' | 'failed'; output?: unknown }>): Promise<boolean> {
+    await this.load(id, workspace);
+    const key = createHash('sha256').update(JSON.stringify([id, toolCallId])).digest('hex');
+    const file = path.join(this.rootDir, `journal-${key}.json`);
+    const lock = `${file}.reconcile-lock`;
+    await fs.mkdir(lock, { mode: 0o700 });
+    try {
+      const info = await fs.lstat(file);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SESSION_BYTES) throw new Error('Unsafe tool journal');
+      const record = JSON.parse(await fs.readFile(file, 'utf8'));
+      if (record.sessionId !== id || record.toolCallId !== toolCallId || record.workspace !== path.resolve(workspace)) throw new Error('Tool journal identity mismatch');
+      if (record.state !== 'unknown') return false;
+      const identity = { sessionId: id, toolCallId, toolName: record.toolName as string, inputDigest: record.inputDigest as string };
+      const result = await query(Object.freeze(identity));
+      if (Object.entries(identity).some(([key, value]) => result[key as keyof typeof identity] !== value)) throw new Error('Reconciliation identity mismatch');
+      if (result.state === 'unknown') return false;
+      if (!['succeeded', 'failed'].includes(result.state) || !Object.hasOwn(result, 'output')) throw new Error('Invalid reconciliation result');
+      await atomicWriteFile(file, JSON.stringify({ ...record, state: result.state, output: result.output, reconciledAt: new Date().toISOString() }), { defaultMode: 0o600 });
+      return true;
+    } finally { await fs.rmdir(lock); }
+  }
+
+  /**
+   * Rebuild the transcript from a completed tool journal when the process died
+   * after the side effect but before the turn snapshot was saved. Unknown or
+   * still-executing journals are never turned into a result.
+   */
+  private async recoverCompletedToolCalls(session: StoredSession): Promise<void> {
+    await this.ensureDirectory();
+    const entries = await fs.readdir(this.rootDir, { withFileTypes: true });
+    const journals: any[] = [];
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.startsWith('journal-') || !entry.name.endsWith('.json')) continue;
+      try {
+        const file = path.join(this.rootDir, entry.name);
+        const info = await fs.lstat(file);
+        if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SESSION_BYTES) continue;
+        const value = JSON.parse(await fs.readFile(file, 'utf8'));
+        if (value?.sessionId === session.id && value?.workspace === session.workspace
+          && value?.state === 'succeeded' && typeof value.toolCallId === 'string'
+          && typeof value.toolName === 'string' && value.input !== undefined) journals.push(value);
+      } catch {
+        // Corrupt journals are ignored; they cannot prove an outcome.
+      }
+    }
+    journals.sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')));
+    for (const journal of journals) {
+      let hasCall = false;
+      let hasResult = false;
+      for (const message of session.messages) {
+        if (!Array.isArray(message.content)) continue;
+        for (const part of message.content) {
+          if (part.type === 'tool-call' && part.toolCallId === journal.toolCallId) hasCall = true;
+          if (part.type === 'tool-result' && part.toolCallId === journal.toolCallId) hasResult = true;
+        }
+      }
+      if (!hasCall) {
+        session.messages.push({
+          role: 'assistant',
+          content: [{ type: 'tool-call', toolCallId: journal.toolCallId, toolName: journal.toolName, input: journal.input }],
+        } as ModelMessage);
+      }
+      if (!hasResult) {
+        session.messages.push({
+          role: 'tool',
+          content: [{ type: 'tool-result', toolCallId: journal.toolCallId, toolName: journal.toolName, output: journal.output }],
+        } as ModelMessage);
+      }
+    }
+  }
+
+  /** Remove terminal journal entries after the retention window; unknown entries stay. */
+  async pruneJournal(maxAgeMs = this.journalRetentionMs): Promise<number> {
+    if (!Number.isSafeInteger(maxAgeMs) || maxAgeMs < 0) throw new Error('Invalid journal retention');
+    await this.ensureDirectory();
+    const cutoff = Date.now() - maxAgeMs;
+    let removed = 0;
+    for (const entry of await fs.readdir(this.rootDir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.startsWith('journal-') || !entry.name.endsWith('.json')) continue;
+      try {
+        const file = path.join(this.rootDir, entry.name);
+        const value = JSON.parse(await fs.readFile(file, 'utf8'));
+        if (value?.state === 'succeeded' || value?.state === 'failed') {
+          const info = await fs.lstat(file);
+          if (info.mtimeMs < cutoff) { await fs.unlink(file); removed += 1; }
+        }
+      } catch { /* ignore corrupt or concurrently removed journals */ }
+    }
+    return removed;
+  }
+
   async list(workspace: string): Promise<StoredSession[]> {
     await this.ensureDirectory();
     const resolvedWorkspace = path.resolve(workspace);
@@ -76,6 +185,7 @@ export class SessionStore {
   }
 
   async latestOrCreate(workspace: string): Promise<StoredSession> {
+    await this.pruneJournal().catch(() => undefined);
     const latest = (await this.list(workspace))[0];
     return latest ?? this.create(workspace);
   }
@@ -101,10 +211,18 @@ export class SessionStore {
     if (session.workspace !== path.resolve(workspace)) {
       throw new Error('Session belongs to a different workspace.');
     }
-    if (session.subagent?.status === 'running' && session.subagent.ownerPid) {
-      try { process.kill(session.subagent.ownerPid, 0); }
-      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ESRCH') session.subagent.status = 'unknown'; }
+    if (session.subagent?.status === 'running') {
+      let stale = false;
+      if (session.subagent.ownerPid) {
+        try { process.kill(session.subagent.ownerPid, 0); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code === 'ESRCH') stale = true; }
+      }
+      const heartbeat = session.subagent.updatedAt ? Date.parse(session.subagent.updatedAt) : NaN;
+      // A live PID may belong to a reused process; require a recent heartbeat.
+      if (Number.isFinite(heartbeat) && Date.now() - heartbeat > 30_000) stale = true;
+      if (stale) session.subagent.status = 'unknown';
     }
+    await this.recoverCompletedToolCalls(session);
     return session;
   }
 
@@ -116,6 +234,7 @@ export class SessionStore {
       throw new Error(`Session exceeds the ${MAX_SESSION_BYTES / 1024 / 1024} MB local storage limit.`);
     }
     session.messages = messages;
+    if (session.usage && session.usage.messageCount > messages.length) session.usage = undefined;
     session.updatedAt = new Date().toISOString();
     if (session.title === 'New session') session.title = firstUserText(messages) || session.title;
     await this.write(session);
@@ -124,7 +243,7 @@ export class SessionStore {
 
   async saveSubagent(id: string, workspace: string, task: NonNullable<StoredSession['subagent']>): Promise<void> {
     const session = await this.load(id, workspace);
-    session.subagent = task;
+    session.subagent = { ...task, updatedAt: new Date().toISOString() };
     await this.write(session);
   }
 
@@ -134,10 +253,21 @@ export class SessionStore {
     await this.write(session);
   }
 
-  async saveCompaction(id: string, workspace: string, compaction: Compaction): Promise<void> {
+  async saveUsage(id: string, workspace: string, usage: TokenUsageSnapshot): Promise<StoredSession> {
+    const session = await this.load(id, workspace);
+    if (!isTokenUsageSnapshot(usage) || usage.messageCount > session.messages.length) {
+      throw new Error('Invalid session usage snapshot.');
+    }
+    session.usage = usage;
+    await this.write(session);
+    return session;
+  }
+
+  async saveCompaction(id: string, workspace: string, compaction: Compaction): Promise<StoredSession> {
     const session = await this.load(id, workspace);
     session.compaction = compaction;
     await this.write(session);
+    return session;
   }
 
   async savePlan(id: string, workspace: string, plan: TaskPlanSnapshot): Promise<StoredSession> {
@@ -182,6 +312,9 @@ export class SessionStore {
     if (session.plan !== undefined && !isTaskPlanSnapshot(session.plan)) {
       throw new Error('Invalid session task plan.');
     }
+    if (session.usage !== undefined && (!isTokenUsageSnapshot(session.usage) || session.usage.messageCount > session.messages.length)) {
+      throw new Error('Invalid session usage snapshot.');
+    }
     return session;
   }
 
@@ -207,6 +340,22 @@ export class SessionStore {
       await fs.chmod(filePath, 0o600);
     } finally { await fs.rmdir(lock); }
   }
+}
+
+function safeJournalInput(value: unknown): unknown {
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized === undefined || Buffer.byteLength(serialized, 'utf8') > 64 * 1024 ? undefined : value;
+  } catch {
+    return undefined;
+  }
+}
+
+function isTokenUsageSnapshot(value: unknown): value is TokenUsageSnapshot {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const snapshot = value as TokenUsageSnapshot;
+  return Number.isSafeInteger(snapshot.totalTokens) && snapshot.totalTokens >= 0
+    && Number.isSafeInteger(snapshot.messageCount) && snapshot.messageCount >= 0;
 }
 
 function isTaskPlanSnapshot(value: unknown): value is TaskPlanSnapshot {

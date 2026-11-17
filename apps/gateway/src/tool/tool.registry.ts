@@ -1,3 +1,4 @@
+import { GatewayCheckpointService } from './checkpoint.service';
 import { Injectable, Optional } from '@nestjs/common';
 
 import { ArtifactStore } from '../artifact/artifact.store';
@@ -15,10 +16,12 @@ export class ToolRegistry {
     egress: EgressPolicy = EgressPolicy.fromEnv(),
     artifactStore?: ArtifactStore,
     @Optional() deviceRpc?: DeviceRpcBroker,
+    @Optional() checkpoints?: GatewayCheckpointService,
   ) {
     for (const tool of createBuiltinTools(egress, artifactStore)) {
       this.register(tool);
     }
+    if (checkpoints) for (const tool of checkpoints.tools()) this.register(tool);
     if (deviceRpc) for (const tool of createDeviceTools(deviceRpc)) this.register(tool);
   }
 

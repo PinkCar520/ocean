@@ -2,7 +2,7 @@ import type { SessionStore } from '../utils/session-store.js';
 import { isDeepStrictEqual } from 'node:util';
 import { createDelegationTool, loadSubagents } from '../subagents/delegate.js';
 import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
-import { compactContext, type Compaction } from './compaction.js';
+import { compactContext, type Compaction, type TokenUsageSnapshot } from './compaction.js';
 import { streamText, type ModelMessage, type ToolResultPart, type ToolCallPart, stepCountIs, convertToModelMessages } from 'ai';
 import type { ModelConfig } from '../types.js';
 import type { LoadedSkill } from '../types.js';
@@ -10,6 +10,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 type ApprovalDecision = 'approved' | 'rejected' | 'expired';
+
+/** Accept both AI SDK v7 numeric usage and provider-shaped token objects. */
+function usageTokenTotal(usage: any): number | undefined {
+  const input = typeof usage?.inputTokens === 'number' ? usage.inputTokens : usage?.inputTokens?.total;
+  const output = typeof usage?.outputTokens === 'number' ? usage.outputTokens : usage?.outputTokens?.total;
+  if (!Number.isFinite(input) && !Number.isFinite(output)) return undefined;
+  return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
+}
 type ToolApprovalHandler = (toolName: string, args: any) => Promise<ApprovalDecision>;
 
 export function applyApprovalGate(
@@ -208,7 +216,7 @@ export async function runChatLoop(
     delegation?: { workspace: string };
     hooks?: LifecycleHooks;
     stopHookActive?: boolean;
-    compaction?: { previous?: Compaction; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string };
+    compaction?: { previous?: Compaction; usage?: TokenUsageSnapshot; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string };
     /**
      * 审批门（对齐 Codex/Claude：CLI 执行、对话窗口弹审批）。
      * 传入后，requiresApproval 工具执行前先调 handler，返回 'approved' 才放行。
@@ -220,10 +228,13 @@ export async function runChatLoop(
   toolCalls: ToolCallPart[];
   toolResults: ToolResultPart[];
   responseMessages: ModelMessage[];
+  /** Provider usage for the saved transcript; estimate only messages appended later. */
+  usage?: TokenUsageSnapshot;
 }> {
   options.signal?.throwIfAborted();
   const maxSteps = options.maxSteps ?? 30;
   if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid model step limit');
+  const inputMessageCount = messages.length;
   let fullText = '';
   const toolCalls: ToolCallPart[] = [];
   const toolResults: ToolResultPart[] = [];
@@ -269,11 +280,59 @@ export async function runChatLoop(
   }]));
   const tools = applyApprovalGate(guardedTools, options.approvalHandler);
 
-  const context = options.compaction ? await compactContext(messages, {
+  const compactionOptions = options.compaction;
+  let initialSnapshot = compactionOptions?.previous;
+  const context = compactionOptions ? await compactContext(messages, {
     model: options.model, systemPrompt: options.systemPrompt, signal: options.signal,
     scope: options.journal?.sessionId,
-    ...options.compaction,
+    ...compactionOptions,
+    persist: async (snapshot) => { initialSnapshot = snapshot; await compactionOptions.persist(snapshot); },
   }) : messages;
+  const compaction = compactionOptions;
+  let carried: ModelMessage[] = context;
+  let fullTranscript: ModelMessage[] = [...messages];
+  let midTurnSnapshot: Compaction | undefined = initialSnapshot;
+  let lastStepTotalTokens: number | undefined;
+  const prepareStep = compaction ? async ({ stepNumber, messages: stepMessages }: { stepNumber: number; messages: ModelMessage[] }) => {
+    if (stepNumber === 0) return undefined;
+    options.signal?.throwIfAborted();
+    // Rebuild the durable transcript by appending only the messages the model
+    // layer added since the last prepared step. If the provider diverged from
+    // our carried prefix, fall back to an ephemeral compaction that cannot
+    // corrupt the session snapshot.
+    const prefixMatches = stepMessages.length >= carried.length && carried.every((message, index) => isDeepStrictEqual(stepMessages[index], message));
+    const complete = prefixMatches ? [...fullTranscript, ...stepMessages.slice(carried.length)] : stepMessages;
+    // Usage maps to the request prefix only while `carried` still starts the
+    // durable transcript; after a compacted prefix it would under-count.
+    const usageApplies = lastStepTotalTokens !== undefined && prefixMatches
+      && fullTranscript.length >= carried.length
+      && carried.every((message, index) => isDeepStrictEqual(fullTranscript[index], message));
+    const usage = usageApplies ? { totalTokens: lastStepTotalTokens!, messageCount: Math.min(complete.length, carried.length + 1) } : undefined;
+    let nextSnapshot: Compaction | undefined;
+    const scopeBase = compaction.scope ?? options.journal?.sessionId ?? 'default';
+    const compacted = await compactContext(complete, {
+      model: options.model,
+      systemPrompt: options.systemPrompt,
+      signal: options.signal,
+      budget: compaction.budget,
+      contextWindow: compaction.contextWindow,
+      outputReserve: compaction.outputReserve,
+      toolReserve: compaction.toolReserve,
+      scope: `${scopeBase}:mid-turn`,
+      boundary: 'any',
+      usage,
+      previous: prefixMatches ? midTurnSnapshot : undefined,
+      persist: prefixMatches
+        ? async (snapshot) => { nextSnapshot = snapshot; await compaction.persist(snapshot); }
+        : async () => undefined,
+    });
+    if (prefixMatches) {
+      fullTranscript = complete;
+      if (nextSnapshot) midTurnSnapshot = nextSnapshot;
+    }
+    carried = compacted;
+    return isDeepStrictEqual(compacted, stepMessages) ? undefined : { messages: compacted };
+  } : undefined;
   const result = streamText({
     model: options.model,
     messages: context,
@@ -281,6 +340,7 @@ export async function runChatLoop(
     tools,
     toolChoice: 'auto',
     stopWhen: stepCountIs(maxSteps),
+    prepareStep,
     abortSignal: options.signal,
     onChunk: ({ chunk }) => {
       if (options.signal?.aborted) return;
@@ -289,7 +349,8 @@ export async function runChatLoop(
         options.onText?.(chunk.text);
       }
     },
-    onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults }) => {
+    onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults, usage }) => {
+      lastStepTotalTokens = usageTokenTotal(usage);
       if (stepToolCalls) {
         toolCalls.push(...(stepToolCalls as ToolCallPart[]));
       }
@@ -325,6 +386,9 @@ export async function runChatLoop(
     toolResults,
     // Keep the model/tool transcript so later turns can see which tools ran and what they returned.
     responseMessages: [...activationMessages, ...responseMessages],
+    usage: lastStepTotalTokens !== undefined
+      ? { totalTokens: lastStepTotalTokens, messageCount: inputMessageCount + activationMessages.length + responseMessages.length }
+      : undefined,
   };
 }
 

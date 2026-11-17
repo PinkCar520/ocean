@@ -73,6 +73,7 @@ export async function createSSETransport(
   }
 
   return new SSEClientTransport(new URL(config.url), {
+    ...(typeof config.oauthFetch === 'function' ? { fetch: config.oauthFetch } : {}),
     requestInit: {
       headers: resolvedHeaders,
     },
@@ -112,6 +113,7 @@ export async function createHTTPTransport(
   }
 
   return new StreamableHTTPClientTransport(new URL(config.url), {
+    ...(typeof config.oauthFetch === 'function' ? { fetch: config.oauthFetch } : {}),
     requestInit: {
       headers: resolvedHeaders,
     },

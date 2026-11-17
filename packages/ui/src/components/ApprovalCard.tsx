@@ -59,9 +59,25 @@ export function ApprovalCard({
       text: 'text-[#DC2626]',
       iconBg: 'bg-[#F43F5E]/10',
     },
+    expired: {
+      icon: <AlertTriangle className="w-4 h-4 text-[#6B7280]" />,
+      label: t('approval.status.expired', 'Expired'),
+      bg: 'bg-[#6B7280]/5',
+      border: 'border-[#6B7280]/20',
+      text: 'text-[#4B5563]',
+      iconBg: 'bg-[#6B7280]/10',
+    },
+    superseded: {
+      icon: <AlertTriangle className="w-4 h-4 text-[#6B7280]" />,
+      label: t('approval.status.superseded', 'Superseded'),
+      bg: 'bg-[#6B7280]/5',
+      border: 'border-[#6B7280]/20',
+      text: 'text-[#4B5563]',
+      iconBg: 'bg-[#6B7280]/10',
+    },
   };
 
-  const config = statusConfig[status];
+  const config = statusConfig[status] ?? statusConfig.pending;
   const isPending = status === 'pending';
 
   return (

@@ -53,7 +53,10 @@ export const approvalSchema = z
     id: z.string().min(1),
     runId: z.string().min(1),
     toolCallId: z.string().min(1),
-    status: z.enum(['pending', 'approved', 'rejected', 'expired']),
+    status: z.enum(['pending', 'approved', 'rejected', 'expired', 'superseded']),
+    scope: z.enum(['once', 'session']).optional(),
+    policyVersion: z.string().min(1).optional(),
+    ruleId: z.string().min(1).optional(),
     decidedBy: z.string().min(1).optional(),
     decidedAt: z.string().datetime({ offset: true }).optional(),
   })
@@ -65,6 +68,8 @@ export type Approval = z.infer<typeof approvalSchema>;
 export const approvalDecisionSchema = z
   .object({
     decision: z.enum(['approved', 'rejected']),
+    /** once: only this call; session: exact tool+args for the approval TTL. */
+    scope: z.enum(['once', 'session']).optional(),
   })
   .strict();
 
@@ -86,6 +91,7 @@ export const artifactSchema = z
 export type Artifact = z.infer<typeof artifactSchema>;
 
 export const runStepKindSchema = z.enum([
+  'subagent',
   'model_call',
   'tool_call',
   'approval',
@@ -95,6 +101,7 @@ export const runStepKindSchema = z.enum([
 export type RunStepKind = z.infer<typeof runStepKindSchema>;
 
 export const runStepStatusSchema = z.enum([
+  'unknown',
   'started',
   'succeeded',
   'failed',

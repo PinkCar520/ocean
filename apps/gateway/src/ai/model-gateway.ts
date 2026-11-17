@@ -29,6 +29,7 @@ export interface ModelToolSpec {
 }
 
 export interface ModelGenerateRequest {
+  signal?: AbortSignal;
   messages: ModelMessage[];
   modelId?: string;
   tools?: ModelToolSpec[];
@@ -37,6 +38,7 @@ export interface ModelGenerateRequest {
 }
 
 export interface ModelGenerateResult {
+  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
   text: string;
   toolCalls: ModelToolCall[];
 }

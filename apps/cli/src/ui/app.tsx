@@ -104,9 +104,9 @@ export function InkApp(props: InkAppProps) {
 
         compaction: {
           previous: props.activeSession.session.compaction,
+          usage: props.activeSession.session.usage,
           persist: async (snapshot) => {
-            await props.sessionStore.saveCompaction(props.activeSession.session.id, props.workspace, snapshot);
-            props.activeSession.session.compaction = snapshot;
+            props.activeSession.session = await props.sessionStore.saveCompaction(props.activeSession.session.id, props.workspace, snapshot);
           },
         },
         systemPrompt: props.systemPrompt,
@@ -131,6 +131,9 @@ export function InkApp(props: InkAppProps) {
         props.workspace,
         nextMessages,
       );
+      if (result.usage) {
+        props.activeSession.session = await props.sessionStore.saveUsage(props.activeSession.session.id, props.workspace, result.usage);
+      }
       setStreamingText('');
       setCurrentToolCalls([]);
       setCurrentToolResults([]);

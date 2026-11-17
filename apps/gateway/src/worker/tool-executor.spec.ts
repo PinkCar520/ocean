@@ -34,18 +34,23 @@ function toolJob(
 
 function createExecutor(
   options: {
-    run?: { id: string; userId: string; status: string } | null;
+    run?: { id: string; userId: string; status: string; metadata?: Record<string, unknown> } | null;
     startedStep?: { id: string; seq: number; status: string } | null;
     succeededSteps?: Array<{
       status: string;
       input: { idempotencyKey?: string };
     }>;
-    approval?: { status: 'pending' | 'approved' | 'rejected'; runId?: string; userId?: string; toolCallId?: string; expiresAt?: Date | null; toolName?: string; args?: Record<string, unknown> } | null;
+    idempotentStep?: Record<string, any> | null;
+    approval?: { status: 'pending' | 'approved' | 'rejected'; runId?: string; userId?: string; toolCallId?: string; expiresAt?: Date | null; toolName?: string; args?: Record<string, unknown>; policyVersion?: string; argsHash?: string; sessionId?: string; scope?: string } | null;
     toolError?: Error;
+    hooks?: { run: jest.Mock };
+    sessionGrant?: Record<string, any> | null;
   } = {},
 ) {
   const defaultRun = { id: 'run_1', userId: 'user_1', status: 'queued' };
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'run_1' }]),
+    $executeRaw: jest.fn().mockResolvedValue(1),
     agentRun: {
       findUnique: jest.fn().mockResolvedValue(options.run ?? defaultRun),
       update: jest.fn().mockResolvedValue({}),
@@ -61,13 +66,13 @@ function createExecutor(
       update: jest.fn().mockResolvedValue({}),
     },
     runApproval: {
-      findFirst: jest
-        .fn()
-        .mockResolvedValue(
-          options.approval ? { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1', expiresAt: new Date(Date.now() + 60000), toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
-        ),
+      findFirst: jest.fn(async ({ where }: any) => {
+        if (where?.scope === 'session') return options.sessionGrant ?? null;
+        return options.approval ? { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1', expiresAt: new Date(Date.now() + 60000), toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null;
+      }),
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
   };
 
@@ -75,6 +80,8 @@ function createExecutor(
     $transaction: jest.fn(async (cb: (t: typeof tx) => Promise<unknown>) =>
       cb(tx),
     ),
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'run_1' }]),
+    $executeRaw: jest.fn().mockResolvedValue(1),
     agentRun: {
       findUnique: jest
         .fn()
@@ -83,14 +90,14 @@ function createExecutor(
         ),
     },
     runStep: {
+      findFirst: jest.fn().mockResolvedValue(options.idempotentStep ?? null),
       findMany: jest.fn().mockResolvedValue(options.succeededSteps ?? []),
     },
     runApproval: {
-      findFirst: jest
-        .fn()
-        .mockResolvedValue(
-          options.approval ? { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1', expiresAt: new Date(Date.now() + 60000), toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null,
-        ),
+      findFirst: jest.fn(async ({ where }: any) => {
+        if (where?.scope === 'session') return options.sessionGrant ?? null;
+        return options.approval ? { runId: 'run_1', userId: 'user_1', toolCallId: 'tc_1', expiresAt: new Date(Date.now() + 60000), toolName: 'approval.tool', args: { text: 'hi' }, ...options.approval } : null;
+      }),
     },
   };
 
@@ -111,6 +118,8 @@ function createExecutor(
     execute: toolExecute,
   });
 
+  const hooks = options.hooks ?? { run: jest.fn().mockResolvedValue({ blocked: false, reason: '' }) };
+  const audit = { record: jest.fn().mockResolvedValue({ id: 'a' }) };
   const executor = new ToolExecutor(
     prisma as never,
     registry,
@@ -118,12 +127,57 @@ function createExecutor(
       enqueueRunRequested: jest.fn().mockResolvedValue(undefined),
     } as never,
     { inc: jest.fn() } as never,
-    { record: jest.fn().mockResolvedValue({ id: 'a' }) } as never,
+    audit as never,
+    undefined as any,
+    hooks as never,
   );
-  return { executor, tx, prisma, registry, toolExecute };
+  return { executor, tx, prisma, registry, toolExecute, hooks, audit };
 }
 
 describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
+  it('does not execute when another worker owns the Run execution token', async () => {
+    const { executor, toolExecute, tx } = createExecutor();
+    tx.$queryRaw.mockResolvedValueOnce([]);
+    expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'succeeded' });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('reuses an exact approved session grant without creating another approval', async () => {
+    const { executor, toolExecute, tx, prisma } = createExecutor({
+      run: { id: 'run_1', userId: 'user_1', status: 'queued', metadata: { sessionId: 'session_1' } },
+      sessionGrant: { id: 'grant_1', userId: 'user_1', sessionId: 'session_1', toolName: 'approval.tool' },
+    });
+    expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'succeeded' });
+    expect(toolExecute).toHaveBeenCalledTimes(1);
+    expect(tx.runApproval.create).not.toHaveBeenCalled();
+    const { createHash } = require('crypto');
+    const { canonicalPermissionInput } = require('@ocean/core');
+    const expectedHash = createHash('sha256').update(canonicalPermissionInput({ text: 'hi' })).digest('hex');
+    expect(prisma.runApproval.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        userId: 'user_1', sessionId: 'session_1', toolName: 'approval.tool',
+        argsHash: expectedHash, scope: 'session', status: 'approved',
+      }),
+    }));
+  });
+
+  it('invalidates an approved call when the policy version changed and requests a new approval', async () => {
+    const { executor, toolExecute, tx } = createExecutor({
+      approval: { status: 'approved', policyVersion: 'old-policy' },
+    });
+    jest.spyOn((executor as any).permissions, 'evaluateToolDecision').mockReturnValue({
+      action: 'ask', reason: 'rule', policyVersion: 'new-policy', source: 'rule',
+    } as any);
+    expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'succeeded' });
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(tx.runApproval.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: 'superseded' }),
+    }));
+    expect(tx.runApproval.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ policyVersion: 'new-policy', scope: 'once' }),
+    }));
+  });
+
   it.each([
     { expiresAt: new Date(0) },
     { expiresAt: new Date(NaN) },
@@ -134,6 +188,51 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     const { executor, toolExecute } = createExecutor({ approval: { status: 'approved', ...override } });
     expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'failed' });
     expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('records the policy source and version for auto-approved tools', async () => {
+    const { executor, audit } = createExecutor();
+    await executor.execute(toolJob());
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({
+      authorization: expect.stringMatching(/^policy:read-only:sha256-[a-f0-9]{64}$/),
+    }));
+  });
+
+  it('blocks execution when PreToolUse rejects the call, before any approval', async () => {
+    const hooks = { run: jest.fn().mockResolvedValue({ blocked: true, reason: 'policy denied' }) };
+    const { executor, toolExecute, tx } = createExecutor({ hooks });
+    expect(await executor.execute(toolJob())).toMatchObject({
+      status: 'failed',
+      retryable: false,
+      error: expect.stringContaining('Hook blocked tool echo'),
+    });
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(tx.runApproval.create).not.toHaveBeenCalled();
+    expect(hooks.run).toHaveBeenCalledWith('PreToolUse', expect.objectContaining({
+      tool_name: 'echo',
+      tool_use_id: 'tc_1',
+      run_id: 'run_1',
+      user_id: 'user_1',
+    }), { spaceId: undefined });
+  });
+
+  it('runs PostToolUse after execution and fails closed when it blocks', async () => {
+    const hooks = { run: jest.fn(async (event: string) => event === 'PostToolUse' ? { blocked: true, reason: 'rejected result' } : { blocked: false, reason: '' }) };
+    const { executor, toolExecute } = createExecutor({ hooks });
+    expect(await executor.execute(toolJob())).toMatchObject({
+      status: 'failed',
+      retryable: false,
+      error: expect.stringContaining('Hook blocked tool result echo'),
+    });
+    expect(toolExecute).toHaveBeenCalledTimes(1);
+    expect(hooks.run).toHaveBeenCalledWith('PostToolUse', expect.objectContaining({ tool_name: 'echo' }), { spaceId: undefined });
+  });
+
+  it('reports ToolUseFailure hooks without swallowing the original error', async () => {
+    const hooks = { run: jest.fn().mockResolvedValue({ blocked: false, reason: '' }) };
+    const { executor } = createExecutor({ hooks, toolError: new Error('boom') });
+    expect(await executor.execute(toolJob())).toMatchObject({ status: 'failed', error: expect.stringContaining('boom') });
+    expect(hooks.run).toHaveBeenCalledWith('ToolUseFailure', expect.objectContaining({ tool_name: 'echo', error: 'boom' }), { spaceId: undefined });
   });
 
   it('rejects invalid schema input before approval or execution', async () => {
@@ -153,6 +252,28 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     expect(toolExecute).not.toHaveBeenCalled();
   });
 
+  it('reuses a succeeded step found by the unique idempotency column', async () => {
+    const step = {
+      id: 'step-key', seq: 1, status: 'succeeded',
+      input: { id: 'tc_1', name: 'echo', input: { text: 'hi' }, idempotencyKey: 'key-column' },
+    };
+    const { executor, toolExecute } = createExecutor({ idempotentStep: step });
+    expect(await executor.execute(toolJob({ idempotencyKey: 'key-column' }))).toMatchObject({ status: 'succeeded', cached: true });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('refuses a write when a concurrent insert wins the unique idempotency key', async () => {
+    const { executor, tx, toolExecute } = createExecutor();
+    tx.runStep.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'winner', seq: 2, status: 'started' })
+      .mockResolvedValue({ id: 'winner', seq: 2, status: 'started' });
+    tx.runStep.create.mockRejectedValueOnce(Object.assign(new Error('unique'), { code: 'P2002' }));
+    const result = await executor.execute(toolJob({ idempotencyKey: 'race-key' }));
+    expect(result).toMatchObject({ status: 'failed', error: expect.stringContaining('Concurrent tool call') });
+    expect(toolExecute).not.toHaveBeenCalled();
+  });
+
   it('rejects the same idempotency key with different input', async () => {
     const { executor, toolExecute } = createExecutor({ succeededSteps: [
       { status: 'succeeded', input: { idempotencyKey: 'conflict', name: 'echo', input: { text: 'other' } } } as any,
@@ -163,7 +284,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
 
   it('denies execution even with an approved record when policy denies', async () => {
     const { executor, toolExecute } = createExecutor({ approval: { status: 'approved', toolName: 'echo' } });
-    jest.spyOn((executor as any).permissions, 'evaluateTool').mockReturnValue('deny');
+    jest.spyOn((executor as any).permissions, 'evaluateToolDecision').mockReturnValue({ action: 'deny', reason: 'test deny', ruleId: 'rule:deny:*', policyVersion: 'test', source: 'deny-rule' });
     expect(await executor.execute(toolJob())).toMatchObject({ status: 'failed' });
     expect(toolExecute).not.toHaveBeenCalled();
   });
@@ -521,6 +642,8 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     // 空 allowlist（默认拒绝）——web.get 对任意域都拒
     const registry = new ToolRegistry(new EgressPolicy([]));
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'run_1' }]),
+      $executeRaw: jest.fn().mockResolvedValue(1),
       agentRun: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'run_1',
@@ -547,6 +670,8 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     };
     const prisma = {
       $transaction: jest.fn(async (cb: any) => cb(tx)),
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'run_1' }]),
+      $executeRaw: jest.fn().mockResolvedValue(1),
       agentRun: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'run_1',
@@ -554,7 +679,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
           status: 'queued',
         }),
       },
-      runStep: { findMany: jest.fn().mockResolvedValue([]) },
+      runStep: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
       runApproval: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     const executor = new ToolExecutor(

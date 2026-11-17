@@ -60,7 +60,7 @@ it('automatically compacts, executes a real tool, and restores the summary and f
       doGenerate: { content: [{ type: 'text', text: JSON.stringify({ goal: 'Write result.ts', constraints: ['Keep dependencies unchanged'], fileChanges: [], failedTests: [], completedTools: [], pendingWork: ['Write result'] }) }], finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [] } as any,
       doStream: [stream([{ type: 'tool-call', toolCallId: 'compact-write', toolName: 'file_write', input: JSON.stringify({ path: 'result.ts', content: 'done' }) }], 'tool-calls'), stream(text('finished'))] as any,
     });
-    const result = await runChatLoop(messages, { model, tools, systemPrompt: '', approvalHandler: async () => 'approved', compaction: { budget: 5000, persist: async (snapshot) => store.saveCompaction(session.id, root, snapshot) } });
+    const result = await runChatLoop(messages, { model, tools, systemPrompt: '', approvalHandler: async () => 'approved', compaction: { budget: 5000, persist: async (snapshot) => { await store.saveCompaction(session.id, root, snapshot); } } });
     expect(result.text).toBe('finished');
     expect(model.doGenerateCalls).toHaveLength(1);
     expect(JSON.stringify(model.doStreamCalls[0].prompt)).toContain('Keep dependencies unchanged');

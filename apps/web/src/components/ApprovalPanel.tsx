@@ -7,6 +7,8 @@ interface PendingApproval {
   toolName: string;
   args: Record<string, unknown>;
   source: string;
+  sessionId?: string | null;
+  scope?: string;
   createdAt: string;
   expiresAt?: string | null;
 }
@@ -46,14 +48,14 @@ export function ApprovalPanel() {
   }, [refresh]);
 
   const decide = useCallback(
-    async (id: string, decision: 'approved' | 'rejected') => {
+    async (id: string, decision: 'approved' | 'rejected', scope: 'once' | 'session' = 'once') => {
       setBusy(id);
       setError(null);
       try {
         const res = await fetch(`/api/approvals/${id}/decide`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ decision }),
+          body: JSON.stringify({ decision, ...(scope === 'session' ? { scope } : {}) }),
         });
         if (!res.ok) {
           setError(`决策失败（HTTP ${res.status}）`);
@@ -97,7 +99,7 @@ export function ApprovalPanel() {
           <div className="mt-2 max-h-24 overflow-y-auto rounded bg-black/40 px-2 py-1 font-mono text-xs text-gray-300">
             {summary(a.args)}
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={() => decide(a.id, 'approved')}
               disabled={busy === a.id}
@@ -105,6 +107,15 @@ export function ApprovalPanel() {
             >
               批准
             </button>
+            {a.sessionId && (
+              <button
+                onClick={() => decide(a.id, 'approved', 'session')}
+                disabled={busy === a.id}
+                className="flex-1 rounded-lg border border-emerald-600/60 px-3 py-1.5 text-sm font-medium text-emerald-200 transition hover:bg-emerald-600/20 disabled:opacity-50"
+              >
+                本会话允许
+              </button>
+            )}
             <button
               onClick={() => decide(a.id, 'rejected')}
               disabled={busy === a.id}

@@ -168,6 +168,7 @@ export class RunController {
       approvalId,
       this.userId(request),
       parsed.data.decision,
+      parsed.data.scope ?? 'once',
     );
   }
 

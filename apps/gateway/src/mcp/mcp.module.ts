@@ -1,6 +1,11 @@
+import { MCPOAuthService } from './mcp-oauth.service';
+import { MCPOAuthController } from './mcp-oauth.controller';
+import { MCPCredentialsController } from './mcp-credentials.controller';
+import { MCPCredentialsService } from './mcp-credentials.service';
 import { Module, forwardRef } from '@nestjs/common';
 import { MCPClientManager } from './mcp-client.manager';
 import { MCPConfigLoader } from './mcp-config.loader';
+import { MCPClientPool } from './mcp-client.pool';
 import { RpcModule } from '../chat/rpc.module';
 
 /**
@@ -12,7 +17,8 @@ import { RpcModule } from '../chat/rpc.module';
  */
 @Module({
   imports: [forwardRef(() => RpcModule)],
-  providers: [MCPClientManager, MCPConfigLoader],
-  exports: [MCPClientManager, MCPConfigLoader],
+  controllers: [MCPCredentialsController, MCPOAuthController],
+  providers: [MCPOAuthService, MCPCredentialsService, MCPClientManager, MCPConfigLoader, MCPClientPool],
+  exports: [MCPClientManager, MCPConfigLoader, MCPClientPool],
 })
 export class MCPModule {}

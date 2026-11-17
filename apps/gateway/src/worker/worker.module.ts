@@ -1,3 +1,4 @@
+import { MODEL_GATEWAY, type ModelGateway } from '../ai/model-gateway';
 import { PermissionModule } from '../skill/permission.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -12,6 +13,7 @@ import { ToolModule } from '../tool/tool.module';
 import { RunRunner } from './run-runner';
 import { ToolExecutor } from './tool-executor';
 import { WorkerService } from './worker.service';
+import { GatewayHooks } from './gateway-hooks';
 
 /**
  * WorkerModule —— 独立 Worker 进程的根模块。
@@ -35,6 +37,11 @@ import { WorkerService } from './worker.service';
     ToolModule,
     PermissionModule,
   ],
-  providers: [WorkerService, RunRunner, ToolExecutor],
+  providers: [
+    WorkerService,
+    RunRunner,
+    ToolExecutor,
+    { provide: GatewayHooks, useFactory: (model: ModelGateway) => GatewayHooks.load(undefined, model), inject: [MODEL_GATEWAY] },
+  ],
 })
 export class WorkerModule {}

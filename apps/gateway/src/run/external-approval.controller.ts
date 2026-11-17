@@ -28,6 +28,7 @@ export class ExternalApprovalController {
         toolName: body?.toolName,
         args: body?.args ?? {},
         sessionId: body?.sessionId,
+        policyVersion: body?.policyVersion,
       },
     );
   }
@@ -36,6 +37,17 @@ export class ExternalApprovalController {
   @Get('pending')
   pending(@Req() request: any) {
     return this.runService.listPendingApprovals(this.userId(request));
+  }
+
+  /** POST /api/approvals/session-grant/lookup —— CLI 在创建审批前查询会话级精确授权。 */
+  @Post('session-grant/lookup')
+  lookupSessionGrant(@Body() body: any, @Req() request: any) {
+    return this.runService.lookupSessionGrant(this.userId(request), {
+      sessionId: body?.sessionId,
+        policyVersion: body?.policyVersion,
+      toolName: body?.toolName,
+      args: body?.args ?? {},
+    });
   }
 
   /** GET /api/approvals/:id —— CLI 轮询审批结果。 */
@@ -55,10 +67,15 @@ export class ExternalApprovalController {
     if (decision !== 'approved' && decision !== 'rejected') {
       throw new NotFoundException(`Invalid decision: ${decision}`);
     }
+    const scope = body?.scope;
+    if (scope !== undefined && scope !== 'once' && scope !== 'session') {
+      throw new NotFoundException(`Invalid approval scope: ${scope}`);
+    }
     return this.runService.decideExternalApproval(
       id,
       this.userId(request),
       decision,
+      scope ?? 'once',
     );
   }
 

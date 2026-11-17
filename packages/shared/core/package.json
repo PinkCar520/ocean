@@ -10,15 +10,54 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
+    },
+    "./checkpoints": {
+      "types": "./dist/filesystem/checkpoints.d.ts",
+      "import": "./dist/filesystem/checkpoints.js",
+      "require": "./dist/filesystem/checkpoints.js"
+    },
+    "./file-system": {
+      "types": "./dist/filesystem/file-system.d.ts",
+      "import": "./dist/filesystem/file-system.js",
+      "require": "./dist/filesystem/file-system.js"
+    },
+    "./security": {
+      "types": "./dist/filesystem/security.d.ts",
+      "import": "./dist/filesystem/security.js",
+      "require": "./dist/filesystem/security.js"
+    },
+    "./notebook-snapshots": {
+      "types": "./dist/filesystem/notebook-snapshots.d.ts",
+      "import": "./dist/filesystem/notebook-snapshots.js",
+      "require": "./dist/filesystem/notebook-snapshots.js"
     }
   },
   "dependencies": {
-    "@ocean/contracts": "workspace:*"
+    "@ocean/contracts": "workspace:*",
+    "bash-parser": "^0.5.0",
+    "tiktoken": "^1.0.22"
   },
   "scripts": {
     "build": "tsc"
   },
   "devDependencies": {
+    "@types/node": "^22.20.0",
     "typescript": "^5.4.0"
+  },
+  "typesVersions": {
+    "*": {
+      "checkpoints": [
+        "dist/filesystem/checkpoints.d.ts"
+      ],
+      "file-system": [
+        "dist/filesystem/file-system.d.ts"
+      ],
+      "security": [
+        "dist/filesystem/security.d.ts"
+      ],
+      "notebook-snapshots": [
+        "dist/filesystem/notebook-snapshots.d.ts"
+      ]
+    }
   }
 }

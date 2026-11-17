@@ -33,6 +33,11 @@ import type {
 import { createTransport } from './mcp-transport.factory';
 import { RpcGateway } from '../chat/rpc.gateway';
 
+/** Stable MCP tool name understood by the shared permission policy. */
+export function mcpToolName(serverId: string, toolName: string): string {
+  return `mcp__${serverId}:${toolName}`;
+}
+
 interface ManagedMCPClient {
   client: Client;
   transport: Transport;
@@ -64,6 +69,9 @@ interface ManagedMCPClient {
 export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MCPClientManager.name);
   private clients = new Map<string, ManagedMCPClient>();
+
+  /** One instance is created per logical user/workspace by MCPClientPool. */
+  private initialized = false;
 
   /** 聚合后的工具定义缓存 */
   private cachedAITools: Record<string, any> | null = null;
@@ -126,7 +134,18 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const resolvedServers = fileConfig.mcpServers.map((srv) =>
+    await this.initialize(fileConfig);
+  }
+
+  /**
+   * Connect one isolated manager instance from an already-resolved config.
+   * Scoped pool callers pass their own config instead of the process cwd file.
+   */
+  async initialize(fileConfig: MCPServerFileConfig): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
+
+    const resolvedServers = (fileConfig.mcpServers ?? []).map((srv) =>
       this.resolveServerConfig(srv),
     );
 
@@ -149,6 +168,11 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   // 生命周期：关闭
   // ──────────────────────────────────────────────
   async onModuleDestroy() {
+    await this.dispose();
+  }
+
+  /** Close every connection owned by this instance; safe to call repeatedly. */
+  async dispose(): Promise<void> {
     this.logger.log('Shutting down all MCP client connections...');
     for (const [id, managed] of this.clients.entries()) {
       try {
@@ -161,6 +185,8 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.clients.clear();
+    this.cachedAITools = null;
+    this.initialized = false;
   }
 
   // ──────────────────────────────────────────────
@@ -178,7 +204,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         const { tools } = await managed.client.listTools();
 
         for (const toolDef of tools) {
-          const namespacedName = `${serverId}__${toolDef.name}`;
+          const namespacedName = mcpToolName(serverId, toolDef.name);
           aggregated[namespacedName] = tool({
             description: `[${serverId}] ${toolDef.description || toolDef.name}`,
             inputSchema: jsonSchema(

@@ -1,8 +1,10 @@
-import { isReadOnlyTool } from '@ocean/core';
+import { policyForRun, permitsSubagentTool } from '../run/subagent-policy';
+import { canonicalPermissionInput, isReadOnlyTool, type PermissionDecision } from '@ocean/core';
 import { PermissionService } from '../skill/permission.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { isDeepStrictEqual } from 'node:util';
 import {
   runEventSchema,
@@ -20,6 +22,8 @@ import { MetricsService } from '../obs/metrics.service';
 import { AuditService } from '../audit/audit.service';
 import { ToolRegistry } from '../tool/tool.registry';
 import { TerminalToolError } from '../tool/tool.types';
+import { GatewayHooks } from './gateway-hooks';
+import { claimRun, verifyRun, LostRunOwnership } from './run-ownership';
 
 /** TerminalToolError 由 tool.types 定义并在此 re-export（spec/外部兼容）。 */
 export { TerminalToolError } from '../tool/tool.types';
@@ -48,9 +52,49 @@ export class ToolExecutor {
     private readonly metrics: MetricsService,
     private readonly audit: AuditService,
     private readonly permissions: PermissionService = new PermissionService(),
+    private readonly hooks: GatewayHooks = GatewayHooks.load(),
   ) {}
 
+  private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
+
+  private fencedTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    const owner = this.ownership.getStore();
+    if (!owner) throw new LostRunOwnership('Missing tool execution ownership');
+    return this.prisma.$transaction(async (tx) => {
+      await verifyRun(tx, owner.job, owner.token, owner.leaseMs);
+      return fn(tx);
+    });
+  }
+
   async execute(job: LeasedRunJob): Promise<RunExecutionResult> {
+    if (job.topic !== 'tool.requested') {
+      throw new Error(`ToolExecutor received unexpected topic: ${job.topic}`);
+    }
+    const token = randomUUID();
+    const leaseMs = Number(process.env.WORKER_LEASE_MS ?? 30_000);
+    if (!Number.isSafeInteger(leaseMs) || leaseMs < 1000) throw new Error('Invalid WORKER_LEASE_MS');
+    const claimed = await this.prisma.$transaction((tx) => claimRun(tx, job, token, leaseMs));
+    if (!claimed) {
+      const run = await this.prisma.agentRun.findUnique({
+        where: { id: job.payload.runId },
+        select: { id: true, userId: true },
+      });
+      if (!run) return { jobId: job.id, runId: job.payload.runId, status: 'failed', retryable: false, error: `Run ${job.payload.runId} not found` };
+      if (run.userId !== job.payload.userId) {
+        return { jobId: job.id, runId: job.payload.runId, status: 'failed', retryable: false, error: `Run ${job.payload.runId} does not belong to user ${job.payload.userId}` };
+      }
+      return { jobId: job.id, runId: job.payload.runId, status: 'succeeded' };
+    }
+    return this.ownership.run({ job, token, leaseMs }, async () => {
+      try {
+        return await this.executeOwned(job);
+      } finally {
+        await this.prisma.$executeRaw(Prisma.sql`UPDATE agent_runs SET "executionToken" = NULL, "executionJobId" = NULL WHERE id = ${job.payload.runId} AND "executionToken" = ${token}`).catch(() => undefined);
+      }
+    });
+  }
+
+  private async executeOwned(job: LeasedRunJob): Promise<RunExecutionResult> {
     if (job.topic !== 'tool.requested') {
       throw new Error(`ToolExecutor received unexpected topic: ${job.topic}`);
     }
@@ -73,7 +117,7 @@ export class ToolExecutor {
             where: { id: runId },
             select: { priority: true },
           });
-          await this.prisma.$transaction(async (tx) => {
+          await this.fencedTransaction(async (tx) => {
             await this.continueLoopIfModelDriven(
               tx,
               runId,
@@ -94,7 +138,7 @@ export class ToolExecutor {
       //    业务错误直接终态，不把 Run 置 running 后再失败
       const runCheck = await this.prisma.agentRun.findUnique({
         where: { id: runId },
-        select: { id: true, userId: true, priority: true, spaceId: true, status: true },
+        select: { id: true, userId: true, priority: true, spaceId: true, status: true, metadata: true, parentRunId: true },
       });
       if (!runCheck) {
         return {
@@ -115,6 +159,7 @@ export class ToolExecutor {
         };
       }
       if (!['queued', 'running'].includes(runCheck.status)) return { jobId: job.id, runId, status: 'succeeded' };
+      if (!permitsSubagentTool(policyForRun(runCheck.parentRunId, runCheck.metadata), toolCall.name)) throw new TerminalToolError('Subagent policy denied tool');
       const tool = this.registry.get(toolCall.name);
       if (!tool) {
         throw new TerminalToolError(`Unknown tool: ${toolCall.name}`);
@@ -128,19 +173,43 @@ export class ToolExecutor {
       // 审批门（Phase 4.5）：需要审批的工具先创建审批，Run → waiting_for_approval
       // （不置 running）；审批通过后由 RunService 重新投递 tool.requested，
       // 本执行器从检查点（已 approved 的审批记录）续跑执行。
-      const decision = this.permissions.evaluateTool(toolCall.name, undefined, toolCall.input);
-      if (decision === 'deny') throw new TerminalToolError(`Permission Denied: ${toolCall.name}`);
-      if (tool.requiresApproval || decision === 'ask') {
-        const gate = await this.ensureApproval(runId, userId, toolCall);
-        if (!gate.executable) {
-          // pending → 等待人工决策（消息确认，不重试，决策后重新投递）；
-          // rejected/expired → Run 已 cancelled（终态，消息确认）。
-          return { jobId: job.id, runId, status: 'succeeded' };
+      const decision = this.permissions.evaluateToolDecision(toolCall.name, undefined, toolCall.input);
+      if (decision.action === 'deny') {
+        throw new TerminalToolError(
+          `Permission Denied: ${toolCall.name} (${decision.reason}${decision.ruleId ? `; ${decision.ruleId}` : ''}; policy ${decision.policyVersion})`,
+        );
+      }
+
+      const hookInput = {
+        tool_name: toolCall.name,
+        tool_input: toolCall.input,
+        tool_use_id: toolCall.id,
+        run_id: runId,
+        user_id: userId,
+        space_id: runCheck.spaceId,
+      };
+      const preHook = await this.hooks.run('PreToolUse', hookInput, { spaceId: runCheck.spaceId });
+      if (preHook.blocked) throw new TerminalToolError(`Hook blocked tool ${toolCall.name}: ${preHook.reason}`);
+
+      const requiresApproval = tool.requiresApproval || decision.action === 'ask';
+      const metadata = runCheck.metadata as { sessionId?: unknown } | null;
+      const sessionId = typeof metadata?.sessionId === 'string' && metadata.sessionId ? metadata.sessionId : undefined;
+      const argsHash = createHash('sha256').update(canonicalPermissionInput(toolCall.input)).digest('hex');
+      let sessionGranted = false;
+      if (requiresApproval) {
+        sessionGranted = sessionId ? await this.hasSessionGrant(userId, sessionId, toolCall, argsHash, decision.policyVersion) : false;
+        if (!sessionGranted) {
+          const gate = await this.ensureApproval(runId, userId, toolCall, decision, argsHash, sessionId);
+          if (!gate.executable) {
+            // pending → 等待人工决策（消息确认，不重试，决策后重新投递）；
+            // rejected/expired → Run 已 cancelled（终态，消息确认）。
+            return { jobId: job.id, runId, status: 'succeeded' };
+          }
         }
       }
 
       // 3) 接管：置 running（幂等处理崩溃遗留）
-      const active = await this.prisma.$transaction(async (tx) => {
+      const active = await this.fencedTransaction(async (tx) => {
         const run = await tx.agentRun.findUnique({
           where: { id: runId },
           select: { status: true },
@@ -178,16 +247,30 @@ export class ToolExecutor {
         runId,
         toolName: toolCall.name,
         inputJson: toolCall.input,
-        authorization: tool.requiresApproval ? 'approval' : 'auto',
+        authorization: sessionGranted ? `session:${decision.policyVersion}` : requiresApproval ? 'approval' : `policy:${decision.source}:${decision.policyVersion}`,
       });
       invocationStarted = true;
-      const output = await tool.execute(toolCall.input, { runId, userId, toolCallId: toolCall.id });
+      let output: any;
+      try {
+        output = await tool.execute(toolCall.input, { runId, userId, toolCallId: toolCall.id });
+      } catch (error) {
+        await this.hooks.run('ToolUseFailure', { ...hookInput, error: error instanceof Error ? error.message : String(error) }, { spaceId: runCheck.spaceId });
+        throw error;
+      }
+      const postHook = await this.hooks.run('PostToolUse', { ...hookInput, tool_response: output }, { spaceId: runCheck.spaceId });
+      let hookFeedback: string | undefined;
+      if (postHook.blocked) {
+        const modelStep = await this.prisma.runStep.findFirst({ where: { runId, kind: 'model_call' }, select: { id: true } });
+        // Standalone tool calls have no model continuation to consume the gate.
+        if (!modelStep) throw new TerminalToolError(`Hook blocked tool result ${toolCall.name}: ${postHook.reason}`);
+        hookFeedback = postHook.reason || 'Review the tool result before continuing.';
+      }
 
       // 6) 完成：step succeeded + step_completed + tool.completed；
       //    Agent Loop 驱动的 Run（存在 model_call 步骤）→ Run queued + 重投
       //    run.requested 回喂模型续跑；纯工具 Run → Run succeeded（现状）。
       const outputJson = output as Prisma.InputJsonValue;
-      await this.prisma.$transaction(async (tx) => {
+      await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, userId, status: 'running' }, data: { status: 'running' } });
         if (!active.count) return;
         await tx.runStep.update({
@@ -195,6 +278,7 @@ export class ToolExecutor {
           data: {
             status: 'succeeded',
             output: outputJson,
+            ...(hookFeedback ? { checkpoint: { hookFeedback } } : {}),
             completedAt: new Date(),
           },
         });
@@ -276,14 +360,20 @@ export class ToolExecutor {
     idempotencyKey: string,
     toolCall: ToolCall,
   ): Promise<{ id: string } | null> {
-    const steps = await this.prisma.runStep.findMany({
-      where: { runId, kind: 'tool_call' },
+    // The unique column is the authoritative identity. Fall back to the legacy
+    // JSON scan only for rows created before the column existed.
+    const columnHit = await this.prisma.runStep.findFirst({
+      where: { runId, kind: 'tool_call', idempotencyKey },
       orderBy: { seq: 'desc' },
     });
-    const hit = steps.find(
-      (step) =>
-        this.inputKey(step.input) === idempotencyKey,
-    );
+    let hit = columnHit;
+    if (!hit) {
+      const steps = await this.prisma.runStep.findMany({
+        where: { runId, kind: 'tool_call' },
+        orderBy: { seq: 'desc' },
+      });
+      hit = steps.find((step) => this.inputKey(step.input) === idempotencyKey) ?? null;
+    }
     if (hit) {
       const prior = hit.input as unknown as ToolCall;
       if (prior.name !== toolCall.name || !isDeepStrictEqual(prior.input, toolCall.input)) {
@@ -325,10 +415,37 @@ export class ToolExecutor {
     }
   }
 
+  /** An approved session grant only covers the same session, tool and exact args. */
+  private async hasSessionGrant(
+    userId: string,
+    sessionId: string,
+    toolCall: ToolCall,
+    argsHash: string,
+    policyVersion: string,
+  ): Promise<boolean> {
+    const grant = await this.prisma.runApproval.findFirst({
+      where: {
+        userId,
+        sessionId,
+        toolName: toolCall.name,
+        argsHash,
+        scope: 'session',
+        policyVersion,
+        status: 'approved',
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return !!grant;
+  }
+
   private async ensureApproval(
     runId: string,
     userId: string,
     toolCall: ToolCall,
+    decision: PermissionDecision,
+    argsHash: string,
+    sessionId?: string,
   ): Promise<{ executable: boolean }> {
     const existing = await this.prisma.runApproval.findFirst({
       where: { runId, toolCallId: toolCall.id },
@@ -339,17 +456,27 @@ export class ToolExecutor {
       if (existing.toolName !== toolCall.name || !isDeepStrictEqual(existing.args, JSON.parse(JSON.stringify(toolCall.input)))) {
         throw new TerminalToolError('Approval does not match the requested tool and arguments.');
       }
+      if (existing.argsHash && existing.argsHash !== argsHash) {
+        throw new TerminalToolError('Approval does not match the requested argument digest.');
+      }
+      if (existing.policyVersion && existing.policyVersion !== decision.policyVersion) {
+        return this.supersedeApproval(existing, runId, userId, toolCall, decision, argsHash, sessionId);
+      }
       return { executable: existing.status === 'approved' };
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.fencedTransaction(async (tx) => {
       const active = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'waiting_for_approval' } });
       if (!active.count) return { executable: false };
       const fresh = await tx.runApproval.findFirst({ where: { runId, toolCallId: toolCall.id }, orderBy: { createdAt: 'desc' } });
       if (fresh) {
         this.validateApproval(fresh, runId, userId, toolCall);
-        if (fresh.toolName !== toolCall.name || !isDeepStrictEqual(fresh.args, JSON.parse(JSON.stringify(toolCall.input)))) {
+        if (fresh.toolName !== toolCall.name || !isDeepStrictEqual(fresh.args, JSON.parse(JSON.stringify(toolCall.input)))
+          || (fresh.argsHash && fresh.argsHash !== argsHash)) {
           throw new TerminalToolError('Approval does not match the requested tool and arguments.');
+        }
+        if (fresh.policyVersion && fresh.policyVersion !== decision.policyVersion) {
+          return { executable: false };
         }
         if (fresh.status === 'approved') {
           await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
@@ -357,61 +484,7 @@ export class ToolExecutor {
         }
         return { executable: false };
       }
-      const approvalId = randomUUID();
-      const seq = await this.nextStepSeq(tx, runId);
-      const inputJson = JSON.parse(
-        JSON.stringify(toolCall),
-      ) as Prisma.InputJsonValue;
-      await tx.runStep.create({
-        data: {
-          id: approvalId,
-          runId,
-          seq,
-          kind: 'approval',
-          status: 'started',
-          input: inputJson,
-        },
-      });
-      await this.appendEvent(tx, runId, {
-        id: randomUUID(),
-        runId,
-        sequence: await this.nextSequence(tx, runId),
-        occurredAt: new Date().toISOString(),
-        type: 'run.step_started',
-        step: this.toStepContract({
-          id: approvalId,
-          runId,
-          seq,
-          kind: 'approval',
-          status: 'started',
-          input: toolCall,
-        }),
-      });
-      await tx.runApproval.create({
-        data: {
-          id: approvalId,
-          runId,
-          userId,
-          toolCallId: toolCall.id,
-          toolName: toolCall.name,
-          args: toolCall.input as Prisma.InputJsonValue,
-          source: 'run',
-          expiresAt: new Date(Date.now() + APPROVAL_TTL_MS),
-        },
-      });
-      await this.appendEvent(tx, runId, {
-        id: randomUUID(),
-        runId,
-        sequence: await this.nextSequence(tx, runId),
-        occurredAt: new Date().toISOString(),
-        type: 'approval.requested',
-        approval: {
-          id: approvalId,
-          runId,
-          toolCallId: toolCall.id,
-          status: 'pending',
-        },
-      });
+      await this.createApprovalArtifacts(tx, runId, userId, toolCall, decision, argsHash, sessionId);
       await tx.agentRun.update({
         where: { id: runId },
         data: { status: 'waiting_for_approval' },
@@ -426,6 +499,92 @@ export class ToolExecutor {
       });
       return { executable: false };
     });
+  }
+
+  /** Policy changed after an approval was issued: invalidate it and request a fresh one. */
+  private async supersedeApproval(
+    existing: { id: string; status: string },
+    runId: string,
+    userId: string,
+    toolCall: ToolCall,
+    decision: PermissionDecision,
+    argsHash: string,
+    sessionId?: string,
+  ): Promise<{ executable: boolean }> {
+    return this.fencedTransaction(async (tx) => {
+      const superseded = await tx.runApproval.updateMany({
+        where: { id: existing.id, status: { in: ['pending', 'approved'] } },
+        data: { status: 'superseded', decidedAt: new Date() },
+      });
+      if (!superseded.count) return { executable: false };
+      await tx.agentRun.updateMany({
+        where: { id: runId, userId, status: { in: ['queued', 'running', 'waiting_for_approval'] } },
+        data: { status: 'waiting_for_approval' },
+      });
+      await this.createApprovalArtifacts(tx, runId, userId, toolCall, decision, argsHash, sessionId);
+      return { executable: false };
+    });
+  }
+
+  private async createApprovalArtifacts(
+    tx: Prisma.TransactionClient,
+    runId: string,
+    userId: string,
+    toolCall: ToolCall,
+    decision: PermissionDecision,
+    argsHash: string,
+    sessionId?: string,
+  ): Promise<string> {
+    const approvalId = randomUUID();
+    const seq = await this.nextStepSeq(tx, runId);
+    const inputJson = JSON.parse(JSON.stringify(toolCall)) as Prisma.InputJsonValue;
+    await tx.runStep.create({
+      data: { id: approvalId, runId, seq, kind: 'approval', status: 'started', input: inputJson },
+    });
+    await this.appendEvent(tx, runId, {
+      id: randomUUID(),
+      runId,
+      sequence: await this.nextSequence(tx, runId),
+      occurredAt: new Date().toISOString(),
+      type: 'run.step_started',
+      step: this.toStepContract({
+        id: approvalId, runId, seq, kind: 'approval', status: 'started', input: toolCall,
+      }),
+    });
+    await tx.runApproval.create({
+      data: {
+        id: approvalId,
+        runId,
+        userId,
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        args: toolCall.input as Prisma.InputJsonValue,
+        sessionId: sessionId ?? null,
+        source: 'run',
+        scope: 'once',
+        policyVersion: decision.policyVersion,
+        policyRuleId: decision.ruleId ?? null,
+        argsHash,
+        expiresAt: new Date(Date.now() + APPROVAL_TTL_MS),
+      },
+    });
+    await this.appendEvent(tx, runId, {
+      id: randomUUID(),
+      runId,
+      sequence: await this.nextSequence(tx, runId),
+      occurredAt: new Date().toISOString(),
+      type: 'approval.requested',
+      approval: {
+        id: approvalId,
+        runId,
+        toolCallId: toolCall.id,
+        status: 'pending',
+        scope: 'once',
+        policyVersion: decision.policyVersion,
+        ruleId: decision.ruleId,
+      },
+    });
+    return approvalId;
   }
 
   /**
@@ -465,13 +624,12 @@ export class ToolExecutor {
     runId: string,
     toolCall: ToolCall,
   ): Promise<{ id: string; seq: number } | null> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.fencedTransaction(async (tx) => {
       const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
       if (!active.count) return null;
-      const existing = await tx.runStep.findFirst({
-        where: { runId, kind: 'tool_call' },
-        orderBy: { seq: 'desc' },
-      });
+      const existing = toolCall.idempotencyKey
+        ? await tx.runStep.findFirst({ where: { runId, kind: 'tool_call', idempotencyKey: toolCall.idempotencyKey }, orderBy: { seq: 'desc' } })
+        : await tx.runStep.findFirst({ where: { runId, kind: 'tool_call' }, orderBy: { seq: 'desc' } });
       if (existing && ['started', 'failed', 'unknown'].includes(existing.status) && !isReadOnlyTool(toolCall.name, toolCall.input)) {
         throw new UnknownToolResult('Prior tool result unknown; automatic replay prohibited.');
       }
@@ -481,16 +639,32 @@ export class ToolExecutor {
 
       const id = randomUUID();
       const seq = await this.nextStepSeq(tx, runId);
-      await tx.runStep.create({
-        data: {
-          id,
-          runId,
-          seq,
-          kind: 'tool_call',
-          status: 'started',
-          input: JSON.parse(JSON.stringify({ ...toolCall, inputDigest: createHash('sha256').update(JSON.stringify(toolCall.input)).digest('hex'), effect: this.registry.get(toolCall.name)?.effect ?? (isReadOnlyTool(toolCall.name, toolCall.input) ? 'read' : 'non-idempotent-write') })) as Prisma.InputJsonValue,
-        },
-      });
+      try {
+        await tx.runStep.create({
+          data: {
+            id,
+            runId,
+            seq,
+            kind: 'tool_call',
+            status: 'started',
+            idempotencyKey: toolCall.idempotencyKey ?? null,
+            input: JSON.parse(JSON.stringify({ ...toolCall, inputDigest: createHash('sha256').update(JSON.stringify(toolCall.input)).digest('hex'), effect: this.registry.get(toolCall.name)?.effect ?? (isReadOnlyTool(toolCall.name, toolCall.input) ? 'read' : 'non-idempotent-write') })) as Prisma.InputJsonValue,
+          },
+        });
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'P2002') throw error;
+        const winner = await tx.runStep.findFirst({
+          where: { runId, kind: 'tool_call', idempotencyKey: toolCall.idempotencyKey ?? null },
+          orderBy: { seq: 'desc' },
+        });
+        if (winner?.status === 'succeeded' && isReadOnlyTool(toolCall.name, toolCall.input)) {
+          return { id: winner.id, seq: winner.seq };
+        }
+        if (!isReadOnlyTool(toolCall.name, toolCall.input)) {
+          throw new UnknownToolResult('Concurrent tool call already uses this idempotency key; automatic replay prohibited.');
+        }
+        throw new TerminalToolError('Concurrent tool call already uses this idempotency key.');
+      }
       await this.appendEvent(tx, runId, {
         id: randomUUID(),
         runId,
@@ -521,7 +695,7 @@ export class ToolExecutor {
     let cancelled = false;
 
     try {
-      await this.prisma.$transaction(async (tx) => {
+      await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
         cancelled = !active.count;
         if (cancelled) return;

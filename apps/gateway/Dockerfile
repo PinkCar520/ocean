@@ -2,7 +2,7 @@
 FROM node:22-alpine AS pruner
 WORKDIR /app
 # 安装 turbo cli
-RUN npm install -g turbo
+RUN npm install -g turbo@2.9.16
 COPY . .
 # 剥离出仅 gateway 及其 workspace 依赖所需的文件
 RUN turbo prune gateway --docker
@@ -21,15 +21,12 @@ COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 
 # 安装依赖
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm config set ignore-scripts true && pnpm install --no-frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts --store-dir=/pnpm/store
 
 # 拷贝源代码
 COPY --from=pruner /app/out/full/ .
 # turbo prune 不包含根 tsconfig.json，需手动补充（子包的 tsconfig 会 extends 它）
 COPY --from=pruner /app/tsconfig.json ./tsconfig.json
-
-# 执行完整安装（通过两次运行解决 pnpm 和 turbo 的并发冲突 bug）
-RUN pnpm config set ignore-scripts true && pnpm install --frozen-lockfile
 
 # Prisma 生成（需要源文件中的 schema）
 RUN cd apps/gateway && ./node_modules/.bin/prisma generate
@@ -37,26 +34,15 @@ RUN cd apps/gateway && ./node_modules/.bin/prisma generate
 # 使用 Turbo 进行构建（只会精准构建 gateway 及其涉及的依赖包）
 RUN npx turbo run build --filter=gateway
 
-# 阶段 3：Runner (生产运行环境)
+# 导出独立生产目录；pnpm 11 的非 injected workspace 使用 legacy deploy。
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm --filter gateway deploy --prod --legacy --offline --ignore-scripts --store-dir=/pnpm/store /production/apps/gateway
+# deploy 重建依赖布局后，在最终目录生成 Prisma Client。
+RUN cd /production/apps/gateway && ./node_modules/.bin/prisma generate
+
+# 阶段 3：Runner（无需重新下载或安装依赖）
 FROM node:22-alpine AS runner
 WORKDIR /app
-ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
-ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
-RUN corepack enable
 ENV NODE_ENV=production
-
-# 从 builder 中拷贝所有编译后的产物
-COPY --from=builder /app ./
-
-# 【核心瘦身操作】遵循 pnpm 官方针对 Monorepo 的指引：
-# 1. 递归删除项目中所有的 node_modules 目录（此时只剩下被 prune 过的包）
-RUN find . -name "node_modules" -type d -prune -exec rm -rf '{}' +
-# 2. 仅安装生产依赖
-RUN pnpm config set ignore-scripts true && pnpm install --prod --no-frozen-lockfile
-# 3. 由于重建了依赖，需要重新生成一次 Prisma Client
-RUN cd apps/gateway && ./node_modules/.bin/prisma generate
-
+COPY --from=builder /production/ ./
 EXPOSE 3000
-
-# 启动命令
 CMD ["sh", "-c", "cd apps/gateway && ./node_modules/.bin/prisma db push --accept-data-loss --schema prisma/schema.prisma && node dist/apps/gateway/src/main"]

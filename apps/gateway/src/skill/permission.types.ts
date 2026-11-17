@@ -2,6 +2,9 @@
 export {
   IS_PUBLIC_KEY,
   evaluateTool,
+  evaluateToolDecision,
+  evaluatePermissionDecision,
+  permissionPolicyVersion,
   isPermissionSettings,
   isReadOnlyTool,
   matchRule,
@@ -14,4 +17,5 @@ export type {
   PermissionMode,
   PermissionRule,
   PermissionSettings,
+  PermissionDecision,
 } from '@ocean/core';

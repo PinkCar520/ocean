@@ -1,3 +1,4 @@
+import { parseShellCommand } from './shell-ast.js';
 /** Shared permission policy contract used by the Gateway and local CLI. */
 export const IS_PUBLIC_KEY = 'isPublic';
 
@@ -13,6 +14,8 @@ export interface PermissionRule {
 
 export interface PermissionSettings {
   mode?: PermissionMode;
+  /** Optional administrator-supplied policy version; otherwise derived from content. */
+  version?: string;
   rules?: PermissionRule[];
   allow?: string[];
   deny?: string[];
@@ -24,6 +27,7 @@ export interface PermissionSettings {
 }
 
 export interface NormalizedRule extends PermissionRule {
+  id?: string;
   regex: RegExp;
 }
 
@@ -48,6 +52,7 @@ export function isPermissionSettings(value: unknown): value is PermissionSetting
       && (rule.skill === undefined || (typeof rule.skill === 'string' && rule.skill.length <= 128))
       && (rule.comment === undefined || (typeof rule.comment === 'string' && rule.comment.length <= 1_000)))))
     && validMcp
+    && (settings.version === undefined || (typeof settings.version === 'string' && settings.version.length <= 128))
     && (settings.maxMcpOutputTokens === undefined || (Number.isInteger(settings.maxMcpOutputTokens)
       && settings.maxMcpOutputTokens >= 1_000 && settings.maxMcpOutputTokens <= 100_000));
 }
@@ -72,23 +77,96 @@ export function normalizeRules(settings: PermissionSettings): NormalizedRule[] {
   ] as const) {
     for (const pattern of patterns ?? []) rules.push({ action, pattern, regex: wildcardToRegex(pattern) });
   }
-  return rules;
+  return uniquePermissionRuleIds(rules);
 }
 
-/** Deny is final; MCP grants may never override a tool-level ask rule. */
-export function evaluatePermission(
-  toolName: string, settings: PermissionSettings, rules: NormalizedRule[],
-  args?: unknown, mcpServer?: string,
-): PermissionAction {
-  if (!isPermissionSettings(settings)) return 'deny';
-  const action = evaluateTool(toolName, rules, args, settings.mode ?? 'default');
-  if (action === 'deny') return action;
-  const serverName = mcpServer ?? /^mcp__([^_:]+)(?:__|:)/.exec(toolName)?.[1];
-  const server = serverName ? settings.mcp?.servers?.[serverName] : undefined;
-  if (server?.enabled === false || server?.permissions === 'deny') return 'deny';
-  if (server?.permissions === 'ask') return settings.mode === 'dontAsk' ? 'deny' : 'ask';
-  if (server?.permissions === 'allow' && !rules.some(rule => rule.action === 'ask' && permissionRuleMatches(rule, toolName, args))) return 'allow';
-  return action;
+export function uniquePermissionRuleIds(rules: NormalizedRule[]): NormalizedRule[] {
+  const counts = new Map<string, number>();
+  const used = new Set<string>();
+  return rules.map(rule => {
+    const base = `rule:${rule.action}:${rule.pattern}`;
+    let occurrence = (counts.get(base) ?? 0) + 1;
+    let id = occurrence === 1 ? base : `${base}#${occurrence}`;
+    while (used.has(id)) { occurrence++; id = `${base}#${occurrence}`; }
+    counts.set(base, occurrence); used.add(id);
+    return { ...rule, id };
+  });
+}
+
+export interface PermissionDecision {
+  action: PermissionAction;
+  reason: string;
+  ruleId?: string;
+  policyVersion: string;
+  source: 'invalid' | 'deny-rule' | 'plan' | 'mcp-server' | 'session' | 'rule' | 'mode' | 'read-only' | 'default';
+}
+
+/** Stable policy fingerprint so approvals/audit can pin the exact rules used. */
+export function permissionPolicyVersion(settings: PermissionSettings, rules: NormalizedRule[] = []): string {
+  if (settings?.version) return settings.version;
+  const snapshot = JSON.stringify({
+    mode: settings?.mode ?? 'default',
+    mcp: settings?.mcp ?? null,
+    rules: rules.map((rule) => [rule.action, rule.pattern, rule.skill ?? null, rule.comment ?? null]),
+  });
+  let hash = 2166136261;
+  for (let index = 0; index < snapshot.length; index += 1) {
+    hash ^= snapshot.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function decision(
+  action: PermissionAction,
+  reason: string,
+  policyVersion: string,
+  source: PermissionDecision['source'],
+  ruleId?: string,
+): PermissionDecision {
+  return { action, reason, policyVersion, source, ...(ruleId ? { ruleId } : {}) };
+}
+
+function matchingRuleDecision(rule: NormalizedRule, policyVersion: string): PermissionDecision {
+  return decision(
+    rule.action,
+    rule.comment ?? `Matched ${rule.action} rule ${rule.pattern}`,
+    policyVersion,
+    rule.action === 'deny' ? 'deny-rule' : 'rule',
+    rule.id ?? `rule:${rule.action}:${rule.pattern}`,
+  );
+}
+
+export function evaluateToolDecision(
+  toolName: string,
+  rules: NormalizedRule[],
+  args?: any,
+  mode: PermissionMode = 'default',
+  policyVersion = 'unversioned',
+): PermissionDecision {
+  const matchingRules = rules.filter((rule) => permissionRuleMatches(rule, toolName, args));
+  const deny = matchingRules.find((rule) => rule.action === 'deny');
+  if (deny) return matchingRuleDecision(deny, policyVersion);
+
+  if (mode === 'plan') {
+    return isReadOnlyTool(toolName, args)
+      ? decision('allow', `Plan mode permits read-only tool ${toolName}.`, policyVersion, 'read-only', 'mode:plan')
+      : decision('deny', `Plan mode blocks ${toolName} until planning ends.`, policyVersion, 'plan', 'mode:plan');
+  }
+
+  const explicitRule = matchingRules.find((rule) => rule.action !== 'deny');
+  if (explicitRule) {
+    if (mode === 'dontAsk' && explicitRule.action === 'ask') {
+      return decision('deny', explicitRule.comment ?? `dontAsk converts ask rule ${explicitRule.pattern} to deny.`, policyVersion, 'rule', `rule:ask:${explicitRule.pattern}`);
+    }
+    return matchingRuleDecision(explicitRule, policyVersion);
+  }
+
+  if (mode === 'bypassPermissions') return decision('allow', 'bypassPermissions mode allows the tool.', policyVersion, 'mode', 'mode:bypassPermissions');
+  if (mode === 'acceptEdits' && isFileEditTool(toolName)) return decision('allow', 'acceptEdits mode permits file edits.', policyVersion, 'mode', 'mode:acceptEdits');
+  if (isReadOnlyTool(toolName, args)) return decision('allow', `Read-only tool ${toolName}.`, policyVersion, 'read-only', 'read-only');
+  if (mode === 'dontAsk') return decision('deny', 'dontAsk mode denies tools without an allow grant.', policyVersion, 'default', 'mode:dontAsk');
+  return decision('ask', `Tool ${toolName} requires approval in ${mode} mode.`, policyVersion, 'default');
 }
 
 export function evaluateTool(
@@ -97,22 +175,60 @@ export function evaluateTool(
   args?: any,
   mode: PermissionMode = 'default',
 ): PermissionAction {
+  return evaluateToolDecision(toolName, rules, args, mode).action;
+}
+
+/** Deny is final; MCP grants may never override a tool-level ask rule. */
+export function evaluatePermission(
+  toolName: string,
+  settings: PermissionSettings,
+  rules: NormalizedRule[],
+  args?: unknown,
+  mcpServer?: string,
+): PermissionAction {
+  return evaluatePermissionDecision(toolName, settings, rules, args, mcpServer).action;
+}
+
+export function evaluatePermissionDecision(
+  toolName: string,
+  settings: PermissionSettings,
+  rules: NormalizedRule[],
+  args?: unknown,
+  mcpServer?: string,
+  options: { sessionGrant?: boolean; policyVersion?: string } = {},
+): PermissionDecision {
+  if (!isPermissionSettings(settings)) {
+    return decision('deny', 'Invalid permission settings; denying by default.', 'invalid', 'invalid');
+  }
+  const policyVersion = options.policyVersion ?? permissionPolicyVersion(settings, rules);
   const matchingRules = rules.filter((rule) => permissionRuleMatches(rule, toolName, args));
-  if (matchingRules.some((rule) => rule.action === 'deny')) return 'deny';
+  const deny = matchingRules.find((rule) => rule.action === 'deny');
+  if (deny) return matchingRuleDecision(deny, policyVersion);
 
-  if (mode === 'plan') return isReadOnlyTool(toolName, args) ? 'allow' : 'deny';
-
-  const explicitRule = matchingRules.find((rule) => rule.action !== 'deny');
-  if (explicitRule) {
-    if (mode === 'dontAsk' && explicitRule.action === 'ask') return 'deny';
-    return explicitRule.action;
+  if ((settings.mode ?? 'default') === 'plan') {
+    return evaluateToolDecision(toolName, rules, args, 'plan', policyVersion);
   }
 
-  if (mode === 'bypassPermissions') return 'allow';
-  if (mode === 'acceptEdits' && isFileEditTool(toolName)) return 'allow';
-  if (isReadOnlyTool(toolName, args)) return 'allow';
-  if (mode === 'dontAsk') return 'deny';
-  return 'ask';
+  const serverName = mcpServer ?? /^mcp__([^_:]+)(?:__|:)/.exec(toolName)?.[1];
+  const server = serverName ? settings.mcp?.servers?.[serverName] : undefined;
+  if (server?.enabled === false || server?.permissions === 'deny') {
+    return decision('deny', `MCP server ${serverName} is disabled or denied.`, policyVersion, 'mcp-server', `mcp:${serverName}`);
+  }
+
+  if (options.sessionGrant) {
+    return decision('allow', `Session grant for ${toolName} with these exact arguments.`, policyVersion, 'session', `session:${toolName}`);
+  }
+
+  if (server?.permissions === 'ask') {
+    return settings.mode === 'dontAsk'
+      ? decision('deny', `dontAsk denies MCP server ${serverName}.`, policyVersion, 'mcp-server', `mcp:${serverName}`)
+      : decision('ask', `MCP server ${serverName} requires approval.`, policyVersion, 'mcp-server', `mcp:${serverName}`);
+  }
+  if (server?.permissions === 'allow' && !matchingRules.some((rule) => rule.action === 'ask')) {
+    return decision('allow', `MCP server ${serverName} allows the tool.`, policyVersion, 'mcp-server', `mcp:${serverName}`);
+  }
+
+  return evaluateToolDecision(toolName, rules, args, settings.mode ?? 'default', policyVersion);
 }
 
 function permissionRuleMatches(rule: NormalizedRule, toolName: string, args?: any): boolean {
@@ -225,9 +341,9 @@ export function isReadOnlyTool(toolName: string, args?: any): boolean {
   }
 
   if (['bash', 'local_bash'].includes(toolName) && typeof args?.command === 'string') {
-    const command = args.command.trim();
-    if (!command || /[;|&><`$()\r\n]/.test(command)) return false;
-    const tokens: string[] = command.split(/\s+/);
+    const tree = parseShellCommand(args.command);
+    if (tree.type !== 'command') return false;
+    const tokens = tree.words;
     const executable = tokens[0].toLowerCase();
     if (['pwd', 'whoami'].includes(executable)) return tokens.length === 1;
     if (executable === 'ls') {

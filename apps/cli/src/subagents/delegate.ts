@@ -76,7 +76,15 @@ export function createDelegationTool(definitions: SubagentDefinition[], parent: 
         const timer = setTimeout(() => controller.abort(new Error('Subagent time budget exceeded')), 60_000);
         let task: NonNullable<StoredSession['subagent']> | undefined;
         let childId: string | undefined;
+        let heartbeat: ReturnType<typeof setInterval> | undefined;
         const persistence = parent.persistence;
+        let persistChain: Promise<void> = Promise.resolve();
+        const persistTask = (): Promise<void> => {
+          if (!persistence || !childId || !task) return Promise.resolve();
+          const next = persistChain.then(() => persistence.store.saveSubagent(childId!, persistence.workspace, task!));
+          persistChain = next.catch(() => undefined);
+          return next;
+        };
         try {
           if (persistence) {
             childId = createHash('sha256').update(JSON.stringify([persistence.sessionId, id])).digest('hex');
@@ -90,8 +98,11 @@ export function createDelegationTool(definitions: SubagentDefinition[], parent: 
               throw new Error('Subagent outcome unknown or terminal; automatic replay prohibited');
             }
             task = { ownerPid: process.pid, parentSessionId: persistence.sessionId, toolCallId: id, agent: definition.name, inputDigest, status: 'prepared' };
-            await persistence.store.saveSubagent(childId, persistence.workspace, task);
-            task.status = 'running'; await persistence.store.saveSubagent(childId, persistence.workspace, task);
+            await persistTask();
+            task.status = 'running'; await persistTask();
+            heartbeat = setInterval(() => {
+              void persistTask().catch(() => undefined);
+            }, 5_000);
           }
           const tools = Object.fromEntries(Object.entries(parent.tools).filter(([name]) => READ_ONLY.has(name) && definition.tools.includes(name)));
           const result = await parent.run([{ role: 'user', content: input.task }], {
@@ -105,15 +116,15 @@ export function createDelegationTool(definitions: SubagentDefinition[], parent: 
           });
           signal?.throwIfAborted(); controller.signal.throwIfAborted();
           const output = { taskId: childId ?? id, agent: definition.name, result: result.text.slice(0, 32000) };
-          if (persistence && childId && task) { task.status = 'succeeded'; task.result = output; await persistence.store.saveSubagent(childId, persistence.workspace, task); }
+          if (persistence && childId && task) { task.status = 'succeeded'; task.result = output; await persistTask(); }
           return output;
         } catch (error) {
           if (persistence && childId && task) {
             task.status = signal?.aborted || controller.signal.aborted ? 'cancelled' : 'unknown'; task.error = String(error);
-            await persistence.store.saveSubagent(childId, persistence.workspace, task);
+            await persistTask();
           }
           throw error;
-        } finally { clearTimeout(timer); busy = false; }
+        } finally { clearTimeout(timer); if (heartbeat) clearInterval(heartbeat); busy = false; }
       })();
       pending.set(id, { fingerprint, promise });
       return promise;

@@ -8,8 +8,11 @@ import * as path from 'path';
 export interface MCPServerConfig {
   id: string;
   name: string;
-  command: string;
-  args: string[];
+  command?: string;
+  url?: string;
+  headers?: Record<string, string>;
+  oauthFetch?: typeof fetch;
+  args?: string[];
   env?: Record<string, string>;
   enabled?: boolean;
   description?: string;
@@ -42,52 +45,40 @@ export class MCPConfigLoader {
    * Load and merge MCP configs from all layers.
    * Returns merged config with higher priority layers overriding lower ones.
    */
-  loadConfig(workspacePath?: string): MCPConfigFile {
-    const layers: MCPConfigFile[] = [];
+  loadConfig(
+    workspacePath?: string,
+    options: { userHome?: string; includeLocal?: boolean; env?: Record<string, string>; envFallback?: boolean } = {},
+  ): MCPConfigFile {
+    // Discover layers independently, then merge in ascending priority:
+    // built-in < user < project < workspace-local.
+    const userHome = options.userHome ?? process.env.HOME ?? process.env.USERPROFILE ?? '';
+    const userConfig = userHome
+      ? this.tryLoadJson(path.join(userHome, '.ocean', 'mcp.json'))
+      : null;
 
-    // Layer 1: User-level (~/.ocean/mcp.json) - lowest priority
-    const userHome = process.env.HOME || process.env.USERPROFILE || '';
-    if (userHome) {
-      const userConfig = this.tryLoadJson(
-        path.join(userHome, '.ocean', 'mcp.json'),
-      );
-      if (userConfig) {
-        this.logger.debug(`Loaded user MCP config from: ~/.ocean/mcp.json`);
-        layers.unshift(userConfig);
-      }
-    }
+    const projectConfig = workspacePath
+      ? this.tryLoadJson(path.join(workspacePath, '.mcp.json'))
+        || this.tryLoadJson(path.join(workspacePath, '.claude', 'mcp.json'))
+      : null;
 
-    // Layer 2: Project-level (.mcp.json or .claude/mcp.json in workspace)
-    if (workspacePath) {
-      const projectConfig =
-        this.tryLoadJson(path.join(workspacePath, '.mcp.json')) ||
-        this.tryLoadJson(path.join(workspacePath, '.claude', 'mcp.json'));
-      if (projectConfig) {
-        this.logger.debug(`Loaded project MCP config from workspace`);
-        layers.unshift(projectConfig);
-      }
-    }
+    // Scoped tenants skip cwd so the Gateway process directory cannot leak servers.
+    const localConfig = options.includeLocal === false
+      ? null
+      : this.tryLoadJson(path.join(process.cwd(), '.mcp.json'))
+        || this.tryLoadJson(path.join(process.cwd(), '.claude', 'mcp.json'));
 
-    // Layer 3: Local-level (cwd/.mcp.json or cwd/.claude/mcp.json) - highest priority
-    const localConfig =
-      this.tryLoadJson(path.join(process.cwd(), '.mcp.json')) ||
-      this.tryLoadJson(path.join(process.cwd(), '.claude', 'mcp.json'));
-    if (localConfig) {
-      this.logger.debug(`Loaded local MCP config from cwd`);
-      layers.unshift(localConfig);
-    }
-
-    // Layer 4: Built-in config (mcp.config.json in gateway) - fallback
     const gatewayRoot = process.env.GATEWAY_ROOT || process.cwd();
-    const builtinConfig = this.tryLoadJson(
-      path.join(gatewayRoot, 'mcp.config.json'),
-    );
-    if (builtinConfig) {
-      this.logger.debug(`Loaded built-in MCP config from gateway`);
-      layers.unshift(builtinConfig);
-    }
+    const builtinConfig = this.tryLoadJson(path.join(gatewayRoot, 'mcp.config.json'));
 
-    // Merge layers (later overrides earlier)
+    if (builtinConfig) this.logger.debug('Loaded built-in MCP config from gateway');
+    if (userConfig) this.logger.debug('Loaded user MCP config from the scoped home');
+    if (projectConfig) this.logger.debug('Loaded project MCP config from workspace');
+    if (localConfig) this.logger.debug('Loaded local MCP config from cwd');
+
+    const layers = [builtinConfig, userConfig, projectConfig, localConfig]
+      .filter((layer): layer is MCPConfigFile => layer !== null);
+
+    // Merge layers (later overrides earlier).
     const merged: MCPConfigFile = { mcpServers: [] };
     const serverMap = new Map<string, MCPServerConfig>();
 
@@ -100,7 +91,7 @@ export class MCPConfigLoader {
     merged.mcpServers = [...serverMap.values()];
 
     // Expand environment variables
-    merged.mcpServers = merged.mcpServers.map((srv) => this.expandEnvVars(srv));
+    merged.mcpServers = merged.mcpServers.map((srv) => this.expandEnvVars(srv, options.env ?? {}, options.envFallback !== false));
 
     this.logger.log(
       `MCP config loaded. Servers: ${merged.mcpServers.length}, Enabled: ${merged.mcpServers.filter((s) => s.enabled).length}`,
@@ -126,17 +117,21 @@ export class MCPConfigLoader {
    * Expand environment variables in args and env.
    * Supports ${VAR} and ${VAR:-default} syntax.
    */
-  private expandEnvVars(config: MCPServerConfig): MCPServerConfig {
+  private expandEnvVars(config: MCPServerConfig, scopedEnv: Record<string, string>, fallback: boolean): MCPServerConfig {
     const expand = (value: string): string => {
       return value.replace(/\$\{([^}]+)\}/g, (_match, expr: string) => {
         const [varName, defaultValue] = expr.split(':-');
-        return process.env[varName] || defaultValue || '';
+        const scoped = scopedEnv[varName];
+        if (scoped !== undefined) return scoped;
+        return (fallback ? process.env[varName] : undefined) || defaultValue || '';
       });
     };
 
     return {
       ...config,
       args: (config.args || []).map(expand),
+      url: config.url ? expand(config.url) : undefined,
+      headers: config.headers ? Object.fromEntries(Object.entries(config.headers).map(([key, value]) => [key, expand(value)])) : undefined,
       env: config.env
         ? Object.fromEntries(
             Object.entries(config.env).map(([k, v]) => [k, expand(v)]),

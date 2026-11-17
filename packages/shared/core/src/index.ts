@@ -7,7 +7,10 @@ export interface OceanBaseEvent {
 export {
   IS_PUBLIC_KEY,
   evaluateTool,
+  evaluateToolDecision,
   evaluatePermission,
+  evaluatePermissionDecision,
+  permissionPolicyVersion,
   isPermissionSettings,
   isReadOnlyTool,
   matchRule,
@@ -20,7 +23,9 @@ export type {
   PermissionMode,
   PermissionRule,
   PermissionSettings,
+  PermissionDecision,
 } from './permission-policy.js';
+export { SessionPermissionGrants, canonicalPermissionInput } from './session-permission-grants.js';
 
 export interface BugDetail {
   id: string;
@@ -148,3 +153,8 @@ export type {
   UIKit,
   ToolResult,
 } from './ui-protocol.js';
+
+export { uniquePermissionRuleIds } from './permission-policy.js';
+export { parseShellCommand } from './shell-ast.js';
+
+export { countTextTokens, type TokenEncoding } from './tokenizer.js';

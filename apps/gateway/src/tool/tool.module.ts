@@ -1,3 +1,4 @@
+import { GatewayCheckpointService } from './checkpoint.service';
 import { Module } from '@nestjs/common';
 import { join } from 'path';
 
@@ -15,6 +16,7 @@ import { DeviceRpcBroker } from './device-rpc.broker';
  */
 @Module({
   providers: [
+    GatewayCheckpointService,
     { provide: EgressPolicy, useFactory: () => EgressPolicy.fromEnv() },
     {
       provide: ArtifactStore,

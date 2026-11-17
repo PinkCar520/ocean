@@ -1,3 +1,4 @@
+import { createToolAliases } from './tool-aliases';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { streamText } from 'ai';
@@ -68,14 +69,27 @@ export class AiSdkModelGateway implements ModelGateway {
   async generate(req: ModelGenerateRequest): Promise<ModelGenerateResult> {
     const { messages, modelId, tools, onDelta } = req;
 
+    const names = (tools ?? []).map(tool => tool.name);
+    for (const message of messages) {
+      if (message.role === 'assistant') names.push(...(message.toolCalls ?? []).map(call => call.name));
+      if (message.role === 'tool') names.push(message.toolName);
+    }
+    const aliases = createToolAliases(names);
+    const mappedMessages = messages.map(message => {
+      if (message.role === 'assistant') return { ...message, toolCalls: message.toolCalls?.map(call => ({ ...call, name: aliases.forward.get(call.name)! })) };
+      if (message.role === 'tool') return { ...message, toolName: aliases.forward.get(message.toolName)! };
+      return message;
+    });
+
     const options: Record<string, unknown> = {
       model: createChatModel(this.config, modelId),
-      messages: messages.map(toUiMessage),
+      abortSignal: req.signal,
+      messages: mappedMessages.map(toUiMessage),
     };
     if (tools && tools.length > 0) {
       const toolSet = Object.fromEntries(
         tools.map((tool) => [
-          tool.name,
+          aliases.forward.get(tool.name)!,
           { description: tool.description, inputSchema: tool.inputSchema },
         ]),
       );
@@ -112,7 +126,7 @@ export class AiSdkModelGateway implements ModelGateway {
     try {
       toolCalls = (await result.toolCalls).map((tc) => ({
         id: tc.toolCallId,
-        name: tc.toolName,
+        name: aliases.reverse.get(tc.toolName) ?? tc.toolName,
         input: (tc.input ?? {}) as Record<string, unknown>,
       }));
     } catch (error) {
@@ -120,6 +134,11 @@ export class AiSdkModelGateway implements ModelGateway {
       if (!text) throw error;
     }
 
-    return { text, toolCalls };
+    const reported = await result.totalUsage;
+    const usage = reported ? Object.fromEntries(Object.entries({
+      inputTokens: reported.inputTokens, outputTokens: reported.outputTokens, totalTokens: reported.totalTokens,
+      cacheReadTokens: reported.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: reported.inputTokenDetails?.cacheWriteTokens,
+    }).filter(([, value]) => Number.isSafeInteger(value) && Number(value) >= 0)) : undefined;
+    return { text, toolCalls, ...(usage ? { usage } : {}) };
   }
 }

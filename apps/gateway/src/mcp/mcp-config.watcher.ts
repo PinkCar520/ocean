@@ -5,6 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
+import { MCPClientPool } from '../mcp/mcp-client.pool';
 import { MCPServerService } from '../mcp-server/mcp-server.service';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -39,6 +40,7 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly mcpManager: MCPClientManager,
     private readonly mcpServerService: MCPServerService,
+    private readonly pool: MCPClientPool,
   ) {}
 
   async onModuleInit() {
@@ -166,6 +168,7 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
         }
       }
 
+      await this.pool.invalidateAll();
       // 更新哈希
       this.lastConfigHash = newHash;
 
@@ -295,6 +298,7 @@ export class MCPConfigWatcher implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    await this.pool.invalidateAll();
     this.lastConfigHash = this.computeConfigHash();
 
     return { added: toAdd.length, removed: toRemove.length };

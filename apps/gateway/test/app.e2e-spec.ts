@@ -19,6 +19,7 @@ describe('Gateway HTTP boundary', () => {
   create: jest.fn(async (userId, input) => ({ id: 'run-test', userId, ...input })),
   createExternalApproval: jest.fn(async (userId, input) => ({ id: 'approval-test', userId, status: 'pending', ...input })),
   decideExternalApproval: jest.fn(async (id, userId, decision) => ({ id, userId, status: decision })),
+  lookupSessionGrant: jest.fn(async () => ({ granted: true })),
  };
  const token = () => jwt.sign({ sub: 'user-test', workId: 'tester' }, { expiresIn: '1m' });
  beforeAll(async () => {
@@ -59,6 +60,18 @@ describe('Gateway HTTP boundary', () => {
   const decision = await request(app.getHttpServer()).post('/api/approvals/approval-test/decide').auth(token(), { type: 'bearer' })
    .send({ decision: 'approved' }).expect(201);
   expect(decision.body.status).toBe('approved');
-  expect(service.decideExternalApproval).toHaveBeenCalledWith('approval-test', 'user-test', 'approved');
+  expect(service.decideExternalApproval).toHaveBeenCalledWith('approval-test', 'user-test', 'approved', 'once');
+  const sessionDecision = await request(app.getHttpServer()).post('/api/approvals/approval-test/decide').auth(token(), { type: 'bearer' })
+   .send({ decision: 'approved', scope: 'session' }).expect(201);
+  expect(sessionDecision.body.status).toBe('approved');
+  expect(service.decideExternalApproval).toHaveBeenLastCalledWith('approval-test', 'user-test', 'approved', 'session');
+ });
+ it('looks up a session grant through HTTP', async () => {
+  const response = await request(app.getHttpServer()).post('/api/approvals/session-grant/lookup').auth(token(), { type: 'bearer' })
+   .send({ sessionId: 'session-test', toolName: 'file_write', args: { path: 'a' } }).expect(201);
+  expect(response.body).toEqual({ granted: true });
+  expect(service.lookupSessionGrant).toHaveBeenCalledWith('user-test', {
+   sessionId: 'session-test', toolName: 'file_write', args: { path: 'a' },
+  });
  });
 });
