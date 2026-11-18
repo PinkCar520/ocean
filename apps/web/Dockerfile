@@ -1,6 +1,7 @@
 # 阶段 1：Prune (提取 Web 及其关联代码)
-FROM node:22-alpine AS pruner
+FROM node:26.13.1-alpine AS pruner
 WORKDIR /app
+ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 # 安装 turbo cli
 RUN npm install -g turbo@2.9.16
 COPY . .
@@ -8,10 +9,11 @@ COPY . .
 RUN turbo prune web --docker
 
 # 阶段 2：Builder (利用缓存装包和编译)
-FROM node:22-alpine AS builder
+FROM node:26.13.1-alpine AS builder
 WORKDIR /app
 ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
-RUN corepack enable
+ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+RUN npm install --global corepack@0.34.5 && corepack enable
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
@@ -35,7 +37,7 @@ ENV OCEAN_GATEWAY_URL=$OCEAN_GATEWAY_URL
 RUN npx turbo run build --filter=web --env-mode=loose
 
 # 阶段 3：Runner (生产运行环境)
-FROM node:22-alpine AS runner
+FROM node:26.13.1-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000

@@ -69,7 +69,7 @@ export function getFriendlyToolName(
   const inner = part.toolInvocation || part.invocation || part;
   const rawToolName = inner.toolName || part.toolName || part.type?.replace('tool-', '') || 'unknown';
 
-  let args = inner.args || part.args;
+  let args = inner.input ?? inner.args ?? part.input ?? part.args;
   // 如果是字符串序列化，做一层解析
   if (typeof args === 'string') {
     try {

@@ -1,6 +1,7 @@
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
-import { createChatTransport } from './chat-transport';
+import { authFetch } from './api-client';
 interface UseChatSessionProps {
   sessionId: string | null;
   initialMessages: any[];
@@ -75,7 +76,24 @@ export function useChatSession({
   }, [fullTree, currentLeafId]);
 
   const [data, setData] = useState<unknown[]>([]);
-  const transport = useMemo(() => createChatTransport(value => setData(previous => [...previous, value])), []);
+  const fetchWithAuth = useCallback(
+    (input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      if (token && token !== 'cookie') {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      return authFetch(input, { ...init, headers });
+    },
+    [token],
+  );
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: '/api/chat', fetch: fetchWithAuth }),
+    [fetchWithAuth],
+  );
+  const handleData = useCallback(
+    (part: unknown) => setData((previous) => [...previous, part]),
+    [],
+  );
 
   const onFinishRef = useRef<any>(null);
   onFinishRef.current = async ({ message }: any) => {
@@ -91,63 +109,50 @@ export function useChatSession({
     return onFinishRef.current?.(...args);
   }, []);
 
-  const { messages, sendMessage, status, setMessages, stop, error } = (useChat as any)({
+  const { messages, sendMessage, status, setMessages, stop, error } = useChat({
     id: sessionId ?? 'new',
     transport,
-    onFinish: handleFinish
+    onFinish: handleFinish,
+    onData: handleData,
   });
 
   // 当 SDK 的 messages 发生变化（流式过程中），同步更新到 UI 列表
   // 这里的策略是：在流式过程中，为了避免历史消息重复或 ID 冲突导致的闪烁，
   // 我们在有增量消息时，优先展示增量消息（因为 SDK 的 messages 通常包含了当前对话上下文）
-  // 或者，如果 SDK messages 只是当前这一轮，则合并。
-  // 为了彻底解决闪烁：
-  // 1. 在 streaming/submitting 期间，合并展示。
-  // 2. 在 idle 且 messages 还有值时，说明正在等待/进行服务端刷新，此时继续展示合并列表。
-  // 3. 但由于 ID 可能不同，我们需要在 ChatSession.tsx 中更稳健地去重，或者在这里去重。
+  // 2. 在 idle 且 messages 还有值时，继续展示合并列表。
   const displayMessages = useMemo(() => {
+    const normalizeMessage = (message: any) => ({
+      ...message,
+      content: typeof message.content === 'string'
+        ? message.content
+        : (message.parts ?? [])
+            .filter((part: any) => part.type === 'text')
+            .map((part: any) => part.text ?? '')
+            .join(''),
+    });
+    const normalizedActiveMessages = activeMessages.map(normalizeMessage);
     let base: any[] = [];
-    // 1. 流式过程中，直接合并展示，此时 messages ID 是 chat-xxx 临时 ID，与历史不冲突
-    if (status === 'streaming' || status === 'submitting') {
-      base = [...activeMessages, ...messages.map((m: any) => ({ ...m, content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '' }))];
+
+    if (status === 'streaming' || status === 'submitted') {
+      base = [...normalizedActiveMessages, ...messages.map(normalizeMessage)];
     } else if (messages.length > 0) {
-      // 2. 传输结束但 messages 还没来得及清空（等待 refresh 完成的瞬间）
-      const filtered = messages.map((m: any) => ({ ...m, content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '' })).filter((m: any) => {
-        return !activeMessages.some(am => 
-          am.id === m.id || (
-            am.role === m.role && typeof m.content === 'string' &&
-            m.content.length > 0 && am.content === m.content
+      const filtered = messages.map(normalizeMessage).filter((message: any) => {
+        return !normalizedActiveMessages.some(activeMessage =>
+          activeMessage.id === message.id || (
+            activeMessage.role === message.role && message.content.length > 0 &&
+            activeMessage.content === message.content
           )
         );
       });
-      base = [...activeMessages, ...filtered];
+      base = [...normalizedActiveMessages, ...filtered];
     } else {
-      // 3. 闲置状态，使用树路径
-      base = activeMessages;
+      base = normalizedActiveMessages;
     }
 
-    // 动态解析 <think> 标签，还原 reasoning 属性，以便 ChatMessage 的 ThinkingList 组件渲染
-    return base.map(m => {
-      if (typeof m.content === 'string' && m.content.includes('<think>')) {
-        const startIdx = m.content.indexOf('<think>');
-        const endIdx = m.content.indexOf('</think>');
-        
-        if (endIdx !== -1) {
-          const reasoning = m.content.substring(startIdx + 7, endIdx).trim();
-          const content = (m.content.substring(0, startIdx) + m.content.substring(endIdx + 8)).trim();
-          return { ...m, reasoning, content };
-        } else {
-          // 流式过程中，标签还没闭合
-          const reasoning = m.content.substring(startIdx + 7).trim();
-          const content = m.content.substring(0, startIdx).trim();
-          return { ...m, reasoning, content };
-        }
-      }
-      return m;
-    });
+    return base;
   }, [status, messages, activeMessages]);
 
-  const isLoading = status === 'streaming' || status === 'submitting';
+  const isLoading = status === 'streaming' || status === 'submitted';
 
   // Reset stopped state only when new streaming starts
   const prevIsLoadingRef = useRef(false);
@@ -215,7 +220,11 @@ export function useChatSession({
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    return sendMessage({ ...message, parts: message.parts ?? [{ type: 'text', text: message.content ?? '' }] }, {
+    const { content, ...messageWithoutContent } = message;
+    return sendMessage({
+      ...messageWithoutContent,
+      parts: message.parts ?? [{ type: 'text', text: content ?? '' }],
+    }, {
       ...options,
       headers: Object.fromEntries(headers.entries()),
       body: {

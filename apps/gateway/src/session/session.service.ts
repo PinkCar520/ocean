@@ -10,7 +10,7 @@ import { SpaceService } from '../space/space.service';
 export interface CreateMessageDto {
   role: 'user' | 'assistant' | 'system';
   content: string;
-  parentId?: string;
+  parentId?: string | null;
   parts?: any;
   attachments?: any;
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
@@ -122,7 +122,7 @@ export class SessionService {
   async addMessage(sessionId: string, dto: CreateMessageDto): Promise<string> {
     // 如果没有显式提供 parentId，尝试找到该会话的最后一条消息作为父节点
     let parentId = dto.parentId;
-    if (!parentId) {
+    if (parentId === undefined) {
       const lastMsg = await this.prisma.message.findFirst({
         where: { sessionId },
         orderBy: { createdAt: 'desc' },
@@ -134,7 +134,7 @@ export class SessionService {
     const created = await this.prisma.message.create({
       data: {
         sessionId,
-        parentId,
+        parentId: parentId ?? undefined,
         role: dto.role,
         content: dto.content,
         parts: dto.parts ?? undefined,

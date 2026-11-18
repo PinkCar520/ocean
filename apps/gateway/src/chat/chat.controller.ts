@@ -12,6 +12,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import {
+  createUIMessageStream,
+  pipeUIMessageStreamToResponse,
+  type UIMessageChunk,
+} from 'ai';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
 import { SkillOrchestrator } from '../skill/skill.orchestrator';
@@ -24,12 +29,57 @@ import {
   autocompleteRequestSchema,
   chatRequestSchema,
   generateTitleRequestSchema,
+  type ChatMessage,
 } from '@ocean/contracts';
 import { IS_PUBLIC_KEY } from '../auth/sso.guard';
 import { UserService } from '../auth/user.service';
 import { SpaceService } from '../space/space.service';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+
+interface StoredChatMessage {
+  id: string;
+  role: ChatMessage['role'];
+  content: string;
+  parentId?: string | null;
+}
+
+interface ChatRequestContext {
+  user?: {
+    dbId?: string;
+    workId?: string;
+  };
+}
+
+function messageText(message: ChatMessage | undefined): string {
+  if (typeof message?.content === 'string' && message.content)
+    return message.content;
+  return (message?.parts ?? [])
+    .filter((part) => part.type === 'text' && typeof part.text === 'string')
+    .map((part) => part.text ?? '')
+    .join('');
+}
+
+function messagePath(
+  messages: StoredChatMessage[],
+  leafId: string | null | undefined,
+): StoredChatMessage[] {
+  if (!leafId) return [];
+  const byId = new Map<string, StoredChatMessage>(
+    messages.map((message) => [message.id, message]),
+  );
+  const path: StoredChatMessage[] = [];
+  const seen = new Set<string>();
+  let current = byId.get(leafId);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    path.unshift(current);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return path.filter(
+    (message) => message.role === 'user' || message.role === 'assistant',
+  );
+}
 
 @Controller('api/chat')
 export class ChatController {
@@ -106,7 +156,7 @@ export class ChatController {
   @Post()
   async handleChatStream(
     @Body() rawBody: unknown,
-    @Req() req: any,
+    @Req() req: ChatRequestContext,
     @Res() res: Response,
   ) {
     const parsedBody = chatRequestSchema.safeParse(rawBody);
@@ -118,16 +168,20 @@ export class ChatController {
     }
     const body = parsedBody.data;
     const requestId = Math.random().toString(36).substring(7);
-    const messages =
+    const messages = (
       body.messages ||
-      (body.text ? [{ role: 'user', content: body.text }] : []);
+      (body.text ? [{ role: 'user' as const, content: body.text }] : [])
+    ).map((message) => ({
+      ...message,
+      content: messageText(message),
+    }));
     const sessionId: string | undefined = body.sessionId ?? undefined;
 
     // 提取最后一条用户消息文本，用于意图识别
     const userMessage: string =
       body.text ||
       (Array.isArray(messages) && messages.length > 0
-        ? (messages.at(-1)?.content ?? '')
+        ? messageText(messages.at(-1))
         : '');
     const modelId: string | undefined = body.modelId || body.model;
 
@@ -166,16 +220,17 @@ export class ChatController {
     // Phase 6 6b：Run 归属 Space——会话归属优先（防越权），body 兜底，默认 work。
     // 新会话（无 sessionId）按客户端当前 Space 创建；已有会话固定归属其创建时的 Space。
     let resolvedSpaceId = body.spaceId ?? 'work';
-    if (sessionId) {
+    const dbUserId = req.user?.dbId;
+    if (sessionId && dbUserId) {
       try {
         const session = await this.sessionService.getSessionById(
           sessionId,
-          req.user?.dbId,
+          dbUserId,
         );
         if (session?.spaceId) resolvedSpaceId = session.spaceId;
         if (session) {
           if (finalSkillIds && finalSkillIds.length > 0) {
-            await this.sessionService.updateSession(sessionId, req.user?.dbId, {
+            await this.sessionService.updateSession(sessionId, dbUserId, {
               activeSkillId: finalSkillIds[0],
             });
           } else if (session.activeSkillId) {
@@ -202,46 +257,80 @@ export class ChatController {
       spaceId: resolvedSpaceId,
     };
 
-    // SSE 响应头（显式 200：流式响应而非资源创建，useChat 依赖 2xx 读流）
-    res.status(200);
-    res.setHeader(
-      'Content-Type',
-      'text/x-vercel-ai-data-stream; charset=utf-8',
-    );
-    res.setHeader('X-Vercel-AI-Data-Stream', 'v1');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        if (this.chatService.isRunMode()) {
+          let runMessages = messages;
+          let userMessageId: string | undefined;
+          const lastUserMessage = Array.isArray(messages)
+            ? [...messages].reverse().find((message) => message.role === 'user')
+            : undefined;
 
-    try {
-      // 第 3 项：Run 驱动聊天（CHAT_USE_RUN=true 时创建 AgentRun 并订阅 run events 转译；
-      // 否则保留旧 SkillOrchestrator 直驱链路，作为回退）
-      if (this.chatService.isRunMode()) {
-        await this.chatService.runChatStream(
+          if (sessionId && dbUserId && lastUserMessage) {
+            const history = await this.sessionService.getMessages(
+              sessionId,
+              dbUserId,
+            );
+            const parentId = Object.prototype.hasOwnProperty.call(
+              body,
+              'parentId',
+            )
+              ? body.parentId
+              : (history.at(-1)?.id ?? null);
+            const userContent = messageText(lastUserMessage);
+            const priorMessages = messagePath(history, parentId);
+
+            userMessageId = await this.sessionService.addMessage(sessionId, {
+              role: 'user',
+              content: userContent,
+              parentId,
+              parts: lastUserMessage.parts,
+              attachments: lastUserMessage.experimental_attachments,
+            });
+            runMessages = [
+              ...priorMessages.map(({ role, content }) => ({ role, content })),
+              { role: 'user', content: userContent },
+            ];
+          }
+
+          const assistantText = await this.chatService.runChatStream(
+            runMessages,
+            ctx,
+            modelId,
+            sessionId,
+            (chunk: UIMessageChunk) => writer.write(chunk),
+          );
+
+          if (sessionId && userMessageId && assistantText) {
+            await this.sessionService.addMessage(sessionId, {
+              role: 'assistant',
+              content: assistantText,
+              parentId: userMessageId,
+              parts: [{ type: 'text', text: assistantText }],
+            });
+          }
+          return;
+        }
+
+        await this.skillOrchestrator.streamResponse(
           messages,
           ctx,
           modelId,
           sessionId,
-          (chunk: string) => {
-            res.write(chunk);
-          },
+          (chunk: UIMessageChunk) => writer.write(chunk),
         );
-        return;
-      }
-      await this.skillOrchestrator.streamResponse(
-        messages,
-        ctx,
-        modelId,
-        sessionId,
-        (chunk: string) => {
-          res.write(chunk);
-        },
-      );
-    } catch (error: any) {
-      console.error(`[Gateway] [${requestId}] Stream error:`, error.message);
-    } finally {
-      res.end();
-    }
+      },
+      onError: (error) => {
+        console.error(`[Gateway] [${requestId}] Stream error:`, error);
+        return 'Chat request failed.';
+      },
+    });
+
+    await pipeUIMessageStreamToResponse({
+      response: res,
+      status: 200,
+      stream,
+    });
   }
 
   /**

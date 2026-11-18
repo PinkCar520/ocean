@@ -1,19 +1,30 @@
 import { ConfigService } from '@nestjs/config';
+import {
+  createDeepSeek,
+  type DeepSeekLanguageModelChatOptions,
+} from '@ai-sdk/deepseek';
 import { createOpenAI } from '@ai-sdk/openai';
 import { wrapLanguageModel } from 'ai';
 import { chatImageMiddleware } from './chat-image-middleware';
 
-/**
- * 多 Provider 聊天模型构造（唯一来源）。
- *
- * 从 SkillOrchestrator.getModel 提取，供 SkillOrchestrator（Web 直驱链路）与
- * Worker 的 ModelGateway（Run 链路）共同复用，避免两套 provider 配置漂移。
- */
-export function createChatModel(config: ConfigService, modelId?: string): any {
-  const defaultProvider =
-    config.get<string>('DEFAULT_AI_PROVIDER') || 'deepseek';
+interface ChatModelConfig {
+  apiKey?: string;
+  baseURL?: string;
+  model?: string;
+}
 
-  const configs: Record<string, any> = {
+interface ResolvedChatModel {
+  provider: string;
+  modelId?: string;
+  config: ChatModelConfig;
+}
+
+function resolveChatModel(
+  config: ConfigService,
+  modelId?: string,
+): ResolvedChatModel {
+  const defaultProvider = config.get<string>('DEFAULT_AI_PROVIDER') || 'deepseek';
+  const configs: Record<string, ChatModelConfig> = {
     deepseek: {
       apiKey: config.get('DEEPSEEK_API_KEY'),
       baseURL: config.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com/v1',
@@ -46,23 +57,23 @@ export function createChatModel(config: ConfigService, modelId?: string): any {
     },
   };
 
-  let activeProviderKey = defaultProvider;
-  let selectedModelId = configs[defaultProvider]?.model;
+  let provider = defaultProvider;
+  let selectedModelId = configs[provider]?.model;
 
   if (modelId) {
     if (configs[modelId]) {
-      activeProviderKey = modelId;
+      provider = modelId;
       selectedModelId = configs[modelId].model;
     } else {
-      for (const [key, conf] of Object.entries(configs)) {
+      for (const [key, providerConfig] of Object.entries(configs)) {
         if (
-          conf.model === modelId ||
-          conf.model
+          providerConfig.model === modelId ||
+          providerConfig.model
             ?.split(',')
-            .map((m: string) => m.trim())
+            .map((candidate) => candidate.trim())
             .includes(modelId)
         ) {
-          activeProviderKey = key;
+          provider = key;
           selectedModelId = modelId;
           break;
         }
@@ -70,7 +81,39 @@ export function createChatModel(config: ConfigService, modelId?: string): any {
     }
   }
 
-  const conf = configs[activeProviderKey];
+  return {
+    provider,
+    modelId: selectedModelId,
+    config: configs[provider] ?? {},
+  };
+}
+
+export function createChatProviderOptions(
+  config: ConfigService,
+  modelId?: string,
+): { deepseek: DeepSeekLanguageModelChatOptions } | undefined {
+  if (resolveChatModel(config, modelId).provider !== 'deepseek') return undefined;
+
+  return {
+    deepseek: {
+      thinking: { type: 'enabled' },
+      reasoningEffort: 'high',
+    },
+  };
+}
+
+/**
+ * 多 Provider 聊天模型构造（唯一来源）。
+ *
+ * 从 SkillOrchestrator.getModel 提取，供 SkillOrchestrator（Web 直驱链路）与
+ * Worker 的 ModelGateway（Run 链路）共同复用，避免两套 provider 配置漂移。
+ */
+export function createChatModel(config: ConfigService, modelId?: string): any {
+  const { provider: activeProviderKey, modelId: selectedModelId, config: conf } =
+    resolveChatModel(config, modelId);
+  if (!selectedModelId) {
+    throw new Error(`No model configured for provider "${activeProviderKey}"`);
+  }
 
   if (activeProviderKey === 'anthropic') {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -84,23 +127,28 @@ export function createChatModel(config: ConfigService, modelId?: string): any {
     return createGoogleGenerativeAI({ apiKey: conf.apiKey })(selectedModelId);
   }
 
+  if (activeProviderKey === 'deepseek') {
+    const deepseek = createDeepSeek({
+      apiKey: conf.apiKey,
+      baseURL: conf.baseURL,
+    });
+    return wrapLanguageModel({
+      model: deepseek(selectedModelId),
+      middleware: chatImageMiddleware,
+    });
+  }
+
   const provider = createOpenAI({
     baseURL: conf.baseURL,
     apiKey: conf.apiKey || 'empty',
-    ...((activeProviderKey === 'dashscope' ||
-      activeProviderKey === 'deepseek') &&
+    ...(activeProviderKey === 'dashscope' &&
     selectedModelId?.includes('deepseek')
       ? {
           fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
             if (init?.body && typeof init.body === 'string') {
               try {
                 const body = JSON.parse(init.body);
-                if (activeProviderKey === 'deepseek') {
-                  body.thinking = { type: 'enabled' };
-                  body.reasoning_effort = 'high';
-                } else {
-                  body.enable_thinking = true;
-                }
+                body.enable_thinking = true;
                 init.body = JSON.stringify(body);
               } catch {
                 /* ignore parse errors */

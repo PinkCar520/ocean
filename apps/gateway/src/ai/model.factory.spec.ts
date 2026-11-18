@@ -1,7 +1,47 @@
 jest.mock('ai', () => ({ wrapLanguageModel: jest.fn((options: any) => options) }));
 jest.mock('@ai-sdk/openai', () => ({ createOpenAI: jest.fn(() => ({ chat: jest.fn(() => 'chat-model') })) }));
+jest.mock('@ai-sdk/deepseek', () => ({
+  createDeepSeek: jest.fn(() => jest.fn(() => 'deepseek-model')),
+}));
 
-import { createChatModel } from './model.factory';
+import { createDeepSeek } from '@ai-sdk/deepseek';
+import { createChatModel, createChatProviderOptions } from './model.factory';
+
+it('uses the official DeepSeek provider with configured endpoint and model options', () => {
+  const values: Record<string, string> = {
+    DEFAULT_AI_PROVIDER: 'deepseek',
+    DEEPSEEK_API_KEY: 'test-key',
+    DEEPSEEK_BASE_URL: 'https://deepseek.example/v1',
+    DEEPSEEK_MODEL: 'deepseek-flash',
+  };
+  const config = { get: (key: string) => values[key] };
+
+  const model = createChatModel(config as never);
+
+  expect(createDeepSeek).toHaveBeenCalledWith({
+    apiKey: 'test-key',
+    baseURL: 'https://deepseek.example/v1',
+  });
+  expect(
+    (createDeepSeek as jest.Mock).mock.results[0].value,
+  ).toHaveBeenCalledWith('deepseek-flash');
+  expect(model.model).toBe('deepseek-model');
+  expect(createChatProviderOptions(config as never)).toEqual({
+    deepseek: {
+      thinking: { type: 'enabled' },
+      reasoningEffort: 'high',
+    },
+  });
+});
+
+it('does not set DeepSeek provider options for other providers', () => {
+  const config = {
+    get: (key: string) =>
+      ({ DEFAULT_AI_PROVIDER: 'openai', OPENAI_MODEL: 'gpt-4.1' })[key],
+  };
+
+  expect(createChatProviderOptions(config as never)).toBeUndefined();
+});
 
 it('routes chat-completions notebook images into a model-visible user message', async () => {
   const values: Record<string, string> = { DEFAULT_AI_PROVIDER: 'openai', OPENAI_MODEL: 'vision' };

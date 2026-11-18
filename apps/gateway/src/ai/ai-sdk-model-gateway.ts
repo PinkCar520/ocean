@@ -2,7 +2,10 @@ import { createToolAliases } from './tool-aliases';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { streamText } from 'ai';
-import { createChatModel } from './model.factory';
+import {
+  createChatModel,
+  createChatProviderOptions,
+} from './model.factory';
 import type {
   ModelGateway,
   ModelGenerateRequest,
@@ -86,6 +89,8 @@ export class AiSdkModelGateway implements ModelGateway {
       abortSignal: req.signal,
       messages: mappedMessages.map(toUiMessage),
     };
+    const providerOptions = createChatProviderOptions(this.config, modelId);
+    if (providerOptions) options.providerOptions = providerOptions;
     if (tools && tools.length > 0) {
       const toolSet = Object.fromEntries(
         tools.map((tool) => [

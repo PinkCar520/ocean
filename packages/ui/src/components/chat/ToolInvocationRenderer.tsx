@@ -25,7 +25,7 @@ export function ToolInvocationRenderer({
   setPreviewAttachment,
   onExtract
 }: ToolInvocationRendererProps) {
-  const result = part.output || part.result;
+  const result = part.output ?? part.result;
   const toolName = part.toolName || part.type?.replace('tool-', '') || '';
 
   // ── Gen 2: UI Protocol (ui 字段) → CapsuleAnchor handles this inline
@@ -106,12 +106,16 @@ export function ToolInvocationBadge({
 }: ToolInvocationBadgeProps) {
   const inner = part.toolInvocation || part.invocation || part;
   const rawToolName = inner.toolName || part.toolName || part.type?.replace('tool-', '') || 'unknown';
-  const args = inner.args || part.args;
+  const args = inner.input ?? inner.args ?? part.input ?? part.args;
   
   const toolDisplayName = getFriendlyToolName(part, t, getLocalizedName);
-  const isCompleted = !!(part.output || part.result);
+  const isCompleted = part.state === 'output-available' ||
+    part.state === 'output-error' ||
+    part.state === 'output-denied' ||
+    part.output !== undefined ||
+    part.result !== undefined;
   const isSkillActivation = rawToolName === 'activate_skill';
-  const result = part.result || part.output;
+  const result = part.output ?? part.result;
 
   const handleToolClick = () => {
     if (isSkillActivation && isCompleted && result?.skill_content) {

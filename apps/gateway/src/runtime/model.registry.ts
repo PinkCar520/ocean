@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createChatModel } from '../ai/model.factory';
+import {
+  createChatModel,
+  createChatProviderOptions,
+} from '../ai/model.factory';
 
 export interface AvailableModel {
   id: string;
@@ -22,6 +25,10 @@ export class ModelRegistry {
 
   getModel(modelId?: string) {
     return createChatModel(this.configService, modelId);
+  }
+
+  getProviderOptions(modelId?: string) {
+    return createChatProviderOptions(this.configService, modelId);
   }
 
   /** 获取当前网关配置的模型列表（provider 元数据 + 显示信息）。 */

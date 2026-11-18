@@ -170,7 +170,11 @@ export const ChatMessage = React.memo(({
                     const reasoningSteps = parseReasoningToSteps(part.text, isStreaming, false);
                     allThinkingSteps.push(...reasoningSteps);
                   } else if (isTool) {
-                    const isCompleted = !!(part.output || part.result);
+                    const isCompleted = part.state === 'output-available' ||
+                      part.state === 'output-error' ||
+                      part.state === 'output-denied' ||
+                      part.output !== undefined ||
+                      part.result !== undefined;
                     if (isCompleted) {
                       completedTools.push(part);
                     }

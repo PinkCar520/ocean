@@ -66,12 +66,12 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     ).toBe(true);
   });
 
-  it('创建 Run（组装 input + 默认 work space）并把 output_delta 转译为 AI SDK 0: 行', async () => {
+  it('创建 Run 并把 output_delta 转换为标准 UI message chunks', async () => {
     const run = runServiceMock() as any;
     const service = new ChatService(configOf('true'), run);
-    const chunks: string[] = [];
+    const chunks: unknown[] = [];
     const promise = service.runChatStream(
-      [{ role: 'user', content: '你好' }],
+      [{ role: 'user', parts: [{ type: 'text', text: '你好' }] }],
       { userId: 'u1', userMessage: '你好', search: true },
       'model-x',
       'session_1',
@@ -103,7 +103,7 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
       status: 'succeeded',
     });
     run._statusByRun.set(runId, 'succeeded');
-    await promise;
+    await expect(promise).resolves.toBe('你好，世界');
 
     expect(run.create).toHaveBeenCalledWith(
       'u1',
@@ -117,7 +117,14 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     expect(run.create.mock.calls[0][1].input).toContain(
       '[context] search: on | model: model-x',
     );
-    expect(chunks).toEqual(['0:"你好，"', '0:"世界"'].map((s) => s + '\n'));
+    expect(chunks).toEqual([
+      { type: 'start' },
+      { type: 'text-start', id: 'run-output' },
+      { type: 'text-delta', id: 'run-output', delta: '你好，' },
+      { type: 'text-delta', id: 'run-output', delta: '世界' },
+      { type: 'text-end', id: 'run-output' },
+      { type: 'finish', finishReason: 'stop' },
+    ]);
   });
 
   it('ctx.spaceId 透传：Run 归属当前 Space（Phase 6 6b）', async () => {
@@ -158,10 +165,10 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     );
   });
 
-  it('failed 终态输出 AI SDK 3: 错误行', async () => {
+  it('failed 终态输出标准 error chunk', async () => {
     const run = runServiceMock() as any;
     const service = new ChatService(configOf('true'), run);
-    const chunks: string[] = [];
+    const chunks: unknown[] = [];
     const promise = service.runChatStream(
       [],
       { userId: 'u1' },
@@ -181,14 +188,17 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
       .push({ ...base, type: 'run.status_changed', status: 'failed' });
     run._statusByRun.set(runId, 'failed');
     await promise;
-    expect(chunks.join('')).toContain('3:');
-    expect(chunks.join('')).toContain('Run failed');
+    expect(chunks).toEqual([
+      { type: 'start' },
+      { type: 'error', errorText: 'Run failed. See gateway logs for details.' },
+      { type: 'finish', finishReason: 'error' },
+    ]);
   });
 
-  it('cancelled 终态正常结束（无错误行）', async () => {
+  it('cancelled 终态以 interrupted reason 结束', async () => {
     const run = runServiceMock() as any;
     const service = new ChatService(configOf('true'), run);
-    const chunks: string[] = [];
+    const chunks: unknown[] = [];
     const promise = service.runChatStream(
       [],
       { userId: 'u1' },
@@ -208,6 +218,9 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
       .push({ ...base, type: 'run.status_changed', status: 'cancelled' });
     run._statusByRun.set(runId, 'cancelled');
     await promise;
-    expect(chunks).toEqual([]);
+    expect(chunks).toEqual([
+      { type: 'start' },
+      { type: 'finish', finishReason: 'interrupted' },
+    ]);
   });
 });

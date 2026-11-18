@@ -2,6 +2,7 @@ import { ModelRegistry } from './model.registry';
 
 jest.mock('../ai/model.factory', () => ({
   createChatModel: jest.fn(() => ({ provider: 'mock' })),
+  createChatProviderOptions: jest.fn(() => undefined),
 }));
 
 describe('ModelRegistry (Agent Runtime 拆分)', () => {

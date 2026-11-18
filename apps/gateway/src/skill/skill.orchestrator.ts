@@ -1,7 +1,11 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { streamText, generateText, stepCountIs } from 'ai';
+import {
+  streamText,
+  generateText,
+  stepCountIs,
+  type UIMessageChunk,
+} from 'ai';
 import { MCPClientManager } from '../mcp/mcp-client.manager';
 import { SkillLoader } from './skill.loader';
 import { PermissionService } from './permission.service';
@@ -187,7 +191,7 @@ export class SkillOrchestrator {
     ctx: SkillContext,
     modelId?: string,
     sessionId?: string,
-    onChunk?: (chunk: string) => void,
+    onChunk?: (chunk: UIMessageChunk) => void,
   ): Promise<void> {
     const isSearchMode = (ctx as any).search === true;
     const isKnowledgeMode = (ctx as any).knowledge === true;
@@ -259,6 +263,7 @@ export class SkillOrchestrator {
 
           const result = streamText({
             model: this.modelRegistry.getModel(modelId),
+            providerOptions: this.modelRegistry.getProviderOptions(modelId),
             messages: modelMessages,
             toolChoice: 'auto',
             stopWhen: stepCountIs(10),
@@ -354,42 +359,15 @@ export class SkillOrchestrator {
           });
 
           const consumeStream = async () => {
-            let isFirstReasoning = true;
-            let hasReasoning = false;
-            const fullStream = result.fullStream;
-            for await (const chunk of fullStream) {
-              let protocolStr = '';
-              if (chunk.type === 'text-delta') {
-                let text = chunk.text;
-                if (hasReasoning && isFirstReasoning === false) {
-                  // Close the think tag before the first text chunk
-                  text = '\n</think>\n\n' + text;
-                  hasReasoning = false; // Prevents closing again
-                }
-                protocolStr = `0:${JSON.stringify(text)}\n`;
-              } else if (chunk.type === 'reasoning-delta') {
-                let text = chunk.text;
-                if (isFirstReasoning) {
-                  text = '<think>\n' + text;
-                  isFirstReasoning = false;
-                  hasReasoning = true;
-                }
-                protocolStr = `0:${JSON.stringify(text)}\n`;
-              } else if (chunk.type === 'tool-call') {
-                // Include tool calls into the data stream (using standard data stream protocol if needed, though useChat natively handles some tool streaming)
-                protocolStr = `9:${JSON.stringify({ ...chunk })}\n`;
+            const reader = result.toUIMessageStream().getReader();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onChunk?.(value);
               }
-              if (protocolStr && onChunk) onChunk(protocolStr);
-            }
-
-            // If the stream ended but reasoning was never closed (shouldn't happen usually, but just in case)
-            if (hasReasoning && isFirstReasoning === false) {
-              if (onChunk) onChunk(`0:${JSON.stringify('\n</think>\n')}\n`);
-            }
-
-            // [Official Practice] Emit the finish event to properly terminate Vercel AI SDK stream
-            if (onChunk) {
-              onChunk(`d:${JSON.stringify({ finishReason: 'stop' })}\n`);
+            } finally {
+              reader.releaseLock();
             }
           };
 
@@ -417,6 +395,7 @@ export class SkillOrchestrator {
       ]);
       const { text } = await generateText({
         model: this.modelRegistry.getModel(),
+        providerOptions: this.modelRegistry.getProviderOptions(),
         messages: [{ role: 'user', content }],
         system: systemPrompt,
         tools,
@@ -435,6 +414,7 @@ export class SkillOrchestrator {
     try {
       const { text } = await generateText({
         model: this.modelRegistry.getModel(modelId),
+        providerOptions: this.modelRegistry.getProviderOptions(modelId),
         system:
           '你是一个标题生成助手。总结一个 5 字以内的中文标题，不要标点符号。直接返回文字。',
         messages: [{ role: 'user', content: userContent }],
@@ -466,6 +446,7 @@ export class SkillOrchestrator {
 
       const { text } = await generateText({
         model: this.modelRegistry.getModel(fastModelId),
+        providerOptions: this.modelRegistry.getProviderOptions(fastModelId),
         system: `You are a Ghost-Text generator for a professional AI workspace.
 Your ONLY goal is to continue or refine the user's input text to make it a better prompt.
 
@@ -551,6 +532,7 @@ EXAMPLES:
 
     const { text, usage } = await generateText({
       model: model,
+      providerOptions: this.modelRegistry.getProviderOptions(),
       system: systemPrompt,
       messages: [{ role: 'user', content: message }],
     });

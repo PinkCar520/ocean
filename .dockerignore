@@ -21,6 +21,5 @@ coverage
 .env.test.local
 .env.production.local
 **/src/**/*.js
-**/src/**/*.d.ts
 **/src/**/*.js.map
 **/src/**/*.d.ts.map

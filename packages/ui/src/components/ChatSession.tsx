@@ -145,7 +145,9 @@ export function ChatSession({
   // ── 实时解析并合并 Active Context 元数据 ──
   const activeContext = useMemo(() => {
     if (!data || !Array.isArray(data)) return null;
-    const contexts = (data as any[]).filter(d => d.type === 'active-context');
+    const contexts = (data as any[])
+      .filter(d => d.type === 'data-active-context')
+      .map(d => d.data);
     if (contexts.length === 0) return null;
 
     // 合并所有历史 Context 事件（最新的覆盖旧的）
@@ -157,17 +159,18 @@ export function ChatSession({
     }, { payload: {} });
   }, [data]);
 
-  // ── 统一 Artifact 流（Phase 6 6f）：data 行 {type:'artifact', ...} 去重渲染 ──
+  // ── 标准 UI message data parts 中的 Artifact 去重渲染 ──
   const artifacts = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
     const seen = new Set<string>();
     const list: any[] = [];
     for (const d of data as any[]) {
-      if (d?.type === 'artifact' && d.artifactId) {
-        const key = `${d.runId}:${d.artifactId}`;
+      const artifact = d?.type === 'data-artifact' ? d.data : undefined;
+      if (artifact?.artifactId) {
+        const key = `${artifact.runId}:${artifact.artifactId}`;
         if (!seen.has(key)) {
           seen.add(key);
-          list.push(d);
+          list.push(artifact);
         }
       }
     }
@@ -402,10 +405,14 @@ export function ChatSession({
   }, [addFiles]);
 
   const lastMessage = messages[messages.length - 1];
-  const lastToolInvocations = lastMessage?.toolInvocations || lastMessage?.parts?.filter((p: any) => p.type === 'tool-invocation') || [];
+  const lastToolInvocations = lastMessage?.parts?.filter((part: any) =>
+    part.type === 'tool-invocation' ||
+    part.type === 'dynamic-tool' ||
+    part.type?.startsWith('tool-')
+  ) || lastMessage?.toolInvocations || [];
   const activeInquiryPart = lastMessage?.role === 'assistant'
     ? lastToolInvocations.find((p: any) => {
-      const result = p.output || p.result;
+      const result = p.output ?? p.result;
       return result?.ui?.uiType === 'inquiry_card';
     })
     : null;

@@ -22,10 +22,15 @@ export function ToolAccordion({
 
   const rawToolName = part.toolName || part.type?.replace('tool-', '') || 'unknown';
   const toolDisplayName = getFriendlyToolName(part, t, getLocalizedName);
-  const isCompleted = !!(part.output || part.result);
+  const isError = part.state === 'input-error' || part.state === 'output-error';
+  const isCompleted = isError ||
+    part.state === 'output-available' ||
+    part.state === 'output-denied' ||
+    part.output !== undefined ||
+    part.result !== undefined;
   const isSkillActivation = rawToolName === 'activate_skill';
-  const result = part.result || part.output;
-  const args = part.args || part.toolInvocation?.args;
+  const result = part.output ?? part.result;
+  const args = part.input ?? part.args ?? part.toolInvocation?.args;
 
   // Auto-expand while streaming if it's not completed
   const showExpanded = isExpanded || (!isCompleted && isStreaming);
@@ -75,17 +80,19 @@ export function ToolAccordion({
 
           <div className="flex items-center gap-2 py-0.5 px-2 -ml-2">
             <div className="w-5 h-5 flex items-center justify-center shrink-0">
-              {isCompleted ? (
+              {isCompleted && !isError ? (
                 <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />
+              ) : isError ? (
+                <Wrench className="w-3.5 h-3.5 text-destructive" />
               ) : (
                 <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" strokeWidth={2.5} />
               )}
             </div>
             <span className={cn(
               "text-[13px]",
-              isCompleted ? "text-primary/90 font-medium" : "text-primary font-medium"
+              isError ? "text-destructive font-medium" : isCompleted ? "text-primary/90 font-medium" : "text-primary font-medium"
             )}>
-              {isCompleted ? "Done" : "Running..."}
+              {isError ? "Failed" : isCompleted ? "Done" : "Running..."}
             </span>
           </div>
         </div>
