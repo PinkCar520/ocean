@@ -8,6 +8,7 @@ import { api } from '../../../lib/api-client';
 export function GeneralTab() {
   const { t, i18n } = useTranslation();
   const { userProfile, updatePreferences } = useSettings();
+  const languagePreference = userProfile?.preferences?.language;
 
   const preferredModel = userProfile?.preferences?.defaultModel || 'deepseek-v3';
   const currentTheme = userProfile?.preferences?.theme || 'light';
@@ -98,10 +99,11 @@ export function GeneralTab() {
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">{t('user_center.general.language')}</label>
             <select
-              value={i18n.language?.startsWith('zh') ? 'zh' : 'en'}
+              value={languagePreference === 'auto' ? 'auto' : i18n.language?.split('-')[0] || 'zh'}
               onChange={(e) => updatePreferences({ language: e.target.value })}
               className="w-full bg-muted border border-transparent focus:bg-card focus:border-border/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none transition-all cursor-pointer"
             >
+              <option value="auto">{t('user_center.general.lang_auto')}</option>
               <option value="zh">{t('user_center.general.lang_zh')}</option>
               <option value="en">{t('user_center.general.lang_en')}</option>
             </select>

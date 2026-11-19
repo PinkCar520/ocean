@@ -43,7 +43,12 @@
       "content": "New California labor laws will take effect on January 1, 2025.",
       "cta": "View Update"
     },
-    "available_models": "Available Models",
+    "reasoning_effort": "Reasoning effort",
+    "reasoning_effort_default": "Default",
+    "reasoning_effort_low": "Low",
+    "reasoning_effort_high": "High",
+    "reasoning_effort_max": "Max",
+    "available_models": "Model",
     "thinking": "Thinking",
     "thinking_done": "Completed",
     "reasoning": "Reasoning Process",

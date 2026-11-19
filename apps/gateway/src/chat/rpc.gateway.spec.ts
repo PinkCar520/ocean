@@ -3,6 +3,7 @@ import { RpcGateway } from './rpc.gateway';
 describe('RpcGateway authentication and response binding', () => {
   const orchestrator = { syncPlan: jest.fn(), updateTaskProgress: jest.fn() };
   const apiKeys = { findUserByApiKey: jest.fn() };
+  const workspaceHosts = { authenticate: jest.fn(), isActive: jest.fn() };
   const jwt = { verify: jest.fn() };
   const prisma = { user: { findFirst: jest.fn() }, session: { findFirst: jest.fn() } };
   const socket = (id: string, query: any, token?: string) => ({
@@ -11,7 +12,7 @@ describe('RpcGateway authentication and response binding', () => {
   let gateway: RpcGateway;
   beforeEach(() => {
     jest.resetAllMocks();
-    gateway = new RpcGateway(orchestrator as never, apiKeys as never, jwt as never, prisma as never);
+    gateway = new RpcGateway(orchestrator as never, apiKeys as never, jwt as never, prisma as never, workspaceHosts as never);
   });
 
   it('rejects anonymous, mismatched and foreign-session clients', async () => {
@@ -48,6 +49,102 @@ describe('RpcGateway authentication and response binding', () => {
     await gateway.handleConnection(cli as never);
     expect(gateway.getOnlineUsers()).toEqual(['alice']);
     expect(cli.emit).toHaveBeenCalledWith('rpc_identity', { workId: 'alice' });
+  });
+
+  it('authenticates registered Workspace Hosts using their per-host credential', async () => {
+    workspaceHosts.authenticate.mockResolvedValue({
+      userId: 'db-a',
+      workId: 'alice',
+      hostId: 'host-a',
+      platform: 'darwin',
+      credentialHash: 'a'.repeat(64),
+    });
+    const host = {
+      ...socket('host-a-socket', { clientType: 'cli' }),
+      handshake: {
+        query: { clientType: 'cli' },
+        auth: { hostId: 'host-a', hostCredential: 'ocean_wh_secret' },
+        headers: {},
+      },
+    };
+
+    await gateway.handleConnection(host as never);
+
+    expect(workspaceHosts.authenticate).toHaveBeenCalledWith('host-a', 'ocean_wh_secret');
+    expect(host.disconnect).not.toHaveBeenCalled();
+    expect(host.emit).toHaveBeenCalledWith('rpc_identity', { workId: 'alice', hostId: 'host-a' });
+    expect(gateway.getOnlineHosts()).toEqual(['host-a']);
+  });
+
+  it('dispatches only to an active Host bound to the exact Session snapshot', async () => {
+    const hostId = '00000000-0000-4000-8000-000000000002';
+    const snapshot = {
+      schemaVersion: 1,
+      workspaceId: '00000000-0000-4000-8000-000000000001',
+      workspaceRevision: 1,
+      name: 'Workspace',
+      hostId,
+      platform: 'darwin',
+      roots: [{
+        id: '00000000-0000-4000-8000-000000000003',
+        label: 'Root',
+        path: '/workspace',
+        role: 'primary',
+        access: 'read_write',
+      }],
+      cwd: { rootId: '00000000-0000-4000-8000-000000000003', relativePath: '.' },
+      worktree: { enabled: false },
+    };
+    const hostCredentialHash = 'a'.repeat(64);
+    workspaceHosts.authenticate.mockResolvedValue({
+      userId: 'db-a',
+      workId: 'alice',
+      hostId,
+      platform: 'darwin',
+      credentialHash: hostCredentialHash,
+    });
+    workspaceHosts.isActive.mockResolvedValue(true);
+    prisma.session.findFirst.mockResolvedValue({ workspaceSnapshot: snapshot });
+    const host = {
+      ...socket('host-a-socket', { clientType: 'cli' }),
+      handshake: {
+        query: { clientType: 'cli' },
+        auth: { hostId, hostCredential: 'ocean_wh_secret' },
+        headers: {},
+      },
+    };
+    await gateway.handleConnection(host as never);
+    const emit = jest.fn();
+    (gateway as any).server = { to: jest.fn().mockReturnValue({ emit }) };
+
+    const pending = gateway.sendWorkspaceTool('alice', 'session-a', 'file_read', { path: 'README.md' });
+    await new Promise(resolve => setImmediate(resolve));
+    const request = emit.mock.calls[0][1];
+    expect(prisma.session.findFirst).toHaveBeenCalledWith({
+      where: { id: 'session-a', user: { workId: 'alice' } },
+      select: { workspaceSnapshot: true },
+    });
+    expect(request).toMatchObject({
+      method: 'file_read',
+      params: { path: 'README.md', sessionId: 'session-a', workspaceSnapshot: snapshot },
+    });
+    gateway.handleRpcResponse(host as never, { id: request.id, result: 'contents' } as never);
+    await expect(pending).resolves.toBe('contents');
+
+    prisma.session.findFirst.mockResolvedValue({ workspaceSnapshot: { ...snapshot, hostId: '00000000-0000-4000-8000-000000000005' } });
+    await expect(gateway.sendToHost(hostId, 'file_read', {
+      path: 'src/index.ts',
+      sessionId: 'session-a',
+      workspaceSnapshot: snapshot,
+    })).rejects.toThrow('does not match');
+    expect(emit).toHaveBeenCalledTimes(1);
+
+    workspaceHosts.isActive.mockResolvedValue(false);
+    await expect(gateway.sendToHost(hostId, 'file_read', {
+      path: 'src/index.ts',
+      sessionId: 'session-a',
+      workspaceSnapshot: snapshot,
+    })).rejects.toThrow('no longer authorized');
   });
 
   it('accepts an RPC response only from the socket that received its request', async () => {

@@ -1,6 +1,6 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 interface AuthenticateInput {
@@ -21,9 +21,15 @@ export async function authenticate(input: AuthenticateInput) {
   const endpoint = input.mode === 'login' ? 'login' : 'register';
 
   try {
+    const requestHeaders = await headers();
+    const forwardedFor = requestHeaders.get('x-forwarded-for');
     const response = await fetch(`${gatewayUrl}/api/auth/${endpoint}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        'user-agent': requestHeaders.get('user-agent') ?? '',
+        ...(forwardedFor && { 'x-forwarded-for': forwardedFor }),
+      },
       body: JSON.stringify(input.mode === 'login'
         ? { email: input.email, password: input.password }
         : { email: input.email, password: input.password, name: input.name }),
@@ -51,6 +57,15 @@ export async function authenticate(input: AuthenticateInput) {
 
 export async function logout() {
   const cookieStore = await cookies();
+  const token = cookieStore.get('ocean_session')?.value;
+  if (token) {
+    const gatewayUrl = process.env.OCEAN_GATEWAY_URL ?? 'http://localhost:3000';
+    await fetch(`${gatewayUrl}/api/auth/logout`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => undefined);
+  }
   cookieStore.delete('ocean_session');
   redirect('/auth');
 }

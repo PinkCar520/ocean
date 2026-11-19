@@ -1,3 +1,4 @@
+import type { ReasoningEffort } from '@ocean/contracts';
 /**
  * ModelGateway 抽象与注入 token（与实现分离，避免测试链路引入 ai-sdk ESM 依赖）。
  *
@@ -32,6 +33,7 @@ export interface ModelGenerateRequest {
   signal?: AbortSignal;
   messages: ModelMessage[];
   modelId?: string;
+  reasoningEffort?: ReasoningEffort;
   tools?: ModelToolSpec[];
   /** 文本增量回调（实现侧流式产出时逐段回调，供 RunRunner 攒批落 run.output_delta）。 */
   onDelta?: (text: string) => void | Promise<void>;

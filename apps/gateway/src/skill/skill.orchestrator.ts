@@ -1,3 +1,4 @@
+import type { ReasoningEffort } from '@ocean/contracts';
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -192,6 +193,7 @@ export class SkillOrchestrator {
     modelId?: string,
     sessionId?: string,
     onChunk?: (chunk: UIMessageChunk) => void,
+    reasoningEffort?: ReasoningEffort,
   ): Promise<void> {
     const isSearchMode = (ctx as any).search === true;
     const isKnowledgeMode = (ctx as any).knowledge === true;
@@ -263,7 +265,7 @@ export class SkillOrchestrator {
 
           const result = streamText({
             model: this.modelRegistry.getModel(modelId),
-            providerOptions: this.modelRegistry.getProviderOptions(modelId),
+            providerOptions: this.modelRegistry.getProviderOptions(modelId, reasoningEffort),
             messages: modelMessages,
             toolChoice: 'auto',
             stopWhen: stepCountIs(10),

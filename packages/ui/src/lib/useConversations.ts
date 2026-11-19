@@ -7,6 +7,7 @@
  * - 不使用 IndexedDB，无本地状态
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { WorkspaceSnapshot } from '@ocean/contracts';
 import { api } from './api-client';
 
 export interface ConversationSummary {
@@ -14,6 +15,9 @@ export interface ConversationSummary {
   title: string;
   channel: string;
   status: string;
+  spaceId?: string;
+  workspacePath?: string | null;
+  workspaceSnapshot?: WorkspaceSnapshot | null;
   messageCount: number;
   updatedAt: string;
   createdAt: string;
@@ -31,12 +35,19 @@ interface UseConversationsArgs {
   initialMessages?: any[];
   isServerBootstrapped?: boolean;
   sessionActions?: {
-    create: (title: string, spaceId?: string) => Promise<any>;
+    create: (
+      title: string,
+      spaceId?: string,
+      workspacePath?: string,
+      workspaceSnapshot?: WorkspaceSnapshot,
+    ) => Promise<any>;
     rename: (id: string, title: string) => Promise<any>;
     delete: (id: string) => Promise<any>;
   };
   /** 当前 Space（Phase 6：新会话归属 Space） */
   spaceId?: string;
+  /** 当前应用中新对话/删除当前会话后的首页路由 */
+  homePath?: string;
 }
 
 export function useConversations({
@@ -51,6 +62,7 @@ export function useConversations({
   isServerBootstrapped = false,
   sessionActions,
   spaceId,
+  homePath = '/app',
 }: UseConversationsArgs) {
   const [isInitialized, setIsInitialized] = useState(isServerBootstrapped);
   const [conversations, setConversations] = useState<ConversationSummary[]>(initialConversations);
@@ -159,12 +171,15 @@ export function useConversations({
   /**
    * 创建新会话 — 服务端创建，返回 sessionId
    */
-  const createSession = useCallback(async (): Promise<string | null> => {
+  const createSession = useCallback(async (
+    workspacePath?: string,
+    workspaceSnapshot?: WorkspaceSnapshot,
+  ): Promise<string | null> => {
     try {
       const title = t('sidebar.new_chat');
       const data = sessionActions
-        ? await sessionActions.create(title, spaceId)
-        : await api.post<any>('/api/sessions', { channel: 'web', title, spaceId });
+        ? await sessionActions.create(title, spaceId, workspacePath, workspaceSnapshot)
+        : await api.post<any>('/api/sessions', { channel: 'web', title, spaceId, workspacePath, workspaceSnapshot });
       if (data.success && data.data?.id) {
         const newId = data.data.id;
         justCreatedSessionIdRef.current = newId; // 标记刚创建的会话
@@ -176,6 +191,8 @@ export function useConversations({
           channel: 'web',
           status: 'active',
           spaceId,
+          workspacePath: workspacePath ?? null,
+          workspaceSnapshot: workspaceSnapshot ?? null,
           messageCount: 0,
           updatedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
@@ -192,9 +209,9 @@ export function useConversations({
    * 导航到新对话（空白）
    */
   const handleNewChat = useCallback(() => {
-    navigate('/app');
+    navigate(homePath);
     setCurrentMessages([]);
-  }, [navigate]);
+  }, [homePath, navigate]);
 
   /**
    * 打开已有会话
@@ -228,9 +245,9 @@ export function useConversations({
     );
     // 若当前打开的会话被删除，返回首页
     if (sessionId && ids.includes(sessionId)) {
-      navigate('/app');
+      navigate(homePath);
     }
-  }, [sessionId, navigate, sessionActions]);
+  }, [homePath, sessionId, navigate, sessionActions]);
 
   /**
    * 流完成后刷新侧边栏（获取服务端写入的最新标题/消息数）

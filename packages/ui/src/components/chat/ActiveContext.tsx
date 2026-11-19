@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   Terminal,
   Zap, 
-  Cpu, 
   ShieldCheck,
   Activity,
   GitBranch,
@@ -28,7 +27,15 @@ const DOMAIN_CONFIG: Record<ProjectCategory, DomainMeta> = {
   Default: { labelKey: 'active_context.project', icon: Terminal, color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-500/10', pathLabelKey: 'active_context.path_workspace', branchLabelKey: 'active_context.branch_status' },
 };
 
-export function ActiveContextPanel({ onAction }: { onAction?: (action: string) => void }) {
+export type WorkspaceHostHealth = 'signed-out' | 'starting' | 'online' | 'reconnecting' | 'unauthorized' | 'unavailable';
+
+interface ActiveContextProps {
+  onAction?: (action: string) => void;
+  workspacePath?: string;
+  workspaceHostHealth?: WorkspaceHostHealth | 'other-host';
+}
+
+export function ActiveContextPanel({ onAction, workspacePath, workspaceHostHealth }: ActiveContextProps) {
   const { t } = useTranslation();
   const { activeProject, node, suggestedActions } = useWorkspace();
   
@@ -40,7 +47,13 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
   };
 
   const projectPathMatch = activeProject?.description?.match(/\(path:(.*?)\)/);
-  const displayPath = projectPathMatch ? projectPathMatch[1] : (node.currentPath !== '—' ? node.currentPath : '未绑定本地目录');
+  const displayPath = workspacePath ?? (workspaceHostHealth === undefined
+    ? projectPathMatch?.[1] ?? (node.currentPath !== '—' ? node.currentPath : undefined)
+    : undefined);
+  const isOnline = workspaceHostHealth === undefined ? node.isOnline : workspaceHostHealth === 'online';
+  const statusLabel = workspaceHostHealth === undefined
+    ? t(node.isOnline ? 'active_context.agent_online' : 'active_context.agent_waiting')
+    : t(`active_context.workspace_host_status.${workspaceHostHealth}`);
 
   return (
     <div className="flex flex-col h-full px-6 pb-6 pt-3 space-y-8">
@@ -116,10 +129,10 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
             <Activity className="w-4 h-4" />
             <h2 className="text-xs font-bold tracking-widest uppercase">{t('active_context.env_status')}</h2>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className={cn("w-2 h-2 rounded-full", node.isOnline ? "bg-emerald-500/100 animate-pulse" : "bg-slate-300")} />
+          <div className="flex items-center gap-1.5" role="status">
+            <span className={cn("w-2 h-2 shrink-0 rounded-full", isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-300")} aria-hidden="true" />
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
-              {node.isOnline ? t('active_context.agent_online') : t('active_context.agent_waiting')}
+              {statusLabel}
             </span>
           </div>
         </div>
@@ -128,23 +141,27 @@ export function ActiveContextPanel({ onAction }: { onAction?: (action: string) =
           <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
             <FolderOpen className="w-5 h-5 text-orange-500 shrink-0" />
             <div className="min-w-0 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{t(domain.pathLabelKey)}</p>
-              <p className="text-[13px] font-semibold truncate text-foreground">{displayPath}</p>
+              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{t(workspaceHostHealth === undefined ? domain.pathLabelKey : 'active_context.path_workspace')}</p>
+              <p className="break-all text-[13px] font-semibold text-foreground">
+                {displayPath ?? t('active_context.workspace_unselected')}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
-            <Zap className="w-5 h-5 text-blue-500 shrink-0" />
-            <div className="min-w-0 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{t(domain.branchLabelKey)}</p>
-              <div className="flex items-center gap-2">
-                <p className="text-[13px] font-semibold text-foreground truncate">{node.currentBranch || t('active_context.default_branch')}</p>
-                {!node.isClean && (
-                  <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase tracking-tighter bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-100">{t('active_context.pending_changes')}</span>
-                )}
+          {workspaceHostHealth === undefined && (
+            <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
+              <Zap className="w-5 h-5 text-blue-500 shrink-0" />
+              <div className="min-w-0 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-0.5">{t(domain.branchLabelKey)}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[13px] font-semibold text-foreground truncate">{node.currentBranch || t('active_context.default_branch')}</p>
+                  {!node.isClean && (
+                    <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase tracking-tighter bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-100">{t('active_context.pending_changes')}</span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          {node.isOnline && (
+          )}
+          {workspaceHostHealth === undefined && node.isOnline && (
             <div className="p-4 relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">{t('active_context.system_load')}</span>

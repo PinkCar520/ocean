@@ -5,7 +5,9 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   createLocalProject: (name: string) => ipcRenderer.invoke('create-local-project', name),
   openFolderPicker: () => ipcRenderer.invoke('open-folder-picker'),
-  revealInFinder: (path: string) => ipcRenderer.invoke('reveal-in-finder', path)
+  revealInFinder: (path: string) => ipcRenderer.invoke('reveal-in-finder', path),
+  setWorkspaceHostSession: (token: string | null) => ipcRenderer.invoke('workspace-host-session', token),
+  getWorkspaceHostInfo: () => ipcRenderer.invoke('workspace-host-info')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

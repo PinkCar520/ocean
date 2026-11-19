@@ -13,7 +13,7 @@ export interface SpaceOption {
 
 /**
  * SpaceSwitcher —— Phase 6：全局 Space 切换 + 当前身份提示。
- * 展示当前 Space 徽标；点击展开菜单在 Code / Work / Life 之间切换。
+ * 展示当前 Space 徽标；点击展开菜单在 Work / Life 之间切换。
  * 生命周期：activeSpaceId 持久化于 localStorage；切换回调由父级处理数据刷新。
  */
 export function SpaceSwitcher({
@@ -48,7 +48,6 @@ export function SpaceSwitcher({
   const typeLabel: Record<string, string> = {
     work: 'Work',
     life: 'Life',
-    code: 'Code',
   };
 
   return (
@@ -66,10 +65,10 @@ export function SpaceSwitcher({
         <span
           className={cn(
             'inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white',
-            active.type === 'life' ? 'bg-emerald-500' : active.type === 'code' ? 'bg-sky-500' : 'bg-indigo-500',
+            active.type === 'life' ? 'bg-emerald-500' : 'bg-indigo-500',
           )}
         >
-          {active.type === 'life' ? 'L' : active.type === 'code' ? 'C' : 'W'}
+          {active.type === 'life' ? 'L' : 'W'}
         </span>
         <span>{active.name}</span>
         <span className="text-xs text-muted-foreground">{typeLabel[active.type] ?? active.type}</span>
@@ -99,10 +98,10 @@ export function SpaceSwitcher({
               <span
                 className={cn(
                   'inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white',
-                  space.type === 'life' ? 'bg-emerald-500' : space.type === 'code' ? 'bg-sky-500' : 'bg-indigo-500',
+                  space.type === 'life' ? 'bg-emerald-500' : 'bg-indigo-500',
                 )}
               >
-                {space.type === 'life' ? 'L' : space.type === 'code' ? 'C' : 'W'}
+                {space.type === 'life' ? 'L' : 'W'}
               </span>
               <span className="flex-1 truncate">{space.name}</span>
               {space.role && <span className="text-xs text-muted-foreground">{space.role}</span>}

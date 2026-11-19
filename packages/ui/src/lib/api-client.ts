@@ -55,13 +55,14 @@ export async function request<T>(
 
     // 4. 统一 HTTP 错误处理
     if (!response.ok) {
-      const error: ApiError = new Error('API Request Failed');
+      const statusLabel = [response.status, response.statusText].filter(Boolean).join(' ');
+      const error: ApiError = new Error(`HTTP ${statusLabel}`);
       error.status = response.status;
 
       try {
         error.data = await response.json();
       } catch {
-        error.data = { message: 'Unknown server error' };
+        // Proxies can return an empty or non-JSON response; keep the HTTP status.
       }
 
       // Surface backend message to UI callers (e.g. upload validation errors).

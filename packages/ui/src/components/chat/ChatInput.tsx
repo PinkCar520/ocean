@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import type { ReasoningEffort } from '@ocean/contracts';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Plus, FileText, X as CloseIcon,
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, Terminal, Cpu, FolderPlus, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines
+  Plus, FileText, X as CloseIcon, Search,
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, FolderPlus, Folder, Laptop, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines
 } from 'lucide-react';
+import { Command } from 'cmdk';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
@@ -60,6 +62,8 @@ interface ChatInputProps {
   handleStop: () => void;
   isLoading: boolean;
   models: any[];
+  reasoningEffort?: ReasoningEffort;
+  onReasoningEffortChange?: (effort: ReasoningEffort | undefined) => void;
   selectedModelId: string;
   setSelectedModelId: (id: string) => void;
   textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -73,16 +77,14 @@ interface ChatInputProps {
   onMainTabChange?: (id: string) => void;
   /** 权限模式初值（SSR 读 cookie，避免刷新丢状态/闪烁） */
   initialPermissionMode?: string;
+  workspacePath?: string;
+  workspacePaths?: string[];
+  onWorkspacePathChange?: (
+    path: string | undefined,
+  ) => void | Promise<unknown>;
+  showWorkspaceFolder?: boolean;
+  workspaceFolderEditable?: boolean;
 }
-
-const ICON_MAP: Record<string, any> = {
-  'Globe': Globe,
-  'Sparkles': Sparkles,
-  'Database': Database,
-  'Cpu': FileText,
-  'Zap': Sparkles,
-  'Cloud': Sparkles
-};
 
 export const ChatInput = React.memo(({
   localInput,
@@ -102,6 +104,8 @@ export const ChatInput = React.memo(({
   handleStop,
   isLoading,
   models,
+  reasoningEffort,
+  onReasoningEffortChange,
   selectedModelId,
   setSelectedModelId,
   textAreaRef,
@@ -114,13 +118,37 @@ export const ChatInput = React.memo(({
   isEmpty = false,
   onMainTabChange,
   initialPermissionMode = 'acceptEdits',
+  workspacePath,
+  workspacePaths = [],
+  onWorkspacePathChange,
+  showWorkspaceFolder = false,
+  workspaceFolderEditable = false,
 }: ChatInputProps) => {
-  const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: 'Globe', color: 'text-slate-400' };
+  const activeModel = models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...' };
   const activeDisplayName = beautifyModelName(activeModel.name);
-  const ActiveIcon = ICON_MAP[activeModel.icon] || Globe;
 
   const [isFocused, setIsFocused] = useState(false);
   const [isProjectCreateModalOpen, setIsProjectCreateModalOpen] = useState(false);
+  const [isWorkspacePickerOpen, setIsWorkspacePickerOpen] = useState(false);
+  const workspacePickerRef = useRef<HTMLDivElement>(null);
+  const workspacePickerTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isWorkspacePickerOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !workspacePickerRef.current?.contains(event.target) &&
+        !workspacePickerTriggerRef.current?.contains(event.target)
+      ) {
+        setIsWorkspacePickerOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isWorkspacePickerOpen]);
 
   const preRecordTextRef = React.useRef(localInput);
 
@@ -166,6 +194,47 @@ export const ChatInput = React.memo(({
   const { projects, fetchProjects } = useProjects();
   const { installedSkills } = useInstalledSkills();
   const { activeProject, setActiveProjectId } = useWorkspace();
+  const desktopApi = typeof window === 'undefined'
+    ? undefined
+    : (window as Window & {
+      api?: {
+        openFolderPicker?: () => Promise<{
+          success: boolean;
+          path?: string;
+          canceled?: boolean;
+          error?: string;
+        }>;
+      };
+    }).api;
+  const workspaceFolderName = workspacePath
+    ?.split(/[\\/]/)
+    .filter(Boolean)
+    .pop() || workspacePath;
+
+  const selectWorkspacePath = async (path: string | undefined) => {
+    try {
+      await onWorkspacePathChange?.(path);
+    } catch (error) {
+      console.error('[ChatInput] Failed to save workspace configuration:', error);
+      globalToast(t('chat.workspace_picker_failed'));
+    }
+  };
+
+  const handleSelectWorkspaceFolder = async () => {
+    if (!workspaceFolderEditable || !desktopApi?.openFolderPicker) return;
+    try {
+      const result = await desktopApi.openFolderPicker();
+      if (result.canceled) return;
+      if (!result.success || !result.path) {
+        globalToast(result.error || t('chat.workspace_picker_failed'));
+        return;
+      }
+      await selectWorkspacePath(result.path);
+    } catch (error) {
+      console.error('[ChatInput] Failed to select workspace folder:', error);
+      globalToast(t('chat.workspace_picker_failed'));
+    }
+  };
 
   const MENTION_OPTIONS = [
     { id: 'search', label: 'Web Search', icon: Globe, desc: 'Search the live web', type: 'search' },
@@ -188,6 +257,12 @@ export const ChatInput = React.memo(({
     }));
     return [...baseOptions, ...skillOptions];
   }, [installedSkills]);
+
+  // TipTap keeps the key handler between editor recreations.
+  const submitRef = React.useRef(onFormSubmit);
+  React.useLayoutEffect(() => {
+    submitRef.current = onFormSubmit;
+  }, [onFormSubmit]);
 
   const editor = useEditor({
     extensions: [
@@ -260,15 +335,17 @@ export const ChatInput = React.memo(({
         class: "w-full text-[15px] text-foreground outline-none min-h-[22px] max-h-[300px] overflow-y-auto leading-relaxed font-sans cursor-text whitespace-pre-wrap break-words border-none focus:outline-none focus:ring-0",
       },
       handleKeyDown: (view, event) => {
-        if (document.querySelector('.tippy-box')) {
-           // Allow tippy events to process
-        } else if (event.key === 'Enter' && !event.shiftKey) {
+        if (event.isComposing || view.composing || event.keyCode === 229) return false;
+
+        if (event.key === 'Enter' && !event.shiftKey) {
+          if (document.querySelector('.tippy-box[data-state="visible"]')) return false;
           event.preventDefault();
-          if (setGhostText) setGhostText('');
-          onFormSubmit();
+          if (event.repeat) return true;
+          setGhostText?.('');
+          submitRef.current();
           return true;
         }
-        
+
         if (event.key === 'Tab' && ghostText) {
           event.preventDefault();
           view.dispatch(view.state.tr.insertText(ghostText, view.state.selection.to));
@@ -314,7 +391,127 @@ export const ChatInput = React.memo(({
       isEmpty ? "pb-4 mt-4" : "pt-2 pb-4 md:pb-8 bg-gradient-to-t from-[#FCF9F8] via-[#FCF9F8] to-transparent mt-auto"
     )}>
       <div className="max-w-[800px] mx-auto relative">
-        
+        {showWorkspaceFolder && (
+          <div
+            role="group"
+            aria-label={t('chat.workspace', '工作区')}
+            className="relative z-20 mx-2 mb-2 flex min-h-9 items-center gap-1 rounded-xl bg-muted/60 px-2 py-1"
+          >
+            <div className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+              <Laptop className="h-3.5 w-3.5" />
+              <span>{t('chat.workspace_device', 'This computer')}</span>
+            </div>
+            <span className="text-muted-foreground/50">/</span>
+            <button
+              type="button"
+              ref={workspacePickerTriggerRef}
+              onClick={() => setIsWorkspacePickerOpen((open) => !open)}
+              disabled={!workspaceFolderEditable || !desktopApi?.openFolderPicker}
+              className={cn(
+                "flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-foreground",
+                workspaceFolderEditable && desktopApi?.openFolderPicker
+                  ? "transition-colors hover:bg-background/70"
+                  : "cursor-default opacity-80",
+              )}
+              aria-label={workspaceFolderEditable && desktopApi?.openFolderPicker
+                ? t('chat.workspace_folder_select')
+                : workspacePath
+                  ? t('chat.workspace_folder_bound')
+                  : t('chat.workspace_folder_none')}
+            >
+              <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">
+                {workspaceFolderName || t(
+                  workspaceFolderEditable
+                    ? 'chat.workspace_folder_select'
+                    : 'chat.workspace_folder_none',
+                )}
+              </span>
+              {workspaceFolderEditable && desktopApi?.openFolderPicker && (
+                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+              )}
+            </button>
+          </div>
+        )}
+        {showWorkspaceFolder && (
+          isWorkspacePickerOpen && (
+            <div
+              ref={workspacePickerRef}
+              className="absolute bottom-full left-2 z-[10000] mb-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card/95 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+            >
+              <Command label={t('chat.workspace_picker_title')}>
+                <div className="flex items-center gap-3 border-b border-border px-3">
+                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Command.Input
+                    autoFocus
+                    placeholder={t('chat.workspace_search_placeholder')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setIsWorkspacePickerOpen(false);
+                      }
+                    }}
+                    className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                <Command.List className="max-h-64 overflow-y-auto p-1.5">
+                  <Command.Empty className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    {t('chat.workspace_search_empty')}
+                  </Command.Empty>
+                  {workspacePaths.length > 0 && (
+                    <Command.Group aria-label={t('chat.workspace_recent')} className="px-2 py-1.5">
+                      {workspacePaths.map((path) => {
+                        const name = path.split(/[\\/]/).filter(Boolean).pop() || path;
+                        return (
+                          <Command.Item
+                            key={path}
+                            value={path}
+                            keywords={[name]}
+                            onSelect={() => {
+                              void selectWorkspacePath(path);
+                              setIsWorkspacePickerOpen(false);
+                            }}
+                            className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground aria-selected:bg-primary/8"
+                          >
+                            <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <span className={cn("min-w-0 flex-1 truncate", workspacePath === path && "font-semibold")}>
+                              {name}
+                            </span>
+                            {workspacePath === path && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                          </Command.Item>
+                        );
+                      })}
+                    </Command.Group>
+                  )}
+                  <Command.Separator className="my-1 h-px bg-border/80" />
+                  <Command.Item
+                    value={t('chat.workspace_browse')}
+                    onSelect={() => {
+                      setIsWorkspacePickerOpen(false);
+                      void handleSelectWorkspaceFolder();
+                    }}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground aria-selected:bg-primary/8"
+                  >
+                    <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="flex-1">{t('chat.workspace_browse')}</span>
+                  </Command.Item>
+                  <Command.Item
+                    value={`no workspace ${t('chat.workspace_none')}`}
+                    onSelect={() => {
+                      void selectWorkspacePath(undefined);
+                      setIsWorkspacePickerOpen(false);
+                    }}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground aria-selected:bg-primary/8"
+                  >
+                    <CloseIcon className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">{t('chat.workspace_none')}</span>
+                    {!workspacePath && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                  </Command.Item>
+                </Command.List>
+              </Command>
+            </div>
+          )
+        )}
 
         <div className={cn(
           "bg-card/70 backdrop-blur-md rounded-2xl p-2 flex flex-col shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] ring-1 transition-all duration-300",
@@ -577,39 +774,6 @@ export const ChatInput = React.memo(({
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <AnimatePresence>
-                {activeProject && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, width: 0 }}
-                    animate={{ opacity: 1, scale: 1, width: 'auto' }}
-                    exit={{ opacity: 0, scale: 0.9, width: 0 }}
-                    className="flex items-center ml-1"
-                  >
-                    <div className="relative group flex items-center">
-                      <button
-                        onClick={() => onMainTabChange?.('projects')}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-transparent bg-primary/5 hover:bg-primary/10 transition-colors whitespace-nowrap"
-                      >
-                        <Briefcase className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-xs font-bold text-primary truncate max-w-[120px]">
-                          {activeProject.name}
-                        </span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveProjectId(null);
-                        }}
-                        className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm hover:scale-110 active:scale-95 z-10"
-                        title="取消关联项目"
-                      >
-                        <CloseIcon className="w-2 h-2 stroke-[3]" />
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
               <DropdownMenu open={isPermissionOpen} onOpenChange={setIsPermissionOpen}>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -649,7 +813,6 @@ export const ChatInput = React.memo(({
               <DropdownMenu open={isModelDropdownOpen} onOpenChange={setIsModelDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-muted-foreground hover:bg-muted transition-all border border-transparent hover:border-border/40 shrink-0">
-                  <ActiveIcon className={cn("w-4 h-4 shrink-0", activeModel.color)} />
                   <span className="text-[10px] sm:text-[11px] font-bold tracking-tight max-w-[60px] sm:max-w-none truncate">{activeDisplayName}</span>
                   <ChevronDown className={cn("w-3 h-3 transition-transform shrink-0", isModelDropdownOpen ? "rotate-180" : "")} />
                 </button>
@@ -660,23 +823,38 @@ export const ChatInput = React.memo(({
                 <div className="max-h-[300px] overflow-y-auto no-scrollbar">
                   {models.map((m) => {
                     const displayName = beautifyModelName(m.name);
-                    const ModelIcon = ICON_MAP[m.icon] || Globe;
                     return (
-                      <DropdownMenuItem key={m.id} onClick={() => setSelectedModelId(m.id)} className="flex items-center justify-between gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all mb-0.5 hover:bg-muted">
-                        <div className="flex items-center gap-3">
-                          <div className={cn("flex items-center justify-center w-8 h-8", m.color)}>
-                            <ModelIcon className="w-5 h-5" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[14px] font-bold text-foreground">{displayName}</span>
-                            <span className="text-[11px] text-muted-foreground font-medium">{m.provider}</span>
-                          </div>
+                      <DropdownMenuItem key={m.id} onSelect={(event) => {
+                        event.preventDefault();
+                        setSelectedModelId(m.id);
+                      }} className="flex items-center justify-between gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all mb-0.5 hover:bg-muted">
+                        <div className="flex flex-col">
+                          <span className="text-[14px] font-bold text-foreground">{displayName}</span>
+                          <span className="text-[11px] text-muted-foreground font-medium">{m.provider}</span>
                         </div>
                         {selectedModelId === m.id && <Check className="w-4 h-4 text-primary shrink-0" />}
                       </DropdownMenuItem>
                     );
                   })}
                 </div>
+                {onReasoningEffortChange && (
+                  <>
+                    <DropdownMenuSeparator className="bg-border/40" />
+                    <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                      {t('chat.reasoning_effort')}
+                    </DropdownMenuLabel>
+                    {(['default', 'low', 'high', 'max'] as const).map(effort => (
+                      <DropdownMenuItem
+                        key={effort}
+                        className="px-3"
+                        onSelect={() => onReasoningEffortChange(effort === 'default' ? undefined : effort)}
+                      >
+                        {t(`chat.reasoning_effort_${effort}`)}
+                        {(reasoningEffort ?? 'default') === effort && <Check className="ml-auto h-4 w-4 text-primary" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
 

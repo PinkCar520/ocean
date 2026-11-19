@@ -1,0 +1,9 @@
+::highlight(ocean-conversation-matches) {
+  background-color: #ffe19b;
+  color: #352208;
+}
+
+::highlight(ocean-conversation-match) {
+  background-color: #ffab57;
+  color: #352208;
+}

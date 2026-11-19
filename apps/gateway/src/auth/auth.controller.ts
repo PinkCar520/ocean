@@ -7,6 +7,8 @@ import {
   Param,
   UnauthorizedException,
   Req,
+  Headers,
+  Ip,
   Res,
   SetMetadata,
 } from '@nestjs/common';
@@ -14,7 +16,7 @@ import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { ApiKeyService, CreateApiKeyDto } from './api-key.service';
 import { IS_PUBLIC_KEY } from './sso.guard';
-import { OCEAN_SESSION_COOKIE, OCEAN_SESSION_MAX_AGE_MS } from './auth-cookie';
+import { OCEAN_SESSION_COOKIE, OCEAN_SESSION_MAX_AGE_MS, readCookie } from './auth-cookie';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -33,6 +35,8 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() body: any,
+    @Headers('user-agent') userAgent: string | undefined,
+    @Ip() ip: string,
     @Res({ passthrough: true }) response: Response,
   ) {
     const { email, password, name } = body;
@@ -41,7 +45,7 @@ export class AuthController {
         'Authentication Failed: Email and password are required.',
       );
     }
-    const result = await this.authService.register(email, password, name);
+    const result = await this.authService.register(email, password, name, userAgent, ip);
     this.setSessionCookie(response, result.access_token);
     return result;
   }
@@ -54,6 +58,8 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() body: any,
+    @Headers('user-agent') userAgent: string | undefined,
+    @Ip() ip: string,
     @Res({ passthrough: true }) response: Response,
   ) {
     const { username, email, password } = body;
@@ -70,20 +76,46 @@ export class AuthController {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
-    const result = await this.authService.login(user);
+    const result = await this.authService.login(user, userAgent, ip);
     this.setSessionCookie(response, result.access_token);
     return result;
   }
 
   @Public()
   @Post('logout')
-  logout(@Res({ passthrough: true }) response: Response) {
+  async logout(@Req() req: any, @Res({ passthrough: true }) response: Response) {
+    const authorization = req.headers.authorization;
+    const token = authorization?.startsWith('Bearer ')
+      ? authorization.slice(7)
+      : readCookie(req.headers.cookie, OCEAN_SESSION_COOKIE);
+    await this.authService.endLoginSession(token);
     response.clearCookie(OCEAN_SESSION_COOKIE, {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
     });
+    return { success: true };
+  }
+
+  @Get('login-devices')
+  async listLoginDevices(@Req() req: any) {
+    const sessions = await this.authService.listLoginSessions(req.user.dbId);
+    return {
+      devices: sessions.map(({ id, ...session }) => ({
+        ...session,
+        id,
+        current: id === req.user.loginSessionId,
+      })),
+    };
+  }
+
+  @Delete('login-devices/:id')
+  async revokeLoginDevice(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user?.dbId;
+    if (!userId) throw new UnauthorizedException('Authentication required.');
+
+    await this.authService.revokeLoginSession(userId, id);
     return { success: true };
   }
 

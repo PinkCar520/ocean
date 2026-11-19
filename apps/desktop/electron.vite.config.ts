@@ -1,16 +1,44 @@
 import { resolve } from 'path'
+import { realpathSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { defineConfig } from 'electron-vite'
 import { loadEnv } from 'vite'
+import { build } from 'esbuild'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
   // Load env from workspace root
   const env = loadEnv(mode, resolve('../../'), '')
-  const proxyTarget = env.VITE_API_BASE_URL || 'http://localhost:3000'
+  // macOS utility processes require the Electron app bundle's canonical path.
+  if (process.platform === 'darwin' && mode === 'development') {
+    const require = createRequire(import.meta.url)
+    process.env.ELECTRON_EXEC_PATH = realpathSync(process.env.ELECTRON_EXEC_PATH || require('electron'))
+  }
+  const workspaceHostGateway = env.OCEAN_WORKSPACE_HOST_GATEWAY_URL || 'http://localhost:3000'
+  // Desktop development talks to the same Gateway as the Workspace Host.
+  const proxyTarget = env.OCEAN_DESKTOP_API_PROXY_URL || workspaceHostGateway
 
   return {
-  main: {},
+  main: {
+    define: { '__OCEAN_GATEWAY_URL__': JSON.stringify(workspaceHostGateway) },
+    plugins: [{
+      name: 'ocean-workspace-host',
+      async buildStart() {
+        const output = await build({
+          entryPoints: [resolve('../cli/src/workspace-host.ts')],
+          bundle: true,
+          platform: 'node',
+          target: 'node22',
+          format: 'cjs',
+          write: false,
+          metafile: true
+        })
+        for (const input of Object.keys(output.metafile.inputs)) this.addWatchFile(resolve(input))
+        this.emitFile({ type: 'asset', fileName: 'workspace-host.cjs', source: output.outputFiles[0].contents })
+      }
+    }]
+  },
   preload: {},
   renderer: {
     root: resolve('src/renderer'),

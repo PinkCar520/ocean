@@ -1,11 +1,15 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { isDeepStrictEqual } from 'node:util';
 import { SpaceService } from '../space/space.service';
+import { workspaceSnapshotSchema } from '@ocean/contracts';
 
 export interface CreateMessageDto {
   role: 'user' | 'assistant' | 'system';
@@ -41,6 +45,8 @@ export class SessionService {
         status: true,
         activeSkillId: true,
         spaceId: true,
+        workspacePath: true,
+        workspaceSnapshot: true,
         updatedAt: true,
         createdAt: true,
         _count: { select: { messages: true } },
@@ -55,6 +61,8 @@ export class SessionService {
       status: s.status,
       activeSkillId: s.activeSkillId,
       spaceId: s.spaceId,
+      workspacePath: s.workspacePath,
+      workspaceSnapshot: s.workspaceSnapshot,
       messageCount: s._count.messages,
       updatedAt: s.updatedAt,
       createdAt: s.createdAt,
@@ -67,8 +75,89 @@ export class SessionService {
     title = 'New Chat',
     activeSkillId?: string,
     spaceId = SpaceService.DEFAULT_WORK_SPACE_ID,
+    workspacePath?: string,
+    workspaceSnapshot?: unknown,
   ) {
     await this.spaceService.requireAccessibleSpace(userId, spaceId);
+    let parsedWorkspaceSnapshot:
+      | ReturnType<typeof workspaceSnapshotSchema.parse>
+      | undefined;
+    let workspaceId: string | undefined;
+    if (workspacePath !== undefined) {
+      if (spaceId !== SpaceService.DEFAULT_WORK_SPACE_ID) {
+        throw new BadRequestException(
+          'A local workspace folder can only be attached to a Work session',
+        );
+      }
+      if (
+        typeof workspacePath !== 'string' ||
+        workspacePath.trim().length === 0 ||
+        workspacePath.length > 4096 ||
+        workspacePath.includes('\0')
+      ) {
+        throw new BadRequestException('Invalid workspace path');
+      }
+    }
+    if (workspaceSnapshot !== undefined) {
+      if (spaceId !== SpaceService.DEFAULT_WORK_SPACE_ID) {
+        throw new BadRequestException(
+          'A local workspace can only be attached to a Work session',
+        );
+      }
+      const parsed = workspaceSnapshotSchema.safeParse(workspaceSnapshot);
+      if (!parsed.success) {
+        throw new BadRequestException(
+          `Invalid workspace snapshot: ${parsed.error.issues[0]?.message ?? 'invalid data'}`,
+        );
+      }
+      parsedWorkspaceSnapshot = parsed.data;
+      const workspace = await this.prisma.workspace.findFirst({
+        where: {
+          id: parsed.data.workspaceId,
+          userId,
+          status: 'active',
+        },
+      });
+      if (!workspace) {
+        throw new NotFoundException(
+          `Workspace ${parsed.data.workspaceId} not found`,
+        );
+      }
+      const snapshotConfiguration = {
+        name: parsed.data.name,
+        hostId: parsed.data.hostId,
+        platform: parsed.data.platform,
+        roots: parsed.data.roots,
+        cwd: parsed.data.cwd,
+        worktree: parsed.data.worktree,
+      };
+      const storedConfiguration = {
+        name: workspace.name,
+        hostId: workspace.hostId,
+        platform: workspace.platform,
+        roots: workspace.roots,
+        cwd: workspace.cwd,
+        worktree: workspace.worktree,
+      };
+      if (
+        workspace.revision !== parsed.data.workspaceRevision ||
+        !isDeepStrictEqual(snapshotConfiguration, storedConfiguration)
+      ) {
+        throw new ConflictException(
+          'Workspace changed since it was selected; refresh its Session snapshot',
+        );
+      }
+      workspaceId = workspace.id;
+      const primaryRoot = parsed.data.roots.find(
+        (root) => root.role === 'primary',
+      );
+      if (workspacePath !== undefined && primaryRoot?.path !== workspacePath) {
+        throw new BadRequestException(
+          'Workspace path must match the snapshot primary root',
+        );
+      }
+      workspacePath = primaryRoot?.path;
+    }
     return this.prisma.session.create({
       data: {
         userId,
@@ -77,6 +166,9 @@ export class SessionService {
         status: 'active',
         activeSkillId,
         spaceId,
+        workspacePath,
+        workspaceId,
+        workspaceSnapshot: parsedWorkspaceSnapshot,
       },
     });
   }

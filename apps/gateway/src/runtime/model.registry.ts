@@ -1,3 +1,4 @@
+import type { ReasoningEffort } from '@ocean/contracts';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -27,8 +28,8 @@ export class ModelRegistry {
     return createChatModel(this.configService, modelId);
   }
 
-  getProviderOptions(modelId?: string) {
-    return createChatProviderOptions(this.configService, modelId);
+  getProviderOptions(modelId?: string, reasoningEffort?: ReasoningEffort) {
+    return createChatProviderOptions(this.configService, modelId, reasoningEffort);
   }
 
   /** 获取当前网关配置的模型列表（provider 元数据 + 显示信息）。 */

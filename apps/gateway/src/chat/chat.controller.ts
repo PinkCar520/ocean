@@ -186,7 +186,7 @@ export class ChatController {
     const modelId: string | undefined = body.modelId || body.model;
 
     console.log(
-      `[Gateway] [${requestId}] Skill mode. Employee: ${req.user?.workId} (${req.user?.dbId}), session: ${sessionId || 'none'}, msg: "${userMessage.slice(0, 60)}..."`,
+      `[Gateway] [${requestId}] ${this.chatService.isRunMode() ? 'Run' : 'Skill'} mode. Employee: ${req.user?.workId} (${req.user?.dbId}), session: ${sessionId || 'none'}, msg: "${userMessage.slice(0, 60)}..."`,
     );
 
     // 从消息的 parts 中提取技能
@@ -299,6 +299,7 @@ export class ChatController {
             modelId,
             sessionId,
             (chunk: UIMessageChunk) => writer.write(chunk),
+            body.reasoningEffort,
           );
 
           if (sessionId && userMessageId && assistantText) {
@@ -318,6 +319,7 @@ export class ChatController {
           modelId,
           sessionId,
           (chunk: UIMessageChunk) => writer.write(chunk),
+          body.reasoningEffort,
         );
       },
       onError: (error) => {

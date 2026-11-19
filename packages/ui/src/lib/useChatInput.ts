@@ -1,3 +1,5 @@
+import type { ReasoningEffort } from '@ocean/contracts';
+import type { WorkspaceSnapshot } from '@ocean/contracts';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { api } from './api-client';
 
@@ -12,9 +14,14 @@ export interface PendingAttachment {
 
 interface UseChatInputProps {
   sendMessage: (message: any, options?: any) => Promise<void>;
-  createSession: () => Promise<string | null>;
+  createSession: (
+    workspacePath?: string,
+    workspaceSnapshot?: WorkspaceSnapshot,
+  ) => Promise<string | null>;
+  workspacePath?: string;
   token: string | null;
   selectedModelId: string;
+  reasoningEffort?: ReasoningEffort;
   isSearchMode: boolean;
   isKnowledgeMode: boolean;
   navigate: (path: string, options?: any) => void;
@@ -27,8 +34,10 @@ interface UseChatInputProps {
 export function useChatInput({
   sendMessage,
   createSession,
+  workspacePath,
   token,
   selectedModelId,
+  reasoningEffort,
   isSearchMode,
   isKnowledgeMode,
   navigate,
@@ -162,7 +171,7 @@ export function useChatInput({
     let activeSessionId = sessionIdRef.current;
     if (!activeSessionId) {
       setIsLocalThinking(true);
-      const newId = await createSession();
+      const newId = await createSession(workspacePath);
       if (!newId) {
         setIsLocalThinking(false);
         console.error('[ChatSession] Failed to create session');
@@ -211,6 +220,7 @@ export function useChatInput({
         headers,
         body: {
           modelId: selectedModelId,
+          reasoningEffort,
           search: isSearchMode,
           knowledge: isKnowledgeMode,
           sessionId: activeSessionId,
@@ -229,11 +239,13 @@ export function useChatInput({
     sessionIdRef, 
     setIsLocalThinking, 
     createSession, 
+    workspacePath,
     navigate, 
     userScrolledUpRef, 
     sendMessage, 
     token,
-    selectedModelId, 
+    selectedModelId,
+    reasoningEffort,
     isSearchMode, 
     isKnowledgeMode
   ]);

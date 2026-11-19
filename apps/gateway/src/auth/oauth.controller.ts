@@ -12,6 +12,7 @@ import {
 import { Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { OAuthService } from './oauth.service';
+import { UserService } from './user.service';
 import { IS_PUBLIC_KEY } from './sso.guard';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -21,6 +22,7 @@ export class OAuthController {
   constructor(
     private oauthService: OAuthService,
     private jwtService: JwtService,
+    private userService: UserService,
   ) {}
 
   /**
@@ -155,6 +157,10 @@ export class OAuthController {
       payload = this.jwtService.verify(token);
     } catch {
       throw new UnauthorizedException('Invalid or expired token.');
+    }
+
+    if (payload.jti && !(await this.userService.hasLoginSession(payload.jti, payload.sub))) {
+      throw new UnauthorizedException('Login session has ended.');
     }
 
     // Generate auth code

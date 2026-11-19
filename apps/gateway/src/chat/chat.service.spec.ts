@@ -165,7 +165,16 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     );
   });
 
-  it('failed 终态输出标准 error chunk', async () => {
+  it.each([
+    [
+      { type: 'run.status_changed', status: 'failed' },
+      'Run failed. See gateway logs for details.',
+    ],
+    [
+      { type: 'run.failed', code: 'tool_execution_failed', message: 'Local permission policy denied this device operation.' },
+      'Local permission policy denied this device operation.',
+    ],
+  ])('失败事件 %j 立即结束聊天流', async (event, errorText) => {
     const run = runServiceMock() as any;
     const service = new ChatService(configOf('true'), run);
     const chunks: unknown[] = [];
@@ -185,12 +194,12 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     };
     run._eventsByRun
       .get(runId)
-      .push({ ...base, type: 'run.status_changed', status: 'failed' });
+      .push({ ...base, ...event });
     run._statusByRun.set(runId, 'failed');
     await promise;
     expect(chunks).toEqual([
       { type: 'start' },
-      { type: 'error', errorText: 'Run failed. See gateway logs for details.' },
+      { type: 'error', errorText },
       { type: 'finish', finishReason: 'error' },
     ]);
   });

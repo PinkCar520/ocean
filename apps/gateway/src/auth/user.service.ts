@@ -3,6 +3,26 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class UserService {
+  async hasLoginSession(id: string, userId: string) {
+    return !!(await this.prisma.loginSession.findFirst({
+      where: { id, userId, expiresAt: { gt: new Date() } },
+      select: { id: true },
+    }));
+  }
+
+  async recordLoginActivity(id: string, userId: string) {
+    const now = new Date();
+    await this.prisma.loginSession.updateMany({
+      where: {
+        id,
+        userId,
+        expiresAt: { gt: now },
+        lastActiveAt: { lt: new Date(now.getTime() - 60_000) },
+      },
+      data: { lastActiveAt: now },
+    });
+  }
+
   constructor(@Inject('PRISMA_CLIENT') private prisma: PrismaClient) {}
 
   /**

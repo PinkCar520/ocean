@@ -1,7 +1,7 @@
 "use client";
 
 import { TooltipProvider } from "@ocean/ui/components/ui/tooltip";
-import '@ocean/ui/lib/i18n';
+import { resolvePreferredLanguage } from '@ocean/ui/lib/i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -23,8 +23,7 @@ import { createProject, deleteProject } from './app/actions/projects';
 import { installSkill, uninstallSkill } from './app/actions/skills';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
-import { SpaceSwitcher, type SpaceOption } from './components/SpaceSwitcher';
-import { CodeProjection } from './components/CodeProjection';
+import type { SpaceOption } from './components/SpaceSwitcher';
 import { WorkProjection } from './components/WorkProjection';
 import { ApprovalPanel } from './components/ApprovalPanel';
 
@@ -234,7 +233,7 @@ function AppInternal({
   const [spacePreferenceHydrated, setSpacePreferenceHydrated] = useState(false);
   useEffect(() => {
     const saved = localStorage.getItem('ocean_active_space') ?? 'work';
-    setActiveSpaceId(saved);
+    setActiveSpaceId(saved === 'code' ? 'work' : saved);
     setSpaceView(saved.startsWith('life-') ? 'life' : 'work');
     setSpacePreferenceHydrated(true);
   }, []);
@@ -249,7 +248,7 @@ function AppInternal({
     localStorage.setItem('ocean_active_space', activeSpaceId);
   }, [activeSpaceId, spacePreferenceHydrated]);
 
-  // 显式创建 Life Space（Space Switcher 菜单「创建生活空间」入口）
+  // 首次切换到生活时创建 Life Space
   const handleCreateLifeSpace = useCallback(async () => {
     try {
       const life = await api.post<any>('/api/spaces/life', {});
@@ -273,7 +272,9 @@ function AppInternal({
     (async () => {
       try {
         const json = await api.get<any>('/api/spaces');
-        const list: SpaceOption[] = Array.isArray(json?.data) ? json.data : [];
+        const list: SpaceOption[] = Array.isArray(json?.data)
+          ? json.data.filter((space: SpaceOption) => space.type !== 'code')
+          : [];
         if (!cancelled) setSpaces(list);
         const hasActive = list.some((sp) => sp.id === activeSpaceId);
         if (!hasActive && activeSpaceId !== 'work') {
@@ -292,12 +293,6 @@ function AppInternal({
     })();
     return () => { cancelled = true; };
   }, [activeSpaceId]);
-
-  const handleSpaceChange = (spaceId: string) => {
-    setActiveSpaceId(spaceId);
-    setSpaceView(spaceId.startsWith('life-') ? 'life' : 'work');
-    navigate('/app');
-  };
 
   // 顶部标签切换（工作 | 生活）
   const handleSpaceViewChange = useCallback((view: SpaceView) => {
@@ -345,7 +340,7 @@ function AppInternal({
 
   // 当前 Space 的会话（Work 无 spaceId 的历史会话视作 Work）
   const spaceConversations = useMemo(
-    () => conversations.filter((c: any) => (c.spaceId ?? 'work') === activeSpaceId),
+    () => conversations.filter((c: any) => (c.spaceId === 'code' ? 'work' : c.spaceId ?? 'work') === activeSpaceId),
     [conversations, activeSpaceId],
   );
 
@@ -377,8 +372,9 @@ function AppInternal({
       }
       
       // Sync Language
-      if (user.preferences.language && i18n.language !== user.preferences.language) {
-        i18n.changeLanguage(user.preferences.language);
+      if (user.preferences.language) {
+        const language = resolvePreferredLanguage(user.preferences.language);
+        if (i18n.language !== language) void i18n.changeLanguage(language);
       }
       
     }
@@ -479,27 +475,19 @@ function AppInternal({
         isSidebarCollapsed ? "md:ml-0" : "md:ml-64"
       )}>
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between p-3 border-b border-border bg-card shrink-0 z-30">
+        <div className="md:hidden grid grid-cols-[1fr_auto_1fr] items-center p-3 border-b border-border bg-card shrink-0 z-30">
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 -ml-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
+            className="justify-self-start p-2 -ml-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>
           <span className="font-display font-bold text-foreground text-lg">Ocean</span>
-          <SpaceSwitcher
-            spaces={spaces.length ? spaces : [{ id: 'work', name: '工作空间', type: 'work' }]}
-            activeSpaceId={activeSpaceId}
-            onChange={handleSpaceChange}
-            onCreateLife={handleCreateLifeSpace}
-          />
         </div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
-          {activeSpaceId === 'code' ? (
-            <CodeProjection token={token} />
-          ) : activeTab === 'chat' || !activeTab ? (
+          {activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
               <ChatSession
                 navigation={navigation}
@@ -577,6 +565,9 @@ function AppInternal({
           setIsSettingsOpen(false);
         }}
         onLogout={handleLogout}
+        onPreferencesUpdate={(preferences) => {
+          setUser((currentUser: any) => currentUser && { ...currentUser, preferences });
+        }}
         user={user}
       />}
       {isUpgradeModalOpen && <UpgradeModal
@@ -588,6 +579,10 @@ function AppInternal({
         onClose={() => setIsMainSettingsOpen(false)}
         token={token}
         onProfileUpdate={(updatedUser: any) => setUser(updatedUser)}
+        onSignOut={() => {
+          setIsMainSettingsOpen(false);
+          return handleLogout();
+        }}
         onConversationsCleared={async () => {
           await refreshConversations();
           navigate('/app');

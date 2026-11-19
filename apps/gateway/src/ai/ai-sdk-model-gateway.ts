@@ -89,7 +89,7 @@ export class AiSdkModelGateway implements ModelGateway {
       abortSignal: req.signal,
       messages: mappedMessages.map(toUiMessage),
     };
-    const providerOptions = createChatProviderOptions(this.config, modelId);
+    const providerOptions = createChatProviderOptions(this.config, modelId, req.reasoningEffort);
     if (providerOptions) options.providerOptions = providerOptions;
     if (tools && tools.length > 0) {
       const toolSet = Object.fromEntries(

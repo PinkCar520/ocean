@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../../lib/api-client';
 import type { UserProfile, SaveStatus, SettingsContextType, UserPreferences } from './types';
 import { useTranslation } from 'react-i18next';
+import { resolvePreferredLanguage } from '../../lib/i18n';
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
@@ -49,7 +50,7 @@ export function SettingsProvider({ children, token, onProfileUpdate }: { childre
         }
       }
       if (updates.language) {
-        i18n.changeLanguage(updates.language);
+        await i18n.changeLanguage(resolvePreferredLanguage(updates.language));
       }
 
       setSaveStatus('success');

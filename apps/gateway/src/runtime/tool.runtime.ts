@@ -94,9 +94,10 @@ export class ToolRuntime {
           path: z.string().describe('文件相对路径'),
         }),
         execute: async ({ path }) => {
-          const result = await this.rpcGateway.sendToCli(
+          const result = await this.rpcGateway.sendWorkspaceTool(
             currentUserId,
-            'read_file',
+            sessionId,
+            'file_read',
             { path },
           );
           return {
@@ -107,7 +108,7 @@ export class ToolRuntime {
               uiType: 'code_block',
               props: {
                 command: `read_file ${path}`,
-                output: result,
+                output: typeof result === 'string' ? result : result?.content,
                 status: 'success',
                 language: path.split('.').pop() || 'text',
               },
@@ -128,7 +129,7 @@ export class ToolRuntime {
         inputSchema: z.object({ path: z.string().min(1).describe('Notebook 路径') }),
         execute: async ({ path }: { path: string }): Promise<any> => {
           if (!sessionId) return { error: 'Notebook access requires an authenticated session.' };
-          return this.rpcGateway.sendToCli(currentUserId, 'notebook_read', { path, sessionId });
+          return this.rpcGateway.sendWorkspaceTool(currentUserId, sessionId, 'notebook_read', { path });
         },
         toModelOutput: ({ output }: { output: any }) => {
           if (output?.kind !== 'notebook') return { type: 'json', value: output ?? null };
@@ -147,7 +148,7 @@ export class ToolRuntime {
         }).strict(),
         execute: async (input: any): Promise<any> => {
           if (!sessionId) return { error: 'Notebook editing requires an authenticated session and approval context.' };
-          return this.rpcGateway.sendToCli(currentUserId, 'notebook_edit', { ...input, sessionId });
+          return this.rpcGateway.sendWorkspaceTool(currentUserId, sessionId, 'notebook_edit', input);
         },
       } as any),
 

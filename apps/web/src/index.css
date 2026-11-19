@@ -1,5 +1,6 @@
 
 @import "tailwindcss";
+@import "../../../packages/ui/src/styles/conversation-find.css";
 @source "../../../packages/ui";
 @plugin "tailwindcss-animate";
 @plugin "@tailwindcss/typography";

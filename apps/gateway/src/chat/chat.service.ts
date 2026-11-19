@@ -1,3 +1,4 @@
+import type { ReasoningEffort } from '@ocean/contracts';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { UIMessageChunk } from 'ai';
@@ -79,6 +80,7 @@ export class ChatService {
     modelId: string | undefined,
     sessionId: string | undefined,
     onChunk: (chunk: UIMessageChunk) => void,
+    reasoningEffort?: ReasoningEffort,
   ): Promise<string> {
     const input = buildRunPrompt(messages, ctx, modelId);
     // Phase 6 6b：Run 归属当前 Space（由 controller 按会话归属/body 解析，默认 work）。
@@ -90,7 +92,7 @@ export class ChatService {
       space: { id: spaceId, type: 'work' },
       input,
       priority: 'interactive',
-      metadata: { sessionId, modelId },
+      metadata: { sessionId, modelId, ...(reasoningEffort && { reasoningEffort }) },
     });
     const runId = snapshot.run.id;
     let after = snapshot.events.at(-1)?.sequence ?? -1;
@@ -132,6 +134,11 @@ export class ChatService {
               contentType: event.artifact?.contentType,
             },
           });
+        } else if (event.type === 'run.failed') {
+          endText();
+          onChunk({ type: 'error', errorText: event.message });
+          onChunk({ type: 'finish', finishReason: 'error' });
+          return output;
         } else if (
           event.type === 'run.status_changed' &&
           TERMINAL_RUN_STATUSES.has(event.status)
@@ -191,6 +198,8 @@ export class ChatService {
         after = Math.max(after, event.sequence);
         if (event.type === 'run.output_delta') {
           output += event.delta;
+        } else if (event.type === 'run.failed') {
+          return `Run failed: ${event.message}`;
         } else if (
           event.type === 'run.status_changed' &&
           TERMINAL_RUN_STATUSES.has(event.status)

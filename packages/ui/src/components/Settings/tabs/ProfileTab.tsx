@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Edit2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../SettingsContext';
@@ -10,12 +10,13 @@ export function ProfileTab() {
   const [editedEmail, setEditedEmail] = useState('');
   const [emailError, setEmailError] = useState('');
 
-  useEffect(() => {
-    if (userProfile) {
-      setEditedName(userProfile.name || '');
-      setEditedEmail(userProfile.email || '');
-    }
-  }, [userProfile]);
+  const nameId = useId();
+  const emailId = useId();
+  const savedName = userProfile?.name || '';
+  const savedEmail = userProfile?.email || '';
+
+  useEffect(() => setEditedName(savedName), [savedName]);
+  useEffect(() => setEditedEmail(savedEmail), [savedEmail]);
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,23 +64,26 @@ export function ProfileTab() {
       return;
     }
     setEmailError('');
-    updateProfile({ email: editedEmail });
+    if (editedEmail !== userProfile?.email) void updateProfile({ email: editedEmail });
   };
 
   return (
     <section className="space-y-8 max-w-3xl">
       <div className="flex items-center gap-6">
-        <div className="relative w-24 h-24 group cursor-pointer">
+        <div className="relative h-24 w-24 shrink-0">
           {userProfile?.avatar ? (
-            <img alt={t('user_center.identity.edit_avatar')} className="w-full h-full rounded-3xl object-cover border-4 border-card shadow-xl shadow-[#000]/5" src={userProfile.avatar} />
+            <img alt={t('user_center.identity.edit_avatar')} className="w-full h-full rounded-full object-cover shadow-xl shadow-[#000]/5" src={userProfile.avatar} />
           ) : (
-            <div className="w-full h-full rounded-3xl bg-primary/10 text-primary flex items-center justify-center text-4xl font-black border-4 border-card shadow-xl shadow-[#000]/5">
+            <div className="w-full h-full rounded-full bg-primary/10 text-primary flex items-center justify-center text-4xl font-black shadow-xl shadow-[#000]/5">
               {userProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
           )}
-          <label className="absolute -bottom-2 -right-2 bg-card p-2 rounded-xl shadow-lg border border-border cursor-pointer hover:bg-muted transition-colors">
-            <Edit2 className="w-4 h-4 text-primary" />
-            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+          <label
+            title={t('user_center.identity.edit_avatar')}
+            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity hover:opacity-100 focus-within:opacity-100 focus-within:ring-2 focus-within:ring-primary [@media(hover:none)]:opacity-100"
+          >
+            <Edit2 aria-hidden="true" className="h-5 w-5" />
+            <input type="file" aria-label={t('user_center.identity.edit_avatar')} accept="image/*" className="sr-only" onChange={handleAvatarUpload} />
           </label>
         </div>
         <div>
@@ -89,23 +93,25 @@ export function ProfileTab() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('user_center.identity.work_id')}</label>
-          <p className="p-3 bg-muted rounded-xl font-mono text-sm font-bold text-foreground">{userProfile?.workId}</p>
-        </div>
         <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('user_center.identity.name')}</label>
+          <label htmlFor={nameId} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('user_center.identity.name')}</label>
           <input 
+            id={nameId}
             value={editedName}
             onChange={(e) => setEditedName(e.target.value)}
-            onBlur={() => updateProfile({ name: editedName })}
+            onBlur={() => {
+              const name = editedName.trim();
+              if (name && name !== userProfile?.name) void updateProfile({ name });
+            }}
             className="w-full p-3 bg-muted border border-transparent focus:bg-card focus:border-border/50 rounded-xl text-sm font-bold text-foreground outline-none transition-all"
             placeholder={t('user_center.identity.name_placeholder')}
           />
         </div>
         <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('user_center.identity.email')}</label>
+          <label htmlFor={emailId} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('user_center.identity.email')}</label>
           <input 
+            id={emailId}
+            type="email"
             value={editedEmail}
             onChange={(e) => {
                setEditedEmail(e.target.value);

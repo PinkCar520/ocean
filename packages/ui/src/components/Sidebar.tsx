@@ -804,7 +804,7 @@ export function Sidebar({
             <button
               onClick={onOpenSettings}
               className="w-full flex items-center border border-transparent hover:bg-card hover:border-border/50 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all text-left group overflow-hidden outline-none gap-3 p-2 rounded-xl"
-              title={user?.name || 'Alex Rivera'}
+              title={user?.name?.trim() || t('user_center.tabs.account')}
             >
               <div className="relative">
                 <img
@@ -815,7 +815,7 @@ export function Sidebar({
               </div>
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate">{user?.name || 'Alex Rivera'}</span>
+                  <span className="text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate">{user?.name?.trim() || t('user_center.tabs.account')}</span>
                   <NodeStatusIndicator token={token} isCollapsed={false} />
                 </div>
                 <span className="text-[10px] text-muted-foreground truncate uppercase tracking-widest font-bold mt-0.5">{user?.department || t('sidebar.admin')}</span>

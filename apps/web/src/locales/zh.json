@@ -43,7 +43,12 @@
       "content": "加州新劳动法案将于 2025 年 1 月 1 日生效。",
       "cta": "查看更新"
     },
-    "available_models": "可用模型",
+    "reasoning_effort": "推理强度",
+    "reasoning_effort_default": "默认",
+    "reasoning_effort_low": "低",
+    "reasoning_effort_high": "高",
+    "reasoning_effort_max": "最高",
+    "available_models": "模型",
     "thinking": "思考中",
     "thinking_done": "已完成",
     "reasoning": "思考过程",

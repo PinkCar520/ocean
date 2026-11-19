@@ -22,6 +22,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^4.0.121",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@ocean/contracts": "workspace:*",
     "@ocean/core": "workspace:*",
     "@ocean/tools-zentao": "workspace:*",
     "ai": "^7.0.176",

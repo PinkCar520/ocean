@@ -4,7 +4,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { resolvePreferredLanguage } from '../lib/i18n';
 import { api } from '../lib/api-client';
+import type { UserPreferences } from './Settings/types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -12,10 +14,11 @@ interface SettingsModalProps {
   onNavigateSettings?: () => void;
   onUpgradeClick?: () => void;
   onLogout?: () => void;
+  onPreferencesUpdate?: (preferences: UserPreferences) => void;
   user?: any;
 }
 
-export function SettingsModal({ isOpen, onClose, onNavigateSettings, onUpgradeClick, onLogout, user }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, onNavigateSettings, onUpgradeClick, onLogout, onPreferencesUpdate, user }: SettingsModalProps) {
   const { i18n, t } = useTranslation();
 
   useEffect(() => {
@@ -29,7 +32,9 @@ export function SettingsModal({ isOpen, onClose, onNavigateSettings, onUpgradeCl
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const selectedLanguage = user?.preferences?.language === 'auto' ? 'auto' : i18n.language?.split('-')[0];
   const languages = [
+    { code: 'auto', label: t('user_center.general.lang_auto') },
     { code: 'zh', label: '简体中文' },
     { code: 'en', label: 'English (US)' },
   ];
@@ -63,7 +68,7 @@ export function SettingsModal({ isOpen, onClose, onNavigateSettings, onUpgradeCl
                 className="w-11 h-11 rounded-full border border-border object-cover shrink-0"
               />
               <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
-                <h4 className="text-base font-bold text-foreground truncate leading-none">{user?.name || 'Alex Rivera'}</h4>
+                <h4 className="text-base font-bold text-foreground truncate leading-none">{user?.name?.trim() || t('user_center.tabs.account')}</h4>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary whitespace-nowrap">
                     {user?.department || t('settings.free_version')}
@@ -81,7 +86,7 @@ export function SettingsModal({ isOpen, onClose, onNavigateSettings, onUpgradeCl
 
             {/* Nav List */}
             <div className="space-y-0.5">
-              {/* Language Item with CSS Hover Submenu */}
+              {/* Language submenu */}
               <div className="relative group/lang">
                 <button className="w-full flex items-center justify-between px-2 py-3 text-foreground/80 dark:text-foreground/90 hover:bg-muted rounded-xl transition-colors">
                   <div className="flex items-center gap-3">
@@ -91,23 +96,29 @@ export function SettingsModal({ isOpen, onClose, onNavigateSettings, onUpgradeCl
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
 
-                {/* CSS Submenu - Pure CSS Hover */}
-                <div className="absolute left-[calc(100%+8px)] top-0 invisible group-hover/lang:visible opacity-0 group-hover/lang:opacity-100 transition-all duration-200 z-[70]">
+                {/* Padding keeps the hover area continuous up to the submenu. */}
+                <div className="absolute left-full top-0 z-[70] pl-2 invisible opacity-0 transition-all duration-200 group-hover/lang:visible group-hover/lang:opacity-100 group-focus-within/lang:visible group-focus-within/lang:opacity-100">
                   <div className="w-[200px] p-1.5 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] rounded-[20px] border border-border bg-card">
                     {languages.map((lang) => (
                       <button
                         key={lang.code}
-                        onClick={() => {
-                          i18n.changeLanguage(lang.code);
+                        onClick={async () => {
                           try {
-                            api.patch('/api/user/preferences', { language: lang.code }).catch(() => {});
-                          } catch (e) {}
-                          onClose();
+                            const { preferences } = await api.patch<{ preferences: UserPreferences }>(
+                              '/api/user/preferences',
+                              { language: lang.code },
+                            );
+                            onPreferencesUpdate?.(preferences);
+                            await i18n.changeLanguage(resolvePreferredLanguage(preferences.language ?? lang.code));
+                            onClose();
+                          } catch (error) {
+                            console.error('Failed to update language preference:', error);
+                          }
                         }}
                         className="w-full flex items-center justify-between px-3 py-2.5 cursor-pointer rounded-xl hover:bg-muted transition-colors"
                       >
                         <span className="text-sm font-medium text-foreground/80 dark:text-foreground/90">{lang.label}</span>
-                        {i18n.language?.startsWith(lang.code) && <Check className="w-4 h-4 text-primary" />}
+                        {selectedLanguage === lang.code && <Check className="w-4 h-4 text-primary" />}
                       </button>
                     ))}
                   </div>

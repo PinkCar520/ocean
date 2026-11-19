@@ -8,12 +8,12 @@ import {
   isPermissionSettings,
   normalizeRules,
   uniquePermissionRuleIds,
-  SessionPermissionGrants,
   type PermissionAction,
   type PermissionDecision,
   type PermissionSettings,
   type PermissionMode,
-} from '@ocean/core';
+} from '@ocean/core/permission-policy';
+import { SessionPermissionGrants } from '@ocean/core/session-permission-grants';
 import { atomicWriteFile } from './file-system.js';
 
 const DEFAULT_SETTINGS: PermissionSettings = { mode: 'default' };

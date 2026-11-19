@@ -21,12 +21,16 @@ export const chatMessageSchema = z
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
+export const reasoningEffortSchema = z.enum(['low', 'high', 'max']);
+export type ReasoningEffort = z.infer<typeof reasoningEffortSchema>;
+
 export const chatRequestSchema = z
   .object({
     id: z.string().optional(),
     text: z.string().min(1).optional(),
     messages: z.array(chatMessageSchema).optional(),
     modelId: z.string().min(1).optional(),
+    reasoningEffort: reasoningEffortSchema.optional(),
     model: z.string().min(1).optional(),
     sessionId: z.string().min(1).nullable().optional(),
     parentId: z.string().min(1).nullable().optional(),

@@ -11,6 +11,16 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
+    "./permission-policy": {
+      "types": "./dist/permission-policy.d.ts",
+      "import": "./dist/permission-policy.js",
+      "require": "./dist/permission-policy.js"
+    },
+    "./session-permission-grants": {
+      "types": "./dist/session-permission-grants.d.ts",
+      "import": "./dist/session-permission-grants.js",
+      "require": "./dist/session-permission-grants.js"
+    },
     "./checkpoints": {
       "types": "./dist/filesystem/checkpoints.d.ts",
       "import": "./dist/filesystem/checkpoints.js",

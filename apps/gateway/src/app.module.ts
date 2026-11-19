@@ -3,8 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { MetricsModule } from './obs/metrics.module';
 import { AuditModule } from './audit/audit.module';
 import { AuditController } from './audit/audit.controller';
-import { PrivacyService } from './privacy/privacy.service';
-import { PrivacyController } from './privacy/privacy.controller';
+import { PrivacyModule } from './privacy/privacy.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
@@ -25,6 +24,7 @@ import { RAGModule } from './rag/rag.module';
 import { ZentaoModule } from './zentao/zentao.module';
 import { SkillModule } from './skill/skill.module';
 import { RunModule } from './run/run.module';
+import { WorkspaceModule } from './workspace/workspace.module';
 
 /**
  * AppModule
@@ -45,7 +45,9 @@ import { RunModule } from './run/run.module';
     UserModule, // 对外暴露用户中心接口
     UploadModule, // 文件上传模块
     SessionModule, // 会话漫游数据接口模块
+    WorkspaceModule,
     AuditModule, // Phase 7 7b：审计日志（全局）
+    PrivacyModule,
     SkillRegistryModule, // 技能注册中心
     SkillModule, // ← Agent Skills 编排核心
     MCPServerModule, // MCP Server 管理
@@ -62,8 +64,6 @@ import { RunModule } from './run/run.module';
       useClass: SsoAuthGuard, // 全局认证守卫
     },
     AuditController,
-    PrivacyService, // Phase 7 7c：数据导出/账号删除
-    PrivacyController,
   ],
 })
 export class AppModule {}

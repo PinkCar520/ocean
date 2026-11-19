@@ -7,6 +7,9 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'node:crypto';
+import { OCEAN_SESSION_MAX_AGE_MS } from './auth-cookie';
+import { resolveLoginLocation } from './login-location';
 
 @Injectable()
 export class AuthService {
@@ -18,7 +21,7 @@ export class AuthService {
   /**
    * 注册新用户
    */
-  async register(email: string, password: string, name?: string) {
+  async register(email: string, password: string, name?: string, userAgent?: string, ip?: string) {
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [{ email }, { workId: email }],
@@ -54,22 +57,36 @@ export class AuthService {
       update: {},
     });
 
-    return this.login(user);
+    return this.login(user, userAgent, ip);
   }
 
   /**
    * 登录验证
    */
-  async login(user: any) {
+  async login(user: any, userAgent?: string, ip?: string) {
+    const sessionId = randomUUID();
     const payload = {
+      jti: sessionId,
       sub: user.id,
       workId: user.workId,
       email: user.email,
       name: user.name,
     };
 
+    const location = await resolveLoginLocation(ip);
+    const token = this.jwtService.sign(payload);
+    await this.prisma.loginSession.create({
+      data: {
+        id: sessionId,
+        userId: user.id,
+        userAgent: userAgent?.slice(0, 512),
+        location,
+        expiresAt: new Date(Date.now() + OCEAN_SESSION_MAX_AGE_MS),
+      },
+    });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: token,
       user: {
         id: user.id,
         workId: user.workId,
@@ -78,6 +95,32 @@ export class AuthService {
         avatar: user.avatar,
       },
     };
+  }
+
+  listLoginSessions(userId: string) {
+    return this.prisma.loginSession.findMany({
+      where: { userId, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, userAgent: true, location: true, createdAt: true, lastActiveAt: true },
+    });
+  }
+
+  async revokeLoginSession(userId: string, sessionId: string) {
+    await this.prisma.loginSession.deleteMany({ where: { id: sessionId, userId } });
+  }
+
+  async endLoginSession(token?: string) {
+    if (!token) return;
+
+    let payload: { jti?: string; sub: string };
+    try {
+      payload = this.jwtService.verify(token);
+    } catch {
+      return;
+    }
+    if (payload.jti) {
+      await this.revokeLoginSession(payload.sub, payload.jti);
+    }
   }
 
   /**

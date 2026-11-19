@@ -22,4 +22,16 @@ i18n
     },
   });
 
+export function resolvePreferredLanguage(preference: string): string {
+  if (preference !== 'auto') return preference;
+  if (typeof navigator === 'undefined') return 'zh';
+
+  const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const locale of languages) {
+    const language = locale?.toLowerCase().split('-')[0];
+    if (language === 'en' || language === 'zh') return language;
+  }
+  return 'zh';
+}
+
 export default i18n;

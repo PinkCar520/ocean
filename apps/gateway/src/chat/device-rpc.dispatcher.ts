@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { DEVICE_RPC_TOPIC } from '../tool/device-rpc.broker';
 import { RemoteRpcError, RpcGateway } from './rpc.gateway';
+import { workspaceSnapshotSchema } from '@ocean/contracts';
 
 /** A Gateway dispatches persisted requests only for CLI sockets connected to this process. */
 @Injectable()
@@ -24,9 +25,9 @@ export class DeviceRpcDispatcher implements OnModuleInit, OnModuleDestroy {
     if (this.busy) return;
     this.busy = true;
     try {
-      for (const workId of this.rpc.getOnlineUsers()) {
+      for (const hostId of this.rpc.getOnlineHosts()) {
         const rows = await this.prisma.outboxEvent.findMany({
-          where: { topic: DEVICE_RPC_TOPIC, status: 'pending', payload: { path: ['workId'], equals: workId } },
+          where: { topic: DEVICE_RPC_TOPIC, status: 'pending', payload: { path: ['workspaceSnapshot', 'hostId'], equals: hostId } },
           orderBy: { createdAt: 'asc' }, take: 10,
         });
         await Promise.all(rows.map(row => this.dispatch(row)));
@@ -35,10 +36,15 @@ export class DeviceRpcDispatcher implements OnModuleInit, OnModuleDestroy {
   }
 
   private async dispatch(row: { id: string; payload: Prisma.JsonValue }): Promise<void> {
-    const request = row.payload as { runId?: unknown; userId?: unknown; workId?: unknown; sessionId?: unknown; method?: unknown; input?: unknown; expiresAt?: unknown } | null;
+    const request = row.payload as { runId?: unknown; userId?: unknown; workId?: unknown; sessionId?: unknown; workspaceSnapshot?: unknown; method?: unknown; input?: unknown; expiresAt?: unknown } | null;
     if (!request || typeof request.runId !== 'string' || typeof request.userId !== 'string' || typeof request.workId !== 'string' || typeof request.sessionId !== 'string' ||
       !['notebook_read', 'notebook_edit', 'file_read', 'file_write', 'file_edit', 'file_patch'].includes(String(request.method)) || !request.input || typeof request.input !== 'object' || Array.isArray(request.input) || typeof request.expiresAt !== 'string' || !Number.isFinite(Date.parse(request.expiresAt))) {
       await this.prisma.outboxEvent.updateMany({ where: { id: row.id, status: 'pending' }, data: { status: 'failed', lastError: 'Invalid device request.' } });
+      return;
+    }
+    const snapshot = workspaceSnapshotSchema.safeParse(request.workspaceSnapshot);
+    if (!snapshot.success) {
+      await this.prisma.outboxEvent.updateMany({ where: { id: row.id, status: 'pending' }, data: { status: 'failed', lastError: 'Device request has an invalid Workspace snapshot.' } });
       return;
     }
     if (Date.parse(request.expiresAt) <= Date.now()) {
@@ -50,13 +56,26 @@ export class DeviceRpcDispatcher implements OnModuleInit, OnModuleDestroy {
       await this.prisma.outboxEvent.updateMany({ where: { id: row.id, status: 'pending' }, data: { status: 'cancelled', lastError: 'Run is no longer active.' } });
       return;
     }
+    const session = await this.prisma.session.findFirst({
+      where: { id: request.sessionId, userId: request.userId },
+      select: { workspaceSnapshot: true },
+    });
+    const persistedSnapshot = workspaceSnapshotSchema.safeParse(session?.workspaceSnapshot);
+    if (!persistedSnapshot.success || JSON.stringify(persistedSnapshot.data) !== JSON.stringify(snapshot.data)) {
+      await this.prisma.outboxEvent.updateMany({ where: { id: row.id, status: 'pending' }, data: { status: 'failed', lastError: 'Session Workspace snapshot changed before dispatch.' } });
+      return;
+    }
     const claim = await this.prisma.outboxEvent.updateMany({
       where: { id: row.id, status: 'pending' },
       data: { status: 'dispatched', lockedBy: this.instanceId, lockedAt: new Date() },
     });
     if (!claim.count) return;
     try {
-      const result = await this.rpc.sendToCli(request.workId, String(request.method), { ...request.input, sessionId: request.sessionId });
+      const result = await this.rpc.sendToHost(snapshot.data.hostId, String(request.method), {
+        ...request.input,
+        sessionId: request.sessionId,
+        workspaceSnapshot: snapshot.data,
+      });
       const payload = JSON.parse(JSON.stringify({ ...request, result: result ?? null })) as Prisma.InputJsonValue;
       await this.prisma.outboxEvent.updateMany({ where: { id: row.id, status: 'dispatched', lockedBy: this.instanceId }, data: { status: 'processed', payload, processedAt: new Date(), lockedAt: null, lockedBy: null } });
     } catch (error) {

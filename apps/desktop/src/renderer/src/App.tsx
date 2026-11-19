@@ -1,5 +1,12 @@
 import { TooltipProvider } from "@ocean/ui/components/ui/tooltip";
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  workspaceConfigurationSchema,
+  workspaceRecordSchema,
+  type WorkspaceConfiguration,
+  type WorkspaceRecord,
+  type WorkspaceSnapshot,
+} from '@ocean/contracts';
 import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Sparkles,
@@ -9,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ChatSession } from '@ocean/ui/components/ChatSession';
 import { useTranslation } from 'react-i18next';
+import { resolvePreferredLanguage } from '@ocean/ui/lib/i18n';
 import { SettingsDialog } from '@ocean/ui/components/Settings/SettingsDialog';
 import { UIGallery } from '@ocean/ui/components/UIGallery';
 import { SkillLibrary } from '@ocean/ui/components/SkillLibrary';
@@ -23,8 +31,36 @@ import { cn } from '@ocean/ui/lib/utils';
 import { Toaster } from '@ocean/ui/components/GlobalToast';
 import { api } from '@ocean/ui/lib/api-client';
 import { SkillManager } from '@ocean/ui/components/SkillManager';
+import { WorkProjection } from '@ocean/ui/components/WorkProjection';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
+
+type WorkspaceHostInfo = Pick<WorkspaceConfiguration, 'hostId' | 'platform'>;
+
+type WorkspaceHostHealth = 'signed-out' | 'starting' | 'online' | 'reconnecting' | 'unauthorized' | 'unavailable';
+
+function getWorkspaceHostBridge() {
+  return (window as Window & {
+    api?: {
+      getWorkspaceHostInfo?: () => Promise<{ info?: WorkspaceHostInfo; health: WorkspaceHostHealth } | null>;
+      setWorkspaceHostSession?: (token: string | null) => Promise<void>;
+    };
+  }).api;
+}
+
+function toWorkspaceSnapshot(workspace: WorkspaceRecord): WorkspaceSnapshot {
+  return {
+    schemaVersion: 1,
+    workspaceId: workspace.id,
+    workspaceRevision: workspace.revision,
+    name: workspace.name,
+    hostId: workspace.hostId,
+    platform: workspace.platform,
+    roots: workspace.roots,
+    cwd: workspace.cwd,
+    worktree: workspace.worktree,
+  };
+}
 
 function AppContent() {
   const { id: sessionIdFromUrl } = useParams<{ id?: string }>();
@@ -36,7 +72,7 @@ function AppContent() {
   return (
     <TooltipProvider delayDuration={0}>
       <WorkspaceProvider token={token}>
-        <AppInternal 
+        <AppInternal key={token ?? "signed-out"}
           token={token} 
         setToken={setToken} 
         user={user} 
@@ -56,12 +92,21 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
 
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem('ocean_active_tab');
+    if (saved === 'code') return 'workflows';
     return saved || 'chat';
+  });
+  const [activeSpaceId, setActiveSpaceId] = useState(() => {
+    const saved = localStorage.getItem('ocean_active_space');
+    return saved?.startsWith('life-') ? saved : 'work';
   });
 
   useEffect(() => {
     localStorage.setItem('ocean_active_tab', activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('ocean_active_space', activeSpaceId);
+  }, [activeSpaceId]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Used for UserMenu Popover
   const [isMainSettingsOpen, setIsMainSettingsOpen] = useState(false); // Used for Settings Dialog Modal
@@ -72,6 +117,125 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   });
   const [models, setModels] = useState<any[]>([]);
   const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('ocean_selected_model') || '');
+  const [workspaceHostInfo, setWorkspaceHostInfo] = useState<WorkspaceHostInfo | null>(null);
+  const [workspaceHostHealth, setWorkspaceHostHealth] = useState<WorkspaceHostHealth>('starting');
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [workspacesLoaded, setWorkspacesLoaded] = useState(false);
+  const workspaceCreationRequests = useRef(new Map<string, Promise<WorkspaceSnapshot>>());
+
+  useEffect(() => {
+    const bridge = getWorkspaceHostBridge();
+    if (!bridge?.setWorkspaceHostSession || !bridge.getWorkspaceHostInfo) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const status = await bridge.getWorkspaceHostInfo?.();
+        if (!active || !status) return;
+        setWorkspaceHostInfo(status.info ?? null);
+        setWorkspaceHostHealth(status.health);
+      } catch {
+        if (active) setWorkspaceHostHealth('unavailable');
+      }
+    };
+    void bridge.setWorkspaceHostSession(token).then(refresh).catch(() => {
+      if (active) setWorkspaceHostHealth('unavailable');
+    });
+    const timer = token ? window.setInterval(refresh, 2000) : undefined;
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [token]);
+
+  useEffect(() => {
+    let active = true;
+    setWorkspacesLoaded(false);
+    if (!token) {
+      setWorkspaces([]);
+      setWorkspacesLoaded(true);
+      return;
+    }
+
+    void api.get<any>('/api/workspaces').then(response => {
+      if (!response?.success || !Array.isArray(response.data)) {
+        throw new Error('Workspace catalog returned an invalid response.');
+      }
+      const records = workspaceRecordSchema.array().parse(response.data);
+      if (active) {
+        setWorkspaces(records);
+        setWorkspacesLoaded(true);
+      }
+    }).catch(error => {
+      console.error('[Workspace] failed to load Workspace catalog:', error);
+    });
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  const handleWorkspacePathChange = useCallback(async (
+    path: string | undefined,
+  ): Promise<WorkspaceSnapshot | undefined> => {
+    if (!path) return undefined;
+
+    const hostInfo = workspaceHostInfo;
+    if (!hostInfo) throw new Error('Local Workspace Host identity is unavailable.');
+    const assertAccount = () => {
+      if (localStorage.getItem('ocean_auth_token') !== token) {
+        throw new Error('Desktop account changed.');
+      }
+    };
+    assertAccount();
+
+    let catalog = workspaces;
+    if (!workspacesLoaded) {
+      const response = await api.get<any>('/api/workspaces');
+      if (!response?.success || !Array.isArray(response.data)) {
+        throw new Error('Workspace catalog returned an invalid response.');
+      }
+      assertAccount();
+      catalog = workspaceRecordSchema.array().parse(response.data);
+      setWorkspaces(catalog);
+      setWorkspacesLoaded(true);
+    }
+
+    const existing = catalog.find(workspace =>
+      workspace.hostId === hostInfo?.hostId &&
+      workspace.roots.some(root => root.role === 'primary' && root.path === path),
+    );
+    if (existing) return toWorkspaceSnapshot(existing);
+
+    const requestKey = `${hostInfo.hostId}\0${path}`;
+    const inFlight = workspaceCreationRequests.current.get(requestKey);
+    if (inFlight) return inFlight;
+
+    const name = path.split(/[\\/]/).filter(Boolean).pop() || path;
+    const rootId = crypto.randomUUID();
+    const configuration = workspaceConfigurationSchema.parse({
+      name,
+      hostId: hostInfo.hostId,
+      platform: hostInfo.platform,
+      roots: [{ id: rootId, label: name, path, role: 'primary', access: 'read_write' }],
+      cwd: { rootId, relativePath: '.' },
+      worktree: { enabled: false },
+    });
+    const createRequest = (async () => {
+      const response = await api.post<any>('/api/workspaces', configuration);
+      if (!response?.success || !response.data) {
+        throw new Error('Workspace configuration was not saved.');
+      }
+      assertAccount();
+      const created = workspaceRecordSchema.parse(response.data);
+      setWorkspaces(previous => [created, ...previous.filter(item => item.id !== created.id)]);
+      return toWorkspaceSnapshot(created);
+    })();
+    workspaceCreationRequests.current.set(requestKey, createRequest);
+    try {
+      return await createRequest;
+    } finally {
+      workspaceCreationRequests.current.delete(requestKey);
+    }
+  }, [token, workspaceHostInfo, workspaces, workspacesLoaded]);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed((current) => {
@@ -89,6 +253,8 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   };
 
   const handleLogout = () => {
+    void api.post('/api/auth/logout').catch(() => {});
+    void getWorkspaceHostBridge()?.setWorkspaceHostSession?.(null).catch(() => {});
     localStorage.removeItem('ocean_auth_token');
     localStorage.removeItem('ocean_user_id');
     setToken(null);
@@ -116,7 +282,62 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     onAuthExpired: handleLogout,
     onUserProfile: setUser,
     t,
+    spaceId: activeSpaceId,
+    homePath: '/',
   });
+
+  const localWorkspaces = workspaceHostInfo
+    ? workspaces.filter(workspace => workspace.hostId === workspaceHostInfo.hostId)
+    : [];
+  const workspaceSnapshots = localWorkspaces.map(toWorkspaceSnapshot);
+  const workspacePaths = Array.from(new Set(
+    localWorkspaces.flatMap(workspace =>
+      workspace.roots
+        .filter(root => root.role === 'primary')
+        .map(root => root.path),
+    ),
+  ));
+
+  const spaceConversations = conversations.filter((conversation) => {
+    const conversationSpaceId = conversation.spaceId === 'code'
+      ? 'work'
+      : conversation.spaceId ?? 'work';
+    return conversationSpaceId === activeSpaceId;
+  });
+
+  useEffect(() => {
+    if (!sessionIdFromUrl) return;
+    const conversation = conversations.find((item) => item.id === sessionIdFromUrl);
+    if (conversation?.spaceId) {
+      setActiveSpaceId(conversation.spaceId === 'code' ? 'work' : conversation.spaceId);
+    }
+  }, [sessionIdFromUrl, conversations]);
+
+  const handleSpaceTabChange = async (space: string) => {
+    if (space === 'work') {
+      setActiveSpaceId('work');
+      setActiveTab('chat');
+      navigate('/');
+      return;
+    }
+    if (activeSpaceId.startsWith('life-')) return;
+
+    try {
+      const response = await api.post<any>('/api/spaces/life', {});
+      const lifeSpaceId = response?.data?.id;
+      if (!lifeSpaceId) throw new Error('Life Space was not returned by the API.');
+      setActiveSpaceId(lifeSpaceId);
+      setActiveTab('chat');
+      navigate('/');
+    } catch (error) {
+      console.error('[Space] failed to switch to Life:', error);
+    }
+  };
+
+  const spaceTabs = [
+    { id: 'work', label: t('space.tabs.work', '工作') },
+    { id: 'life', label: t('space.tabs.life', '生活') },
+  ];
 
   // Sync Global Settings from User Profile
   useEffect(() => {
@@ -145,8 +366,9 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
       }
       
       // Sync Language
-      if (user.preferences.language && i18n.language !== user.preferences.language) {
-        i18n.changeLanguage(user.preferences.language);
+      if (user.preferences.language) {
+        const language = resolvePreferredLanguage(user.preferences.language);
+        if (i18n.language !== language) void i18n.changeLanguage(language);
       }
       
     }
@@ -171,6 +393,10 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
   };
 
   const loadConversationAndActivate = (id: string) => {
+    const conversation = conversations.find((item) => item.id === id);
+    if (conversation?.spaceId) {
+      setActiveSpaceId(conversation.spaceId === 'code' ? 'work' : conversation.spaceId);
+    }
     loadConversation(id);
     setActiveTab('chat');
   };
@@ -264,7 +490,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         onMainTabChange={(id: string) => { setActiveTab(id); }}
         onOpenSettings={() => { setIsSettingsOpen(true); }}
         onNewChat={handleNewChatAndActivate}
-        conversations={conversations}
+        conversations={spaceConversations}
         currentChatId={sessionIdFromUrl ?? null}
         onLoadConversation={loadConversationAndActivate}
         onRenameConversation={handleRenameChat}
@@ -291,6 +517,17 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
           <div className="w-9" />
         </div>
 
+        {workspaceHostHealth !== 'online' && (
+          <div role="status" className="px-4 py-1 text-xs text-muted-foreground">
+            {i18n.language.startsWith('zh')
+              ? { starting: '正在启动本机 Workspace Host', reconnecting: '本机 Workspace Host 正在重连',
+                  unauthorized: '本机 Workspace Host 凭证被拒绝', unavailable: '本机 Workspace Host 不可用',
+                  'signed-out': '本机 Workspace Host 已停止' }[workspaceHostHealth]
+              : { starting: 'Starting local Workspace Host', reconnecting: 'Local Workspace Host reconnecting',
+                  unauthorized: 'Local Workspace Host credential rejected', unavailable: 'Local Workspace Host unavailable',
+                  'signed-out': 'Local Workspace Host stopped' }[workspaceHostHealth]}
+          </div>
+        )}
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {activeTab === 'chat' || !activeTab ? (
@@ -310,6 +547,16 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
                 setSelectedModelId={setSelectedModelId}
                 token={token}
                 user={user}
+                spaceId={activeSpaceId}
+                workspacePath={conversations.find((conversation) => conversation.id === sessionIdFromUrl)?.workspacePath}
+                workspaceSnapshot={conversations.find((conversation) => conversation.id === sessionIdFromUrl)?.workspaceSnapshot}
+                workspacePaths={workspacePaths}
+                workspaceSnapshots={workspaceSnapshots}
+                workspaceHost={{ hostId: workspaceHostInfo?.hostId, health: workspaceHostHealth }}
+                onWorkspacePathChange={handleWorkspacePathChange}
+                canSelectWorkspaceFolder
+                spaceTabs={spaceTabs}
+                onSpaceTabChange={handleSpaceTabChange}
                 createSession={createSession}
                 onStreamFinished={onStreamFinished}
                 onRenameConversation={handleRenameChat}
@@ -320,10 +567,12 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
             </div>
           ) : activeTab === 'all_chats' ? (
             <AllChatsManager
-              conversations={conversations}
+              conversations={spaceConversations}
               onLoadConversation={loadConversationAndActivate}
               onDeleteConversations={handleDeleteConversations}
             />
+          ) : activeTab === 'workflows' ? (
+            <WorkProjection token={token} />
           ) : activeTab === 'library' ? (
             <SkillLibrary token={token} onMainTabChange={setActiveTab} />
           ) : activeTab === 'skill_studio' ? (
@@ -351,6 +600,9 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
           setIsSettingsOpen(false);
         }}
         onLogout={handleLogout}
+        onPreferencesUpdate={(preferences) => {
+          setUser((currentUser: any) => currentUser && { ...currentUser, preferences });
+        }}
         user={user}
       />
       <SettingsDialog 
@@ -358,6 +610,10 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         onClose={() => setIsMainSettingsOpen(false)} 
         token={token} 
         onProfileUpdate={(updatedUser: any) => setUser(updatedUser)}
+        onSignOut={() => {
+          setIsMainSettingsOpen(false);
+          return handleLogout();
+        }}
         onConversationsCleared={async () => {
           await refreshConversations();
           navigate('/');

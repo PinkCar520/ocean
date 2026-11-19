@@ -4,6 +4,24 @@ import * as path from 'node:path';
 import { expect, it } from 'vitest';
 import { createNotebookRpc } from './notebook-rpc.js';
 
+function workspaceSnapshot(primaryPath: string, additionalPath: string, hostId: string) {
+  const primaryRootId = '00000000-0000-4000-8000-000000000003';
+  return {
+    schemaVersion: 1 as const,
+    workspaceId: '00000000-0000-4000-8000-000000000001',
+    workspaceRevision: 1,
+    name: 'Session Workspace',
+    hostId,
+    platform: process.platform as 'darwin' | 'win32' | 'linux',
+    roots: [
+      { id: primaryRootId, label: 'Primary', path: primaryPath, role: 'primary' as const, access: 'read_write' as const },
+      { id: '00000000-0000-4000-8000-000000000004', label: 'Additional', path: additionalPath, role: 'additional' as const, access: 'read_only' as const },
+    ],
+    cwd: { rootId: primaryRootId, relativePath: '.' },
+    worktree: { enabled: false },
+  };
+}
+
 it('isolates remote notebook snapshots by session and honors local denial rules', async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), 'ocean-notebook-rpc-'));
   try {
@@ -22,6 +40,61 @@ it('isolates remote notebook snapshots by session and honors local denial rules'
     await expect(deniedRpc('notebook_edit', { path: 'note.ipynb', sessionId: 'session-a', cell_id: 'a', new_source: 'blocked' }, 'alice')).rejects.toThrow('Local permission policy denied');
     expect(JSON.parse(await readFile(file, 'utf8')).cells[0].source).toBe('after');
   } finally { await rm(workspace, { recursive: true, force: true }); }
+});
+
+it('binds Host file operations to the Session snapshot roots and per-root access', async () => {
+  const primary = await mkdtemp(path.join(os.tmpdir(), 'ocean-host-primary-'));
+  const additional = path.join(primary, 'readonly');
+  const outside = await mkdtemp(path.join(os.tmpdir(), 'ocean-host-outside-'));
+  const hostId = '00000000-0000-4000-8000-000000000002';
+  const snapshot = workspaceSnapshot(primary, additional, hostId);
+  try {
+    await mkdir(additional);
+    await writeFile(path.join(primary, 'inside.txt'), 'primary');
+    await writeFile(path.join(additional, 'inside.txt'), 'additional');
+    await writeFile(path.join(outside, 'outside.txt'), 'outside');
+    const rpc = createNotebookRpc(undefined, hostId);
+
+    await expect(rpc('file_read', {
+      path: 'inside.txt',
+      sessionId: 'session-a',
+      workspaceSnapshot: snapshot,
+    }, 'alice')).resolves.toMatchObject({ content: 'primary' });
+    await expect(rpc('file_read', {
+      path: path.join(additional, 'inside.txt'),
+      sessionId: 'session-a',
+      workspaceSnapshot: snapshot,
+    }, 'alice')).resolves.toMatchObject({ content: 'additional' });
+    await expect(rpc('file_read', {
+      path: path.join(outside, 'outside.txt'),
+      sessionId: 'session-a',
+      workspaceSnapshot: snapshot,
+    }, 'alice')).rejects.toThrow('outside the Session Workspace roots');
+    await expect(rpc('file_write', {
+      path: path.join(additional, 'new.txt'),
+      content: 'blocked',
+      sessionId: 'session-a',
+      workspaceSnapshot: snapshot,
+    }, 'alice')).rejects.toThrow('read-only');
+    await expect(rpc('file_read', {
+      path: 'inside.txt',
+      sessionId: 'session-a',
+      workspaceSnapshot: { ...snapshot, hostId: '00000000-0000-4000-8000-000000000005' },
+    }, 'alice')).rejects.toThrow('different Host');
+  } finally {
+    await Promise.all([
+      rm(primary, { recursive: true, force: true }),
+      rm(outside, { recursive: true, force: true }),
+    ]);
+  }
+});
+
+it('refuses Device RPC file access when the CLI has no authenticated Host identity', async () => {
+  const rpc = createNotebookRpc();
+  await expect(rpc('file_read', {
+    path: 'source.txt',
+    sessionId: 'session-a',
+  }, 'alice')).rejects.toThrow('authenticated Workspace Host');
 });
 
 it('reads local files through the same session-scoped device handler and enforces local permissions', async () => {

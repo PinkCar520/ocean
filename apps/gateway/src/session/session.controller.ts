@@ -43,6 +43,8 @@ export class SessionController {
       body.title || 'New Chat',
       undefined,
       body.spaceId,
+      body.workspacePath,
+      body.workspaceSnapshot,
     );
     return { success: true, data: session };
   }

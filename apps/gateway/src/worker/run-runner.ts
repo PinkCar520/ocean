@@ -6,6 +6,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
+  reasoningEffortSchema,
   runEventSchema,
   runStepSchema,
   toolRequestedMessageSchema,
@@ -151,7 +152,14 @@ export class RunRunner {
             status: 'running',
           });
         }
-        return { ok: true as const, input: run.input, priority: run.priority, spaceId: run.spaceId, policy: policyForRun(run.parentRunId, run.metadata) };
+        const policy = policyForRun(run.parentRunId, run.metadata);
+        const metadata = run.metadata;
+        const settings = !run.parentRunId && metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+          ? metadata
+          : undefined;
+        const modelId = typeof settings?.modelId === 'string' ? settings.modelId : policy?.modelId;
+        const reasoningEffort = reasoningEffortSchema.safeParse(settings?.reasoningEffort).data;
+        return { ok: true as const, input: run.input, priority: run.priority, spaceId: run.spaceId, policy, modelId, reasoningEffort };
       });
 
       if (!takeover.ok) {
@@ -211,7 +219,8 @@ export class RunRunner {
         const result = await this.modelGateway.generate({
           messages,
           tools,
-          modelId: takeover.policy?.modelId,
+          modelId: takeover.modelId,
+          reasoningEffort: takeover.reasoningEffort,
           onDelta: async (delta) => {
             buffer += delta;
             if (buffer.length >= DELTA_FLUSH_CHARS) {

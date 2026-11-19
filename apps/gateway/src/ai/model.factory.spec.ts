@@ -32,6 +32,8 @@ it('uses the official DeepSeek provider with configured endpoint and model optio
       reasoningEffort: 'high',
     },
   });
+  expect(createChatProviderOptions(config as never, 'deepseek-flash', 'max'))
+    .toMatchObject({ deepseek: { reasoningEffort: 'max' } });
 });
 
 it('does not set DeepSeek provider options for other providers', () => {

@@ -36,14 +36,22 @@ interface DaemonOptions {
 export async function runDaemon(options: DaemonOptions) {
   let effectiveUserId = process.env.OCEAN_WORK_ID || process.env.OCEAN_USER_ID || options.userId;
   const apiKey = await resolveApiKey();
-  const notebookRpc = createNotebookRpc(process.cwd());
+  const hostId = process.env.OCEAN_HOST_ID;
+  const hostCredential = process.env.OCEAN_HOST_CREDENTIAL;
+  if (Boolean(hostId) !== Boolean(hostCredential)) {
+    throw new Error('OCEAN_HOST_ID and OCEAN_HOST_CREDENTIAL must be configured together.');
+  }
+  const notebookRpc = createNotebookRpc(undefined, hostId);
 
   console.log(chalk.green(LOG.DAEMON) + ` Identity: ${chalk.bold(effectiveUserId)}`);
   console.log(chalk.green(LOG.DAEMON) + ` Connecting to Gateway (${CONFIG.GATEWAY_URL})...`);
 
   const socket = io(CONFIG.GATEWAY_URL, {
     query: { clientType: 'cli' },
-    auth: { token: apiKey || undefined },
+    auth: {
+      token: apiKey || undefined,
+      ...(hostId && hostCredential ? { hostId, hostCredential } : {}),
+    },
     transports: ['websocket'], // 强制使用 WebSocket，跳过轮询升级
     extraHeaders: apiKey ? {
       'x-api-key': apiKey,

@@ -1,3 +1,4 @@
+import type { ReasoningEffort } from '@ocean/contracts';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
@@ -7,6 +8,7 @@ interface UseChatSessionProps {
   initialMessages: any[];
   token: string | null;
   selectedModelId: string;
+  reasoningEffort?: ReasoningEffort;
   isSearchMode: boolean;
   isKnowledgeMode: boolean;
   onStreamFinished: (id: string) => Promise<void>;
@@ -19,6 +21,7 @@ export function useChatSession({
   initialMessages,
   token,
   selectedModelId,
+  reasoningEffort,
   isSearchMode,
   isKnowledgeMode,
   onStreamFinished,
@@ -230,6 +233,7 @@ export function useChatSession({
       body: {
         ...options.body,
         modelId: selectedModelId,
+        reasoningEffort,
         search: isSearchMode,
         knowledge: isKnowledgeMode,
         sessionId: sessionId,
@@ -237,7 +241,7 @@ export function useChatSession({
         parentId,
       }
     });
-  }, [sendMessage, token, selectedModelId, isSearchMode, isKnowledgeMode, sessionId, spaceId, currentLeafId]);
+  }, [sendMessage, token, selectedModelId, reasoningEffort, isSearchMode, isKnowledgeMode, sessionId, spaceId, currentLeafId]);
 
   // 切换分支
   const switchBranch = useCallback((nodeId: string) => {

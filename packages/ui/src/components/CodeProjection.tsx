@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@ocean/ui/lib/api-client';
-import { cn } from '@ocean/ui/lib/utils';
+import { api } from '../lib/api-client';
+import { cn } from '../lib/utils';
 
 interface Repo {
   id: string;
@@ -38,8 +38,8 @@ interface Terminal {
 }
 
 /**
- * CodeProjection —— Phase 6 6c：Code 空间投影（仓库 / Diff / Review 概览）。
- * 数据来自 Gateway Code API（归属 Code Space）。
+ * Shared Code projection —— Phase 6 6c：仓库 / Diff / Review 概览。
+ * 数据暂由 Gateway Code API 提供；后端归属迁移另行实施。
  */
 export function CodeProjection({ token }: { token: string | null }) {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -102,8 +102,8 @@ export function CodeProjection({ token }: { token: string | null }) {
     <div className="flex-1 overflow-y-auto p-6">
       <div className="mx-auto max-w-5xl space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-foreground">代码空间</h1>
-          <p className="text-sm text-muted-foreground">仓库、Diff 与 Review 工作区（归属 Code Space）</p>
+          <h1 className="text-xl font-bold text-foreground">代码与仓库</h1>
+          <p className="text-sm text-muted-foreground">Work 项目中的代码协作与 Review</p>
         </div>
 
         {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}

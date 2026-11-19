@@ -17,14 +17,14 @@ export const CopyCodeButton = React.memo(({ code }: { code: string }) => {
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all duration-200 hover:bg-card/[0.08] text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10"
+      className="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all duration-200 hover:bg-neutral-200 text-slate-600 hover:text-slate-900"
     >
       {copied ? (
         <>
-          <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <svg className="w-3.5 h-3.5 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
-          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-tight">Copied</span>
+          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-tight">Copied</span>
         </>
       ) : (
         <>
@@ -61,7 +61,7 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
     return { filename: null, displayCode: rawCode };
   }, [rawCode]);
 
-  const shikiHtml = useMemo(() => highlight(displayCode, language), [highlight, displayCode, language]);
+  const shikiHtml = useMemo(() => highlight(displayCode, language, minimal ? 'github-dark' : 'github-light'), [highlight, displayCode, language, minimal]);
 
   return (
     <div className={cn(
@@ -70,17 +70,17 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
     )}>
       {/* Absolute Header - Card Style */}
       {!minimal && (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#252526] border-b border-black/20">
+        <div data-conversation-ignore className="flex items-center justify-between px-4 py-2.5 bg-neutral-200 border-b border-neutral-300">
           <div className="flex items-center gap-3">
-            <div className="p-1 rounded bg-card/5 text-slate-500">
+            <div className="p-1 rounded bg-neutral-300/50 text-slate-600">
               <Code2 className="w-3.5 h-3.5" />
             </div>
             <div className="flex items-center gap-2 overflow-hidden">
-              <span className="text-[13px] font-semibold text-slate-300 select-none shrink-0 tracking-wide">
+              <span className="text-[13px] font-semibold text-slate-700 select-none shrink-0 tracking-wide">
                 {filename || (language === 'text' ? 'snippet' : language || 'code')}
               </span>
               {filename && language && (
-                <span className="text-[11px] font-medium text-slate-600 lowercase bg-card/5 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] font-medium text-slate-600 lowercase bg-neutral-300/50 px-1.5 py-0.5 rounded">
                   {language}
                 </span>
               )}
@@ -90,7 +90,7 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
             {onExtract && (
               <button
                 onClick={() => onExtract({ title: filename || 'Code snippet', content: displayCode, language: language || 'text' })}
-                className="p-1.5 rounded-lg transition-all duration-200 hover:bg-card/[0.08] text-slate-500 hover:text-slate-300"
+                className="p-1.5 rounded-lg transition-all duration-200 hover:bg-neutral-300 text-slate-600 hover:text-slate-900"
                 title="Open in sidebar"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -103,8 +103,8 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
 
       {/* Shiki Render Output */}
       <div className={cn(
-        "shiki-container bg-[#1E1E1E]",
-        !minimal && "min-h-[60px]"
+        "shiki-container",
+        minimal ? "bg-[#1E1E1E]" : "min-h-[60px] bg-neutral-100"
       )}>
         {shikiHtml ? (
           <div 
@@ -112,7 +112,10 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
             dangerouslySetInnerHTML={{ __html: shikiHtml }} 
           />
         ) : (
-          <pre className="p-6 text-[13.5px] leading-relaxed text-slate-500 whitespace-pre opacity-50 font-mono">
+          <pre className={cn(
+            "p-6 text-[13.5px] leading-relaxed whitespace-pre font-mono",
+            minimal ? "text-slate-300" : "text-slate-800"
+          )}>
             {displayCode}
           </pre>
         )}

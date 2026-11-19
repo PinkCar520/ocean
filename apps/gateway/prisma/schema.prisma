@@ -25,8 +25,11 @@ model User {
   preferences        UserPreference?
   credentials        UserCredential[]
   sessions           Session[]
+  workspaces         Workspace[]
+  workspaceHosts     WorkspaceHost[]
   skillInstallations SkillInstallation[]
   apiKeys            ApiKey[]
+  loginSessions      LoginSession[]
   skills             Skill[]
   skillVersions      SkillVersion[]
   agentRuns          AgentRun[]
@@ -283,6 +286,20 @@ model OutboxEvent {
 }
 
 // 用户 AI 个性化配置
+model LoginSession {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent    String?
+  location     String?
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([userId, expiresAt])
+  @@map("login_sessions")
+}
+
 model UserPreference {
   id     String @id @default(uuid())
   userId String @unique
@@ -339,6 +356,44 @@ model UserCredential {
 }
 
 // 跨端会话（支持 Web/CLI/IM 漫游）
+model Workspace {
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String
+  hostId   String
+  platform String
+  roots    Json
+  cwd      Json
+  worktree Json
+  revision Int    @default(1)
+  status   String @default("active")
+
+  sessions  Session[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status, updatedAt])
+  @@map("workspaces")
+}
+
+model WorkspaceHost {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hostId         String   @unique
+  name           String
+  platform       String
+  credentialHash String
+  revokedAt      DateTime?
+  lastSeenAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, revokedAt])
+  @@map("workspace_hosts")
+}
+
 model Session {
   id     String @id @default(uuid())
   userId String
@@ -351,6 +406,10 @@ model Session {
   channel       String  @default("web") // 'web', 'cli', 'im'
   status        String  @default("active") // 'active' | 'archived'
   activeSkillId String? // 当前会话锁定的技能 ID
+  workspacePath String? @map("workspacePath")
+  workspaceSnapshot Json? @map("workspaceSnapshot")
+  workspaceId String?
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   messages         Message[]
   tasks            Task[] // 编排任务列表
@@ -360,6 +419,7 @@ model Session {
   updatedAt DateTime  @updatedAt
 
   @@index([spaceId])
+  @@index([workspaceId])
   @@map("sessions")
 }
 

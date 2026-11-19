@@ -111,6 +111,9 @@ export const ChatMessage = React.memo(({
   const isAssistant = m.role === 'assistant';
   const isUser = m.role === 'user';
   const isStreaming = isLast && isLoading && isAssistant;
+  const hasReplyText = Array.isArray(m.parts)
+    ? m.parts.some((part: any) => part.type === 'text' && part.text?.trim())
+    : Boolean(m.content?.trim());
   const hasContent = m.content || m.reasoning || (Array.isArray(m.parts) && m.parts.some((p: any) => p.text || p.type === 'reasoning'));
 
   const messageAnimation = reducedMotion
@@ -122,8 +125,8 @@ export const ChatMessage = React.memo(({
   return (
       <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
         <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
-          {isAssistant && (
-            <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-primary/90 to-primary/70 flex items-center justify-center shadow-sm text-white shrink-0 mt-1">
+          {isStreaming && !hasReplyText && (
+            <div aria-hidden="true" className="w-8 h-8 flex items-center justify-center text-primary shrink-0 mt-1">
               <Sparkles className="w-4 h-4" />
             </div>
           )}
@@ -268,7 +271,7 @@ export const ChatMessage = React.memo(({
                         
                         if (part.type === 'text') {
                           return (
-                            <div key={i} className={cn(
+                            <div key={i} data-conversation-text className={cn(
                               "max-w-none",
                               isUser 
                                 ? "prose prose-slate prose-sm [&>p]:my-0 leading-snug text-[14px] font-medium" 
@@ -346,7 +349,9 @@ export const ChatMessage = React.memo(({
                     <ThinkingList steps={parseReasoningToSteps(m.reasoning, isStreaming, false)} />
                   </div>
                 )}
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={memoizedComponents}>{m.content}</ReactMarkdown>
+                <div data-conversation-text>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={memoizedComponents}>{m.content}</ReactMarkdown>
+                </div>
                 {isStreaming && <TypingCursor />}
                 {isStreaming && !m.reasoning && (
                   <div className="mt-1">

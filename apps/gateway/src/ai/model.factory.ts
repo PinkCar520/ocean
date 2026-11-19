@@ -1,3 +1,4 @@
+import type { ReasoningEffort } from '@ocean/contracts';
 import { ConfigService } from '@nestjs/config';
 import {
   createDeepSeek,
@@ -91,13 +92,14 @@ function resolveChatModel(
 export function createChatProviderOptions(
   config: ConfigService,
   modelId?: string,
+  reasoningEffort: ReasoningEffort = 'high',
 ): { deepseek: DeepSeekLanguageModelChatOptions } | undefined {
   if (resolveChatModel(config, modelId).provider !== 'deepseek') return undefined;
 
   return {
     deepseek: {
       thinking: { type: 'enabled' },
-      reasoningEffort: 'high',
+      reasoningEffort,
     },
   };
 }

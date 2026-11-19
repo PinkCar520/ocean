@@ -45,5 +45,6 @@ export interface SettingsDialogProps {
   onClose: () => void;
   token: string | null;
   onProfileUpdate?: (user: any) => void;
+  onSignOut: () => void | Promise<void>;
   onConversationsCleared?: () => void;
 }

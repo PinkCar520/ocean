@@ -68,7 +68,11 @@ export class SsoAuthGuard implements CanActivate {
         const dbUser = await this.userService.getUserFullProfile(
           payload.workId,
         );
+        if (!dbUser || (payload.jti && !(await this.userService.hasLoginSession(payload.jti, payload.sub)))) {
+          throw new UnauthorizedException('Login session has ended.');
+        }
         request.user = {
+          loginSessionId: payload.jti,
           workId: payload.workId,
           dbId: payload.sub,
           name: payload.name || payload.workId,
@@ -76,6 +80,16 @@ export class SsoAuthGuard implements CanActivate {
           role: 'developer',
           authType: bearerToken ? 'jwt' : 'cookie',
         };
+        if (payload.jti) {
+          const sessionId = payload.jti;
+          request.res?.once('finish', () => {
+            if (request.res.statusCode < 400) {
+              void this.userService.recordLoginActivity(sessionId, payload.sub).catch((error) => {
+                console.warn('[SsoAuthGuard] Failed to record login activity:', error.code ?? error.name);
+              });
+            }
+          });
+        }
         return true;
       } catch (err: any) {
         console.error('[SsoAuthGuard] JWT verification failed:', err.message);

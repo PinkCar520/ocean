@@ -1,11 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { workspaceSnapshotSchema, type WorkspaceSnapshot } from '@ocean/contracts';
 import { TerminalToolError, type ToolContext } from './tool.types';
 
 export const DEVICE_RPC_TOPIC = 'device.rpc';
 type Method = 'notebook_read' | 'notebook_edit' | 'file_read' | 'file_write' | 'file_edit' | 'file_patch';
-type Payload = { runId: string; toolCallId: string; userId: string; workId: string; sessionId: string; method: Method; input: Record<string, unknown>; expiresAt: string; result?: unknown };
+type Payload = { runId: string; toolCallId: string; userId: string; workId: string; sessionId: string; workspaceSnapshot: WorkspaceSnapshot; method: Method; input: Record<string, unknown>; expiresAt: string; result?: unknown };
 
 /** Persist a device request so a Gateway process can deliver it to its connected CLI. */
 @Injectable()
@@ -23,10 +25,13 @@ export class DeviceRpcBroker {
     const metadata = run.metadata as { sessionId?: unknown } | null;
     if (typeof metadata?.sessionId !== 'string' || !metadata.sessionId) throw new TerminalToolError('Device operation requires an owned conversation session.');
     const session = await this.prisma.session.findFirst({
-      where: { id: metadata.sessionId, userId: ctx.userId, spaceId: run.spaceId }, select: { id: true },
+      where: { id: metadata.sessionId, userId: ctx.userId, spaceId: run.spaceId },
+      select: { id: true, workspaceSnapshot: true },
     });
     if (!session) throw new TerminalToolError('Device session ownership check failed.');
-    const payload: Payload = { runId: ctx.runId, toolCallId: ctx.toolCallId, userId: ctx.userId, workId: run.user.workId, sessionId: session.id, method, input, expiresAt: new Date(Date.now() + 25_000).toISOString() };
+    const snapshot = workspaceSnapshotSchema.safeParse(session.workspaceSnapshot);
+    if (!snapshot.success) throw new TerminalToolError('Device operation requires a valid Session Workspace snapshot.');
+    const payload: Payload = { runId: ctx.runId, toolCallId: ctx.toolCallId, userId: ctx.userId, workId: run.user.workId, sessionId: session.id, workspaceSnapshot: snapshot.data, method, input: JSON.parse(JSON.stringify(input)), expiresAt: new Date(Date.now() + 25_000).toISOString() };
     const id = `device-${createHash('sha256').update(JSON.stringify([ctx.runId, ctx.toolCallId])).digest('hex')}`;
     const row = await this.prisma.outboxEvent.upsert({
       where: { id },
@@ -34,7 +39,8 @@ export class DeviceRpcBroker {
       update: {},
     });
     const prior = row.payload as unknown as Payload;
-    if (row.topic !== DEVICE_RPC_TOPIC || prior.runId !== payload.runId || prior.toolCallId !== payload.toolCallId || prior.userId !== payload.userId || prior.workId !== payload.workId || prior.sessionId !== payload.sessionId || prior.method !== payload.method || JSON.stringify(prior.input) !== JSON.stringify(payload.input)) {
+    // PostgreSQL jsonb may reorder object keys when returning the stored payload.
+    if (row.topic !== DEVICE_RPC_TOPIC || prior.runId !== payload.runId || prior.toolCallId !== payload.toolCallId || prior.userId !== payload.userId || prior.workId !== payload.workId || prior.sessionId !== payload.sessionId || !isDeepStrictEqual(prior.workspaceSnapshot, payload.workspaceSnapshot) || prior.method !== payload.method || !isDeepStrictEqual(prior.input, payload.input)) {
       throw new TerminalToolError('Device request identity conflicts with an earlier call.');
     }
     const deadline = Date.parse(prior.expiresAt);

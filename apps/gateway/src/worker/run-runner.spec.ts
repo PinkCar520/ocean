@@ -132,6 +132,22 @@ describe('RunRunner', () => {
     }
   });
 
+  it('uses the chat model and reasoning effort stored on the Run', async () => {
+    const run = {
+      id: 'run_1',
+      userId: 'user_1',
+      status: 'queued',
+      input: 'hello',
+      metadata: { modelId: 'deepseek-flash', reasoningEffort: 'max' },
+    };
+    const { runner, gateway } = createRunner(run);
+
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(gateway.generate).toHaveBeenCalledWith(
+      expect.objectContaining(run.metadata),
+    );
+  });
+
   it('fails the Run before the model call when UserPromptSubmit is blocked', async () => {
     const hooks = { run: jest.fn().mockResolvedValue({ blocked: true, reason: 'prompt denied' }) };
     const { runner, gateway, tx } = createRunner(

@@ -3,6 +3,7 @@ import { RpcGateway } from './rpc.gateway';
 import { OrchestratorService } from './orchestrator.service';
 import { AuthModule } from '../auth/auth.module';
 import { DeviceRpcDispatcher } from './device-rpc.dispatcher';
+import { WorkspaceModule } from '../workspace/workspace.module';
 
 /**
  * RpcModule
@@ -12,7 +13,7 @@ import { DeviceRpcDispatcher } from './device-rpc.dispatcher';
  * 同时被 ChatModule 和 SkillModule 导入。
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, WorkspaceModule],
   providers: [RpcGateway, OrchestratorService, DeviceRpcDispatcher],
   exports: [RpcGateway, OrchestratorService],
 })

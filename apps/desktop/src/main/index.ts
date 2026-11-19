@@ -1,5 +1,7 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'node:url'
+import { WorkspaceHost } from './workspace-host'
 import * as fs from 'fs'
 import * as os from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -7,6 +9,10 @@ import icon from '../../resources/icon.png?asset'
 
 // 统一应用显示名（菜单栏 / Dock / 关于页 / 通知），避免 dev 模式回退到包名 ocean-desktop
 app.setName('Ocean')
+
+declare const __OCEAN_GATEWAY_URL__: string
+
+let workspaceHost: WorkspaceHost
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -46,6 +52,33 @@ function createWindow(): void {
   ipcMain.handle('is-fullscreen', () => {
     return mainWindow.isFullScreen()
   })
+  const rendererUrl = is.dev && process.env['ELECTRON_RENDERER_URL']
+  const pageUrl = rendererUrl
+    ? new URL(rendererUrl)
+    : pathToFileURL(join(__dirname, '../renderer/index.html'))
+  const trusted = (event: IpcMainInvokeEvent) => {
+    const frame = event.senderFrame
+    if (event.sender !== mainWindow.webContents || !frame || frame.parent) return false
+    const url = new URL(frame.url)
+    return url.protocol === pageUrl.protocol && url.origin === pageUrl.origin &&
+      url.pathname === pageUrl.pathname
+  }
+  ipcMain.handle('workspace-host-session', (event, token: unknown) => {
+    if (!trusted(event)) return
+    if (token === null) void workspaceHost.stop()
+    else if (typeof token === 'string' && token && token.length <= 8192) workspaceHost.login(token)
+  })
+  ipcMain.handle('workspace-host-info', (event) => trusted(event) ? workspaceHost.status() : null)
+
+  mainWindow.webContents.on('render-process-gone', () => void workspaceHost.stop())
+  mainWindow.webContents.on('did-start-navigation', (details) => {
+    if (details.isMainFrame && !details.isSameDocument) void workspaceHost.stop()
+  })
+  mainWindow.on('closed', () => {
+    void workspaceHost.stop()
+    ipcMain.removeHandler('workspace-host-session')
+    ipcMain.removeHandler('workspace-host-info')
+  })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -57,7 +90,22 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+if (!app.requestSingleInstanceLock()) app.quit()
+else app.whenReady().then(() => {
+  workspaceHost = new WorkspaceHost(
+    new URL(__OCEAN_GATEWAY_URL__).href.replace(/\/$/, ''),
+    app.getPath('userData'),
+    join(__dirname, 'workspace-host.cjs')
+  )
+  let stopped = false
+  app.on('before-quit', (event) => {
+    if (stopped) return
+    event.preventDefault()
+    void workspaceHost.stop().then(() => {
+      stopped = true
+      app.quit()
+    })
+  })
   if (process.platform === 'darwin') {
     app.dock?.setIcon(icon)
     app.setAboutPanelOptions({

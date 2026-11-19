@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ChevronRight, User, CreditCard, Key,
+  ChevronRight, CircleUserRound, CreditCard, Key,
   MonitorSmartphone, Shield, Sparkles, X, Search,
   ShieldCheck, RefreshCw
 } from 'lucide-react';
@@ -12,20 +12,20 @@ import type { SettingsDialogProps } from './types';
 import { GeneralTab } from './tabs/GeneralTab';
 import { InstructionsTab } from './tabs/InstructionsTab';
 import { PermissionsTab } from './tabs/PermissionsTab';
-import { ProfileTab } from './tabs/ProfileTab';
+import { AccountTab } from './tabs/AccountTab';
 import { IntegrationsTab } from './tabs/IntegrationsTab';
 import { BillingTab } from './tabs/BillingTab';
 
-function SettingsLayout({ onClose, onConversationsCleared }: { onClose: () => void; onConversationsCleared?: () => void }) {
+function SettingsLayout({ onClose, onConversationsCleared, onSignOut }: Pick<SettingsDialogProps, 'onClose' | 'onConversationsCleared' | 'onSignOut'>) {
   const { t } = useTranslation();
   const { isLoading, saveStatus } = useSettings();
   const [activeTab, setActiveTab] = useState('general');
 
   const navigation = [
     { id: 'general', label: t('user_center.tabs.general'), icon: MonitorSmartphone },
+    { id: 'account', label: t('user_center.tabs.account'), icon: CircleUserRound },
     { id: 'instructions', label: t('user_center.tabs.instructions', 'Custom Instructions'), icon: Sparkles },
     { id: 'permissions', label: t('user_center.tabs.permissions', 'Permissions'), icon: Shield },
-    { id: 'profile', label: t('user_center.tabs.profile'), icon: User },
     { id: 'integrations', label: t('user_center.tabs.integrations'), icon: Key },
     { id: 'billing', label: t('user_center.tabs.billing'), icon: CreditCard },
   ];
@@ -109,9 +109,9 @@ function SettingsLayout({ onClose, onConversationsCleared }: { onClose: () => vo
                 className="h-full"
               >
                 {activeTab === 'general' && <GeneralTab />}
+                {activeTab === 'account' && <AccountTab onSignOut={onSignOut} />}
                 {activeTab === 'instructions' && <InstructionsTab />}
                 {activeTab === 'permissions' && <PermissionsTab />}
-                {activeTab === 'profile' && <ProfileTab />}
                 {activeTab === 'integrations' && <IntegrationsTab />}
                 {activeTab === 'billing' && <BillingTab onConversationsCleared={onConversationsCleared} />}
               </motion.div>
@@ -143,13 +143,13 @@ function SettingsLayout({ onClose, onConversationsCleared }: { onClose: () => vo
   );
 }
 
-export function SettingsDialog({ isOpen, onClose, token, onProfileUpdate, onConversationsCleared }: SettingsDialogProps) {
+export function SettingsDialog({ isOpen, onClose, token, onProfileUpdate, onConversationsCleared, onSignOut }: SettingsDialogProps) {
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
       <SettingsProvider token={token} onProfileUpdate={onProfileUpdate}>
-        <SettingsLayout onClose={onClose} onConversationsCleared={onConversationsCleared} />
+        <SettingsLayout onSignOut={onSignOut} onClose={onClose} onConversationsCleared={onConversationsCleared} />
       </SettingsProvider>
     </AnimatePresence>
   );

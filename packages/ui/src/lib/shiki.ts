@@ -12,7 +12,7 @@ export async function getHighlighter(): Promise<Highlighter> {
   if (initializationPromise) return initializationPromise;
 
   initializationPromise = createHighlighter({
-    themes: ['github-dark'],
+    themes: ['github-dark', 'github-light'],
     langs: [
       'typescript', 'javascript', 'tsx', 'jsx', 
       'python', 'bash', 'sql', 'json', 'yaml', 
@@ -39,7 +39,7 @@ export function useShiki() {
     }
   }, []);
 
-  const highlight = (code: string, lang: string = 'text') => {
+  const highlight = (code: string, lang: string = 'text', theme: 'github-dark' | 'github-light' = 'github-dark') => {
     if (!highlighter) return null;
     
     const supportedLangs = highlighter.getLoadedLanguages();
@@ -48,7 +48,7 @@ export function useShiki() {
     try {
       return highlighter.codeToHtml(code, {
         lang: finalLang,
-        theme: 'github-dark',
+        theme,
       });
     } catch (err) {
       console.error('[Shiki] Highlight error:', err);

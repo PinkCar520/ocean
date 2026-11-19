@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import type { ReasoningEffort, WorkspaceSnapshot } from '@ocean/contracts';
 import { ThinkingList } from './ThinkingList';
 import { DiffViewer } from './DiffViewer';
 import { TypingCursor, BrailleSpinner } from './chat/ChatHelpers';
@@ -9,8 +10,9 @@ import { ChatInput } from './chat/ChatInput';
 import { InquiryWizardCard } from './InquiryWizardCard';
 import { ToolInvocationRenderer, ToolInvocationBadge } from './chat/ToolInvocationRenderer';
 import { ChatMessage } from './chat/ChatMessage';
+import { ConversationFind } from './chat/ConversationFind';
 import { IntegrationsPanel } from './chat/IntegrationsPanel';
-import { ActiveContextPanel } from './chat/ActiveContext';
+import { ActiveContextPanel, type WorkspaceHostHealth } from './chat/ActiveContext';
 import { ArtifactViewer } from './ArtifactViewer';
 import { EmptyState } from './chat/EmptyState';
 import { CopyCodeButton, MarkdownComponents, CodeBlock } from './chat/MarkdownConfig';
@@ -60,13 +62,26 @@ interface ChatSessionProps {
   setSelectedModelId: (id: string) => void;
   token: string | null;
   user: any;
-  createSession: () => Promise<string | null>; // 服务端创建新会话
+  createSession: (
+    workspacePath?: string,
+    workspaceSnapshot?: WorkspaceSnapshot,
+  ) => Promise<string | null>; // 服务端创建新会话
   onStreamFinished: (sessionId: string) => Promise<void>; // 流完成后刷新侧边栏
   onRenameConversation?: (id: string, title: string) => void;
   isLoadingHistory?: boolean;
   onMainTabChange?: (id: string) => void;
   /** Phase 6 6b：当前 Space（新建会话归属） */
   spaceId?: string;
+  /** 当前 Session 绑定的本机目录（仅 Desktop Work 使用） */
+  workspacePath?: string | null;
+  workspacePaths?: string[];
+  workspaceSnapshot?: WorkspaceSnapshot | null;
+  workspaceSnapshots?: WorkspaceSnapshot[];
+  workspaceHost?: { hostId?: string; health: WorkspaceHostHealth };
+  onWorkspacePathChange?: (
+    path: string | undefined,
+  ) => Promise<WorkspaceSnapshot | undefined> | WorkspaceSnapshot | undefined;
+  canSelectWorkspaceFolder?: boolean;
   /** 空间 Tab（工作|生活）——空状态渲染于 logo 上方 */
   spaceTabs?: Array<{ id: string; label: string }>;
   onSpaceTabChange?: (id: string) => void;
@@ -96,6 +111,13 @@ export function ChatSession({
   isLoadingHistory,
   onMainTabChange,
   spaceId,
+  workspacePath,
+  workspacePaths = [],
+  workspaceSnapshot,
+  workspaceSnapshots = [],
+  workspaceHost,
+  onWorkspacePathChange,
+  canSelectWorkspaceFolder = false,
   spaceTabs,
   onSpaceTabChange,
   t,
@@ -110,6 +132,13 @@ export function ChatSession({
   // 处理带有 autoSubmit 状态的跳转，将发送行为顺延到导航完成后进行
   const [isLocalThinking, setIsLocalThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findFocusRequest, setFindFocusRequest] = useState(0);
+  const previousFindFocusRef = useRef<HTMLElement | null>(null);
+  const closeFind = useCallback(() => {
+    setFindOpen(false);
+    previousFindFocusRef.current?.focus({ preventScroll: true });
+  }, []);
   const userScrolledUpRef = useRef(false);
   const handledAutoSubmitKeyRef = useRef<string | null>(null);
   const navigate = navigation.navigate;
@@ -118,6 +147,27 @@ export function ChatSession({
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
   const [sessionModesHydrated, setSessionModesHydrated] = useState(false);
+  const [draftWorkspacePath, setDraftWorkspacePath] = useState<string | undefined>();
+  const [draftWorkspaceSnapshot, setDraftWorkspaceSnapshot] = useState<WorkspaceSnapshot>();
+  const selectedWorkspacePath = sessionId ? workspacePath ?? undefined : draftWorkspacePath;
+  const selectedWorkspaceSnapshot = sessionId
+    ? workspaceSnapshot ?? undefined
+    : draftWorkspaceSnapshot ?? workspaceSnapshots.find(snapshot =>
+        snapshot.roots.some(root => root.role === 'primary' && root.path === selectedWorkspacePath),
+      );
+  const handleWorkspacePathChange = useCallback(async (path: string | undefined) => {
+    const snapshot = await onWorkspacePathChange?.(path);
+    setDraftWorkspacePath(path);
+    setDraftWorkspaceSnapshot(snapshot);
+  }, [onWorkspacePathChange]);
+  const createSessionForWorkspace = useCallback(
+    (path?: string) =>
+      createSession(
+        path,
+        path === selectedWorkspacePath ? selectedWorkspaceSnapshot : undefined,
+      ),
+    [createSession, selectedWorkspacePath, selectedWorkspaceSnapshot],
+  );
   useEffect(() => {
     setIsSearchMode(sessionStorage.getItem('ocean_search_mode') === '1');
     setIsKnowledgeMode(sessionStorage.getItem('ocean_knowledge_mode') === '1');
@@ -132,13 +182,18 @@ export function ChatSession({
     sessionStorage.setItem('ocean_knowledge_mode', isKnowledgeMode ? '1' : '0');
   }, [isKnowledgeMode, sessionModesHydrated]);
 
+  const [selectedReasoningEffort, setReasoningEffort] = useState<ReasoningEffort>();
+  const selectedModel = models.find(model => model.id === selectedModelId);
+  const supportsReasoningEffort = selectedModel?.provider === 'deepseek';
+  const reasoningEffort = supportsReasoningEffort ? selectedReasoningEffort : undefined;
+
   // ── Hooks ──
   const {
     messages, fullTree, sendMessage, status, setMessages, stop, error,
     isLoading, isStopped, setIsStopped, totalUsage, handleStop,
     sessionIdRef, titleGeneratedRef, data, switchBranch, setCurrentLeafId
   } = useChatSession({
-    sessionId, initialMessages, token, selectedModelId,
+    sessionId, initialMessages, token, selectedModelId, reasoningEffort,
     isSearchMode, isKnowledgeMode, onStreamFinished, spaceId
   });
 
@@ -181,7 +236,7 @@ export function ChatSession({
     localInput, setLocalInput, selectedSkill, setSelectedSkill, attachments, addFiles, removeFile,
     textAreaRef, onFormSubmit, uploadFile, ghostText, setGhostText, isPredicting
   } = useChatInput({
-    sendMessage, createSession, token, selectedModelId,
+    sendMessage, createSession: createSessionForWorkspace, workspacePath: selectedWorkspacePath, token, selectedModelId, reasoningEffort,
     isSearchMode, isKnowledgeMode, navigate,
     sessionIdRef, setIsLocalThinking, userScrolledUpRef, isLoading
   });
@@ -267,16 +322,40 @@ export function ChatSession({
     }
   };
 
+  useEffect(() => {
+    const onFindKey = (event: KeyboardEvent) => {
+      if (event.isComposing) return;
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
+        if (!messages.length) return;
+        event.preventDefault();
+        if (!findOpen && document.activeElement instanceof HTMLElement) {
+          previousFindFocusRef.current = document.activeElement;
+        }
+        setFindOpen(true);
+        setFindFocusRequest(request => request + 1);
+      } else if (findOpen && event.key === 'Escape') {
+        event.preventDefault();
+        closeFind();
+      }
+    };
+    window.addEventListener('keydown', onFindKey);
+    return () => window.removeEventListener('keydown', onFindKey);
+  }, [messages.length, findOpen, closeFind]);
+
+  useEffect(() => {
+    setFindOpen(false);
+  }, [sessionId]);
+
   const prevMessagesLengthRef = useRef(0);
   useEffect(() => {
-    if (!scrollRef.current || userScrolledUpRef.current) return;
+    if (findOpen || !scrollRef.current || userScrolledUpRef.current) return;
     const shouldSmooth = messages.length > prevMessagesLengthRef.current || isLoading;
     scrollRef.current.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: shouldSmooth ? 'smooth' : 'auto',
     });
     prevMessagesLengthRef.current = messages.length;
-  }, [messages, isLoading]);
+  }, [messages, isLoading, findOpen]);
 
   useEffect(() => {
     if (textAreaRef.current) textAreaRef.current.focus();
@@ -452,6 +531,13 @@ export function ChatSession({
           )}
         </AnimatePresence>
 
+        <ConversationFind
+          key={sessionId}
+          scrollRef={scrollRef}
+          open={findOpen}
+          focusRequest={findFocusRequest}
+          close={closeFind}
+        />
         <div
           ref={scrollRef}
           onScroll={handleScroll}
@@ -565,7 +651,7 @@ export function ChatSession({
                   {/* 当正在提交但 messages 列表还没更新出 assistant 回复时的"先行占位" */}
                   {(isLoading || isLocalThinking) && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
                     <motion.div {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })} className="flex w-full gap-4 items-start mb-8">
-                      <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-[#EC5B14] to-[#FF8C42] flex items-center justify-center shadow-[0_4px_15px_rgba(236,91,20,0.3)] text-white shrink-0 mt-1">
+                      <div aria-hidden="true" className="w-8 h-8 flex items-center justify-center text-primary shrink-0 mt-1">
                         <Sparkles className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -665,6 +751,8 @@ export function ChatSession({
           models={models}
           selectedModelId={selectedModelId}
           setSelectedModelId={setSelectedModelId}
+          reasoningEffort={reasoningEffort}
+          onReasoningEffortChange={supportsReasoningEffort ? setReasoningEffort : undefined}
           textAreaRef={textAreaRef}
           t={t}
           lastUserMessage={messages.filter(m => m.role === 'user').pop()?.content}
@@ -674,6 +762,11 @@ export function ChatSession({
           isPredicting={isPredicting}
           onMainTabChange={onMainTabChange}
           initialPermissionMode={initialPermissionMode}
+          workspacePath={selectedWorkspacePath}
+          workspacePaths={workspacePaths}
+          onWorkspacePathChange={handleWorkspacePathChange}
+          showWorkspaceFolder={canSelectWorkspaceFolder && spaceId === 'work'}
+          workspaceFolderEditable={!sessionId && canSelectWorkspaceFolder && spaceId === 'work'}
         />
       </div>
 
@@ -767,6 +860,9 @@ export function ChatSession({
           <div className="flex flex-col h-full overflow-y-auto custom-scrollbar relative">
             <div className="h-14 border-b border-border/60 shrink-0 w-full" />
             <ActiveContextPanel
+              workspacePath={selectedWorkspaceSnapshot?.roots.find(root => root.role === 'primary')?.path ?? selectedWorkspacePath}
+              workspaceHostHealth={workspaceHost?.hostId && selectedWorkspaceSnapshot &&
+                selectedWorkspaceSnapshot.hostId !== workspaceHost.hostId ? 'other-host' : workspaceHost?.health}
               onAction={(action) => {
                 onFormSubmit({ content: action, role: 'user' });
               }}
