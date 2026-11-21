@@ -43,7 +43,12 @@ export class ToolRuntime {
   }
 
   async invoke(runId: string, invocationId: string, descriptor: ToolDescriptor, rawInput: unknown): Promise<unknown> {
-    const input = await descriptor.validate(rawInput);
+    let input: unknown;
+    try { input = await descriptor.validate(rawInput); }
+    catch (error) {
+      await this.rejected(runId, invocationId, descriptor.name, 'input');
+      throw error;
+    }
     const context: ToolPolicyContext = { runId, invocationId, toolName: descriptor.name, input };
     const inputFingerprint = JSON.stringify(input);
     const policyVersion = await this.authorization.policyVersion?.();
