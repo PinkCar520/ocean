@@ -66,6 +66,8 @@ describe('agent run recovery boundary', () => {
   await events.append('run', 0, [{ type: 'run.created', runId: 'run', sessionId: 'session', at: '2026-01-01T00:00:00Z' }]);
   await events.append('run', 1, [{ type: 'run.transitioned', runId: 'run', at: '2026-01-01T00:00:00Z', from: 'created', to: 'preparing_context' }]);
   await events.append('run', 2, [{ type: 'run.transitioned', runId: 'run', at: '2026-01-01T00:00:00Z', from: 'preparing_context', to: 'interrupted' }]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.verifyTranscript = async () => true;
   const result = await engine.resume('session', 'run');
   expect(result.snapshot.state).toBe('completed');
   expect((await events.read('run')).filter(e => e.type === 'run.created')).toHaveLength(1);
@@ -232,5 +234,18 @@ describe('final transcript persistence crash', () => {
   ports.transcript.append = async () => { throw new Error('disk unavailable'); };
   await expect(engine.run('session', 'run')).rejects.toThrow('disk unavailable');
   expect((await events.snapshot('run')).state).toBe('interrupted');
+ });
+});
+
+describe('model-only recovery integrity', () => {
+ it('requires transcript verification before re-entering model execution', async () => {
+  const { engine, events } = fixture([{ kind: 'complete', text: 'untrusted' }]);
+  const at = '2026-01-01T00:00:00Z', runId = 'run';
+  await events.append(runId, 0, [
+   { type: 'run.created', runId, at, sessionId: 'session' },
+   { type: 'run.transitioned', runId, at, from: 'created', to: 'preparing_context' },
+   { type: 'run.transitioned', runId, at, from: 'preparing_context', to: 'interrupted' },
+  ]);
+  await expect(engine.resume('session', runId)).rejects.toThrow('Transcript verification required');
  });
 });
