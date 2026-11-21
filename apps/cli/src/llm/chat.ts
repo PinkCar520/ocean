@@ -606,7 +606,10 @@ export async function runChatLoop(
       break; // success
     } catch (error) {
       options.signal?.throwIfAborted();
-      if (attempt < MAX_STREAM_RETRIES && isRetryableStreamError(error)) {
+      // A model retry must never replay a tool side effect. The journal
+      // protects stable toolCallIds, but a fresh stream can generate new IDs.
+      if (attempt < MAX_STREAM_RETRIES && toolCalls.length === 0 &&
+          toolResults.length === 0 && isRetryableStreamError(error)) {
         continue;
       }
       throw error;
