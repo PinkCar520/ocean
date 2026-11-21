@@ -92,7 +92,8 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
         throw new Error('Invalid tool preparation');
       pendingTools[event.invocation.id] = 'prepared';
     } else if (event.type === 'run.completion_verified') {
-      if (completionVerified || !event.checks.length || event.checks.some(check => !check.trim()))
+      if (completionVerified || !event.checks.length || event.checks.some(check => !check.trim()) ||
+          Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
         throw new Error('Invalid completion verification');
       completionVerified = true;
     } else if (event.type === 'tool.settled') {
