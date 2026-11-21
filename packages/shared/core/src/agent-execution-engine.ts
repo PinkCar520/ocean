@@ -38,8 +38,12 @@ export interface AgentExecutionPorts<Message> {
   toMessage(decision: AgentModelDecision, result?: unknown): Message;
   /** Adapters with structured tool-call/result pairs may emit multiple messages. */
   toMessages?(decision: AgentModelDecision, result?: unknown): readonly Message[];
+  /** Host restores previously activated skills from durable Session evidence.
+   * Skill scopes only constrain tools; they never grant host permissions.
+   */
+  restoreSkills?(sessionId: string): Promise<readonly { id: string; source: 'plugin' | 'user' | 'project'; allowedTools?: readonly string[] }[]>;
   /** Skill host identifies a successful activation without granting permissions. */
-  activatedSkill?(toolName: string, result: unknown): { id: string; source: 'plugin' | 'user' | 'project' } | undefined;
+  activatedSkill?(toolName: string, result: unknown): { id: string; source: 'plugin' | 'user' | 'project'; allowedTools?: readonly string[] } | undefined;
   completion: AgentCompletionPort<Message>;
 }
 export interface AgentExecutionResult {
@@ -64,7 +68,21 @@ export class AgentExecutionEngine<Message> {
   private async execute(sessionId: string, runId: string, maxSteps: number, signal: AbortSignal | undefined, resume: boolean): Promise<AgentExecutionResult> {
     if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid agent step limit');
     const runtime = new AgentRuntime(this.ports.events, this.ports.host);
-    const tools = new ToolRuntime(this.ports.events, this.ports.host, this.ports.authorization);
+    const baseAuthorization = this.ports.authorization;
+    const tools = new ToolRuntime(this.ports.events, this.ports.host, {
+      evaluate: async context => {
+        const snapshot = await runtime.snapshot(runId);
+        if (Object.values(snapshot.skillToolConstraints).some(allowed =>
+          allowed !== null && !allowed.includes(context.toolName))) return 'deny';
+        return baseAuthorization.evaluate(context);
+      },
+      approve: baseAuthorization.approve
+        ? context => baseAuthorization.approve!(context) : undefined,
+      policyVersion: async () => JSON.stringify({
+        host: await baseAuthorization.policyVersion?.(),
+        skills: (await runtime.snapshot(runId)).skillToolConstraints,
+      }),
+    });
     if (resume) {
       const events = await this.ports.events.read(runId);
       const snapshot = await runtime.snapshot(runId);
@@ -89,6 +107,13 @@ export class AgentExecutionEngine<Message> {
       }
     } else {
       await runtime.create(runId, sessionId);
+      try {
+        for (const skill of await this.ports.restoreSkills?.(sessionId) ?? [])
+          await runtime.activateSkill(runId, skill.id, skill.source, skill.allowedTools);
+      } catch (error) {
+        await runtime.transition(runId, 'failed');
+        throw error;
+      }
     }
     let messages = [...await this.ports.transcript.load(sessionId)];
     for (let step = 0; step < maxSteps; step++) {
@@ -174,7 +199,7 @@ export class AgentExecutionEngine<Message> {
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
           try { this.ports.onToolResult?.(call.name, result); } catch { /* telemetry cannot affect execution */ }
           const activated = this.ports.activatedSkill?.(call.name, result);
-          if (activated) await runtime.activateSkill(runId, activated.id, activated.source);
+          if (activated) await runtime.activateSkill(runId, activated.id, activated.source, activated.allowedTools);
           const toolDecision: AgentModelDecision = {
             kind: 'tools', calls: [call],
             text: callIndex === 0 ? decision.text : undefined,
