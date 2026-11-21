@@ -195,3 +195,32 @@ describe('verified recovery requires journal and transcript agreement', () => {
   expect(calls()).toBe(0);
  });
 });
+
+describe('verified recovery with reconciled side effects', () => {
+ it('resumes only with verified durable transcript and never re-executes completed tool calls', async () => {
+  const { engine, events, calls } = fixture([{ kind: 'complete', text: 'recovered' }]);
+  const runId = 'run', at = '2026-01-01T00:00:00Z', input = {};
+  const { createHash } = await import('node:crypto');
+  await events.append(runId, 0, [
+   { type: 'run.created', runId, at, sessionId: 'session' },
+   { type: 'run.transitioned', runId, at, from: 'created', to: 'preparing_context' },
+   { type: 'run.transitioned', runId, at, from: 'preparing_context', to: 'calling_model' },
+   { type: 'run.transitioned', runId, at, from: 'calling_model', to: 'validating_tools' },
+   { type: 'run.transitioned', runId, at, from: 'validating_tools', to: 'executing_tools' },
+   { type: 'tool.prepared', runId, at, invocation: {
+    id: 'previous', runId, toolName: 'shell', input,
+    inputDigest: createHash('sha256').update(JSON.stringify(input)).digest('hex'), host: 'local',
+   } },
+   { type: 'tool.settled', runId, at, invocationId: 'previous', outcome: 'succeeded', result: { ok: true } },
+   { type: 'run.transitioned', runId, at, from: 'executing_tools', to: 'interrupted' },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  let verified = 0;
+  ports.reconcileRecovery = async () => {};
+  ports.verifyToolJournal = async () => { verified++; return true; };
+  const result = await engine.resume('session', runId);
+  expect(result.snapshot.state).toBe('completed');
+  expect(verified).toBe(1);
+  expect(calls()).toBe(0);
+ });
+});
