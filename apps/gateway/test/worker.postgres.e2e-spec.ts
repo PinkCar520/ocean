@@ -50,6 +50,7 @@ import { MetricsService } from '../src/obs/metrics.service';
 import { AuditService } from '../src/audit/audit.service';
 import { ToolRegistry } from '../src/tool/tool.registry';
 import { RunRunner } from '../src/worker/run-runner';
+import { GatewayCoreLifecycle } from '../src/worker/core-lifecycle';
 import { ToolExecutor } from '../src/worker/tool-executor';
 import { WorkerService } from '../src/worker/worker.service';
 import { ToolOutcomeReconciler, type ToolOutcomeQueryAdapter } from '../src/worker/tool-outcome-reconciler';
@@ -126,7 +127,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
     return sim.generate(req);
    },
   }, outbox, registry, metrics, hooks),
-   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents, service), outbox, db, subagents);
+   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents, service, core), outbox, db, subagents);
   const module = await Test.createTestingModule({ controllers: [ChatController, SessionController, RunScheduleController, SubagentRunsController, RunController, ExternalApprovalController, MCPCredentialsController, MCPOAuthController], providers: [
    { provide: ChatService, useValue: new ChatService(new ConfigService({ CHAT_USE_RUN: 'true' }), service) },
    { provide: SpaceService, useValue: spaces },
