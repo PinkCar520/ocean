@@ -95,7 +95,8 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
         throw new Error('Invalid tool preparation');
       pendingTools[event.invocation.id] = 'prepared';
     } else if (event.type === 'skill.activated') {
-      if (!event.skillId.trim()) throw new Error('Invalid skill activation identity');
+      if (!event.skillId.trim() || state === 'completed' || state === 'failed' || state === 'cancelled')
+        throw new Error('Invalid skill activation identity');
       activeSkills.add(event.skillId);
     } else if (event.type === 'run.completion_verified') {
       if (completionVerified || !event.checks.length || event.checks.some(check => !check.trim()) ||
