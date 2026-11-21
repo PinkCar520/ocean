@@ -17,7 +17,7 @@ vi.mock('ai', async (importOriginal) => ({
 }));
 
 import { activeSkillInstructions, runChatLoop } from './chat.js';
-import { historyDigest } from './compaction.js';
+import { contextTokens, historyDigest } from './compaction.js';
 
 describe('CLI Agent loop transcript', () => {
   beforeEach(() => {
@@ -277,4 +277,123 @@ describe('CLI Agent loop transcript', () => {
     await runChatLoop([], { model: {}, systemPrompt: '', tools: {}, maxSteps: 12 });
     expect(stepCountIsMock).toHaveBeenCalledWith(12);
   });
+  it('retains active skill instructions in model system and compaction budget', async () => {
+    const messages = [
+      { role: 'user' as const, content: '[Activated Skill: code-review]\\nFollow review protocol\\nResource directory: /skills/review' },
+      ...Array.from({ length: 12 }, (_, i) => ({ role: 'user' as const, content: `turn ${i} ${'x'.repeat(3000)}` })),
+    ];
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ goal: 'review', constraints: [], fileChanges: [], failedTests: [], completedTools: [], pendingWork: [] }),
+    });
+    streamTextMock.mockImplementation(async (options) => {
+      expect(options.system).toContain('Follow review protocol');
+      expect(options.system).toContain('code-review');
+      return { text: 'done', responseMessages: [] };
+    });
+    await runChatLoop(messages, {
+      model: {}, systemPrompt: 'base', tools: {},
+      compaction: { budget: 5000, persist: vi.fn() },
+    });
+  });
+
+  it('never retries an incomplete stream after a tool call was observed', async () => {
+    streamTextMock.mockImplementation(async (options) => {
+      options.onChunk({ chunk: { type: 'tool-call', toolName: 'bash', input: { command: 'touch marker' } } });
+      return { text: 'partial', finishReason: 'other', responseMessages: [] };
+    });
+    await expect(runChatLoop([{ role: 'user', content: 'run command' }], {
+      model: {}, systemPrompt: '', tools: {},
+    })).rejects.toThrow('Model stream incomplete');
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('never replays a tool when provider omits tool-call chunks', async () => {
+    const execute = vi.fn().mockResolvedValue({ ok: true });
+    streamTextMock.mockImplementation(async (options) => {
+      await options.tools.write.execute({ path: 'file.txt', content: 'data' });
+      return { text: 'partial', finishReason: 'other', responseMessages: [] };
+    });
+    await expect(runChatLoop([{ role: 'user', content: 'write' }], {
+      model: {}, systemPrompt: '', tools: { write: { execute } },
+    })).rejects.toThrow('Model stream incomplete');
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports provider cache usage without affecting the model result', async () => {
+    const { modelUsageMetrics } = await import('./chat.js');
+    expect(modelUsageMetrics({
+      inputTokens: 1000, outputTokens: 200,
+      inputTokenDetails: { cacheReadTokens: 750, cacheWriteTokens: 100 },
+    })).toEqual({
+      inputTokens: 1000, outputTokens: 200,
+      cacheReadTokens: 750, cacheWriteTokens: 100,
+    });
+    expect(modelUsageMetrics({ inputTokens: -1, cachedInputTokens: 12 })).toEqual({
+      inputTokens: undefined, outputTokens: undefined,
+      cacheReadTokens: 12, cacheWriteTokens: undefined,
+    });
+  });
+
+  it('classifies provider context overflow separately from transient stream failures', async () => {
+    const { isPromptTooLongError } = await import('./chat.js');
+    expect(isPromptTooLongError(new Error('context_length_exceeded'))).toBe(true);
+    expect(isPromptTooLongError(new Error('maximum context length is 128000 tokens'))).toBe(true);
+    expect(isPromptTooLongError(new Error('prompt is too long'))).toBe(true);
+    expect(isPromptTooLongError(new Error('ECONNRESET'))).toBe(false);
+    expect(isPromptTooLongError(new Error('Unterminated string in JSON'))).toBe(false);
+  });
+
+  it('does not retry a provider prompt overflow without changing the context', async () => {
+    streamTextMock.mockResolvedValue({
+      text: Promise.reject(new Error('context_length_exceeded')),
+      finishReason: 'error', responseMessages: [],
+    });
+    await expect(runChatLoop([{ role: 'user', content: 'large request' }], {
+      model: {}, systemPrompt: '', tools: {},
+    })).rejects.toThrow('context_length_exceeded');
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers once from prompt overflow using a smaller context budget', async () => {
+    // Repeated characters tokenize very cheaply; construct a deterministic
+    // token-rich fixture that fits the initial 20k budget but exceeds the
+    // 14k retry budget, so recovery must actually compact the transcript.
+    const messages = Array.from({ length: 12 }, (_, i) => ({
+      role: 'user' as const,
+      content: `history ${i}: ${Array.from({ length: 200 }, (_, j) => `item-${i}-${j}`).join(' ')}`,
+    }));
+    // Tokenization is expensive: grow the fixture in bounded batches instead
+    // of re-tokenizing the entire transcript after every appended word.
+    let extra = 0;
+    let tokens = contextTokens(messages);
+    while (tokens < 16000) {
+      messages[0].content += Array.from({ length: 200 }, () => ` unique-token-${extra++}`).join('');
+      tokens = contextTokens(messages);
+    }
+    expect(tokens).toBeLessThan(20000);
+    const persist = vi.fn();
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ goal: 'complete task', constraints: [], fileChanges: [],
+        failedTests: [], completedTools: [], pendingWork: ['finish'] }),
+    });
+    let requests = 0;
+    streamTextMock.mockImplementation(async (options) => {
+      requests++;
+      if (requests === 1) return {
+        text: Promise.reject(new Error('context_length_exceeded')),
+        finishReason: 'error', responseMessages: [],
+      };
+      expect(options.messages.length).toBeLessThan(messages.length);
+      return { text: 'recovered', finishReason: 'stop', responseMessages: [] };
+    });
+    const result = await runChatLoop(messages, {
+      model: {}, systemPrompt: '', tools: {},
+      compaction: { budget: 20000, persist },
+    });
+    expect(result.text).toBe('recovered');
+    expect(streamTextMock).toHaveBeenCalledTimes(2);
+    expect(persist).toHaveBeenCalled();
+  });
+
 });

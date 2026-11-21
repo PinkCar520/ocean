@@ -284,3 +284,93 @@ it('microcompacts stale tool results before invoking the summary model', async (
   expect(generate).not.toHaveBeenCalled();
   expect(persist).not.toHaveBeenCalled();
 });
+
+it('retries malformed summary JSON with the concise summary request', async () => {
+  generate.mockReset();
+  generate.mockResolvedValueOnce({ text: '{"goal": "unfinished' });
+  generate.mockResolvedValueOnce({ text: JSON.stringify(summary) });
+  const persist = vi.fn();
+  const result = await compactContext(history(), {
+    model: {}, systemPrompt: '', budget: 5000, scope: 'malformed-json-retry', persist,
+  });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(result.length).toBeLessThan(history().length);
+  expect(persist).toHaveBeenCalledTimes(1);
+});
+
+it('does not persist malformed summaries after exhausting retries', async () => {
+  generate.mockReset();
+  generate.mockResolvedValue({ text: '{"goal":' });
+  const persist = vi.fn();
+  await expect(compactContext(history(), {
+    model: {}, systemPrompt: '', budget: 5000, scope: 'malformed-json-exhaustion', persist,
+  })).rejects.toThrow('Context compaction failed');
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it('reports microcompact token savings without changing durable history', async () => {
+  generate.mockClear();
+  const messages: ModelMessage[] = [{ role: 'user', content: 'inspect logs' }];
+  for (let i = 0; i < 5; i++) messages.push(
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `metric-${i}`, toolName: 'bash', input: {} }] },
+    { role: 'tool', content: [{ type: 'tool-result', toolCallId: `metric-${i}`, toolName: 'bash', output: { type: 'text', value: 'x'.repeat(3000) } }] },
+  );
+  const onMetrics = vi.fn();
+  const before = JSON.stringify(messages);
+  await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 1500, scope: 'microcompact-metrics',
+    onMetrics, persist: vi.fn(),
+  });
+  expect(onMetrics).toHaveBeenCalledWith(expect.objectContaining({
+    strategy: 'microcompact', budget: 1500,
+  }));
+  const metric = onMetrics.mock.calls[0][0];
+  expect(metric.afterTokens).toBeLessThan(metric.beforeTokens);
+  expect(JSON.stringify(messages)).toBe(before);
+});
+
+it('never lets a telemetry observer abort a safe request', async () => {
+  const messages: ModelMessage[] = [{ role: 'user', content: 'small' }];
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    onMetrics: () => { throw new Error('telemetry unavailable'); },
+    persist: vi.fn(),
+  });
+  expect(result).toBe(messages);
+});
+
+it('trims oversized summary requests only at closed tool boundaries', async () => {
+  const { trimSummarySource } = await import('./compaction.js');
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'old task '.repeat(2000) },
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'old', toolName: 'bash', input: {} }] },
+    { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'old', toolName: 'bash', output: { type: 'text', value: 'x'.repeat(1000) } }] },
+    { role: 'user', content: 'new task' },
+  ];
+  const trimmed = trimSummarySource(messages, 100);
+  expect(trimmed).toEqual([{ role: 'user', content: 'new task' }]);
+  expect(messages).toHaveLength(4);
+});
+
+it('fails closed when no complete historical group fits the summary budget', async () => {
+  const { trimSummarySource, ContextCompactionError } = await import('./compaction.js');
+  const messages: ModelMessage[] = [
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'pending', toolName: 'bash', input: {} }] },
+    { role: 'user', content: 'new task '.repeat(2000) },
+  ];
+  expect(() => trimSummarySource(messages, 100)).toThrow(ContextCompactionError);
+});
+
+it('rejects structurally invalid recovery summaries and retries safely', async () => {
+  generate.mockReset();
+  generate.mockResolvedValueOnce({ text: JSON.stringify({ ...summary, pendingWork: 'not-an-array' }) });
+  generate.mockResolvedValueOnce({ text: JSON.stringify(summary) });
+  const persist = vi.fn();
+  await compactContext(history(), {
+    model: {}, systemPrompt: '', budget: 5000,
+    scope: 'summary-type-recovery', persist,
+  });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(persist).toHaveBeenCalledTimes(1);
+});

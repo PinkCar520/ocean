@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { PermissionHookOutcome } from '@ocean/core/permission-policy';
 import type { SessionStore } from '../utils/session-store.js';
+import { recoveryStatePrompt } from './recovery-state.js';
 import { isDeepStrictEqual } from 'node:util';
 import { createDelegationTool, loadSubagents } from '../subagents/delegate.js';
 import { PermissionPolicy } from '../utils/permission-policy.js';
@@ -28,6 +29,30 @@ function usageTokenTotal(usage: any): number | undefined {
   if (!Number.isFinite(input) && !Number.isFinite(output)) return undefined;
   return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
 }
+export interface ModelUsageMetrics {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+}
+
+export function modelUsageMetrics(usage: any): ModelUsageMetrics {
+  const valid = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+  return {
+    inputTokens: valid(usage?.inputTokens),
+    outputTokens: valid(usage?.outputTokens),
+    cacheReadTokens: valid(usage?.inputTokenDetails?.cacheReadTokens ?? usage?.cachedInputTokens),
+    cacheWriteTokens: valid(usage?.inputTokenDetails?.cacheWriteTokens),
+  };
+}
+
+/** Provider context overflow is not transient: retry only after changing context. */
+export function isPromptTooLongError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:prompt|context|input|request).{0,48}(?:too long|too large|exceeds?|overflow|maximum (?:context|tokens)|token limit)|(?:context_length_exceeded|maximum context length|prompt_too_long|input_tokens_exceeded)/i.test(message);
+}
+
 type HookApproval = PermissionHookOutcome & { persistUpdates?: () => Promise<void> };
 
 /**
@@ -344,6 +369,7 @@ export async function runChatLoop(
     journal?: { store: SessionStore; sessionId: string; workspace: string };
     onToolCall?: (toolName: string, args: any) => void;
     onToolResult?: (toolName: string, result: any) => void;
+    onUsage?: (metrics: ModelUsageMetrics) => void;
     signal?: AbortSignal;
     /** Maximum model/tool steps in one turn. */
     maxSteps?: number;
@@ -356,7 +382,7 @@ export async function runChatLoop(
     };
     hooks?: LifecycleHooks;
     stopHookActive?: boolean;
-    compaction?: { previous?: Compaction; usage?: TokenUsageSnapshot; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string };
+    compaction?: { previous?: Compaction; usage?: TokenUsageSnapshot; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string; onMetrics?: (metrics: import('./compaction.js').CompactionMetrics) => void };
     /**
      * 审批门（对齐 Codex/Claude：CLI 执行、对话窗口弹审批）。
      * 传入后，requiresApproval 工具执行前先调 handler，返回 approved 才放行。
@@ -433,6 +459,7 @@ export async function runChatLoop(
       };
     }
   }
+  let toolExecutionObserved = false;
   const guardedTools = Object.fromEntries(Object.entries(options.tools).map(([name, definition]) => [name, {
     ...definition,
     ...(typeof definition.execute === 'function' ? { execute: async (...args: any[]) => {
@@ -441,6 +468,9 @@ export async function runChatLoop(
       const pre = await options.hooks?.run('PreToolUse', input, options.signal);
       if (pre?.blocked) return { error: pre.reason };
       options.signal?.throwIfAborted();
+      // Record entry into the executable tool path before awaiting any effect.
+      // A provider may omit tool-call chunks even when it executes a tool.
+      toolExecutionObserved = true;
       let output;
       try { output = options.journal
         ? await options.journal.store.executeToolCall(options.journal.sessionId, options.journal.workspace, args[1]?.toolCallId, name, args[0], () => definition.execute(...args))
@@ -460,10 +490,19 @@ export async function runChatLoop(
     workspace: options.journal?.workspace ?? options.approvalOptions?.workspace,
   });
 
+  // Recover structured execution metadata from durable session storage before
+  // deciding what historical messages to compact. This state is not a summary
+  // and does not rely on model recall.
+  const persistedState = options.journal
+    ? recoveryStatePrompt(await options.journal.store.load(options.journal.sessionId, options.journal.workspace))
+    : '';
+  // Skill activation is derived from the durable transcript, not from the
+  // compacted model view; include it in both the request and token budget.
+  const effectiveSystemPrompt = options.systemPrompt + persistedState + activeSkillInstructions(messages);
   const compactionOptions = options.compaction;
   let initialSnapshot = compactionOptions?.previous;
   const context = compactionOptions ? await compactContext(messages, {
-    model: options.model, systemPrompt: options.systemPrompt, signal: options.signal,
+    model: options.model, systemPrompt: effectiveSystemPrompt, signal: options.signal,
     scope: options.journal?.sessionId,
     ...compactionOptions,
     persist: async (snapshot) => { initialSnapshot = snapshot; await compactionOptions.persist(snapshot); },
@@ -492,7 +531,7 @@ export async function runChatLoop(
     const scopeBase = compaction.scope ?? options.journal?.sessionId ?? 'default';
     const compacted = await compactContext(complete, {
       model: options.model,
-      systemPrompt: options.systemPrompt,
+      systemPrompt: effectiveSystemPrompt,
       signal: options.signal,
       budget: compaction.budget,
       contextWindow: compaction.contextWindow,
@@ -502,6 +541,7 @@ export async function runChatLoop(
       boundary: 'any',
       usage,
       previous: prefixMatches ? midTurnSnapshot : undefined,
+      onMetrics: compaction.onMetrics,
       persist: prefixMatches
         ? async (snapshot) => { nextSnapshot = snapshot; await compaction.persist(snapshot); }
         : async () => undefined,
@@ -532,9 +572,13 @@ export async function runChatLoop(
   const MAX_STREAM_RETRIES = 1;
   let finalResult: any;
   let text = '';
+  let requestMessages = context;
 
   for (let attempt = 0; attempt <= MAX_STREAM_RETRIES; attempt++) {
     let streamError: Error | undefined;
+    let sawToolActivity = false;
+    // Do not retry a failed request after any prior attempt executed a tool.
+    // The marker intentionally survives across attempts.
     fullText = '';
     toolCalls.length = 0;
     toolResults.length = 0;
@@ -542,8 +586,8 @@ export async function runChatLoop(
 
     const result = streamText({
       model: options.model,
-      messages: context,
-      system: options.systemPrompt + activeSkillInstructions(messages),
+      messages: requestMessages,
+      system: effectiveSystemPrompt,
       tools,
       toolChoice: 'auto',
       maxOutputTokens: maxTokens,
@@ -560,11 +604,14 @@ export async function runChatLoop(
           fullText += chunk.text;
           options.onText?.(chunk.text);
         } else if (chunk.type === 'tool-call') {
+          sawToolActivity = true;
           options.onToolCall?.(chunk.toolName, chunk.input);
         }
       },
       onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults, usage }) => {
+        if (stepToolCalls?.length || stepToolResults?.length) sawToolActivity = true;
         lastStepTotalTokens = usageTokenTotal(usage);
+        try { options.onUsage?.(modelUsageMetrics(usage)); } catch { /* telemetry is non-critical */ }
         if (stepToolCalls) {
           toolCalls.push(...(stepToolCalls as ToolCallPart[]));
         }
@@ -595,7 +642,28 @@ export async function runChatLoop(
       break; // success
     } catch (error) {
       options.signal?.throwIfAborted();
-      if (attempt < MAX_STREAM_RETRIES && isRetryableStreamError(error)) {
+      // A model retry must never replay a tool side effect. The journal
+      // protects stable toolCallIds, but a fresh stream can generate new IDs.
+      if (attempt < MAX_STREAM_RETRIES && isPromptTooLongError(error) &&
+          !toolExecutionObserved && !sawToolActivity &&
+          toolCalls.length === 0 && toolResults.length === 0 && compaction) {
+        const initialBudget = compaction.budget ?? Math.min(24000,
+          (compaction.contextWindow ?? 32768) - (compaction.outputReserve ?? 4096) -
+          (compaction.toolReserve ?? 4096));
+        const reducedBudget = Math.max(512, Math.floor(initialBudget * 0.7));
+        requestMessages = await compactContext(messages, {
+          model: options.model, systemPrompt: effectiveSystemPrompt, signal: options.signal,
+          budget: reducedBudget, contextWindow: compaction.contextWindow,
+          outputReserve: compaction.outputReserve, toolReserve: compaction.toolReserve,
+          scope: `${compaction.scope ?? 'default'}:prompt-recovery`,
+          previous: initialSnapshot, persist: compaction.persist,
+          onMetrics: compaction.onMetrics,
+        });
+        continue;
+      }
+      if (attempt < MAX_STREAM_RETRIES && !isPromptTooLongError(error) &&
+          !toolExecutionObserved && !sawToolActivity && toolCalls.length === 0 &&
+          toolResults.length === 0 && isRetryableStreamError(error)) {
         continue;
       }
       throw error;
