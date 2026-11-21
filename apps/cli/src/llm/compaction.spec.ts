@@ -182,15 +182,22 @@ it('counts serialized context with the selected BPE tokenizer rather than byte d
  expect(countTextTokens('')).toBe(0);
 });
 
+function compactRetryHistory(): ModelMessage[] {
+  return Array.from({ length: 12 }, (_, i) => ({
+    role: 'user' as const,
+    content: `Turn ${i}: ${'alpha beta gamma delta '.repeat(25)}`,
+  }));
+}
+
 it('retries an ineffective summary with a smaller token cap and persists only the effective result', async () => {
   generate.mockReset();
-  const messages = history();
-  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
+  const messages = compactRetryHistory();
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1000) };
   generate.mockResolvedValueOnce({ text: JSON.stringify(verbose) })
     .mockResolvedValueOnce({ text: JSON.stringify(summary) });
   const persist = vi.fn();
   const result = await compactContext(messages, {
-    model: {}, systemPrompt: '', budget: 5000,
+    model: {}, systemPrompt: '', budget: 800,
     scope: 'ineffective-summary-retry', persist,
   });
   expect(generate).toHaveBeenCalledTimes(2);
@@ -202,12 +209,12 @@ it('retries an ineffective summary with a smaller token cap and persists only th
 
 it('never persists a summary that fails to reduce context after bounded retries', async () => {
   generate.mockReset();
-  const messages = history();
-  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
+  const messages = compactRetryHistory();
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1000) };
   generate.mockResolvedValue({ text: JSON.stringify(verbose) });
   const persist = vi.fn();
   await expect(compactContext(messages, {
-    model: {}, systemPrompt: '', budget: 5000,
+    model: {}, systemPrompt: '', budget: 800,
     scope: 'ineffective-summary-exhausted', persist,
   })).rejects.toThrow('Context compaction failed');
   expect(generate).toHaveBeenCalledTimes(2);
