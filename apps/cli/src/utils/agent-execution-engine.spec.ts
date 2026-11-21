@@ -168,3 +168,30 @@ describe('host recovery reconciliation', () => {
   expect(calls()).toBe(0);
  });
 });
+
+describe('verified recovery requires journal and transcript agreement', () => {
+ it('refuses successful tool effects even after reconciliation unless the transcript is verified', async () => {
+  const { engine, events, calls } = fixture([]);
+  const runId = 'run', at = '2026-01-01T00:00:00Z', input = {};
+  const { createHash } = await import('node:crypto');
+  const eventsToReplay = [
+    { type: 'run.created', runId, at, sessionId: 'session' },
+    { type: 'run.transitioned', runId, at, from: 'created', to: 'preparing_context' },
+    { type: 'run.transitioned', runId, at, from: 'preparing_context', to: 'calling_model' },
+    { type: 'run.transitioned', runId, at, from: 'calling_model', to: 'validating_tools' },
+    { type: 'run.transitioned', runId, at, from: 'validating_tools', to: 'executing_tools' },
+    { type: 'tool.prepared', runId, at, invocation: {
+      id: 'call', runId, toolName: 'shell', input,
+      inputDigest: createHash('sha256').update(JSON.stringify(input)).digest('hex'), host: 'local',
+    } },
+    { type: 'tool.settled', runId, at, invocationId: 'call', outcome: 'succeeded', result: { ok: true } },
+    { type: 'run.transitioned', runId, at, from: 'executing_tools', to: 'interrupted' },
+  ] as import('@ocean/core').RuntimeEvent[];
+  await events.append(runId, 0, eventsToReplay);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.reconcileRecovery = async () => {};
+  ports.verifyToolJournal = async () => false;
+  await expect(engine.resume('session', runId)).rejects.toThrow('Tool journal and transcript verification required');
+  expect(calls()).toBe(0);
+ });
+});
