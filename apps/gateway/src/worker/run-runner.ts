@@ -137,6 +137,26 @@ export class RunRunner {
           };
 
         if (!['queued', 'running'].includes(run.status)) return { ok: false as const, ignored: true as const };
+        // A redelivered run.requested must never overtake an in-flight tool call.
+        // The tool's external side effect may have committed before the worker died.
+        const unresolvedTool = await tx.runStep.findFirst({
+          where: { runId, kind: 'tool_call', status: 'started' },
+          orderBy: { seq: 'desc' },
+        });
+        if (unresolvedTool) {
+          const message = 'Tool result unknown after worker interruption; automatic replay prohibited.';
+          await tx.runStep.update({
+            where: { id: unresolvedTool.id },
+            data: { status: 'unknown', error: message, completedAt: new Date() },
+          });
+          await tx.agentRun.update({ where: { id: runId }, data: { status: 'failed' } });
+          await this.appendEvent(tx, runId, {
+            id: randomUUID(), runId, sequence: await this.nextSequence(tx, runId),
+            occurredAt: new Date().toISOString(), type: 'run.failed',
+            code: 'tool_execution_failed', message,
+          });
+          return { ok: false as const, reason: message };
+        }
         const claimed = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
         if (!claimed.count) return { ok: false as const, ignored: true as const };
 
