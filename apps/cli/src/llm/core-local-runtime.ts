@@ -19,7 +19,8 @@ import { createAiSdkStreamingModelPort } from './core-streaming-model-adapter.js
 
 /**
  * Programmatic local execution entrypoint for Ocean Core v2.
- * Existing interactive runChatLoop remains intact during migration.
+ * The CLI print, readline and Ink main turn paths use this shared entrypoint.
+ * The legacy loop is available only as an explicit compatibility fallback.
  */
 export async function runOceanCoreLocal(options: {
   sessionStore: SessionStore;
