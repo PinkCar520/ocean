@@ -30,7 +30,8 @@ function createTxMock(
       create: jest.fn().mockResolvedValue({}),
     },
     runStep: {
-      findFirst: jest.fn().mockResolvedValue(startedStep),
+      findFirst: jest.fn().mockImplementation(({ where }: { where?: { kind?: string } } = {}) =>
+        Promise.resolve(where?.kind === 'tool_call' ? null : startedStep)),
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
