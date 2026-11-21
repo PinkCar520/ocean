@@ -28,6 +28,7 @@ export function createAiSdkModelPort(options: {
       if (result.toolCalls.length) {
         return {
           kind: 'tools',
+          text: result.text,
           calls: result.toolCalls.map(call => ({
             id: call.toolCallId,
             name: call.toolName,
