@@ -89,8 +89,8 @@ it('keeps an unresolved tool call on its original side of a compaction boundary'
  const messages = history();
  messages.splice(2, 1); // Remove the first call result: a later user boundary is unsafe.
  const persist = vi.fn();
- const result = await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, scope: 'unresolved-pair', persist });
- expect(result).toBe(messages);
+ await expect(compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, scope: 'unresolved-pair', persist }))
+   .rejects.toThrow('no safe compaction boundary');
  expect(generate).not.toHaveBeenCalled(); expect(persist).not.toHaveBeenCalled();
 });
 
@@ -182,15 +182,22 @@ it('counts serialized context with the selected BPE tokenizer rather than byte d
  expect(countTextTokens('')).toBe(0);
 });
 
+function compactRetryHistory(): ModelMessage[] {
+  return Array.from({ length: 12 }, (_, i) => ({
+    role: 'user' as const,
+    content: `Turn ${i}: ${'alpha beta gamma delta '.repeat(25)}`,
+  }));
+}
+
 it('retries an ineffective summary with a smaller token cap and persists only the effective result', async () => {
   generate.mockReset();
-  const messages = history();
-  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
+  const messages = compactRetryHistory();
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1000) };
   generate.mockResolvedValueOnce({ text: JSON.stringify(verbose) })
     .mockResolvedValueOnce({ text: JSON.stringify(summary) });
   const persist = vi.fn();
   const result = await compactContext(messages, {
-    model: {}, systemPrompt: '', budget: 5000,
+    model: {}, systemPrompt: '', budget: 800,
     scope: 'ineffective-summary-retry', persist,
   });
   expect(generate).toHaveBeenCalledTimes(2);
@@ -202,12 +209,12 @@ it('retries an ineffective summary with a smaller token cap and persists only th
 
 it('never persists a summary that fails to reduce context after bounded retries', async () => {
   generate.mockReset();
-  const messages = history();
-  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
+  const messages = compactRetryHistory();
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1000) };
   generate.mockResolvedValue({ text: JSON.stringify(verbose) });
   const persist = vi.fn();
   await expect(compactContext(messages, {
-    model: {}, systemPrompt: '', budget: 5000,
+    model: {}, systemPrompt: '', budget: 800,
     scope: 'ineffective-summary-exhausted', persist,
   })).rejects.toThrow('Context compaction failed');
   expect(generate).toHaveBeenCalledTimes(2);
@@ -237,5 +244,22 @@ it('refuses oversized original context when summary generation fails', async () 
     model: {}, systemPrompt: '', budget: 5000,
     scope: 'unsafe-fallback', persist,
   })).rejects.toBeInstanceOf(ContextCompactionError);
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it('preserves a short unresolved tool call when provider usage alone triggers compaction', async () => {
+  generate.mockClear();
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'run' },
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'pending', toolName: 'bash', input: {} }] },
+  ];
+  const persist = vi.fn();
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    usage: { totalTokens: 6000, messageCount: messages.length },
+    scope: 'safe-unresolved-pair', persist,
+  });
+  expect(result).toBe(messages);
+  expect(generate).not.toHaveBeenCalled();
   expect(persist).not.toHaveBeenCalled();
 });
