@@ -77,6 +77,34 @@ export class AgentRuntime {
     return this.snapshot(runId);
   }
 
+  /** Persist the entire model tool decision before any host side effect.
+   * Proposals are not execution claims or approvals. Queue-backed hosts may
+   * dispatch later; inline hosts continue through ToolRuntime.
+   */
+  async proposeTools(
+    runId: string,
+    calls: readonly { id: string; name: string; input: unknown }[],
+  ): Promise<RuntimeSnapshot> {
+    const current = await this.snapshot(runId);
+    if (current.state !== 'validating_tools' || !calls.length)
+      throw new Error('Tool proposals require a validating runtime state and nonempty batch');
+    const seen = new Set<string>();
+    const events: RuntimeEvent[] = calls.map(call => {
+      if (!call.id?.trim() || !call.name?.trim() || seen.has(call.id) ||
+          Object.hasOwn(current.queuedTools, call.id) || Object.hasOwn(current.pendingTools, call.id))
+        throw new Error('Invalid or duplicate tool proposal identity');
+      seen.add(call.id);
+      const serialized = JSON.stringify(call.input);
+      if (serialized === undefined) throw new Error('Tool proposal input is not serializable');
+      return {
+        type: 'tool.proposed', runId, at: stamp(), invocationId: call.id,
+        toolName: call.name, inputDigest: createHash('sha256').update(serialized).digest('hex'),
+      };
+    });
+    await this.store.append(runId, current.revision, events);
+    return this.snapshot(runId);
+  }
+
   /** Distributed hosts may enqueue an invocation only after this durable claim.
    * The same protocol is used by the inline CLI host.
    */
