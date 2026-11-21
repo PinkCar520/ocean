@@ -61,10 +61,10 @@ describe('automatic context compaction', () => {
   it('does not commit malformed summaries and propagates persistence failures', async () => {
     const persist = vi.fn();
     generate.mockResolvedValue({ text: '{}' });
-    await expect(compactContext(history(), { model: {}, systemPrompt: '', budget: 5000, persist })).rejects.toThrow('Incomplete');
+    await expect(compactContext(history(), { model: {}, systemPrompt: '', budget: 5000, persist })).rejects.toThrow('Context compaction failed');
     expect(persist).not.toHaveBeenCalled();
     generate.mockResolvedValue({ text: JSON.stringify(summary) });
-    await expect(compactContext(history(), { model: {}, systemPrompt: '', budget: 5000, persist: async () => { throw new Error('disk unavailable'); } })).rejects.toThrow('disk unavailable');
+    await expect(compactContext(history(), { model: {}, systemPrompt: '', budget: 5000, persist: async () => { throw new Error('disk unavailable'); } })).rejects.toThrow('Context compaction failed');
   });
 });
 
@@ -77,8 +77,8 @@ it('reserves model output and tool space from the configured context window', as
 it('stops repeated failed compaction requests for the same session scope', async () => {
  generate.mockClear(); generate.mockRejectedValue(new Error('upstream unavailable'));
  const options = { model: {}, systemPrompt: '', budget: 5000, scope: 'failure-test', persist: vi.fn() };
- await expect(compactContext(history(), options)).rejects.toThrow('upstream');
- await expect(compactContext(history(), options)).rejects.toThrow('upstream');
+ await expect(compactContext(history(), options)).rejects.toThrow('Context compaction failed');
+ await expect(compactContext(history(), options)).rejects.toThrow('Context compaction failed');
  await expect(compactContext(history(), options)).rejects.toThrow('failure limit');
  expect(generate).toHaveBeenCalledTimes(2);
  expect(options.persist).not.toHaveBeenCalled();
@@ -180,4 +180,62 @@ it('counts serialized context with the selected BPE tokenizer rather than byte d
  expect(contextTokens(messages)).toBe(countTextTokens(JSON.stringify(messages)));
  expect(countTextTokens('hello world', 'cl100k_base')).toBe(2);
  expect(countTextTokens('')).toBe(0);
+});
+
+it('retries an ineffective summary with a smaller token cap and persists only the effective result', async () => {
+  generate.mockReset();
+  const messages = history();
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
+  generate.mockResolvedValueOnce({ text: JSON.stringify(verbose) })
+    .mockResolvedValueOnce({ text: JSON.stringify(summary) });
+  const persist = vi.fn();
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    scope: 'ineffective-summary-retry', persist,
+  });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(generate.mock.calls[0][0].maxOutputTokens).toBe(2000);
+  expect(generate.mock.calls[1][0].maxOutputTokens).toBe(700);
+  expect(persist).toHaveBeenCalledTimes(1);
+  expect(contextTokens(result)).toBeLessThan(contextTokens(messages));
+});
+
+it('never persists a summary that fails to reduce context after bounded retries', async () => {
+  generate.mockReset();
+  const messages = history();
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
+  generate.mockResolvedValue({ text: JSON.stringify(verbose) });
+  const persist = vi.fn();
+  await expect(compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    scope: 'ineffective-summary-exhausted', persist,
+  })).rejects.toThrow('Context compaction failed');
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it('falls back to the original transcript only when it fits the local budget', async () => {
+  generate.mockReset();
+  generate.mockRejectedValue(new Error('summary provider unavailable'));
+  const messages: ModelMessage[] = [{ role: 'user', content: 'small context' }];
+  const persist = vi.fn();
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    usage: { totalTokens: 6000, messageCount: messages.length },
+    scope: 'safe-fallback', persist,
+  });
+  expect(result).toBe(messages);
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it('refuses oversized original context when summary generation fails', async () => {
+  generate.mockReset();
+  generate.mockRejectedValue(new Error('summary provider unavailable'));
+  const persist = vi.fn();
+  const { ContextCompactionError } = await import('./compaction.js');
+  await expect(compactContext(history(), {
+    model: {}, systemPrompt: '', budget: 5000,
+    scope: 'unsafe-fallback', persist,
+  })).rejects.toBeInstanceOf(ContextCompactionError);
+  expect(persist).not.toHaveBeenCalled();
 });
