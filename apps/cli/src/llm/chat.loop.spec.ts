@@ -320,4 +320,19 @@ describe('CLI Agent loop transcript', () => {
     expect(streamTextMock).toHaveBeenCalledTimes(1);
   });
 
+  it('reports provider cache usage without affecting the model result', async () => {
+    const { modelUsageMetrics } = await import('./chat.js');
+    expect(modelUsageMetrics({
+      inputTokens: 1000, outputTokens: 200,
+      inputTokenDetails: { cacheReadTokens: 750, cacheWriteTokens: 100 },
+    })).toEqual({
+      inputTokens: 1000, outputTokens: 200,
+      cacheReadTokens: 750, cacheWriteTokens: 100,
+    });
+    expect(modelUsageMetrics({ inputTokens: -1, cachedInputTokens: 12 })).toEqual({
+      inputTokens: undefined, outputTokens: undefined,
+      cacheReadTokens: 12, cacheWriteTokens: undefined,
+    });
+  });
+
 });
