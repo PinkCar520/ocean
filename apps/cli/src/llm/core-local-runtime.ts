@@ -112,7 +112,10 @@ export async function runOceanCoreLocal(options: {
       if (decision.kind === 'complete') return [{ role: 'assistant', content: decision.text }];
       const call = decision.calls[0];
       return [
-        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: call.id, toolName: call.name, input: call.input }] },
+        { role: 'assistant', content: [
+          ...(decision.text ? [{ type: 'text', text: decision.text }] : []),
+          { type: 'tool-call', toolCallId: call.id, toolName: call.name, input: call.input },
+        ] },
         { role: 'tool', content: [{ type: 'tool-result', toolCallId: call.id, toolName: call.name, output: { type: 'json', value: result ?? null } }] },
       ] as ModelMessage[];
     },
