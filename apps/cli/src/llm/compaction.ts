@@ -113,6 +113,11 @@ export async function compactContext(messages: ModelMessage[], options: {
   boundary?: 'user' | 'any';
   persist: (snapshot: Compaction) => Promise<void>;
 }): Promise<ModelMessage[]> {
+  // Telemetry is observational: a consumer callback must never change
+  // compaction, persistence, or agent-loop behavior.
+  const emitMetrics = (metrics: CompactionMetrics): void => {
+    try { options.onMetrics?.(metrics); } catch { /* non-critical observer */ }
+  };
   const previous = options.previous;
   const valid = previous && Number.isSafeInteger(previous.covered) && previous.covered > 0 && typeof previous.summary === 'string' && previous.covered <= messages.length && previous.digest === historyDigest(messages.slice(0, previous.covered));
   const effective = valid ? [summaryMessage(previous.summary), ...messages.slice(previous.covered)] : messages;
@@ -126,7 +131,7 @@ export async function compactContext(messages: ModelMessage[], options: {
       : tokenCountWithEstimation(messages, options.usage))
     : contextTokens(effective);
   if (currentTokens + systemTokens < budget) {
-    options.onMetrics?.({ strategy: 'none', beforeTokens: currentTokens + systemTokens, afterTokens: currentTokens + systemTokens, budget });
+    emitMetrics({ strategy: 'none', beforeTokens: currentTokens + systemTokens, afterTokens: currentTokens + systemTokens, budget });
     return effective;
   }
   // First clear stale, replayable tool outputs without touching the durable
@@ -136,7 +141,7 @@ export async function compactContext(messages: ModelMessage[], options: {
   const microcompacted = microcompactMessages(effective);
   if (microcompacted !== effective &&
       contextTokens(microcompacted) + systemTokens < budget) {
-    options.onMetrics?.({ strategy: 'microcompact', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(microcompacted) + systemTokens, budget });
+    emitMetrics({ strategy: 'microcompact', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(microcompacted) + systemTokens, budget });
     return microcompacted;
   }
   // If microcompaction alone cannot fit, summarize the reduced historical
@@ -145,7 +150,7 @@ export async function compactContext(messages: ModelMessage[], options: {
   const originalFits = contextTokens(effective) + systemTokens < budget;
   const cannotCompactSafely = (): ModelMessage[] => {
     if (originalFits) {
-      options.onMetrics?.({ strategy: 'fallback', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(effective) + systemTokens, budget });
+      emitMetrics({ strategy: 'fallback', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(effective) + systemTokens, budget });
       return effective;
     }
     throw new ContextCompactionError('Context exceeds the configured budget and no safe compaction boundary is available.');
@@ -220,7 +225,7 @@ export async function compactContext(messages: ModelMessage[], options: {
     }
     await options.persist(snapshot);
     failures.delete(scope);
-    options.onMetrics?.({ strategy: 'summary', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(compacted) + systemTokens, budget });
+    emitMetrics({ strategy: 'summary', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(compacted) + systemTokens, budget });
     return compacted;
   }
   throw lastError ?? new Error('Context compaction failed');
