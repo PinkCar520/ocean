@@ -36,6 +36,8 @@ export async function runOceanCoreLocal(options: {
   maxSteps?: number;
   streaming?: boolean;
   onText?: (delta: string) => void;
+  onToolCall?: (name: string, input: unknown) => void;
+  onToolResult?: (name: string, result: unknown) => void;
   signal?: AbortSignal;
   resume?: boolean;
 }) {
@@ -76,6 +78,8 @@ export async function runOceanCoreLocal(options: {
     authorization: options.authorization,
     activatedSkill: options.activatedSkill,
     resolveTool,
+    onToolCall: options.onToolCall,
+    onToolResult: options.onToolResult,
     toMessage: decision => ({ role: 'assistant', content: decision.kind === 'complete' ? decision.text : '' }),
     toMessages: (decision, result) => {
       if (decision.kind === 'complete') return [{ role: 'assistant', content: decision.text }];
