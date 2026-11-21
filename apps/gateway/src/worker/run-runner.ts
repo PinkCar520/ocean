@@ -3,7 +3,8 @@ import { policyForRun, permitsSubagentTool, type SubagentPolicy } from '../run/s
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { claimRun, verifyRun, LostRunOwnership } from './run-ownership';
 import { GatewayHooks } from './gateway-hooks';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
 import { countTextTokens } from '@ocean/core';
@@ -92,6 +93,7 @@ export class RunRunner {
     private readonly registry: ToolRegistry,
     private readonly metrics: MetricsService,
     private readonly hooks: GatewayHooks = GatewayHooks.load(),
+    @Optional() private readonly core?: GatewayCoreLifecycle,
   ) {}
 
   private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
@@ -249,6 +251,12 @@ export class RunRunner {
       // 3) model_call 步骤：started（崩溃续跑复用 started 步骤，不重复写事件）
       const step = await this.ensureStepStarted(runId, takeover.input);
       if (!step) return { jobId: job.id, runId, status: 'succeeded' };
+      // Production Worker uses the shared Agent state machine. The same fenced
+      // DB transaction protects Core events and the legacy RunStep owner.
+      if (this.core) await this.fencedTransaction(tx => this.core!.startModel(
+        tx, runId,
+        typeof takeover.settings?.sessionId === 'string' ? takeover.settings.sessionId : undefined,
+      ));
 
       // 4) 模型调用 → 文本增量投影 run.output_delta，同时收集 tool_use
       let buffer = '';
@@ -357,6 +365,7 @@ export class RunRunner {
             completedAt: new Date(),
           },
         });
+        if (this.core) await this.core.finishModel(tx, runId, !stopHook.blocked);
         if (!stopHook.blocked) this.metrics.inc('run.terminal', { status: 'succeeded' });
         await this.appendEvent(tx, runId, {
           id: randomUUID(),
@@ -759,6 +768,8 @@ export class RunRunner {
           output,
         }),
       });
+      if (this.core && toolCall.name !== RUN_INQUIRY_TOOL)
+        await this.core.prepareQueuedTool(tx, runId, toolCall);
       if (toolCall.name !== RUN_INQUIRY_TOOL) {
         await this.outbox.enqueueToolRequested(tx, message, priorityRankOf(priority));
       }
@@ -886,6 +897,7 @@ export class RunRunner {
           });
         }
 
+        if (this.core) await this.core.modelFailed(tx, runId, retryable);
         if (retryable) {
           // 瞬时失败：Run 回到 queued，由 Worker 对 outbox 消息退避重试后再取
           await tx.agentRun.update({
