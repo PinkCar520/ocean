@@ -233,6 +233,46 @@ export class SessionStore {
     return fork;
   }
 
+  /** Read the durable transcript without legacy in-memory journal reconstruction.
+   * Core Runtime owns ordered recovery and never treats a synthesized result
+   * as a committed transcript revision.
+   */
+  async loadPersisted(id: string, workspace: string): Promise<StoredSession> {
+    const draft = this.drafts.get(id);
+    const session = draft ?? await this.readFile(this.filePath(id));
+    if (session.workspace !== path.resolve(workspace))
+      throw new Error('Session belongs to a different workspace.');
+    return structuredClone(session);
+  }
+
+  /** Read-only journal inspection for Core recovery. Missing, corrupt or
+   * incomplete evidence cannot authorize a repeated side effect.
+   */
+  async readToolCallJournal(
+    id: string, workspace: string, toolCallId: string,
+  ): Promise<{ toolName: string; inputDigest: string; state: 'prepared' | 'executing' | 'unknown' | 'succeeded' | 'failed'; output?: unknown } | undefined> {
+    await this.loadPersisted(id, workspace);
+    if (!toolCallId?.trim()) throw new Error('Missing tool invocation identity');
+    const key = createHash('sha256').update(JSON.stringify([id, toolCallId])).digest('hex');
+    const file = path.join(this.rootDir, `journal-${key}.json`);
+    let info;
+    try { info = await fs.lstat(file); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw error;
+    }
+    if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SESSION_BYTES)
+      throw new Error('Unsafe tool journal');
+    const record = JSON.parse(await fs.readFile(file, 'utf8'));
+    if (record.version !== 1 || record.sessionId !== id ||
+        record.workspace !== path.resolve(workspace) || record.toolCallId !== toolCallId ||
+        typeof record.toolName !== 'string' || !record.toolName ||
+        typeof record.inputDigest !== 'string' || !/^[a-f0-9]{64}$/.test(record.inputDigest) ||
+        !['prepared', 'executing', 'unknown', 'succeeded', 'failed'].includes(record.state))
+      throw new Error('Invalid tool journal identity or state');
+    return { toolName: record.toolName, inputDigest: record.inputDigest, state: record.state, output: record.output };
+  }
+
   async load(id: string, workspace: string): Promise<StoredSession> {
     const draft = this.drafts.get(id);
     if (draft) {
