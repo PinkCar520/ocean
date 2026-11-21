@@ -37,7 +37,7 @@ export class ToolRegistry {
     return {
       name: tool.name,
       host: 'remote',
-      validate: input => tool.inputSchema ? tool.inputSchema.parse(input) : input,
+      validate: input => tool.inputSchema ? tool.inputSchema.parseAsync(input) : input,
     };
   }
 
