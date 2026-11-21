@@ -16,7 +16,7 @@ describe('portable runtime contract', () => {
   expect(() => replayRuntime(runId, [created, transition('created', 'completed')])).toThrow('Invalid runtime transition');
  });
  it('blocks completion while a tool result is unknown', () => {
-  const invocation = { id: 'tool-1', runId, toolName: 'shell', input: {}, inputDigest: 'digest', host: 'local' as const };
+  const invocation = { id: 'tool-1', runId, toolName: 'shell', input: {}, inputDigest: '44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a', host: 'local' as const };
   const events: RuntimeEvent[] = [
    created, transition('created', 'preparing_context'), transition('preparing_context', 'calling_model'),
    transition('calling_model', 'validating_tools'), transition('validating_tools', 'executing_tools'),
