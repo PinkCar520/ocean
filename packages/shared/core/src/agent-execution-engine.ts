@@ -14,6 +14,8 @@ export interface AgentTranscriptPort<Message> {
 }
 export interface AgentCompletionPort<Message> {
   verify(messages: readonly Message[], text: string): Promise<readonly string[]>;
+  /** Optional host-provided feedback for a rejected Stop hook; bounded by maxSteps. */
+  onIncomplete?(text: string): Promise<Message | undefined>;
 }
 export interface AgentExecutionPorts<Message> {
   events: RuntimeEventStore;
@@ -107,6 +109,19 @@ export class AgentExecutionEngine<Message> {
         try { checks = await this.ports.completion.verify(messages, decision.text); }
         catch (error) { await runtime.transition(runId, 'failed'); throw error; }
         if (!checks.length) {
+          const feedback = await this.ports.completion.onIncomplete?.(decision.text);
+          if (feedback !== undefined) {
+            const assistant = this.ports.toMessages?.(decision) ?? [this.ports.toMessage(decision)];
+            try {
+              await this.ports.transcript.append(sessionId, messages.length, [...assistant, feedback]);
+            } catch (error) {
+              await runtime.markInterrupted(runId);
+              throw error;
+            }
+            messages.push(...assistant, feedback);
+            await runtime.transition(runId, 'persisting_results');
+            continue;
+          }
           await runtime.transition(runId, 'failed');
           throw new Error('Agent completion verification failed');
         }
