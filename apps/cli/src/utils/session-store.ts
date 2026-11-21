@@ -258,6 +258,45 @@ export class SessionStore {
     return session;
   }
 
+  /** Atomic compare-and-append for the portable Runtime transcript port.
+   * Unlike load() followed by save(), the expectation is checked under
+   * SessionStore's cross-process writer lock.
+   */
+  async appendMessages(id: string, workspace: string, expectedLength: number, messages: readonly ModelMessage[]): Promise<StoredSession> {
+    if (!Number.isSafeInteger(expectedLength) || expectedLength < 0)
+      throw new Error('Invalid transcript expected length');
+    await this.ensureDirectory();
+    const filePath = this.filePath(id);
+    const lock = `${filePath}.lock`;
+    try { await fs.mkdir(lock, { mode: 0o700 }); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+        throw new Error('Agent transcript revision conflict: writer lock exists');
+      throw error;
+    }
+    try {
+      const session = this.drafts.get(id) ?? await this.readFile(filePath);
+      if (session.workspace !== path.resolve(workspace)) throw new Error('Session belongs to a different workspace.');
+      if (session.messages.length !== expectedLength) throw new Error('Agent transcript revision conflict');
+      const nextMessages = [...session.messages, ...structuredClone(messages)];
+      validateTranscript(nextMessages);
+      const next: StoredSession = {
+        ...session,
+        messages: nextMessages,
+        updatedAt: new Date().toISOString(),
+        title: session.title === 'New session' ? firstUserText(nextMessages) || session.title : session.title,
+        revision: (session.revision ?? 0) + 1,
+      };
+      const serialized = JSON.stringify(next);
+      if (Buffer.byteLength(serialized, 'utf8') > MAX_SESSION_BYTES) throw new Error('Session exceeds local storage limit.');
+      await atomicWriteFile(filePath, serialized, { defaultMode: 0o600 });
+      this.drafts.delete(id);
+      return next;
+    } finally {
+      await fs.rmdir(lock);
+    }
+  }
+
   async save(id: string, workspace: string, messages: ModelMessage[]): Promise<StoredSession> {
     const session = await this.load(id, workspace);
     validateTranscript(messages);
