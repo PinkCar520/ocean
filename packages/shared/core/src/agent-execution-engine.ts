@@ -111,6 +111,7 @@ export class AgentExecutionEngine<Message> {
         for (const skill of await this.ports.restoreSkills?.(sessionId) ?? [])
           await runtime.activateSkill(runId, skill.id, skill.source, skill.allowedTools);
       } catch (error) {
+        await runtime.markInterrupted(runId);
         await runtime.transition(runId, 'failed');
         throw error;
       }
