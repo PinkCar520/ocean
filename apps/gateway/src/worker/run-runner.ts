@@ -768,7 +768,7 @@ export class RunRunner {
           output,
         }),
       });
-      if (this.core && toolCall.name !== RUN_INQUIRY_TOOL)
+      if (this.core && toolCall.name !== RUN_INQUIRY_TOOL && toolCall.name !== 'delegate_task')
         await this.core.queueTool(tx, runId, toolCall);
       if (toolCall.name !== RUN_INQUIRY_TOOL) {
         await this.outbox.enqueueToolRequested(tx, message, priorityRankOf(priority));
