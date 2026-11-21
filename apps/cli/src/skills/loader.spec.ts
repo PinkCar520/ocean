@@ -51,4 +51,17 @@ updated`);
     expect(skills).toHaveLength(1);
     expect(skills[0]).toMatchObject({ manifest: { name: 'review' }, content: 'Check the diff.' });
   });
+  it('rejects ambiguous same-priority skill names instead of silently overriding', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const home = path.join(root, 'home');
+    const workspace = path.join(root, 'workspace');
+    await mkdir(home, { recursive: true });
+    for (const directory of ['.claude/skills/review', '.ocean/skills/review']) {
+      const target = path.join(workspace, directory);
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, 'SKILL.md'), '---\nname: review\ndescription: Review\n---\nInstructions');
+    }
+    expect(() => discoverSkills(workspace, home)).toThrow('Conflicting skill definitions');
+  });
+
 });
