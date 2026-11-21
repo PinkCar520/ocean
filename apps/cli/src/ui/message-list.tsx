@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import type { ModelMessage } from 'ai';
 import { ToolCallDisplay } from './tool-call-display.js';
+import { Markdown, StreamingMarkdown } from './markdown/markdown.js';
 
 // Spinner animation frames for "thinking" state
 const SPINNERS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -97,12 +98,15 @@ export function MessageList({
 
         if (msg.role === 'assistant') {
           const content = extractText(msg.content);
+          if (!content.trim()) return null;
 
           return (
             <Box key={i} flexDirection="column" marginBottom={1}>
               <Box>
                 <Text bold color="cyan">{'▸ '}</Text>
-                <Text wrap="wrap">{content}</Text>
+                <Box flexDirection="column" flexShrink={1}>
+                  <Markdown>{content}</Markdown>
+                </Box>
               </Box>
             </Box>
           );
@@ -121,10 +125,10 @@ export function MessageList({
         <Box flexDirection="column" marginBottom={1}>
           <Box>
             <Text bold color="cyan">{'▸ '}</Text>
-            <Text wrap="wrap">
-              {streamingText}
-            </Text>
-            <Text bold color="cyan">{cursorVisible ? CURSOR : ' '}</Text>
+            <Box flexDirection="column" flexShrink={1}>
+              <StreamingMarkdown>{streamingText}</StreamingMarkdown>
+              <Text bold color="cyan">{cursorVisible ? CURSOR : ' '}</Text>
+            </Box>
           </Box>
         </Box>
       )}

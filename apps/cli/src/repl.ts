@@ -703,9 +703,10 @@ async function runReadlineRepl(options: ReplOptions) {
 
   const sessionStore = new SessionStore();
   // Interactive launches always start a new conversation; earlier sessions stay
-  // on disk and can be reopened explicitly via /resume or -r <id>.
+  // on disk and can be reopened explicitly via /resume or -r <id>. The new
+  // conversation stays in memory until it gets its first message.
   const activeSession: { session: StoredSession } = {
-    session: await sessionStore.create(options.workspace),
+    session: sessionStore.createDraft(options.workspace),
   };
   console.log(chalk.gray(`[Session] ${activeSession.session.id} · ${activeSession.session.title}`));
 
@@ -849,7 +850,7 @@ async function handleCommand(
       console.log(chalk.gray('Conversation cleared'));
       break;
     case 'new':
-      sessions.activeSession.session = await sessions.store.create(sessions.workspace);
+      sessions.activeSession.session = sessions.store.createDraft(sessions.workspace);
       messages.length = 0;
       console.log(chalk.gray(`[Session] Started ${sessions.activeSession.session.id}`));
       break;

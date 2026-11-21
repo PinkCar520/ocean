@@ -29,6 +29,8 @@ export interface StoredSession {
 
 export class SessionStore {
   private readonly journalRetentionMs: number;
+  /** Empty sessions built in memory and not yet written to disk. */
+  private readonly drafts = new Map<string, StoredSession>();
   constructor(private readonly rootDir = path.join(os.homedir(), '.ocean', 'sessions'), options: { journalRetentionMs?: number } = {}) {
     this.journalRetentionMs = options.journalRetentionMs ?? Number(process.env.OCEAN_TOOL_JOURNAL_RETENTION_MS ?? 7 * 86400000);
     if (!Number.isSafeInteger(this.journalRetentionMs) || this.journalRetentionMs < 0) throw new Error('Invalid journal retention');
@@ -187,11 +189,18 @@ export class SessionStore {
   async latestOrCreate(workspace: string): Promise<StoredSession> {
     await this.pruneJournal().catch(() => undefined);
     const latest = (await this.list(workspace))[0];
-    return latest ?? this.create(workspace);
+    return latest ?? this.createDraft(workspace);
   }
 
   async create(workspace: string, title = 'New session', id: string = randomUUID()): Promise<StoredSession> {
     await this.ensureDirectory();
+    const session = this.createDraft(workspace, title, id);
+    await this.write(session);
+    return session;
+  }
+
+  /** Build an in-memory session; nothing is written until the first save(). */
+  createDraft(workspace: string, title = 'New session', id: string = randomUUID()): StoredSession {
     const now = new Date().toISOString();
     const session: StoredSession = {
       version: SESSION_VERSION,
@@ -202,7 +211,7 @@ export class SessionStore {
       updatedAt: now,
       messages: [],
     };
-    await this.write(session);
+    this.drafts.set(id, session);
     return session;
   }
 
@@ -225,6 +234,11 @@ export class SessionStore {
   }
 
   async load(id: string, workspace: string): Promise<StoredSession> {
+    const draft = this.drafts.get(id);
+    if (draft) {
+      if (draft.workspace !== path.resolve(workspace)) throw new Error('Session belongs to a different workspace.');
+      return draft;
+    }
     const session = await this.readFile(this.filePath(id));
     if (session.workspace !== path.resolve(workspace)) {
       throw new Error('Session belongs to a different workspace.');
@@ -255,6 +269,8 @@ export class SessionStore {
     if (session.usage && session.usage.messageCount > messages.length) session.usage = undefined;
     session.updatedAt = new Date().toISOString();
     if (session.title === 'New session') session.title = firstUserText(messages) || session.title;
+    // An untouched empty draft stays in memory instead of creating an empty session file.
+    if (messages.length === 0 && this.drafts.has(id)) return session;
     await this.write(session);
     return session;
   }
@@ -356,6 +372,7 @@ export class SessionStore {
       await atomicWriteFile(filePath, serialized, { defaultMode: 0o600 });
       session.revision = next.revision;
       await fs.chmod(filePath, 0o600);
+      this.drafts.delete(session.id);
     } finally { await fs.rmdir(lock); }
   }
 }

@@ -70,7 +70,14 @@ export function InkApp(props: InkAppProps) {
   const [commandType, setCommandType] = useState<'help' | 'model' | 'skills' | 'tools' | 'mcp' | 'tasks' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string>('');
+  const [showExitHint, setShowExitHint] = useState(false);
+  const exitHintArmed = useRef(false);
+  const exitHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeAbortController = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    if (exitHintTimer.current) clearTimeout(exitHintTimer.current);
+  }, []);
 
   const models = props.modelRouter.listModels();
 
@@ -240,7 +247,7 @@ export function InkApp(props: InkAppProps) {
         break;
 
       case 'new':
-        props.activeSession.session = await props.sessionStore.create(props.workspace);
+        props.activeSession.session = props.sessionStore.createDraft(props.workspace);
         setMessages([]);
         setCommandOutput(`Started session ${props.activeSession.session.id}`);
         setCommandType('help');
@@ -378,6 +385,18 @@ export function InkApp(props: InkAppProps) {
       activeAbortController.current?.abort(new Error('Stopped by user'));
       return;
     }
+    if (input === 'c' && key.ctrl) {
+      // 连续按两次 Ctrl-C 才退出，第一次给出提示。
+      if (exitHintArmed.current) exit();
+      exitHintArmed.current = true;
+      setShowExitHint(true);
+      if (exitHintTimer.current) clearTimeout(exitHintTimer.current);
+      exitHintTimer.current = setTimeout(() => {
+        exitHintArmed.current = false;
+        setShowExitHint(false);
+      }, 2000);
+      return;
+    }
     if (input === 'd' && key.ctrl) {
       exit();
     }
@@ -417,6 +436,12 @@ export function InkApp(props: InkAppProps) {
         isThinking={isThinking}
         onSubmit={handleSubmit}
       />
+
+      {showExitHint && (
+        <Box marginLeft={3}>
+          <Text color="gray">Press Ctrl-C again to exit</Text>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -482,12 +507,13 @@ export async function runInkApp(options: { userId: string; workspace: string; co
   const sessionStore = new SessionStore();
   // Default: every interactive launch starts a fresh conversation; previous
   // sessions are persisted and can be reopened with -r/--resume or -c/--continue.
+  // A fresh conversation stays in memory and is only written once it has messages.
   const activeSession: { session: StoredSession } = {
     session: options.resume
       ? await sessionStore.load(options.resume, options.workspace)
       : options.continueSession
         ? await sessionStore.latestOrCreate(options.workspace)
-        : await sessionStore.create(options.workspace),
+        : sessionStore.createDraft(options.workspace),
   };
 
   const modes = new Map<string, PermissionMode>();
@@ -532,12 +558,14 @@ export async function runInkApp(options: { userId: string; workspace: string; co
       systemPrompt={systemPrompt}
       approvalHandler={approvalHandler}
     />,
-    { exitOnCtrlC: true },
+    { exitOnCtrlC: false },
   );
 
   await waitUntilExit();
   await mcpManager.disconnectAll();
-  process.stdout.write(`\nResume this session with:\nocean --resume ${activeSession.session.id}\n`);
+  if (activeSession.session.messages.length > 0) {
+    process.stdout.write(`\nResume this session with:\nocean --resume ${activeSession.session.id}\n`);
+  }
   process.exit(0);
 }
 

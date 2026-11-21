@@ -155,7 +155,8 @@ program
       .some(value => value !== undefined);
     const localToolOptions = options.permissionMode || options.settings || options.settingSources !== undefined
       || options.allowTool.length || options.denyTool.length;
-    const printOptions = customPrompt || options.maxTurns !== undefined || options.forkSession || options.continue || options.resume || options.sessionPersistence === false || options.tools !== undefined || localToolOptions;
+    // -c/--continue and -r/--resume also work in interactive mode, so they are not print-only.
+    const printOptions = customPrompt || options.maxTurns !== undefined || options.forkSession || options.sessionPersistence === false || options.tools !== undefined || localToolOptions;
     if (!options.print && (options.outputFormat || options.inputFormat || options.replayUserMessages || printOptions)) {
       program.error('error: print options require --print');
     }
