@@ -281,6 +281,12 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   expect(steps.filter(s => s.kind === 'model_call' && s.status === 'succeeded')).toHaveLength(2);
   expect(steps.filter(s => s.kind === 'tool_call' && s.status === 'succeeded')).toHaveLength(1);
   expect(await db.outboxEvent.count({ where: { aggregateId: runId, topic: 'tool.requested', status: 'processed' } })).toBe(1);
+  const runtimeEvents = await new PrismaRuntimeEventStore(db).read(runId);
+  expect(runtimeEvents.map(event => event.type)).toEqual(expect.arrayContaining([
+   'run.created', 'tool.proposed', 'tool.prepared', 'tool.settled', 'run.completion_verified',
+  ]));
+  expect(runtimeEvents.filter(event => event.type === 'run.transitioned').at(-1))
+   .toMatchObject({ type: 'run.transitioned', to: 'completed' });
  }, 15000);
  it('completes three provider tool rounds through HTTP, persisted Worker and final model response', async () => {
   const initialRequests = providerContract.requests.length;
