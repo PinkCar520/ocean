@@ -11,12 +11,13 @@ export interface RuntimeIdentity {
   /** A session may contain multiple runs, but each run has one stable identity. */
   stepId?: string;
 }
-export type RuntimeEvent =
+export type RuntimeEvent = (
   | { type: 'run.created'; runId: string; at: string; sessionId?: string; schemaVersion?: 1 }
   | { type: 'run.transitioned'; runId: string; at: string; from: RuntimeState; to: RuntimeState }
   | { type: 'tool.prepared'; runId: string; at: string; invocation: ToolInvocation }
   | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
-  | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown };
+  | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown }
+) & { schemaVersion?: 1 };
 export interface ToolInvocation {
   id: string;
   runId: string;
@@ -69,9 +70,9 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
   let sessionId: string | undefined;
   for (const event of events) {
     if (event.runId !== runId) throw new Error('Runtime event belongs to another run');
+    if (event.schemaVersion !== undefined && event.schemaVersion !== 1) throw new Error('Unsupported runtime event schema');
     if (event.type === 'run.created') {
       if (created || revision !== 0) throw new Error('Duplicate run creation');
-      if (event.schemaVersion !== undefined && event.schemaVersion !== 1) throw new Error('Unsupported runtime event schema');
       if (event.sessionId !== undefined && !event.sessionId.trim()) throw new Error('Invalid runtime session identity');
       sessionId = event.sessionId;
       created = true;
