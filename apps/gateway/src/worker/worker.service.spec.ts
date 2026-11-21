@@ -16,6 +16,8 @@ function createWorker(
     executeResult?: unknown;
     executeError?: unknown;
     staleRuns?: Array<{ id: string; userId: string }>;
+    unknownSteps?: Array<{ id: string }>;
+    reconcileError?: Error;
   } = {},
 ) {
   const outbox = {
@@ -66,7 +68,9 @@ function createWorker(
     },
   };
 
+  const reconciler = { reconcile: options.reconcileError ? jest.fn().mockRejectedValue(options.reconcileError) : jest.fn().mockResolvedValue('unknown') };
   const prisma = {
+    runStep: { findMany: jest.fn().mockResolvedValue(options.unknownSteps ?? []) },
     $transaction: jest.fn(async (cb: (t: typeof tx) => Promise<unknown>) =>
       cb(tx),
     ),
@@ -80,8 +84,10 @@ function createWorker(
     toolExecutor as never,
     outbox as never,
     prisma as never,
+    undefined,
+    reconciler as never,
   );
-  return { worker, outbox, runner, toolExecutor, prisma, tx };
+  return { worker, outbox, runner, toolExecutor, prisma, tx, reconciler };
 }
 
 const flush = (): Promise<void> =>
@@ -91,6 +97,35 @@ describe('WorkerService', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+  });
+
+  it('queries unknown tool outcomes before dispatch without replaying their side effects', async () => {
+    const { worker, prisma, reconciler, runner } = createWorker({
+      unknownSteps: [{ id: 'unknown-1' }, { id: 'unknown-2' }],
+    });
+    worker.start();
+    await flush();
+    await flush();
+    worker.stop();
+    expect(prisma.runStep.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { kind: 'tool_call', status: 'unknown' }, take: 20,
+    }));
+    expect(reconciler.reconcile).toHaveBeenCalledTimes(2);
+    expect(reconciler.reconcile).toHaveBeenNthCalledWith(1, 'unknown-1');
+    expect(reconciler.reconcile).toHaveBeenNthCalledWith(2, 'unknown-2');
+    expect(runner.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues dispatching when an outcome query fails, without retrying the side effect', async () => {
+    const { worker, reconciler, runner } = createWorker({
+      unknownSteps: [{ id: 'lost-result' }], reconcileError: new Error('provider timeout'),
+    });
+    worker.start();
+    await flush();
+    await flush();
+    worker.stop();
+    expect(reconciler.reconcile).toHaveBeenCalledWith('lost-result');
+    expect(runner.execute).toHaveBeenCalledTimes(1);
   });
 
   it('claims, executes and acknowledges a run job', async () => {
