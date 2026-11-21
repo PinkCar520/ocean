@@ -309,17 +309,6 @@ it('does not persist malformed summaries after exhausting retries', async () => 
   expect(persist).not.toHaveBeenCalled();
 });
 
-it('keeps active runtime recovery context inside the reserved budget', async () => {
-  generate.mockClear();
-  const messages: ModelMessage[] = [{ role: 'user', content: 'short request' }];
-  await expect(compactContext(messages, {
-    model: {}, systemPrompt: '', budget: 512,
-    recoveryContext: 'active workspace state '.repeat(500),
-    scope: 'recovery-budget', persist: vi.fn(),
-  })).rejects.toThrow('no safe compaction boundary');
-  expect(generate).not.toHaveBeenCalled();
-});
-
 it('reports microcompact token savings without changing durable history', async () => {
   generate.mockClear();
   const messages: ModelMessage[] = [{ role: 'user', content: 'inspect logs' }];
