@@ -11,6 +11,8 @@ import { FileRuntimeEventStore } from '../utils/runtime-event-store.js';
 import { SessionTranscriptPort } from '../utils/agent-transcript-port.js';
 import { createCliRuntimeRecovery } from '../utils/core-runtime-recovery.js';
 import type { SessionStore } from '../utils/session-store.js';
+import type { LoadedSkill } from '../types.js';
+import { createSessionSkillPort } from '../skills/core-session-skills.js';
 import { createCliToolHost } from '../tools/core-tool-adapter.js';
 import { createAiSdkModelPort } from './core-model-adapter.js';
 import { createAiSdkStreamingModelPort } from './core-streaming-model-adapter.js';
@@ -27,13 +29,15 @@ export async function runOceanCoreLocal(options: {
   model: Parameters<typeof createAiSdkModelPort>[0]['model'];
   systemPrompt: string;
   tools: Record<string, any>;
+  /** The discovery catalog is the authority for Skill allowed-tools. */
+  skills?: readonly LoadedSkill[];
   authorization: ToolAuthorization;
   completion: AgentCompletionPort<ModelMessage>;
   reconcileRecovery?: import('@ocean/core').AgentExecutionPorts<ModelMessage>['reconcileRecovery'];
   verifyTranscript?: import('@ocean/core').AgentExecutionPorts<ModelMessage>['verifyTranscript'];
   verifyToolJournal?: import('@ocean/core').AgentExecutionPorts<ModelMessage>['verifyToolJournal'];
   prepareContext?: (messages: readonly ModelMessage[], signal?: AbortSignal) => Promise<readonly ModelMessage[]>;
-  activatedSkill?: (toolName: string, result: unknown) => { id: string; source: 'plugin' | 'user' | 'project' } | undefined;
+  activatedSkill?: (toolName: string, result: unknown) => { id: string; source: 'plugin' | 'user' | 'project'; allowedTools?: readonly string[] } | undefined;
   runtimeDirectory?: string;
   maxSteps?: number;
   streaming?: boolean;
@@ -75,6 +79,7 @@ export async function runOceanCoreLocal(options: {
   };
   const events = new FileRuntimeEventStore(options.runtimeDirectory ?? join(homedir(), '.ocean', 'runtime'));
   const recovery = createCliRuntimeRecovery(options.sessionStore, options.workspace, events);
+  const skillPort = createSessionSkillPort(options.skills ?? []);
   const engine = new AgentExecutionEngine<ModelMessage>({
     events,
     host,
@@ -103,7 +108,12 @@ export async function runOceanCoreLocal(options: {
       (!options.verifyTranscript || await options.verifyTranscript(sessionId, runId, history)),
     prepareContext: options.prepareContext,
     authorization: options.authorization,
-    activatedSkill: options.activatedSkill,
+    restoreSkills: async sessionId => {
+      const session = await options.sessionStore.loadPersisted(sessionId, options.workspace);
+      return skillPort.restoreSkills(session.messages);
+    },
+    activatedSkill: (name, result) =>
+      skillPort.activatedSkill(name, result) ?? options.activatedSkill?.(name, result),
     resolveTool,
     onToolCall: options.onToolCall,
     onToolResult: options.onToolResult,
