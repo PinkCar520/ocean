@@ -241,3 +241,19 @@ it('reconstructs a reconciled failed journal after a lost tool result', async ()
   expect(recovered.messages[2]).toMatchObject({ role: 'tool', content: [{ type: 'tool-result', toolCallId: 'failed-reconciled', toolName: 'remote_tool', output: { error: 'remote rejected' } }] });
  } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+it('ignores forged terminal journals with mismatched filenames or absent outputs', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-journal-integrity-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'safe recovery' }] as any);
+  await store.executeToolCall(session.id, root, 'real-call', 'file_read', { path: 'a' }, async () => ({ ok: true }));
+  const journalName = (await readdir(root)).find(name => name.startsWith('journal-') && name.endsWith('.json'))!;
+  const journal = JSON.parse(await readFile(path.join(root, journalName), 'utf8'));
+  await writeFile(path.join(root, 'journal-forged.json'), JSON.stringify({ ...journal, toolCallId: 'forged-call', output: { ok: false } }));
+  await writeFile(path.join(root, journalName), JSON.stringify({ ...journal, output: undefined }));
+  const restored = await new SessionStore(root).load(session.id, root);
+  expect(restored.messages).toEqual([{ role: 'user', content: 'safe recovery' }]);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
