@@ -155,6 +155,12 @@ export function loadSkillsFromDir(skillsDir: string): LoadedSkill[] {
 /**
  * Build skill catalog XML for system prompt (AgentSkills Tier 1)
  */
+function escapeCatalogXml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;',
+  })[character]!);
+}
+
 export function buildCatalogXml(skills: LoadedSkill[]): string {
   if (skills.length === 0) {
     return '<available_skills />\n';
@@ -163,10 +169,10 @@ export function buildCatalogXml(skills: LoadedSkill[]): string {
   let xml = '<available_skills>\n';
   for (const skill of skills) {
     xml += `  <skill>\n`;
-    xml += `    <name>${skill.manifest.name}</name>\n`;
-    xml += `    <description>${skill.manifest.description}</description>\n`;
+    xml += `    <name>${escapeCatalogXml(skill.manifest.name)}</name>\n`;
+    xml += `    <description>${escapeCatalogXml(skill.manifest.description)}</description>\n`;
     if (skill.manifest['allowed-tools']) {
-      xml += `    <allowed-tools>${skill.manifest['allowed-tools'].join(', ')}</allowed-tools>\n`;
+      xml += `    <allowed-tools>${escapeCatalogXml(skill.manifest['allowed-tools'].join(', '))}</allowed-tools>\n`;
     }
     xml += `  </skill>\n`;
   }
