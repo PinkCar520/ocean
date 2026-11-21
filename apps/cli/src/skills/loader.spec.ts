@@ -64,4 +64,25 @@ updated`);
     expect(() => discoverSkills(workspace, home)).toThrow('Conflicting skill definitions');
   });
 
+  it('parses quoted and multiline YAML and rejects invalid typed manifests', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const skillsDir = path.join(root, 'skills');
+    const valid = path.join(skillsDir, 'valid');
+    const invalid = path.join(skillsDir, 'invalid');
+    await mkdir(valid, { recursive: true });
+    await mkdir(invalid, { recursive: true });
+    await writeFile(path.join(valid, 'SKILL.md'), [
+      '---', 'name: "review"', 'description: >', '  Review code', '  carefully',
+      'allowed-tools:', '  - "file_read"', '  - "grep"', '---', 'Do the review.',
+    ].join('\n'));
+    await writeFile(path.join(invalid, 'SKILL.md'), [
+      '---', 'name: invalid', 'description: 42', 'allowed-tools: [file_read]', '---', 'Do not load.',
+    ].join('\n'));
+    const skills = loadSkillsFromDir(skillsDir);
+    expect(skills).toHaveLength(1);
+    expect(skills[0].manifest).toMatchObject({
+      name: 'review', description: 'Review code carefully', 'allowed-tools': ['file_read', 'grep'],
+    });
+  });
+
 });
