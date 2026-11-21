@@ -307,4 +307,17 @@ describe('CLI Agent loop transcript', () => {
     expect(streamTextMock).toHaveBeenCalledTimes(1);
   });
 
+  it('never replays a tool when provider omits tool-call chunks', async () => {
+    const execute = vi.fn().mockResolvedValue({ ok: true });
+    streamTextMock.mockImplementation(async (options) => {
+      await options.tools.write.execute({ path: 'file.txt', content: 'data' });
+      return { text: 'partial', finishReason: 'other', responseMessages: [] };
+    });
+    await expect(runChatLoop([{ role: 'user', content: 'write' }], {
+      model: {}, systemPrompt: '', tools: { write: { execute } },
+    })).rejects.toThrow('Model stream incomplete');
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+  });
+
 });
