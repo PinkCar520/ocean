@@ -30,6 +30,9 @@ export interface AgentExecutionPorts<Message> {
   verifyTranscript?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<boolean>;
   authorization: ToolAuthorization;
   resolveTool(name: string): ToolDescriptor | undefined;
+  /** Observational callbacks never authorize or execute tools. */
+  onToolCall?(name: string, input: unknown): void;
+  onToolResult?(name: string, result: unknown): void;
   toMessage(decision: AgentModelDecision, result?: unknown): Message;
   /** Adapters with structured tool-call/result pairs may emit multiple messages. */
   toMessages?(decision: AgentModelDecision, result?: unknown): readonly Message[];
@@ -140,7 +143,9 @@ export class AgentExecutionEngine<Message> {
       try {
         for (const { call, descriptor } of prepared) {
           signal?.throwIfAborted();
+          try { this.ports.onToolCall?.(call.name, call.input); } catch { /* telemetry cannot affect execution */ }
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
+          try { this.ports.onToolResult?.(call.name, result); } catch { /* telemetry cannot affect execution */ }
           const activated = this.ports.activatedSkill?.(call.name, result);
           if (activated) await runtime.activateSkill(runId, activated.id, activated.source);
           const toolDecision: AgentModelDecision = { kind: 'tools', calls: [call] };
