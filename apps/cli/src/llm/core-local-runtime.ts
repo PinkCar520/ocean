@@ -9,6 +9,7 @@ import {
 } from '@ocean/core';
 import { FileRuntimeEventStore } from '../utils/runtime-event-store.js';
 import { SessionTranscriptPort } from '../utils/agent-transcript-port.js';
+import { createCliRuntimeRecovery } from '../utils/core-runtime-recovery.js';
 import type { SessionStore } from '../utils/session-store.js';
 import { createCliToolHost } from '../tools/core-tool-adapter.js';
 import { createAiSdkModelPort } from './core-model-adapter.js';
@@ -72,8 +73,10 @@ export async function runOceanCoreLocal(options: {
       },
     ),
   };
+  const events = new FileRuntimeEventStore(options.runtimeDirectory ?? join(homedir(), '.ocean', 'runtime'));
+  const recovery = createCliRuntimeRecovery(options.sessionStore, options.workspace, events);
   const engine = new AgentExecutionEngine<ModelMessage>({
-    events: new FileRuntimeEventStore(options.runtimeDirectory ?? join(homedir(), '.ocean', 'runtime')),
+    events,
     host,
     model: options.streaming
       ? createAiSdkStreamingModelPort({
@@ -88,9 +91,16 @@ export async function runOceanCoreLocal(options: {
           tools: options.tools,
         }),
     transcript: new SessionTranscriptPort(options.sessionStore, options.workspace),
-    reconcileRecovery: options.reconcileRecovery,
-    verifyToolJournal: options.verifyToolJournal,
-    verifyTranscript: options.verifyTranscript,
+    reconcileRecovery: async (sessionId, runId, history) => {
+      await recovery.reconcileRecovery(sessionId, runId, history);
+      await options.reconcileRecovery?.(sessionId, runId, await events.read(runId));
+    },
+    verifyToolJournal: async (sessionId, runId, history) =>
+      await recovery.verifyToolJournal(sessionId, runId, history) &&
+      (!options.verifyToolJournal || await options.verifyToolJournal(sessionId, runId, await events.read(runId))),
+    verifyTranscript: async (sessionId, runId, history) =>
+      await recovery.verifyTranscript(sessionId) &&
+      (!options.verifyTranscript || await options.verifyTranscript(sessionId, runId, history)),
     prepareContext: options.prepareContext,
     authorization: options.authorization,
     activatedSkill: options.activatedSkill,
