@@ -192,3 +192,20 @@ describe('tool approval integrity', () => {
   expect(calls).toBe(0);
  });
 });
+
+import { assembleContext, validateCompaction } from '@ocean/core';
+
+describe('shared context acceptance', () => {
+ it('preserves mandatory context while composing layers', () => {
+  expect(assembleContext({ l0: ['system', 'goal'], l1: ['latest'], l2: ['decision'] }))
+   .toEqual(['system', 'goal', 'decision', 'latest']);
+ });
+ it('rejects summaries that grow, exceed budget or break tool relationships', () => {
+  const valid = { beforeTokens: 900, afterTokens: 400, budgetTokens: 800,
+   summaryValid: true, toolPairsClosed: true, preservesRequiredContext: true };
+  expect(() => validateCompaction(valid)).not.toThrow();
+  expect(() => validateCompaction({ ...valid, afterTokens: 901 })).toThrow('did not reduce');
+  expect(() => validateCompaction({ ...valid, afterTokens: 800 })).toThrow('exceeds');
+  expect(() => validateCompaction({ ...valid, toolPairsClosed: false })).toThrow('integrity');
+ });
+});
