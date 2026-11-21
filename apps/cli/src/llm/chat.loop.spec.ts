@@ -17,7 +17,7 @@ vi.mock('ai', async (importOriginal) => ({
 }));
 
 import { activeSkillInstructions, runChatLoop } from './chat.js';
-import { historyDigest } from './compaction.js';
+import { contextTokens, historyDigest } from './compaction.js';
 
 describe('CLI Agent loop transcript', () => {
   beforeEach(() => {
@@ -356,9 +356,18 @@ describe('CLI Agent loop transcript', () => {
   });
 
   it('recovers once from prompt overflow using a smaller context budget', async () => {
+    // Repeated characters tokenize very cheaply; construct a deterministic
+    // token-rich fixture that fits the initial 20k budget but exceeds the
+    // 14k retry budget, so recovery must actually compact the transcript.
     const messages = Array.from({ length: 12 }, (_, i) => ({
-      role: 'user' as const, content: `history ${i}: ${'x'.repeat(5500)}`,
+      role: 'user' as const,
+      content: `history ${i}: ${Array.from({ length: 350 }, (_, j) => `item-${i}-${j}`).join(' ')}`,
     }));
+    let extra = 0;
+    while (contextTokens(messages) < 16000) {
+      messages[0].content += ` unique-token-${extra++}`;
+    }
+    expect(contextTokens(messages)).toBeLessThan(20000);
     const persist = vi.fn();
     generateTextMock.mockResolvedValue({
       text: JSON.stringify({ goal: 'complete task', constraints: [], fileChanges: [],
