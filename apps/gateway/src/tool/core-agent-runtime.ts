@@ -20,6 +20,8 @@ export function createGatewayAgentCore<Message>(options: {
   toolContext: ToolContext;
   model: AgentModelPort<Message>;
   transcript: AgentTranscriptPort<Message>;
+  reconcileRecovery?: import('@ocean/core').AgentExecutionPorts<Message>['reconcileRecovery'];
+  verifyToolJournal?: import('@ocean/core').AgentExecutionPorts<Message>['verifyToolJournal'];
   completion: AgentCompletionPort<Message>;
   authorization: ToolAuthorization;
   toMessage: (decision: import('@ocean/core').AgentModelDecision, result?: unknown) => Message;
@@ -31,6 +33,8 @@ export function createGatewayAgentCore<Message>(options: {
     host,
     model: options.model,
     transcript: options.transcript,
+    reconcileRecovery: options.reconcileRecovery,
+    verifyToolJournal: options.verifyToolJournal,
     authorization: options.authorization,
     resolveTool,
     toMessage: options.toMessage,
