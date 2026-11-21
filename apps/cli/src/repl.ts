@@ -9,10 +9,14 @@ import { LifecycleHooks } from './utils/lifecycle-hooks.js';
 import type { ModelMessage } from 'ai';
 import type { CliConfig, LoadedSkill, ToolContext } from './types.js';
 import { createModelRouter } from './llm/model-router.js';
+import { runOceanCoreLocal } from './llm/core-local-runtime.js';
+import { createCliToolAuthorization } from './tools/core-tool-authorization.js';
+import { compactContext } from './llm/compaction.js';
 import {
   buildSystemPrompt,
   TurnInterruptedError,
   runChatLoop,
+  normalizeApprovalHandler,
   runChatLoopViaGateway,
   type OceanPromptEvent,
 } from './llm/chat.js';
@@ -609,6 +613,85 @@ async function runSingleQuery(
       : gatewayApproval;
     let streamedText = '';
     if (sessionStore && sessionId) session = await sessionStore.save(sessionId, options.workspace, messages);
+
+    // Structured CLI sessions use the shared portable Agent ExecutionEngine.
+    // Legacy chat remains available for environments without session storage.
+    if (sessionStore && sessionId && options.print && process.env.OCEAN_AGENT_CORE !== 'legacy') {
+      const handler = approvalHandler ? normalizeApprovalHandler(approvalHandler) : undefined;
+      const authorization = createCliToolAuthorization(approvalPolicy,
+        handler ? async context => {
+          const decision = await handler({
+            toolName: context.toolName,
+            toolCallId: context.invocationId,
+            args: context.input as Record<string, unknown>,
+            sessionId,
+            workspace: options.workspace,
+            policyVersion: approvalPolicy.getPolicyVersion(),
+            signal,
+          });
+          if (decision.persistUpdates) await decision.persistUpdates();
+          // Updated inputs require validation and a new approval; never reuse
+          // a verdict for mutated parameters or an interrupted turn.
+          return decision.kind === 'approved' && !decision.interrupt && !decision.updatedInput;
+        } : undefined,
+        tools,
+      );
+      let stopFeedback: string | undefined;
+      await runOceanCoreLocal({
+        sessionStore, sessionId, runId: crypto.randomUUID(), workspace: options.workspace,
+        model, tools, systemPrompt, authorization, streaming: true, signal,
+        maxSteps: options.maxTurns,
+        completion: {
+          verify: async (_, text) => {
+            if (!text.trim()) return [];
+            const stop = await hooks.run('Stop', { last_assistant_message: text }, signal);
+            if (stop.blocked) {
+              stopFeedback = stop.reason || 'Continue working before stopping.';
+              return [];
+            }
+            return ['Stop hook accepted'];
+          },
+          onIncomplete: async () => stopFeedback
+            ? { role: 'user', content: `Stop hook feedback: ${stopFeedback}` }
+            : undefined,
+        },
+        prepareContext: async request => compactContext([...request], {
+          model, systemPrompt, signal,
+          scope: sessionId,
+          previous: session?.compaction,
+          usage: session?.usage,
+          persist: async snapshot => {
+            session = await sessionStore.saveCompaction(sessionId, options.workspace, snapshot);
+          },
+        }),
+        beforeToolUse: async (name, input, callId) => {
+          const result = await hooks.run('PreToolUse', {
+            tool_name: name, tool_input: input, tool_use_id: callId,
+          }, signal);
+          return result.blocked ? result.reason || 'PreToolUse hook blocked execution.' : undefined;
+        },
+        afterToolUse: async (name, input, callId, output) => {
+          const result = await hooks.run('PostToolUse', {
+            tool_name: name, tool_input: input, tool_use_id: callId, tool_response: output,
+          }, signal);
+          return result.blocked ? { result: output, hookFeedback: result.reason } : output;
+        },
+        onToolFailure: async (name, input, callId, error) => {
+          await hooks.run('ToolUseFailure', {
+            tool_name: name, tool_input: input, tool_use_id: callId, error: String(error),
+          }, signal);
+        },
+        onToolCall: (name, input) => onEvent?.({ type: 'tool_call', name, input }),
+        onToolResult: (name, result) => onEvent?.({ type: 'tool_result', name, result }),
+        onText: text => {
+          if (!streamedText) spinner?.stop();
+          onText(text);
+          streamedText += text;
+        },
+      });
+      if (!options.print && streamedText) process.stdout.write('\\n');
+      return sessionId;
+    }
 
     const result = await runChatLoop(messages, {
       ...(options.toolNames && !options.toolNames.has('delegate_task') ? {} : {
