@@ -209,3 +209,19 @@ describe('shared context acceptance', () => {
   expect(() => validateCompaction({ ...valid, toolPairsClosed: false })).toThrow('integrity');
  });
 });
+
+import { resolveSkills, skillAllowedTools } from '@ocean/core';
+
+describe('skills runtime policy boundary', () => {
+ it('prefers project definitions and rejects same-source name conflicts', () => {
+  const plugin = { id: 'plugin/a', name: 'review', source: 'plugin' as const };
+  const project = { id: 'project/a', name: 'review', source: 'project' as const };
+  expect(resolveSkills([project, plugin])).toEqual([project]);
+  expect(() => resolveSkills([plugin, { ...plugin, id: 'plugin/b' }])).toThrow('Conflicting');
+ });
+ it('never grants tools absent from host policy', () => {
+  const skill = { id: 'a', name: 'a', source: 'project' as const, allowedTools: ['shell', 'read', 'admin'] };
+  expect(skillAllowedTools(skill, ['read'])).toEqual(['read']);
+  expect(skillAllowedTools({ ...skill, allowedTools: undefined }, ['read'])).toEqual(['read']);
+ });
+});
