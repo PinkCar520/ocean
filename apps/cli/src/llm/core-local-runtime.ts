@@ -36,6 +36,7 @@ export async function runOceanCoreLocal(options: {
   streaming?: boolean;
   onText?: (delta: string) => void;
   signal?: AbortSignal;
+  resume?: boolean;
 }) {
   const { host, resolveTool } = createCliToolHost(options.tools);
   const engine = new AgentExecutionEngine<ModelMessage>({
@@ -71,5 +72,7 @@ export async function runOceanCoreLocal(options: {
     },
     completion: options.completion,
   });
-  return engine.run(options.sessionId, options.runId, options.maxSteps, options.signal);
+  return options.resume
+    ? engine.resume(options.sessionId, options.runId, options.maxSteps, options.signal)
+    : engine.run(options.sessionId, options.runId, options.maxSteps, options.signal);
 }
