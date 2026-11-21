@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { countTextTokens } from '@ocean/core';
+import { countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -530,14 +530,27 @@ export class RunRunner {
           if (countTextTokens(summary) > 1024) summary = previousSummary || summary.slice(0, 720);
         }
       }
+    }
+    const afterTokens = countTextTokens(JSON.stringify(rows)) + countTextTokens(summary);
+    const beforeTokens = countTextTokens(JSON.stringify(history));
+    // The current user prompt and system policy are outside chatHistory and
+    // must never be discarded as a side effect of summarizing older turns.
+    if (boundary > 0) {
+      validateCompaction({
+        beforeTokens, afterTokens, budgetTokens: historyBudget,
+        summaryValid: Boolean(summary?.trim()),
+        toolPairsClosed: true, // History rows contain turns; paired tools are rebuilt separately.
+        preservesRequiredContext: typeof input === 'string' && input.trim().length > 0,
+      });
       await this.fencedTransaction(async tx => {
         await tx.agentRun.update({ where: { id: runId }, data: {
           metadata: { ...metadata, chatCompaction: { boundary, summary, fingerprint: fingerprint(boundary), ...(summaryUsage && { usage: summaryUsage }) } } as Prisma.InputJsonValue,
         } });
       });
+    } else if (afterTokens >= historyBudget) {
+      throw new ContextBudgetError('Gateway conversation context exceeds budget without a safe compaction boundary');
     }
-    return { rows, ...(summary && { summary }),
-      toolBudget: Math.max(0, historyBudget - countTextTokens(JSON.stringify(rows)) - countTextTokens(summary)) };
+    return { rows, ...(summary && { summary }), toolBudget: historyBudget - afterTokens };
   }
 
   private async restoreChatHistory(
