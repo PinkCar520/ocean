@@ -61,14 +61,17 @@ export class AgentExecutionEngine<Message> {
     }
     let messages = [...await this.ports.transcript.load(sessionId)];
     for (let step = 0; step < maxSteps; step++) {
-      signal?.throwIfAborted();
+      if (signal?.aborted) {
+        await runtime.transition(runId, 'cancelled');
+        signal.throwIfAborted();
+      }
       await runtime.transition(runId, 'preparing_context');
       await runtime.transition(runId, 'calling_model');
       let decision: AgentModelDecision;
       try {
         decision = await this.ports.model.next(messages, signal);
       } catch (error) {
-        await runtime.transition(runId, signal?.aborted ? 'interrupted' : 'failed');
+        await runtime.transition(runId, signal?.aborted ? 'cancelled' : 'failed');
         throw error;
       }
       if (decision.kind === 'complete') {
@@ -111,7 +114,7 @@ export class AgentExecutionEngine<Message> {
           messages.push(message);
         }
       } catch (error) {
-        await runtime.transition(runId, 'interrupted');
+        await runtime.transition(runId, signal?.aborted ? 'cancelled' : 'interrupted');
         throw error;
       }
       await runtime.transition(runId, 'persisting_results');
