@@ -256,3 +256,14 @@ describe('completion evidence', () => {
   expect((await runtime.transition('r', 'completed')).state).toBe('completed');
  });
 });
+
+describe('skill activation replay', () => {
+ it('recovers active skills from persisted run events', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const runtime = new AgentRuntime(store, { execute: async () => undefined });
+  await runtime.create('r', 'session');
+  await runtime.activateSkill('r', 'review', 'project');
+  const restarted = new AgentRuntime(store, { execute: async () => undefined });
+  expect((await restarted.snapshot('r')).activeSkills).toEqual(['review']);
+ });
+});
