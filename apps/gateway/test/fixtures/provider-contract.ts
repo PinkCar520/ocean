@@ -28,12 +28,16 @@ export async function startProviderContract() {
         res.flushHeaders();
         return;
       }
-      const complete = request.messages.some(({ role }) => role === 'tool')
-        || !request.tools?.some(tool => tool.function.name === 'echo');
+      // Long-task protocol fixture: three persisted model/tool rounds before completion.
+      const longTask = request.messages.some(message => message.role === 'user' && message.content?.includes('OCEAN_LONG_TASK'));
+      const toolResults = request.messages.filter(message => message.role === 'tool').length;
+      const complete = longTask
+        ? toolResults >= 3
+        : toolResults > 0 || !request.tools?.some(tool => tool.function.name === 'echo');
       const chunks = complete
         ? [{ role: 'assistant', content: 'OCEAN_PROVIDER_' }, { content: 'OK' }]
         : [{ role: 'assistant', tool_calls: [{
-          index: 0, id: 'provider-echo', type: 'function',
+          index: 0, id: longTask ? `provider-echo-${toolResults + 1}` : 'provider-echo', type: 'function',
           function: { name: 'echo', arguments: '{"text":"provider-round-trip"}' },
         }] }];
 

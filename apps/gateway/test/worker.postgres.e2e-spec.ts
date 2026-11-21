@@ -234,6 +234,23 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   expect(steps.filter(s => s.kind === 'tool_call' && s.status === 'succeeded')).toHaveLength(1);
   expect(await db.outboxEvent.count({ where: { aggregateId: runId, topic: 'tool.requested', status: 'processed' } })).toBe(1);
  }, 15000);
+ it('completes three provider tool rounds through HTTP, persisted Worker and final model response', async () => {
+  const initialRequests = providerContract.requests.length;
+  const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
+   .send({ space: { id: spaceId, type: 'work' }, input: 'OCEAN_LONG_TASK: call echo three times and finish',
+    metadata: { modelId: providerModelId, nonInteractive: true } }).expect(201);
+  const runId = response.body.run?.id ?? response.body.id;
+  worker.start();
+  try { await waitFor(runId, 'succeeded'); } finally { worker.stop(); }
+  const steps = await db.runStep.findMany({ where: { runId }, orderBy: { seq: 'asc' } });
+  expect(steps.filter(step => step.kind === 'model_call' && step.status === 'succeeded')).toHaveLength(4);
+  expect(steps.filter(step => step.kind === 'tool_call' && step.status === 'succeeded')).toHaveLength(3);
+  expect(steps.at(-1)?.output).toMatchObject({ text: 'OCEAN_PROVIDER_OK' });
+  const requests = providerContract.requests.slice(initialRequests);
+  expect(requests).toHaveLength(4);
+  expect(requests.map(req => req.messages.filter(msg => msg.role === 'tool').length)).toEqual([0, 1, 2, 3]);
+  expect(await db.outboxEvent.count({ where: { aggregateId: runId, topic: 'tool.requested', status: 'processed' } })).toBe(3);
+ }, 20000);
  async function waitFor(runId: string, status: string) {
   const deadline = Date.now() + 12000;
   while ((await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).status !== status) {
@@ -440,7 +457,20 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    expect(await db.runStep.count({ where: { runId, kind: 'tool_call' } })).toBe(1);
    const exited = once(child, 'exit'); child.kill('SIGKILL');
    expect((await exited)[1]).toBe('SIGKILL');
-   await waitFor(runId, 'failed');
+   // Exercise fresh-process startup recovery after the former owner is dead.
+   // The pre-existing contender may have exhausted its poll cycle before lease expiry.
+   if (contender && contender.exitCode === null && contender.signalCode === null) {
+    const contenderExit = once(contender, 'exit'); contender.kill('SIGKILL'); await contenderExit;
+   }
+   contender = launch();
+   try {
+    await waitFor(runId, 'failed');
+   } catch (error) {
+    const state = await db.agentRun.findUnique({ where: { id: runId }, select: { status: true, executionToken: true, executionJobId: true } });
+    const queue = await db.outboxEvent.findMany({ where: { aggregateId: runId }, select: { topic: true, status: true } });
+    const steps = await db.runStep.findMany({ where: { runId }, select: { kind: true, status: true } });
+    throw new Error(`Crash recovery: ${String(error)}; state=${JSON.stringify(state)}; queue=${JSON.stringify(queue)}; steps=${JSON.stringify(steps)}; worker=${logs.slice(-2000)}`);
+   }
    expect(readFileSync(effectFile, 'utf8')).toBe('effect\n');
    expect(await db.runStep.findUniqueOrThrow({ where: { id: started.id } })).toMatchObject({ status: 'unknown', output: null });
    expect(await db.runStep.count({ where: { runId, kind: 'tool_call' } })).toBe(1);
@@ -661,6 +691,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
  });
 
  it('streams a provider tool call through cancellation, retry, session approval and completion', async () => {
+  const requestsBeforeCancellation = providerContract.requests.length;
   const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
    .send({ space: { id: spaceId, type: 'work' }, input: 'Provider contract',
     metadata: { modelId: providerModelId, sessionId: 'provider-contract', systemPrompt: 'System fixture', appendSystemPrompt: 'Extra fixture' } }).expect(201);
@@ -668,7 +699,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   await request(app.getHttpServer()).post(`/api/runs/${runId}/cancel`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
   expect(await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).toMatchObject({ status: 'cancelled' });
   expect(await db.runStep.count({ where: { runId } })).toBe(0);
-  expect(providerContract.requests).toHaveLength(0);
+  expect(providerContract.requests).toHaveLength(requestsBeforeCancellation);
   await request(app.getHttpServer()).post(`/api/runs/${runId}/retry`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
 
   const echo = registry.get('echo')!;
@@ -676,7 +707,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   try {
    worker.start();
    await waitFor(runId, 'waiting_for_approval');
-   expect(providerContract.requests).toHaveLength(1);
+   expect(providerContract.requests.slice(requestsBeforeCancellation)).toHaveLength(1);
    const approval = await db.runApproval.findFirstOrThrow({ where: { runId, status: 'pending' } });
    expect(approval.argsHash).toBeTruthy();
    expect(approval.policyVersion).toBeTruthy();
@@ -690,18 +721,18 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    expect(steps.map(({ kind, status }) => [kind, status])).toEqual([
     ['model_call', 'succeeded'], ['approval', 'succeeded'], ['tool_call', 'succeeded'], ['model_call', 'succeeded'],
    ]);
-   expect(providerContract.requests).toHaveLength(2);
-   expect(providerContract.requests[0]).toMatchObject({ model: providerModelId, stream: true });
-   expect(providerContract.requests[0].tools).toEqual(expect.arrayContaining([
+   expect(providerContract.requests.slice(requestsBeforeCancellation)).toHaveLength(2);
+   expect(providerContract.requests[requestsBeforeCancellation]).toMatchObject({ model: providerModelId, stream: true });
+   expect(providerContract.requests[requestsBeforeCancellation].tools).toEqual(expect.arrayContaining([
     expect.objectContaining({ function: expect.objectContaining({ name: 'echo' }) }),
    ]));
-   for (const providerRequest of providerContract.requests) {
+   for (const providerRequest of providerContract.requests.slice(requestsBeforeCancellation)) {
     expect(providerRequest.messages.filter(message => message.role === 'system')).toEqual([
      expect.objectContaining({ role: 'system', content: 'System fixture\n\nExtra fixture' }),
     ]);
     expect(providerRequest.messages.some(message => message.role === 'user')).toBe(true);
    }
-   const toolMessage = providerContract.requests[1].messages.find(({ role }) => role === 'tool');
+   const toolMessage = providerContract.requests[requestsBeforeCancellation + 1].messages.find(({ role }) => role === 'tool');
    expect(toolMessage).toMatchObject({ tool_call_id: 'provider-echo' });
    expect(JSON.parse(toolMessage!.content!)).toEqual({ text: 'provider-round-trip' });
    expect(steps[3].output).toMatchObject({ text: 'OCEAN_PROVIDER_OK', usage: { inputTokens: 12, outputTokens: 5, totalTokens: 17 } });
