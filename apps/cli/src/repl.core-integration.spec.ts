@@ -48,6 +48,26 @@ vi.mock('./utils/session-store.js', () => ({
 
 import { runRepl } from './repl.js';
 
+
+describe('default local single-query entrypoint routes through shared Agent Core', () => {
+ it('uses durable shared execution outside --print instead of the legacy chat loop', async () => {
+  mocks.shared.mockClear();
+  mocks.legacy.mockClear();
+  const exit = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('single-query exit stub'); });
+  const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  try {
+   await expect(runRepl({ userId: 'test-user', workspace: process.cwd(), singleQuery: 'hello' }))
+    .rejects.toThrow('single-query exit stub');
+   expect(mocks.shared).toHaveBeenCalledOnce();
+   expect(mocks.legacy).not.toHaveBeenCalled();
+   expect(mocks.shared.mock.calls[0][0]).toMatchObject({ sessionId: 'session', streaming: true });
+  } finally {
+   exit.mockRestore();
+   stdout.mockRestore();
+  }
+ });
+});
+
 describe('real CLI print entrypoint routes through shared Agent Core', () => {
  it('dispatches the main persisted print request through AgentExecutionEngine host path', async () => {
   mocks.shared.mockClear();
