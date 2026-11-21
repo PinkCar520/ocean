@@ -199,7 +199,7 @@ export function InkApp(props: InkAppProps) {
         await runOceanCoreLocal({
           sessionStore: props.sessionStore,
           sessionId, runId: randomUUID(), workspace: props.workspace,
-          model, tools: props.tools, systemPrompt: props.systemPrompt,
+          model, tools: props.tools, skills: props.skills, systemPrompt: props.systemPrompt,
           authorization, streaming: true, signal: abortController.signal,
           completion: {
             verify: async (_, text) => {
