@@ -54,7 +54,9 @@ export class AgentExecutionEngine<Message> {
         throw error;
       }
       if (decision.kind === 'complete') {
-        const checks = await this.ports.completion.verify(messages, decision.text);
+        let checks: readonly string[];
+        try { checks = await this.ports.completion.verify(messages, decision.text); }
+        catch (error) { await runtime.transition(runId, 'failed'); throw error; }
         if (!checks.length) {
           await runtime.transition(runId, 'failed');
           throw new Error('Agent completion verification failed');
