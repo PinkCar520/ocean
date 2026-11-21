@@ -361,7 +361,7 @@ describe('CLI Agent loop transcript', () => {
     // 14k retry budget, so recovery must actually compact the transcript.
     const messages = Array.from({ length: 12 }, (_, i) => ({
       role: 'user' as const,
-      content: `history ${i}: ${Array.from({ length: 350 }, (_, j) => `item-${i}-${j}`).join(' ')}`,
+      content: `history ${i}: ${Array.from({ length: 200 }, (_, j) => `item-${i}-${j}`).join(' ')}`,
     }));
     let extra = 0;
     while (contextTokens(messages) < 16000) {
