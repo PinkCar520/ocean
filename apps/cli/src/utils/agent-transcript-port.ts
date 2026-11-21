@@ -7,7 +7,7 @@ export class SessionTranscriptPort implements AgentTranscriptPort<ModelMessage> 
   constructor(private readonly sessions: SessionStore, private readonly workspace: string) {}
 
   async load(sessionId: string): Promise<readonly ModelMessage[]> {
-    const session = await this.sessions.load(sessionId, this.workspace);
+    const session = await this.sessions.loadPersisted(sessionId, this.workspace);
     return structuredClone(session.messages);
   }
 
