@@ -563,6 +563,12 @@ export async function runChatLoop(
     return false;
   }
 
+/** Provider context overflow is not transient: retry only after changing context. */
+export function isPromptTooLongError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:prompt|context|input|request).{0,48}(?:too long|too large|exceeds?|overflow|maximum (?:context|tokens)|token limit)|(?:context_length_exceeded|maximum context length|prompt_too_long|input_tokens_exceeded)/i.test(message);
+}
+
   const MAX_STREAM_RETRIES = 1;
   let finalResult: any;
   let text = '';
@@ -637,7 +643,8 @@ export async function runChatLoop(
       options.signal?.throwIfAborted();
       // A model retry must never replay a tool side effect. The journal
       // protects stable toolCallIds, but a fresh stream can generate new IDs.
-      if (attempt < MAX_STREAM_RETRIES && !toolExecutionObserved && !sawToolActivity && toolCalls.length === 0 &&
+      if (attempt < MAX_STREAM_RETRIES && !isPromptTooLongError(error) &&
+          !toolExecutionObserved && !sawToolActivity && toolCalls.length === 0 &&
           toolResults.length === 0 && isRetryableStreamError(error)) {
         continue;
       }
