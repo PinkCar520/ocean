@@ -77,7 +77,7 @@ export class AgentExecutionEngine<Message> {
           throw new Error('Unresolved tool effects require manual reconciliation');
         if (!this.ports.verifyToolJournal || !await this.ports.verifyToolJournal(sessionId, runId, await this.ports.events.read(runId)))
           throw new Error('Tool journal and transcript verification required before resume');
-      } else if (this.ports.verifyTranscript && !await this.ports.verifyTranscript(sessionId, runId, events)) {
+      } else if (!this.ports.verifyTranscript || !await this.ports.verifyTranscript(sessionId, runId, events)) {
         throw new Error('Transcript verification required before resume');
       }
     } else {
