@@ -36,6 +36,22 @@ export class AgentRuntime {
     return this.snapshot(runId);
   }
 
+  /** An operator/host must independently verify the external outcome before reconciliation.
+   * Reconciliation never invokes the tool again.
+   */
+  async reconcileTool(runId: string, invocationId: string, outcome: 'succeeded' | 'failed', result: unknown): Promise<RuntimeSnapshot> {
+    const events = await this.store.read(runId);
+    const snapshot = replayRuntime(runId, events);
+    if (snapshot.pendingTools[invocationId] !== 'unknown') throw new Error('Only unknown tool outcomes may be reconciled');
+    const claim = events.find(event => event.type === 'tool.prepared' && event.invocation.id === invocationId);
+    if (!claim) throw new Error('Missing persisted tool claim');
+    // Append a reconciliation event rather than replacing history.
+    await this.store.append(runId, snapshot.revision, [{
+      type: 'tool.reconciled', runId, at: stamp(), invocationId, outcome, result,
+    }]);
+    return this.snapshot(runId);
+  }
+
   async executeTool(runId: string, id: string, toolName: string, input: unknown, host: ToolInvocation['host']): Promise<unknown> {
     const current = await this.snapshot(runId);
     if (current.state !== 'executing_tools') throw new Error('Runtime is not executing tools');
