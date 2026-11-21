@@ -303,3 +303,56 @@ describe('bounded host Stop hook continuation', () => {
   expect((await events.snapshot('run')).state).toBe('failed');
  });
 });
+
+describe('durable model tool batch', () => {
+ it('claims the full model tool batch in one revision before any host execution', async () => {
+  const { engine, events, calls } = fixture([
+   { kind: 'tools', calls: [
+    { id: 'first', name: 'shell', input: { command: 'first' } },
+    { id: 'second', name: 'shell', input: { command: 'second' } },
+   ] },
+   { kind: 'complete', text: 'done' },
+  ]);
+  const result = await engine.run('session', 'batch');
+  expect(result.snapshot.state).toBe('completed');
+  expect(calls()).toBe(2);
+  const history = await events.read('batch');
+  const proposed = history.map((event, i) => event.type === 'tool.proposed' ? i : -1).filter(i => i >= 0);
+  const prepared = history.map((event, i) => event.type === 'tool.prepared' ? i : -1).filter(i => i >= 0);
+  expect(proposed).toHaveLength(2);
+  expect(prepared).toHaveLength(2);
+  expect(Math.max(...proposed)).toBeLessThan(Math.min(...prepared));
+  expect(result.snapshot.queuedTools).toHaveProperty('first');
+  expect(result.snapshot.queuedTools).toHaveProperty('second');
+ });
+ it('rejects duplicate model call identities without dispatching either side effect', async () => {
+  const { engine, events, calls } = fixture([
+   { kind: 'tools', calls: [
+    { id: 'duplicate', name: 'shell', input: { command: 'first' } },
+    { id: 'duplicate', name: 'shell', input: { command: 'second' } },
+   ] },
+  ]);
+  await expect(engine.run('session', 'duplicate-batch')).rejects.toThrow('duplicate tool proposal');
+  expect(calls()).toBe(0);
+  expect((await events.snapshot('duplicate-batch')).state).toBe('failed');
+  expect((await events.read('duplicate-batch')).filter(event => event.type === 'tool.proposed')).toHaveLength(0);
+ });
+ it('refuses recovery when the model recorded a tool call but never claimed it', async () => {
+  const { engine, events, calls } = fixture([]);
+  const runId = 'orphaned-batch', at = '2026-01-01T00:00:00Z';
+  const { createHash } = await import('node:crypto');
+  await events.append(runId, 0, [
+   { type: 'run.created', runId, sessionId: 'session', at },
+   { type: 'run.transitioned', runId, at, from: 'created', to: 'preparing_context' },
+   { type: 'run.transitioned', runId, at, from: 'preparing_context', to: 'calling_model' },
+   { type: 'run.transitioned', runId, at, from: 'calling_model', to: 'validating_tools' },
+   { type: 'tool.proposed', runId, at, invocationId: 'orphan', toolName: 'shell',
+     inputDigest: createHash('sha256').update(JSON.stringify({ command: 'dangerous' })).digest('hex') },
+   { type: 'run.transitioned', runId, at, from: 'validating_tools', to: 'interrupted' },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.verifyTranscript = async () => true;
+  await expect(engine.resume('session', runId)).rejects.toThrow('Unfinished model tool batch');
+  expect(calls()).toBe(0);
+ });
+});
