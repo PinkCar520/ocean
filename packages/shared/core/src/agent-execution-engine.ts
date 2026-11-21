@@ -25,6 +25,8 @@ export interface AgentExecutionPorts<Message> {
   authorization: ToolAuthorization;
   resolveTool(name: string): ToolDescriptor | undefined;
   toMessage(decision: AgentModelDecision, result?: unknown): Message;
+  /** Adapters with structured tool-call/result pairs may emit multiple messages. */
+  toMessages?(decision: AgentModelDecision, result?: unknown): readonly Message[];
   /** Skill host identifies a successful activation without granting permissions. */
   activatedSkill?(toolName: string, result: unknown): { id: string; source: 'plugin' | 'user' | 'project' } | undefined;
   completion: AgentCompletionPort<Message>;
@@ -87,9 +89,9 @@ export class AgentExecutionEngine<Message> {
           await runtime.transition(runId, 'failed');
           throw new Error('Agent completion verification failed');
         }
-        const next = this.ports.toMessage(decision);
-        await this.ports.transcript.append(sessionId, messages.length, [next]);
-        messages.push(next);
+        const next = this.ports.toMessages?.(decision) ?? [this.ports.toMessage(decision)];
+        await this.ports.transcript.append(sessionId, messages.length, next);
+        messages.push(...next);
         await runtime.verifyCompletion(runId, checks);
         return { text: decision.text, snapshot: await runtime.transition(runId, 'completed') };
       }
@@ -116,9 +118,10 @@ export class AgentExecutionEngine<Message> {
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
           const activated = this.ports.activatedSkill?.(call.name, result);
           if (activated) await runtime.activateSkill(runId, activated.id, activated.source);
-          const message = this.ports.toMessage({ kind: 'tools', calls: [call] }, result);
-          await this.ports.transcript.append(sessionId, messages.length, [message]);
-          messages.push(message);
+          const toolDecision: AgentModelDecision = { kind: 'tools', calls: [call] };
+          const next = this.ports.toMessages?.(toolDecision, result) ?? [this.ports.toMessage(toolDecision, result)];
+          await this.ports.transcript.append(sessionId, messages.length, next);
+          messages.push(...next);
         }
       } catch (error) {
         await runtime.transition(runId, signal?.aborted ? 'cancelled' : 'interrupted');
