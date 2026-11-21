@@ -335,4 +335,24 @@ describe('CLI Agent loop transcript', () => {
     });
   });
 
+  it('classifies provider context overflow separately from transient stream failures', async () => {
+    const { isPromptTooLongError } = await import('./chat.js');
+    expect(isPromptTooLongError(new Error('context_length_exceeded'))).toBe(true);
+    expect(isPromptTooLongError(new Error('maximum context length is 128000 tokens'))).toBe(true);
+    expect(isPromptTooLongError(new Error('prompt is too long'))).toBe(true);
+    expect(isPromptTooLongError(new Error('ECONNRESET'))).toBe(false);
+    expect(isPromptTooLongError(new Error('Unterminated string in JSON'))).toBe(false);
+  });
+
+  it('does not retry a provider prompt overflow without changing the context', async () => {
+    streamTextMock.mockResolvedValue({
+      text: Promise.reject(new Error('context_length_exceeded')),
+      finishReason: 'error', responseMessages: [],
+    });
+    await expect(runChatLoop([{ role: 'user', content: 'large request' }], {
+      model: {}, systemPrompt: '', tools: {},
+    })).rejects.toThrow('context_length_exceeded');
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+  });
+
 });
