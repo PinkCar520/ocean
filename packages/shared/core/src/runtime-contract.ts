@@ -21,7 +21,7 @@ export type RuntimeEvent = (
   | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
   | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown }
   | { type: 'run.completion_verified'; runId: string; at: string; checks: readonly string[] }
-  | { type: 'skill.activated'; runId: string; at: string; skillId: string; source: 'plugin' | 'user' | 'project' }
+  | { type: 'skill.activated'; runId: string; at: string; skillId: string; source: 'plugin' | 'user' | 'project'; allowedTools?: readonly string[] }
   | { type: 'tool.rejected'; runId: string; at: string; invocationId: string; toolName: string; reason: 'policy' | 'approval' | 'input' }
 ) & { schemaVersion?: 1 };
 export interface ToolInvocation {
@@ -48,6 +48,8 @@ export interface RuntimeSnapshot {
   queuedTools: Readonly<Record<string, { toolName: string; inputDigest: string }>>;
   completionVerified: boolean;
   activeSkills: readonly string[];
+  /** Null means the skill imposes no additional tool constraints. */
+  skillToolConstraints: Readonly<Record<string, readonly string[] | null>>;
 }
 export interface RuntimeEventStore {
   append(runId: string, expectedRevision: number, events: readonly RuntimeEvent[]): Promise<number>;
@@ -80,6 +82,7 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
   let sessionId: string | undefined;
   let completionVerified = false;
   const activeSkills = new Set<string>();
+  const skillToolConstraints: Record<string, readonly string[] | null> = {};
   for (const event of events) {
     if (event.runId !== runId) throw new Error('Runtime event belongs to another run');
     if (event.schemaVersion !== undefined && event.schemaVersion !== 1) throw new Error('Unsupported runtime event schema');
@@ -118,7 +121,13 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     } else if (event.type === 'skill.activated') {
       if (!event.skillId.trim() || state === 'completed' || state === 'failed' || state === 'cancelled')
         throw new Error('Invalid skill activation identity');
+      if (event.allowedTools !== undefined &&
+          (!Array.isArray(event.allowedTools) ||
+           event.allowedTools.some(tool => typeof tool !== 'string' || !tool.trim())))
+        throw new Error('Invalid skill tool constraints');
       activeSkills.add(event.skillId);
+      skillToolConstraints[event.skillId] = event.allowedTools === undefined
+        ? null : [...new Set(event.allowedTools)];
     } else if (event.type === 'run.completion_verified') {
       if ((state !== 'calling_model' && state !== 'persisting_results') ||
           completionVerified || !event.checks.length || event.checks.some(check => !check.trim()) ||
@@ -135,5 +144,5 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     revision++;
   }
   if (!created) throw new Error('Runtime event stream missing creation');
-  return { runId, sessionId, state, revision, pendingTools, queuedTools, completionVerified, activeSkills: [...activeSkills] };
+  return { runId, sessionId, state, revision, pendingTools, queuedTools, completionVerified, activeSkills: [...activeSkills], skillToolConstraints };
 }
