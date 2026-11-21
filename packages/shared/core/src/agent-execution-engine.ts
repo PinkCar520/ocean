@@ -70,11 +70,17 @@ export class AgentExecutionEngine<Message> {
         throw new Error('Model returned an empty tool batch');
       }
       await runtime.transition(runId, 'validating_tools');
-      const prepared = decision.calls.map(call => {
-        const descriptor = this.ports.resolveTool(call.name);
-        if (!descriptor) throw new Error(`Unknown tool: ${call.name}`);
-        return { call, descriptor };
-      });
+      let prepared: Array<{ call: (typeof decision.calls)[number]; descriptor: ToolDescriptor }>;
+      try {
+        prepared = decision.calls.map(call => {
+          const descriptor = this.ports.resolveTool(call.name);
+          if (!descriptor) throw new Error(`Unknown tool: ${call.name}`);
+          return { call, descriptor };
+        });
+      } catch (error) {
+        await runtime.transition(runId, 'failed');
+        throw error;
+      }
       await runtime.transition(runId, 'executing_tools');
       try {
         for (const { call, descriptor } of prepared) {
