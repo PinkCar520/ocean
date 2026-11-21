@@ -185,7 +185,7 @@ it('counts serialized context with the selected BPE tokenizer rather than byte d
 it('retries an ineffective summary with a smaller token cap and persists only the effective result', async () => {
   generate.mockReset();
   const messages = history();
-  const verbose = { ...summary, goal: 'x'.repeat(100000) };
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
   generate.mockResolvedValueOnce({ text: JSON.stringify(verbose) })
     .mockResolvedValueOnce({ text: JSON.stringify(summary) });
   const persist = vi.fn();
@@ -203,7 +203,7 @@ it('retries an ineffective summary with a smaller token cap and persists only th
 it('never persists a summary that fails to reduce context after bounded retries', async () => {
   generate.mockReset();
   const messages = history();
-  const verbose = { ...summary, goal: 'x'.repeat(100000) };
+  const verbose = { ...summary, goal: 'alpha beta gamma delta '.repeat(1800) };
   generate.mockResolvedValue({ text: JSON.stringify(verbose) });
   const persist = vi.fn();
   await expect(compactContext(messages, {
