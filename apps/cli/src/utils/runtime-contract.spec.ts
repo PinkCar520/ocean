@@ -27,3 +27,18 @@ describe('portable runtime contract', () => {
   expect(() => replayRuntime(runId, [...events, transition('persisting_results', 'completed')])).toThrow('unsettled tools');
  });
 });
+
+import { MemoryRuntimeEventStore } from '@ocean/core';
+
+describe('runtime event store adapter', () => {
+ it('enforces optimistic concurrency and does not mutate on invalid transitions', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const created = { type: 'run.created' as const, runId: 'r', at: '2026-01-01T00:00:00Z' };
+  expect(await store.append('r', 0, [created])).toBe(1);
+  await expect(store.append('r', 0, [created])).rejects.toThrow('revision conflict');
+  await expect(store.append('r', 1, [{
+   type: 'run.transitioned', runId: 'r', at: created.at, from: 'created', to: 'completed',
+  }])).rejects.toThrow('Invalid runtime transition');
+  expect(await store.read('r')).toEqual([created]);
+ });
+});
