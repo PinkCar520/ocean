@@ -361,3 +361,16 @@ it('fails closed when no complete historical group fits the summary budget', asy
   ];
   expect(() => trimSummarySource(messages, 100)).toThrow(ContextCompactionError);
 });
+
+it('rejects structurally invalid recovery summaries and retries safely', async () => {
+  generate.mockReset();
+  generate.mockResolvedValueOnce({ text: JSON.stringify({ ...summary, pendingWork: 'not-an-array' }) });
+  generate.mockResolvedValueOnce({ text: JSON.stringify(summary) });
+  const persist = vi.fn();
+  await compactContext(history(), {
+    model: {}, systemPrompt: '', budget: 5000,
+    scope: 'summary-type-recovery', persist,
+  });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(persist).toHaveBeenCalledTimes(1);
+});
