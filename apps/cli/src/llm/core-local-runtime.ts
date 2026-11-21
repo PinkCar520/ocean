@@ -27,6 +27,8 @@ export async function runOceanCoreLocal(options: {
   tools: Record<string, any>;
   authorization: ToolAuthorization;
   completion: AgentCompletionPort<ModelMessage>;
+  reconcileRecovery?: import('@ocean/core').AgentExecutionPorts<ModelMessage>['reconcileRecovery'];
+  verifyToolJournal?: import('@ocean/core').AgentExecutionPorts<ModelMessage>['verifyToolJournal'];
   prepareContext?: (messages: readonly ModelMessage[], signal?: AbortSignal) => Promise<readonly ModelMessage[]>;
   activatedSkill?: (toolName: string, result: unknown) => { id: string; source: 'plugin' | 'user' | 'project' } | undefined;
   runtimeDirectory?: string;
@@ -52,6 +54,8 @@ export async function runOceanCoreLocal(options: {
           tools: options.tools,
         }),
     transcript: new SessionTranscriptPort(options.sessionStore, options.workspace),
+    reconcileRecovery: options.reconcileRecovery,
+    verifyToolJournal: options.verifyToolJournal,
     prepareContext: options.prepareContext,
     authorization: options.authorization,
     activatedSkill: options.activatedSkill,
