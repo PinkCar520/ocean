@@ -227,3 +227,17 @@ it('recovers a persisted failed terminal tool result without replaying its side 
   expect(calls).toBe(1);
  } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+it('reconstructs a reconciled failed journal after a lost tool result', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-reconciled-failed-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'run tool' }] as any);
+  await expect(store.executeToolCall(session.id, root, 'failed-reconciled', 'remote_tool', { id: 1 }, async () => { throw new Error('connection lost'); })).rejects.toThrow('connection lost');
+  expect(await store.reconcileToolCall(session.id, root, 'failed-reconciled', async identity => ({ ...identity, state: 'failed', output: { error: 'remote rejected' } }))).toBe(true);
+  const recovered = await new SessionStore(root).load(session.id, root);
+  expect(recovered.messages).toHaveLength(3);
+  expect(recovered.messages[2]).toMatchObject({ role: 'tool', content: [{ type: 'tool-result', toolCallId: 'failed-reconciled', toolName: 'remote_tool', output: { error: 'remote rejected' } }] });
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
