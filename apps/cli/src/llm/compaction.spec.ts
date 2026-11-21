@@ -339,3 +339,25 @@ it('never lets a telemetry observer abort a safe request', async () => {
   });
   expect(result).toBe(messages);
 });
+
+it('trims oversized summary requests only at closed tool boundaries', async () => {
+  const { trimSummarySource } = await import('./compaction.js');
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'old task '.repeat(2000) },
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'old', toolName: 'bash', input: {} }] },
+    { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'old', toolName: 'bash', output: { type: 'text', value: 'x'.repeat(1000) } }] },
+    { role: 'user', content: 'new task' },
+  ];
+  const trimmed = trimSummarySource(messages, 100);
+  expect(trimmed).toEqual([{ role: 'user', content: 'new task' }]);
+  expect(messages).toHaveLength(4);
+});
+
+it('fails closed when no complete historical group fits the summary budget', async () => {
+  const { trimSummarySource, ContextCompactionError } = await import('./compaction.js');
+  const messages: ModelMessage[] = [
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'pending', toolName: 'bash', input: {} }] },
+    { role: 'user', content: 'new task '.repeat(2000) },
+  ];
+  expect(() => trimSummarySource(messages, 100)).toThrow(ContextCompactionError);
+});
