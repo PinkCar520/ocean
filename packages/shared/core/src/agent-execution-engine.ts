@@ -104,7 +104,14 @@ export class AgentExecutionEngine<Message> {
           throw new Error('Agent completion verification failed');
         }
         const next = this.ports.toMessages?.(decision) ?? [this.ports.toMessage(decision)];
-        await this.ports.transcript.append(sessionId, messages.length, next);
+        // The final response is only committed after host verification; if
+        // transcript persistence fails, the run must remain recoverable.
+        try {
+          await this.ports.transcript.append(sessionId, messages.length, next);
+        } catch (error) {
+          await runtime.markInterrupted(runId);
+          throw error;
+        }
         messages.push(...next);
         await runtime.verifyCompletion(runId, checks);
         return { text: decision.text, snapshot: await runtime.transition(runId, 'completed') };
