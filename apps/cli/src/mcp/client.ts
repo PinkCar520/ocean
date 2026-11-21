@@ -1,3 +1,5 @@
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { collectMcpTools } from '@ocean/core';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
 import type { JsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/types.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -39,6 +41,8 @@ export class McpClientManager {
   private toolRoutes = new Map<string, { serverId: string; toolName: string }>();
   private validators = new Map<string, JsonSchemaValidator<unknown>>();
   private config: McpConfigFile | null = null;
+  private trustedConfig = false;
+  private readonly sdkTransports = new Map<string, () => Transport>();
 
   private readonly diagnostics = new Map<string, { serverId: string; state: string }>();
   private readonly cliConfig: CliConfig;
@@ -55,6 +59,10 @@ export class McpClientManager {
    */
   async loadConfig(configPath?: string) {
     await this.disconnectAll();
+    this.config = null;
+    this.trustedConfig = false;
+    this.diagnostics.clear();
+    this.sdkTransports.clear();
     const workspace = path.resolve(this.cliConfig.workspacePath ?? process.cwd());
     const oceanRoot = findRoot(workspace);
     const pathsToTry = [
@@ -74,7 +82,8 @@ export class McpClientManager {
         const raw = fs.readFileSync(p!, 'utf-8');
         this.config = normalizeMcpConfig(JSON.parse(raw));
         // Repository enabled flags cannot grant trust to executable configuration.
-        if (!configPath && path.resolve(p) !== path.join(homedir(), '.ocean', 'mcp.json')) {
+        this.trustedConfig = Boolean(configPath) || path.resolve(p) === path.join(homedir(), '.ocean', 'mcp.json');
+        if (!this.trustedConfig) {
           this.config.mcpServers = this.config.mcpServers.map((server) => ({ ...server, enabled: false }));
         }
         // Resolve ${OCEAN_ROOT} in paths
@@ -93,13 +102,88 @@ export class McpClientManager {
             })),
           }));
         }
-        console.error(`[MCP] Loaded config from: ${p}`);
         return;
       }
     }
 
     console.error('[MCP] No config file found, using defaults');
     this.config = { mcpServers: [] };
+  }
+
+  addSdkServers(names: readonly string[], transport: (name: string) => Transport): void {
+    if (!this.config) throw new Error('Load MCP configuration before adding SDK servers.');
+    const reserved = new Set(this.config.mcpServers.map(server => server.id));
+    for (const name of names) {
+      if (reserved.has(name)) throw new Error(`MCP server already configured: ${name}`);
+      reserved.add(name);
+    }
+    for (const name of names) {
+      this.sdkTransports.set(name, () => transport(name));
+      this.config.mcpServers.push({ id: name, name, command: '', args: [], enabled: true });
+    }
+  }
+
+  async replaceSdkServers(names: readonly string[], transport: (name: string) => Transport) {
+    if (!this.config) throw new Error('Load MCP configuration before changing SDK servers.');
+    const next = new Set(names);
+    const removed = [...this.sdkTransports.keys()].filter(name => !next.has(name));
+    for (const name of removed) {
+      await this.disconnectServer(name);
+      this.sdkTransports.delete(name);
+      this.diagnostics.delete(name);
+    }
+    this.config.mcpServers = this.config.mcpServers.filter(server => !removed.includes(server.id));
+    const added: string[] = [];
+    const errors: Record<string, string> = Object.create(null);
+    for (const name of next) {
+      if (this.sdkTransports.has(name)) continue;
+      if (this.config.mcpServers.some(server => server.id === name)) {
+        errors[name] = 'MCP server already configured.';
+        continue;
+      }
+      this.addSdkServers([name], transport);
+      added.push(name);
+    }
+    return { added, removed, errors };
+  }
+
+  getServerStatuses() {
+    return (this.config?.mcpServers ?? []).map(server => {
+      const state = this.diagnostics.get(server.id)?.state;
+      const status = server.enabled !== true ? 'disabled'
+        : state === 'authentication_failed' ? 'needs-auth'
+        : state && state !== 'connected' ? 'failed'
+        : this.clients.has(server.id) ? 'connected' : 'pending';
+      const serverInfo = this.clients.get(server.id)?.getServerVersion();
+      return { name: server.id, status, ...(serverInfo && { serverInfo: { name: serverInfo.name, version: serverInfo.version } }) };
+    });
+  }
+
+  async configureServer(id: string, enabled?: boolean): Promise<void> {
+    const server = this.config?.mcpServers.find(entry => entry.id === id);
+    if (!server) throw new Error(`Unknown MCP server: ${id}`);
+    if (enabled !== false && !this.trustedConfig && !this.sdkTransports.has(id)) throw new Error('The MCP server is configured by an untrusted workspace.');
+    if (enabled === undefined && server.enabled !== true) throw new Error('Enable the MCP server before reconnecting.');
+    if (enabled !== undefined) server.enabled = enabled;
+    await this.disconnectServer(id);
+    this.diagnostics.delete(id);
+    if (server.enabled !== true) return;
+    try {
+      await this.connectServer(server);
+    } catch (error) {
+      this.diagnose(id, error, 'connection_failed');
+    }
+  }
+
+  private async disconnectServer(id: string): Promise<void> {
+    const client = this.clients.get(id);
+    this.clients.delete(id);
+    for (const [name, route] of this.toolRoutes) {
+      if (route.serverId !== id) continue;
+      this.toolRoutes.delete(name);
+      this.validators.delete(name);
+    }
+    await client?.close().catch(() => {});
   }
 
   /**
@@ -112,10 +196,6 @@ export class McpClientManager {
 
     // Starting an MCP command executes local code. Require explicit opt-in in project config.
     const servers = this.config!.mcpServers.filter((server) => server.enabled === true);
-    const disabledCount = this.config!.mcpServers.length - servers.length;
-    if (disabledCount > 0) {
-      console.error(`[MCP] Skipped ${disabledCount} server(s) without explicit enabled: true trust.`);
-    }
 
     for (const server of servers) {
       try {
@@ -141,14 +221,14 @@ export class McpClientManager {
     }
 
     if (this.clients.has(server.id)) return;
-    const transport = server.type === 'http'
+    const transport = this.sdkTransports.get(server.id)?.() ?? (server.type === 'http'
       ? new StreamableHTTPClientTransport(new URL(server.url!))
       : new StdioClientTransport({
       command: replaceEnvVars(server.command, process.env),
       args: resolvedArgs,
       env: resolvedEnv,
       cwd: this.cliConfig.workspacePath ?? process.cwd(),
-    });
+    }));
 
     const client = new Client(
       { name: `ocean-cli-mcp-${server.id}`, version: '1.0.0' },
@@ -157,15 +237,19 @@ export class McpClientManager {
 
     try {
       await client.connect(transport, { timeout: 10_000 });
-      await client.listTools({}, { timeout: 10_000 });
+      if (client.getServerCapabilities()?.tools) await client.listTools({}, { timeout: 10_000 });
       this.clients.set(server.id, client);
+      client.onclose = () => {
+        if (this.clients.get(server.id) !== client) return;
+        this.clients.delete(server.id);
+        this.diagnostics.set(server.id, { serverId: server.id, state: 'connection_failed' });
+      };
     } catch (error) {
       await client.close().catch(() => {});
       throw error;
     }
     this.diagnostics.set(server.id, { serverId: server.id, state: 'connected' });
-    const tools = await client.listTools({}, { timeout: 10_000 });
-    console.error(`[MCP] Connected to ${server.name}: ${tools.tools.length} tools`);
+    console.error(`[MCP] Connected to ${server.name}`);
   }
 
   /**
@@ -177,9 +261,10 @@ export class McpClientManager {
     this.validators.clear();
 
     for (const [serverId, client] of this.clients) {
+      if (!client.getServerCapabilities()?.tools) continue;
       try {
-        const result = await client.listTools({}, { timeout: 10_000 });
-        for (const tool of result.tools) {
+        const discovered = await collectMcpTools(cursor => client.listTools({ cursor }, { timeout: 10_000 }));
+        for (const tool of discovered) {
           const toolName = tool.name;
           if (!/^[a-zA-Z0-9_-]+$/.test(toolName) || tool.inputSchema?.type !== 'object') throw new Error('Invalid MCP tool schema or name');
           const publicName = `mcp__${serverId}__${toolName}`;
@@ -239,6 +324,10 @@ export class McpClientManager {
     return client.listResources(cursor ? { cursor } : {}, { signal, timeout: 10_000 });
   }
 
+  async listResourceTemplates(serverId: string, cursor?: string, signal?: AbortSignal) {
+    return this.resourceClient(serverId).listResourceTemplates(cursor ? { cursor } : {}, { signal, timeout: 10_000 });
+  }
+
   async readResource(serverId: string, uri: string, signal?: AbortSignal) {
     return this.resourceClient(serverId).readResource({ uri }, { signal, timeout: 10_000 });
   }
@@ -255,20 +344,9 @@ export class McpClientManager {
    * Disconnect all MCP servers
    */
   async disconnectAll() {
-    const serverIds = Array.from(this.clients.keys());
-
-    for (const [serverId, client] of this.clients) {
-      try {
-        await client.close();
-      } catch (err: any) {
-        // ignore
-      }
-    }
-    this.clients.clear();
+    for (const id of this.clients.keys()) await this.disconnectServer(id);
     this.validators.clear();
     this.toolRoutes.clear();
-
-
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "@ocean/cli",
   "version": "1.0.0",
-  "description": "Ocean Terminal Deep Interaction Node",
+  "description": "Ocean Deep Interaction Node",
   "main": "dist/index.js",
   "bin": {
     "ocean": "./dist/index.js"

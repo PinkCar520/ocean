@@ -1,8 +1,9 @@
 jest.mock('ai', () => ({ tool: jest.fn((definition: any) => definition), jsonSchema: jest.fn((schema: any) => schema) }));
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { MCPClientPool, mcpScopeKey, mcpUserHome, readMCPUserEnv } from './mcp-client.pool';
+import { createMcpResourceTools } from '../tool/mcp-resource.tools';
 import { MCPClientManager } from './mcp-client.manager';
 
 class FakeManager {
@@ -124,4 +125,39 @@ describe('MCPClientPool tenant isolation', () => {
     expect(() => mcpScopeKey({ userId: 'u', workspacePath: '/a' })).not.toBe(mcpScopeKey({ userId: 'v', workspacePath: '/a' }));
     expect(mcpUserHome({ userId: 'u' }, '/root')).toMatch(/^\/root\/[a-f0-9]{32}$/);
   });
+});
+
+
+it('routes paginated resource templates through an authenticated Gateway tool and isolates users', async () => {
+  const owner = { userId: 'resource-template-fixture-owner' };
+  const loader = {
+    loadConfig: (_workspace: unknown, options: { userHome: string }) => ({
+      mcpServers: options.userHome === mcpUserHome(owner) ? [{
+        id: 'docs', name: 'Documents', enabled: true,
+        command: process.execPath,
+        args: [resolve('../cli/src/mcp/fixtures/resources.mjs')],
+      }] : [],
+    }),
+  };
+  const pool = new MCPClientPool(loader as any, { get: () => undefined } as any, {} as any, {} as any);
+  const tools = createMcpResourceTools(pool);
+  const list = tools.find(tool => tool.name === 'mcp_list_resource_templates')!;
+  const read = tools.find(tool => tool.name === 'mcp_read_resource')!;
+  const ctx = { ...owner, runId: 'fixture-run' };
+  try {
+    expect(list.permissionServer?.({ server: 'docs' })).toBe('docs');
+    await expect(list.execute({ server: 'docs' })).rejects.toThrow('Missing authenticated MCP context');
+    await expect(list.execute({ server: 'docs' }, ctx)).resolves.toMatchObject({
+      nextCursor: 'next', resourceTemplates: [{ uriTemplate: 'fixture://docs/{id}' }],
+    });
+    await expect(list.execute({ server: 'docs', cursor: 'next' }, ctx)).resolves.toMatchObject({
+      resourceTemplates: [{ uriTemplate: 'fixture://archive/{id}' }],
+    });
+    await expect(read.execute({ server: 'docs', uri: 'fixture://docs/42' }, ctx)).resolves.toMatchObject({
+      contents: [{ uri: 'fixture://docs/42', text: 'Fixture document' }],
+    });
+    await expect(list.execute({ server: 'docs' }, { ...ctx, userId: 'another-user' })).rejects.toThrow('does not expose resources');
+  } finally {
+    await pool.onModuleDestroy();
+  }
 });

@@ -49,6 +49,15 @@ describe('CLI Agent loop transcript', () => {
     expect(streamTextMock).not.toHaveBeenCalled();
   });
 
+  it('reports the explicit model-turn limit if the last step still asks for tools', async () => {
+    streamTextMock.mockReturnValue({ text: '', finishReason: 'tool-calls', responseMessages: [] });
+    const options = { model: {}, systemPrompt: '', tools: {}, maxSteps: 1, failAtStepLimit: true };
+    await expect(runChatLoop([], options)).rejects.toThrow('Maximum model turns reached: 1');
+    expect(stepCountIsMock).toHaveBeenCalledWith(1);
+    streamTextMock.mockReturnValue({ text: 'Finished', finishReason: 'stop', responseMessages: [] });
+    await expect(runChatLoop([], options)).resolves.toMatchObject({ text: 'Finished' });
+  });
+
   it('returns complete assistant/tool response messages for the next turn', async () => {
     const responseMessages = [
       { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'call-1', toolName: 'file_read', input: { path: 'a.ts' } }] },

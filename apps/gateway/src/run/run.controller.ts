@@ -185,12 +185,16 @@ export class RunController {
         issues: parsed.error.issues,
       });
     }
+    const changes: [updatedInput?: Record<string, unknown>, continueOnDeny?: boolean] =
+      parsed.data.continueOnDeny === true ? [parsed.data.updatedInput, true]
+        : parsed.data.updatedInput === undefined ? [] : [parsed.data.updatedInput];
     return this.runService.decideApproval(
       id,
       approvalId,
       this.userId(request),
       parsed.data.decision,
       parsed.data.scope ?? 'once',
+      ...changes,
     );
   }
 

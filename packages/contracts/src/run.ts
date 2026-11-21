@@ -70,6 +70,8 @@ export const approvalDecisionSchema = z
     decision: z.enum(['approved', 'rejected']),
     /** once: only this call; session: exact tool+args for the approval TTL. */
     scope: z.enum(['once', 'session']).optional(),
+    updatedInput: z.record(z.string(), z.unknown()).optional(),
+    continueOnDeny: z.boolean().optional(),
   })
   .strict();
 

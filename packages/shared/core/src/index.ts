@@ -157,6 +157,7 @@ export type {
   ToolResult,
 } from './ui-protocol.js';
 
+export type { PermissionHookOutcome } from './permission-policy.js';
 export { uniquePermissionRuleIds } from './permission-policy.js';
 export { parseShellCommand } from './shell-ast.js';
 
@@ -164,3 +165,4 @@ export { countTextTokens, type TokenEncoding } from './tokenizer.js';
 
 export { EgressPolicy, type EgressVerdict } from './network/egress-policy.js';
 export { fetchWebText, searchWeb } from './network/web-fetch.js';
+export { collectMcpTools, mcpToolPages } from './network/mcp-pagination.js';

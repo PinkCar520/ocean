@@ -43,6 +43,26 @@ describe('CLI permission policy', () => {
     expect(changed.policyVersion).not.toBe(denied.policyVersion);
   });
 
+  it('persists hook rules atomically and invalidates other active policy instances', async () => {
+    const { workspace, home } = await createRoots();
+    const reader = new PermissionPolicy(workspace, home);
+    const writer = new PermissionPolicy(workspace, home);
+    expect(reader.evaluate('file_write', { path: 'notes.md' })).toBe('ask');
+    await writer.applyHookUpdates([{
+      type: 'addRules', destination: 'localSettings', behavior: 'allow', rules: [{ toolName: 'file_write' }],
+    }]);
+    expect(reader.evaluate('file_write', { path: 'notes.md' })).toBe('allow');
+    await writer.applyHookUpdates([{
+      type: 'removeRules', destination: 'localSettings', behavior: 'allow', rules: [{ toolName: 'file_write' }],
+    }]);
+    expect(reader.evaluate('file_write', { path: 'notes.md' })).toBe('ask');
+    await expect(writer.applyHookUpdates([
+      { type: 'setMode', destination: 'localSettings', mode: 'acceptEdits' },
+      { type: 'addDirectories', destination: 'session', directories: ['/tmp'] },
+    ])).rejects.toThrow('Unsupported hook permission update');
+    expect(reader.getMode()).toBe('default');
+  });
+
   it('applies exact session grants after deny checks and scopes them to one session', async () => {
     const { workspace, home } = await createRoots();
     await mkdir(path.join(workspace, '.ocean'));

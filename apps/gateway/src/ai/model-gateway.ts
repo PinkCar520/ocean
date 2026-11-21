@@ -32,6 +32,7 @@ export interface ModelToolSpec {
 export interface ModelGenerateRequest {
   signal?: AbortSignal;
   messages: ModelMessage[];
+  system?: string;
   modelId?: string;
   reasoningEffort?: ReasoningEffort;
   maxOutputTokens?: number;

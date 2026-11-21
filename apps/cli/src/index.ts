@@ -55,6 +55,7 @@ import { registerTaskCommands } from './commands/tasks.js';
 import { registerPluginCommands } from './commands/plugins.js';
 import { registerVoiceCommands } from './commands/voice.js';
 import { registerRemoteCommands } from './commands/remote.js';
+import { registerSessionCommands } from './commands/sessions.js';
 import { resolveApiKey, saveCredentials, removeCredentials, getAutoUserId } from './utils/auth.js';
 
 const program = new Command();
@@ -73,7 +74,7 @@ async function ensureAuth(gatewayUrl: string): Promise<boolean> {
   if (existing) return true;
 
   // Not authenticated, prompt user to login (Codex-style UI)
-  console.log(chalk.bold('\nWelcome to Ocean') + chalk.gray(", Ocean's command-line AI assistant"));
+  console.log(chalk.bold('\nWelcome to Ocean Code') + chalk.gray(", Ocean Code's command-line AI assistant"));
   console.log(chalk.gray('Sign in via browser or provide an API key to get started\n'));
 
   const { action } = await renderAuthMenu();
@@ -126,11 +127,19 @@ program
   .addOption(new Option('--output-format <format>', 'Print output format').choices(['text', 'json', 'stream-json']))
   .addOption(new Option('-c, --continue', 'Continue the latest session').conflicts('resume'))
   .option('-r, --resume <session-id>', 'Resume a session by ID')
+  .option('--fork-session', 'Continue a conversation in a new session')
+  .addOption(new Option('--system-prompt <text>', 'Replace the Agent system prompt').conflicts('systemPromptFile'))
+  .option('--system-prompt-file <path>', 'Read the replacement system prompt from a file')
+  .addOption(new Option('--append-system-prompt <text>', 'Append instructions to the Agent prompt').conflicts('appendSystemPromptFile'))
+  .option('--append-system-prompt-file <path>', 'Read additional system instructions from a file')
+  .option('--max-turns <count>', 'Maximum model calls for one print turn')
+  .option('--fork-at <message-id>', 'Fork a Gateway session at a specific message')
+  .addOption(new Option('--permission-prompt-tool <tool>', 'Ask the SDK host to approve tools').choices(['stdio']))
   .option('--settings <file-or-json>', 'Read additional permission settings for this execution')
   .option('--setting-sources <sources>', 'Comma-separated permission settings sources: user,project,local')
   .option('--allow-tool <rule>', 'Add a permission allow rule for this execution', (rule, rules: string[]) => [...rules, rule], [])
   .option('--deny-tool <rule>', 'Add a permission deny rule for this execution', (rule, rules: string[]) => [...rules, rule], [])
-  .option('--tools <names>', 'Comma-separated list of tools exposed to the model')
+  .option('--tools <names>', 'Tools exposed to the model (comma or space separated, default, or empty)')
   .addOption(new Option('--permission-mode <mode>', 'Set the local print session permission mode').choices(['default', 'acceptEdits', 'plan', 'dontAsk', 'bypassPermissions']))
   .addOption(new Option('--no-session-persistence', 'Run without saving a print session').conflicts(['continue', 'resume']))
   .option('-m, --model <model>', 'Model to use')
@@ -142,11 +151,22 @@ program
     const gatewayUrl = process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
     const workspace = path.resolve(options.workspace);
 
+    const customPrompt = [options.systemPrompt, options.systemPromptFile, options.appendSystemPrompt, options.appendSystemPromptFile]
+      .some(value => value !== undefined);
     const localToolOptions = options.permissionMode || options.settings || options.settingSources !== undefined
-      || options.tools !== undefined || options.allowTool.length || options.denyTool.length;
-    const printOptions = options.continue || options.resume || options.sessionPersistence === false || localToolOptions;
+      || options.allowTool.length || options.denyTool.length;
+    const printOptions = customPrompt || options.maxTurns !== undefined || options.forkSession || options.continue || options.resume || options.sessionPersistence === false || options.tools !== undefined || localToolOptions;
     if (!options.print && (options.outputFormat || options.inputFormat || options.replayUserMessages || printOptions)) {
       program.error('error: print options require --print');
+    }
+    if (options.forkAt !== undefined && (!options.gateway || !options.forkSession || !options.print)) {
+      program.error('error: --fork-at requires --gateway --fork-session --print');
+    }
+    if (options.forkSession && !options.continue && !options.resume) {
+      program.error('error: --fork-session requires --continue or --resume');
+    }
+    if (options.permissionPromptTool && (!options.print || options.inputFormat !== 'stream-json')) {
+      program.error('error: --permission-prompt-tool stdio requires --print with stream-json input and output');
     }
     if (options.gateway && localToolOptions) {
       program.error('error: custom permission and tool options are currently available for local execution');
@@ -207,10 +227,30 @@ program
             return source;
           }),
         );
-      const toolNames = options.tools === undefined || options.tools === 'default'
+      const toolNames = options.tools === undefined || options.tools.trim().toLowerCase() === 'default'
         ? undefined
-        : new Set<string>((options.tools as string).split(',').map((name) => name.trim()).filter(Boolean));
+        : new Set<string>((options.tools as string).split(/[\s,]+/).filter(Boolean));
 
+      const maxTurns = options.maxTurns === undefined ? undefined : Number(options.maxTurns);
+      if (maxTurns !== undefined && (!/^\d+$/.test(options.maxTurns) || !Number.isSafeInteger(maxTurns) || maxTurns < 1)) {
+        program.error('error: --max-turns requires a positive integer');
+      }
+      const readPromptFile = async (file?: string) => {
+        if (file === undefined) return undefined;
+        const handle = await fs.open(file, 'r');
+        try {
+          const info = await handle.stat();
+          if (!info.isFile() || info.size > 256 * 1024) throw new Error('Invalid or oversized system prompt file.');
+          const buffer = Buffer.alloc(info.size + 1);
+          const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+          if (bytesRead !== info.size) throw new Error('System prompt file changed while reading.');
+          return buffer.subarray(0, bytesRead).toString('utf8');
+        } finally {
+          await handle.close();
+        }
+      };
+      const systemPrompt = options.systemPrompt ?? await readPromptFile(options.systemPromptFile);
+      const appendSystemPrompt = options.appendSystemPrompt ?? await readPromptFile(options.appendSystemPromptFile);
       const execution: Parameters<typeof runRepl>[0] = {
         userId: options.user || await getAutoUserId(),
         workspace,
@@ -220,12 +260,18 @@ program
         print: options.outputFormat ?? 'text',
         continueSession: options.continue,
         resume: options.resume,
+        forkSession: options.forkSession,
+        forkAt: options.forkAt,
         persistSession: options.sessionPersistence,
         permissionMode: options.permissionMode,
+        stdioPermission: options.permissionPromptTool === 'stdio',
         commandPermissionSettings,
         permissionSources,
         toolNames,
         modelId: options.model,
+        maxTurns,
+        systemPrompt,
+        appendSystemPrompt,
       };
       if (streamInput) await runPrintStream(execution, options.replayUserMessages);
       else await runRepl(execution);
@@ -250,11 +296,19 @@ program
         gateway: options.gateway,
       });
     } else {
-      // Interactive REPL
-      console.log(chalk.bold('\nOcean Terminal AI'));
-      console.log(chalk.gray(`User: ${userId} | Workspace: ${workspace}`));
-      console.log(chalk.gray('Type your question or use /help for commands\n'));
-      await runRepl({ userId, workspace });
+      // Interactive REPL: the Ink status bar renders the header, so only print it
+      // for the readline fallback used when stdin is not a TTY.
+      if (!process.stdin.isTTY) {
+        console.log(chalk.bold('\nOcean Code'));
+        console.log(chalk.gray(`User: ${userId} | Workspace: ${workspace}`));
+        console.log(chalk.gray('Type your question or use /help for commands\n'));
+      }
+      await runRepl({
+        userId,
+        workspace,
+        continueSession: options.continue,
+        resume: options.resume,
+      });
     }
   });
 
@@ -326,8 +380,10 @@ program
  */
 async function enterCliSession() {
   const userId = process.env.OCEAN_WORK_ID || process.env.OCEAN_USER_ID || (await getAutoUserId());
-  console.log(chalk.bold('\nOcean Terminal AI'));
-  console.log(chalk.gray(`User: ${userId} | Workspace: ${process.cwd()}\n`));
+  if (!process.stdin.isTTY) {
+    console.log(chalk.bold('\nOcean Code'));
+    console.log(chalk.gray(`User: ${userId} | Workspace: ${process.cwd()}\n`));
+  }
   await runRepl({ userId, workspace: process.cwd() });
 }
 
@@ -508,6 +564,7 @@ registerTaskCommands(program);
 registerPluginCommands(program);
 registerVoiceCommands(program);
 registerRemoteCommands(program);
+registerSessionCommands(program);
 
 await program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));

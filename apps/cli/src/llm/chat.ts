@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import type { PermissionHookOutcome } from '@ocean/core/permission-policy';
 import type { SessionStore } from '../utils/session-store.js';
 import { isDeepStrictEqual } from 'node:util';
 import { createDelegationTool, loadSubagents } from '../subagents/delegate.js';
@@ -5,9 +7,11 @@ import { PermissionPolicy } from '../utils/permission-policy.js';
 import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
 import { buildEffectiveSystemPrompt } from './system-prompt.js';
 import { compactContext, type Compaction, type TokenUsageSnapshot } from './compaction.js';
-import { streamText, type ModelMessage, type ToolResultPart, type ToolCallPart, stepCountIs, convertToModelMessages } from 'ai';
+import { asSchema, streamText, type ModelMessage, type ToolResultPart, type ToolCallPart, stepCountIs, convertToModelMessages } from 'ai';
 import type { ModelConfig } from '../types.js';
 import type { LoadedSkill } from '../types.js';
+
+export class TurnInterruptedError extends Error {}
 
 type ApprovalDecision = 'approved' | 'rejected' | 'expired';
 
@@ -18,11 +22,12 @@ function usageTokenTotal(usage: any): number | undefined {
   if (!Number.isFinite(input) && !Number.isFinite(output)) return undefined;
   return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
 }
+type HookApproval = PermissionHookOutcome & { persistUpdates?: () => Promise<void> };
 type ToolApprovalHandler = (
   toolName: string,
   args: any,
   context?: { toolCallId?: string; signal?: AbortSignal },
-) => Promise<ApprovalDecision>;
+) => Promise<ApprovalDecision | HookApproval>;
 
 export function applyApprovalGate(
   tools: Record<string, any>,
@@ -72,17 +77,37 @@ export function applyApprovalGate(
               : await approvalHandler(name, structuredClone(snapshot));
             if (toolOptions?.abortSignal?.aborted || Date.now() >= deadline) return { error: 'Approval cancelled or expired.' };
             if (!isDeepStrictEqual(args, snapshot)) return { error: 'Tool arguments changed; a new approval is required.' };
-            if (definition.beforeApproval) {
-              const blocked = await definition.beforeApproval(args);
-              if (blocked) return { error: blocked };
-            }
-            if (decision !== 'approved') {
+            const approved = typeof decision === 'string' ? decision === 'approved' : decision.permission === 'allow';
+            if (!approved) {
               return {
                 type: 'text',
-                text: `[审批拒绝] 工具 ${name} 未获批准（${decision}），已取消执行。`,
+                text: `[审批拒绝] 工具 ${name} 未获批准（${typeof decision === 'string' ? decision : decision.reason}），已取消执行。`,
               };
             }
-            return definition.execute(args, toolOptions);
+            let approvedInput = args;
+            if (typeof decision !== 'string' && decision.updatedInput !== undefined) {
+              const validate = definition.inputSchema && asSchema(definition.inputSchema).validate;
+              if (!validate) return { error: 'Unable to validate replacement tool input.' };
+              const parsed = await validate(decision.updatedInput);
+              if (!parsed.success) return { error: 'Invalid replacement tool input.' };
+              approvedInput = parsed.value;
+            }
+            if (definition.beforeApproval) {
+              const blocked = await definition.beforeApproval(approvedInput);
+              if (blocked) return { error: blocked };
+            }
+            if (typeof decision !== 'string' && decision.updatedPermissions?.length) {
+              if (!decision.persistUpdates) return { error: 'Permission updates are unavailable for this execution.' };
+              try {
+                await decision.persistUpdates();
+              } catch (error) {
+                return { error: error instanceof Error ? error.message : String(error) };
+              }
+              const blocked = await definition.beforeApproval?.(approvedInput);
+              if (blocked) return { error: blocked };
+            }
+            if (toolOptions?.abortSignal?.aborted || Date.now() >= deadline) return { error: 'Approval cancelled or expired.' };
+            return definition.execute(approvedInput, toolOptions);
           },
         },
       ];
@@ -113,12 +138,25 @@ export type OceanPromptEvent =
   | { type: 'tool_call'; name: string; input: unknown }
   | { type: 'tool_result'; name: string; result: unknown };
 
+const gatewayApprovalSchema = z.object({
+  id: z.string().min(1),
+  runId: z.string().min(1),
+  toolName: z.string().min(1),
+  args: z.record(z.string(), z.unknown()),
+  toolCallId: z.string().min(1),
+});
+
 export interface GatewayPromptOptions {
+  approvalHost?: (name: string, input: Record<string, unknown>, toolCallId: string, signal?: AbortSignal) => Promise<PermissionHookOutcome>;
   gatewayUrl: string;
   apiKey: string;
   input: string;
   sessionId?: string;
   modelId?: string;
+  maxTurns?: number;
+  toolNames?: string[];
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
   nonInteractive?: boolean;
   onText?: (text: string) => void;
   onEvent?: (event: OceanPromptEvent) => void;
@@ -138,7 +176,12 @@ export async function runChatLoopViaGateway(options: GatewayPromptOptions): Prom
       messages: [{ role: 'user', content: options.input }],
       stream: true,
       ...(options.nonInteractive && { nonInteractive: true }),
+      ...(options.nonInteractive && options.approvalHost && { sdkApproval: true }),
       ...(options.modelId && { modelId: options.modelId }),
+      ...(options.toolNames !== undefined && { toolNames: options.toolNames }),
+      ...(options.maxTurns !== undefined && { maxTurns: options.maxTurns }),
+      ...(options.systemPrompt !== undefined && { systemPrompt: options.systemPrompt }),
+      ...(options.appendSystemPrompt !== undefined && { appendSystemPrompt: options.appendSystemPrompt }),
       ...(options.sessionId && { sessionId: options.sessionId }),
     }),
     signal: options.signal,
@@ -148,6 +191,7 @@ export async function runChatLoopViaGateway(options: GatewayPromptOptions): Prom
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
+  const seenApprovals = new Set<string>();
   let buffer = '';
   let fullText = '';
   let sawEvents = false;
@@ -182,10 +226,29 @@ export async function runChatLoopViaGateway(options: GatewayPromptOptions): Prom
           } else if (chunk.type === 'error') {
             throw new Error(chunk.errorText ?? 'Gateway stream failed.');
           } else if (chunk.type === 'finish') {
-            if (['error', 'interrupted'].includes(chunk.finishReason ?? '')) {
-              throw new Error(`Gateway run ended with status: ${chunk.finishReason}`);
-            }
+            if (chunk.finishReason === 'interrupted') throw new TurnInterruptedError('Gateway run was interrupted.');
+            if (chunk.finishReason === 'error') throw new Error('Gateway run ended with status: error.');
             finished = true;
+          } else if (chunk.type === 'data-run-approval' && chunk.data && options.nonInteractive && options.approvalHost) {
+            const approval = gatewayApprovalSchema.parse(chunk.data);
+            if (!seenApprovals.has(approval.id)) {
+              seenApprovals.add(approval.id);
+              const verdict = await options.approvalHost(approval.toolName, approval.args, approval.toolCallId, options.signal);
+              options.signal?.throwIfAborted();
+              const allowed = verdict.permission === 'allow' && !verdict.updatedPermissions?.length;
+              const decision = await fetch(`${base}/api/runs/${encodeURIComponent(approval.runId)}/approvals/${encodeURIComponent(approval.id)}/decide`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json', Authorization: `Bearer ${options.apiKey}` },
+                body: JSON.stringify({
+                  decision: allowed ? 'approved' : 'rejected', scope: 'once',
+                  ...(allowed && verdict.updatedInput && { updatedInput: verdict.updatedInput }),
+                  ...(verdict.permission === 'deny' && !verdict.interrupt && { continueOnDeny: true }),
+                }),
+                signal: options.signal,
+              });
+              if (!decision.ok) throw new Error(`Gateway approval failed: HTTP ${decision.status}`);
+              if (verdict.permission === 'allow' && !allowed) throw new Error('Gateway could not apply the approval changes.');
+            }
           } else if (chunk.type === 'data-ocean-tool' && chunk.data
             && (chunk.data.type === 'tool_call' || chunk.data.type === 'tool_result')) {
             options.onEvent?.(chunk.data);
@@ -225,6 +288,7 @@ export async function runChatLoop(
     signal?: AbortSignal;
     /** Maximum model/tool steps in one turn. */
     maxSteps?: number;
+    failAtStepLimit?: boolean;
     delegation?: {
       workspace: string;
       permissions?: ConstructorParameters<typeof PermissionPolicy>[2];
@@ -246,6 +310,23 @@ export async function runChatLoop(
   /** Provider usage for the saved transcript; estimate only messages appended later. */
   usage?: TokenUsageSnapshot;
 }> {
+  if (options.approvalHandler) {
+    const handler = options.approvalHandler;
+    const controller = new AbortController();
+    const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+    options = {
+      ...options,
+      signal,
+      approvalHandler: async (name, input, context) => {
+        const verdict = await handler(name, input, { ...context, signal });
+        if (typeof verdict !== 'string' && verdict.interrupt) {
+          controller.abort(new TurnInterruptedError(verdict.reason || 'Permission hook interrupted the turn.'));
+          signal.throwIfAborted();
+        }
+        return verdict;
+      },
+    };
+  }
   options.signal?.throwIfAborted();
   const maxSteps = options.maxSteps ?? 30;
   if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid model step limit');
@@ -398,8 +479,15 @@ export async function runChatLoop(
 
   // Consume the stream
   const finalResult = await result;
-  const text = await finalResult.text;
+  const text = await Promise.resolve(finalResult.text).catch(error => {
+    options.signal?.throwIfAborted();
+    throw error;
+  });
+  options.signal?.throwIfAborted();
   const finishReason = await finalResult.finishReason;
+  if (options.failAtStepLimit && finishReason === 'tool-calls') {
+    throw new Error(`Maximum model turns reached: ${maxSteps}.`);
+  }
   if (finishReason === 'error' || finishReason === 'other') {
     throw new Error('Model stream incomplete; turn was not completed.');
   }
@@ -410,7 +498,11 @@ export async function runChatLoop(
   if (stop?.blocked) {
     if (options.stopHookActive) throw new Error('Stop hook blocked twice; continuation limit reached');
     const feedback: ModelMessage = { role: 'user', content: `Stop hook feedback: ${stop.reason}` };
-    const continued = await runChatLoop([...messages, ...responseMessages, feedback], { ...options, stopHookActive: true });
+    const remaining = options.failAtStepLimit ? maxSteps - (await finalResult.steps).length : options.maxSteps;
+    if (remaining !== undefined && remaining < 1) throw new Error(`Maximum model turns reached: ${maxSteps}.`);
+    const continued = await runChatLoop([...messages, ...responseMessages, feedback], {
+      ...options, maxSteps: remaining, stopHookActive: true,
+    });
     return { ...continued, toolCalls: [...toolCalls, ...continued.toolCalls], toolResults: [...toolResults, ...continued.toolResults], responseMessages: [...responseMessages, feedback, ...continued.responseMessages] };
   }
   return {

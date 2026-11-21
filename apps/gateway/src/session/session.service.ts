@@ -6,7 +6,8 @@ import {
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { SpaceService } from '../space/space.service';
 import { workspaceSnapshotSchema } from '@ocean/contracts';
@@ -183,6 +184,47 @@ export class SessionService {
     });
     if (!session) throw new NotFoundException(`Session ${id} not found`);
     return session;
+  }
+
+  async forkSession(id: string, userId: string, messageId?: string) {
+    const source = await this.getSessionById(id, userId);
+    await this.spaceService.requireAccessibleSpace(userId, source.spaceId);
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.message.findMany({
+        where: { sessionId: id },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      const byId = new Map(rows.map(row => [row.id, row]));
+      const branch: typeof rows = [];
+      const visited = new Set<string>();
+      let message = messageId === undefined ? rows.at(-1) : byId.get(messageId);
+      if (messageId !== undefined && !message) throw new NotFoundException('Fork message not found in this session.');
+      while (message) {
+        if (visited.has(message.id)) throw new ConflictException('Session history contains a cycle.');
+        visited.add(message.id);
+        branch.push(message);
+        message = message.parentId ? byId.get(message.parentId) : undefined;
+      }
+
+      const fork = await tx.session.create({ data: {
+        userId, spaceId: source.spaceId, title: source.title, channel: 'cli',
+      } });
+      let parentId: string | null = null;
+      const messages = branch.reverse().map(row => {
+        const id = randomUUID();
+        const data = {
+          id, parentId, sessionId: fork.id, role: row.role, content: row.content,
+          parts: row.parts === null ? Prisma.DbNull : row.parts,
+          attachments: row.attachments === null ? Prisma.DbNull : row.attachments,
+          usage: row.usage === null ? Prisma.DbNull : row.usage,
+          createdAt: row.createdAt,
+        };
+        parentId = id;
+        return data;
+      });
+      if (messages.length) await tx.message.createMany({ data: messages });
+      return fork;
+    });
   }
 
   async getProjectChoices(id: string, userId: string) {

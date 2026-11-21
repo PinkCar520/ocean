@@ -65,6 +65,18 @@ export function createMcpResourceTools(pool: MCPClientPool): Tool[] {
       },
     },
     {
+      name: 'mcp_list_resource_templates',
+      description: 'List URI templates for parameterized MCP resources available to the current Ocean user.',
+      effect: 'read',
+      permissionServer: resourceServer,
+      inputSchema: listSchema,
+      async execute(input, ctx) {
+        if (!ctx) throw new TerminalToolError('Missing authenticated MCP context.');
+        const args = listSchema.parse(input);
+        return capResourceResult(await pool.listServerResourceTemplates({ userId: ctx.userId }, args.server, args.cursor));
+      },
+    },
+    {
       name: 'mcp_read_resource',
       description: 'Read a resource URI from a connected MCP server for the current Ocean user.',
       effect: 'read',

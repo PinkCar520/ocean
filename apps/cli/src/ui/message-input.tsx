@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
 import chalk from 'chalk';
 import { useOceanInput } from '../hooks/useOceanInput.js';
+import { resolveCommandEnter } from './command-enter.js';
 
 interface MessageInputProps {
   isWaiting: boolean;
@@ -56,20 +57,12 @@ export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: 
   // 1. Core State & Logic using our Hook
   const { value, cursorOffset, setValue, setCursorOffset } = useOceanInput({
     onEnter: (val) => {
-      const ms = getMatches(val);
-      if (ms.length > 0) {
-        const selected = ms[selectedIndex] || ms[0];
-        const completed = selected.name + ' ';
-        setValue(completed);
-        setCursorOffset(completed.length);
-        return true; // Keep value - this was a completion, not a submission
-      }
-
       if (!isWaiting) return true;
-      if (val.trim()) {
+      const action = resolveCommandEnter(val, getMatches(val), selectedIndex);
+      if (action.value.trim()) {
         position.current = undefined;
         draft.current = '';
-        onSubmit(val);
+        onSubmit(action.value);
       }
     },
     onTab: (val) => {
@@ -134,7 +127,7 @@ export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: 
       );
       segments.push(
         <Text key="placeholder" dimColor>
-          {' Type your query or /help'}
+          {' Type your query or /help for commands'}
         </Text>
       );
       return segments;
@@ -178,12 +171,15 @@ export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: 
     <Box flexDirection="column" marginTop={1}>
       <Box>
         <Text color="gray">{'─'.repeat(process.stdout.columns || 80)}</Text>
-      </Box>
+      </Box>     
       <Box>
         <Box marginRight={1}>
           <Text bold color={isWaiting ? 'green' : 'gray'}>{'› '}</Text>
         </Box>
         <Box>{renderedContent}</Box>
+      </Box>
+      <Box>
+        <Text color="gray">{'─'.repeat(process.stdout.columns || 80)}</Text>
       </Box>
 
       {/* Suggestions List - Interactive & Scrolling */}

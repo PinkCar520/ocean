@@ -15,7 +15,7 @@ import {
   type PermissionMode,
 } from '@ocean/core/permission-policy';
 import { SessionPermissionGrants } from '@ocean/core/session-permission-grants';
-import { atomicWriteFile } from './file-system.js';
+import { atomicWriteFile, withProcessFileLock } from './file-system.js';
 
 const DEFAULT_SETTINGS: PermissionSettings = { mode: 'default' };
 
@@ -36,7 +36,7 @@ interface ResolvedPolicy {
 
 /** Loads the same workspace policy format used by Gateway for local CLI tools. */
 export class PermissionPolicy {
-  private static readonly revisions = new Map<string, number>();
+  private static revision = 0;
   private cached?: ResolvedPolicy;
 
   constructor(
@@ -108,31 +108,65 @@ export class PermissionPolicy {
   }
 
   async setWorkspaceMode(mode: PermissionMode): Promise<void> {
-    const root = fs.realpathSync(this.workspacePath);
+    await this.updateSettings('localSettings', settings => ({ ...settings, mode }));
+  }
+
+  async applyHookUpdates(updates: readonly unknown[], signal?: AbortSignal): Promise<void> {
+    if (this.load().settings.allowManagedPermissionRulesOnly) throw new Error('Permission updates are disabled by managed settings.');
+    // Validate the entire batch before changing any files.
+    const changes = updates.map(parseHookUpdate);
+    const destinations = new Set(changes.map(change => change.destination));
+    for (const destination of destinations) {
+      const matching = changes.filter(change => change.destination === destination);
+      await this.updateSettings(destination, settings => {
+        signal?.throwIfAborted();
+        return matching.reduce((current, change) => change.apply(current), settings);
+      }, signal);
+    }
+  }
+
+  private async updateSettings(
+    destination: SettingsDestination,
+    update: (settings: PermissionSettings) => PermissionSettings,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const root = fs.realpathSync(destination === 'userSettings' ? this.homePath : this.workspacePath);
     const configDir = path.join(root, '.ocean');
     try {
-      const dirInfo = fs.lstatSync(configDir);
-      if (dirInfo.isSymbolicLink() || !dirInfo.isDirectory()) throw new Error('Workspace .ocean settings directory is unsafe.');
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       fs.mkdirSync(configDir, { mode: 0o700 });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
     }
+    const verifyDirectory = () => {
+      const info = fs.lstatSync(configDir);
+      if (info.isSymbolicLink() || !info.isDirectory()) throw new Error('Ocean settings directory is unsafe.');
+    };
+    verifyDirectory();
+    const filePath = path.join(configDir, destination === 'localSettings' ? 'settings.local.json' : 'settings.json');
+    await withProcessFileLock(filePath, async () => {
+      verifyDirectory();
+      const current = this.readSettings(root, filePath);
+      if (current === 'invalid') throw new Error('Permission settings are invalid or unsafe.');
+      const updated = update(current ?? {});
+      const serialized = JSON.stringify(updated, null, 2) + '\n';
+      if (Buffer.byteLength(serialized) > MAX_SETTINGS_BYTES) throw new Error('Permission settings exceed the size limit.');
+      await atomicWriteFile(filePath, serialized, {
+        defaultMode: 0o600,
+        beforeCommit: async () => {
+          signal?.throwIfAborted();
+          verifyDirectory();
+        },
+      });
+    });
 
-    const filePath = path.join(configDir, 'settings.local.json');
-    const current = this.readSettings(root, filePath);
-    if (current === 'invalid') throw new Error('Workspace-local settings are invalid or unsafe; repair them before changing permission mode.');
-    const updated: PermissionSettings = { ...(current ?? {}), mode };
-    await atomicWriteFile(filePath, `${JSON.stringify(updated, null, 2)}\n`, { defaultMode: 0o600 });
-
-    const key = path.resolve(this.workspacePath);
-    PermissionPolicy.revisions.set(key, (PermissionPolicy.revisions.get(key) ?? 0) + 1);
+    PermissionPolicy.revision++;
     this.cached = undefined;
   }
 
   private load(): ResolvedPolicy {
     const now = Date.now();
     const sessionMode = typeof this.options.mode === 'function' ? this.options.mode() : this.options.mode;
-    const revision = PermissionPolicy.revisions.get(path.resolve(this.workspacePath)) ?? 0;
+    const revision = PermissionPolicy.revision;
     if (this.cached && this.cached.revision === revision && this.cached.sessionMode === sessionMode && now - this.cached.loadedAt < CACHE_TTL_MS) return this.cached;
 
     let workspaceRoot: string;
@@ -235,7 +269,7 @@ export class PermissionPolicy {
       rules: normalizeRules({ mode: 'default', rules: [{ action: 'deny', pattern: '*' }] }),
       invalid: true,
       loadedAt: now,
-      revision: PermissionPolicy.revisions.get(path.resolve(this.workspacePath)) ?? 0,
+      revision: PermissionPolicy.revision,
       policyVersion: 'invalid',
     };
     return this.cached;
@@ -261,4 +295,49 @@ export class PermissionPolicy {
       return 'invalid';
     }
   }
+}
+
+type SettingsDestination = 'userSettings' | 'projectSettings' | 'localSettings';
+
+function parseHookUpdate(value: unknown): {
+  destination: SettingsDestination;
+  apply: (settings: PermissionSettings) => PermissionSettings;
+} {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid hook permission update.');
+  const { destination, behavior, type, rules, mode } = value as Record<string, unknown>;
+  if (destination !== 'userSettings' && destination !== 'projectSettings' && destination !== 'localSettings') {
+    throw new Error('Unsupported hook permission update destination.');
+  }
+  if (type === 'setMode') {
+    const parsed = parsePermissionSettings({ mode });
+    if (!parsed?.mode) throw new Error('Invalid hook permission mode.');
+    return { destination, apply: settings => ({ ...settings, mode: parsed.mode }) };
+  }
+  if ((type !== 'addRules' && type !== 'replaceRules' && type !== 'removeRules')
+    || (behavior !== 'allow' && behavior !== 'deny' && behavior !== 'ask') || !Array.isArray(rules)) {
+    throw new Error('Unsupported hook permission update.');
+  }
+  const patterns = rules.map(rule => {
+    if (!rule || typeof rule.toolName !== 'string' || !rule.toolName.trim()
+      || (rule.ruleContent !== undefined && typeof rule.ruleContent !== 'string')) {
+      throw new Error('Invalid hook permission rule.');
+    }
+    return rule.ruleContent ? `${rule.toolName}(${rule.ruleContent})` : rule.toolName;
+  });
+  if (!parsePermissionSettings({ [behavior]: patterns })) throw new Error('Invalid hook permission rule.');
+  return {
+    destination,
+    apply: settings => {
+      if (type === 'addRules') {
+        return { ...settings, [behavior]: [...new Set([...(settings[behavior] ?? []), ...patterns])] };
+      }
+      const keep = (pattern: string) => type === 'removeRules' && !patterns.includes(pattern);
+      return {
+        ...settings,
+        [behavior]: type === 'replaceRules' ? [...new Set(patterns)] : settings[behavior]?.filter(keep),
+        ...(settings.rules && { rules: settings.rules.filter(rule => rule.action !== behavior || keep(rule.pattern)) }),
+        ...(settings.permissions && { permissions: { ...settings.permissions, [behavior]: settings.permissions[behavior]?.filter(keep) } }),
+      };
+    },
+  };
 }

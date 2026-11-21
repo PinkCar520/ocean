@@ -1,3 +1,13 @@
+import { ChatController } from '../src/chat/chat.controller';
+import { ChatService } from '../src/chat/chat.service';
+import { RpcGateway } from '../src/chat/rpc.gateway';
+import { SkillLoader } from '../src/skill/skill.loader';
+import { SkillOrchestrator } from '../src/skill/skill.orchestrator';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { createInterface } from 'node:readline';
+import { SessionController } from '../src/session/session.controller';
+import { SessionService } from '../src/session/session.service';
 import { RunScheduleService } from '../src/run/run-schedule.service';
 import { RunScheduleController } from '../src/run/run-schedule.controller';
 import { GatewayCheckpointService } from '../src/tool/checkpoint.service';
@@ -114,12 +124,18 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
     return sim.generate(req);
    },
   }, outbox, registry, metrics, hooks),
-   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents), outbox, db, subagents);
-  const module = await Test.createTestingModule({ controllers: [RunScheduleController, SubagentRunsController, RunController, ExternalApprovalController, MCPCredentialsController, MCPOAuthController], providers: [
+   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents, service), outbox, db, subagents);
+  const module = await Test.createTestingModule({ controllers: [ChatController, SessionController, RunScheduleController, SubagentRunsController, RunController, ExternalApprovalController, MCPCredentialsController, MCPOAuthController], providers: [
+   { provide: ChatService, useValue: new ChatService(new ConfigService({ CHAT_USE_RUN: 'true' }), service) },
+   { provide: SpaceService, useValue: spaces },
+   { provide: SkillOrchestrator, useValue: {} },
+   { provide: SkillLoader, useValue: {} },
+   { provide: RpcGateway, useValue: {} },
    { provide: MCPOAuthService, useValue: oauth },
    { provide: MCPCredentialsService, useValue: new MCPCredentialsService(resolve(policyHome, 'credentials')) },
    { provide: SubagentRunsService, useValue: subagents },
    { provide: RunScheduleService, useValue: schedules },
+   { provide: SessionService, useValue: new SessionService(db, spaces) },
    { provide: RunService, useValue: service }, { provide: ArtifactStore, useValue: artifacts },
    { provide: JwtService, useValue: jwt },
    { provide: UserService, useValue: new UserService(db) },
@@ -137,6 +153,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   if (db) {
    await db.agentRun.deleteMany({ where: { userId } });
    await db.outboxEvent.deleteMany({ where: { payload: { path: ['userId'], equals: userId } } });
+   await db.session.deleteMany({ where: { userId } });
    await db.space.deleteMany({ where: { id: spaceId } });
    await db.user.deleteMany({ where: { id: userId } });
    await db.$disconnect();
@@ -148,6 +165,30 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   await request(app.getHttpServer()).post('/api/runs').send({ space: { id: spaceId, type: 'work' }, input: 'hello' }).expect(401);
   expect(await db.agentRun.count({ where: { userId } })).toBe(0);
  });
+ it('forks the latest Gateway message branch into independent records', async () => {
+  const original = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'Fork fixture' } });
+  const root = await db.message.create({ data: { sessionId: original.id, role: 'user', content: 'Root', createdAt: new Date(1000) } });
+  await db.message.create({ data: { sessionId: original.id, parentId: root.id, role: 'assistant', content: 'Older branch', createdAt: new Date(2000) } });
+  await db.message.create({ data: { sessionId: original.id, parentId: root.id, role: 'assistant', content: 'Latest branch', createdAt: new Date(3000) } });
+  const endpoint = `/api/sessions/${original.id}/fork`;
+  await request(app.getHttpServer()).post(endpoint).expect(401);
+  await expect(app.get(SessionService).forkSession(original.id, randomUUID())).rejects.toThrow('not found');
+  const fork = await request(app.getHttpServer()).post(endpoint).auth(auth(), { type: 'bearer' }).expect(201);
+  const forkId = fork.body.data.id;
+  expect(forkId).not.toBe(original.id);
+  const messages = await db.message.findMany({ where: { sessionId: forkId }, orderBy: { createdAt: 'asc' } });
+  expect(messages.map(message => message.content)).toEqual(['Root', 'Latest branch']);
+  expect(messages[0].id).not.toBe(root.id);
+  expect(messages[1].parentId).toBe(messages[0].id);
+  const earlierFork = await request(app.getHttpServer()).post(endpoint).auth(auth(), { type: 'bearer' })
+   .send({ messageId: root.id }).expect(201);
+  const earlierMessages = await db.message.findMany({ where: { sessionId: earlierFork.body.data.id } });
+  expect(earlierMessages.map(message => message.content)).toEqual(['Root']);
+  await request(app.getHttpServer()).post(endpoint).auth(auth(), { type: 'bearer' })
+   .send({ messageId: messages[0].id }).expect(404);
+  expect(await db.message.count({ where: { sessionId: original.id } })).toBe(3);
+ });
+
  it('creates one background Run when concurrent workers see the same due schedule', async () => {
   const response = await request(app.getHttpServer()).post('/api/run-schedules').auth(auth(), { type: 'bearer' })
    .send({ spaceId, cron: '* * * * *', recurring: false, prompt: 'scheduled worker fixture' }).expect(201);
@@ -622,7 +663,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
  it('streams a provider tool call through cancellation, retry, session approval and completion', async () => {
   const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
    .send({ space: { id: spaceId, type: 'work' }, input: 'Provider contract',
-    metadata: { modelId: providerModelId, sessionId: 'provider-contract' } }).expect(201);
+    metadata: { modelId: providerModelId, sessionId: 'provider-contract', systemPrompt: 'System fixture', appendSystemPrompt: 'Extra fixture' } }).expect(201);
   const runId = response.body.run.id;
   await request(app.getHttpServer()).post(`/api/runs/${runId}/cancel`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
   expect(await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).toMatchObject({ status: 'cancelled' });
@@ -654,6 +695,12 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    expect(providerContract.requests[0].tools).toEqual(expect.arrayContaining([
     expect.objectContaining({ function: expect.objectContaining({ name: 'echo' }) }),
    ]));
+   for (const providerRequest of providerContract.requests) {
+    expect(providerRequest.messages.filter(message => message.role === 'system')).toEqual([
+     expect.objectContaining({ role: 'system', content: 'System fixture\n\nExtra fixture' }),
+    ]);
+    expect(providerRequest.messages.some(message => message.role === 'user')).toBe(true);
+   }
    const toolMessage = providerContract.requests[1].messages.find(({ role }) => role === 'tool');
    expect(toolMessage).toMatchObject({ tool_call_id: 'provider-echo' });
    expect(JSON.parse(toolMessage!.content!)).toEqual({ text: 'provider-round-trip' });
@@ -661,6 +708,229 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   } finally {
    worker.stop();
    registry.register(echo);
+  }
+ }, 30000);
+
+ it('applies permission hook replacements and interrupts through the HTTP Worker', async () => {
+  const echo = registry.get('echo')!;
+  registry.register({ ...echo, requiresApproval: true });
+  const hookFile = resolve(policyHome, 'hooks.json');
+  const start = providerContract.requests.length;
+  try {
+   worker.start();
+   for (const decision of [
+    { behavior: 'allow', updatedInput: { text: 'hook-replacement' } },
+    { behavior: 'deny', message: 'hook-interrupted', interrupt: true },
+   ]) {
+    const session = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'Permission hook' } });
+    const verdict = JSON.stringify({ hookSpecificOutput: { hookEventName: 'PermissionRequest', decision } });
+    writeFileSync(hookFile, JSON.stringify({
+     trustedSpaces: [spaceId],
+     hooks: { PermissionRequest: [{ matcher: '^echo$', hooks: [{ type: 'command', command: `printf '%s' '${verdict}'` }] }] },
+    }), { mode: 0o600 });
+    const before = providerContract.requests.length;
+    const response = await request(app.getHttpServer()).post('/api/chat').auth(auth(), { type: 'bearer' })
+     .send({ messages: [{ role: 'user', content: 'Permission hook fixture' }], modelId: providerModelId,
+      sessionId: session.id, nonInteractive: true, toolNames: ['echo'], stream: true }).expect(200);
+    const run = await db.agentRun.findFirstOrThrow({ where: { userId, metadata: { path: ['sessionId'], equals: session.id } } });
+    expect(await db.runApproval.count({ where: { runId: run.id } })).toBe(0);
+    if (decision.behavior === 'allow') {
+     expect(run.status).toBe('succeeded');
+     expect(response.text).toContain('hook-replacement');
+     const requests = providerContract.requests.slice(before);
+     expect(requests).toHaveLength(2);
+     expect(requests[1].messages.find(message => message.role === 'tool')?.content).toBe('{"text":"hook-replacement"}');
+    } else {
+     expect(run.status).toBe('cancelled');
+     expect(response.text).toContain('"finishReason":"interrupted"');
+     expect(providerContract.requests.slice(before)).toHaveLength(1);
+     expect(await db.runStep.count({ where: { runId: run.id, kind: 'tool_call' } })).toBe(0);
+    }
+   }
+  } finally {
+   worker.stop();
+   registry.register(echo);
+   writeFileSync(hookFile, JSON.stringify({ trustedSpaces: [spaceId], hooks: {} }), { mode: 0o600 });
+   providerContract.requests.splice(start);
+  }
+ }, 30000);
+
+ const cli = process.env.OCEAN_E2E_CLI_ENTRY;
+ (cli ? it : it.skip)('applies print tool selection across CLI, HTTP, Worker and provider', async () => {
+  const execute = promisify(execFile);
+  const echo = registry.get('echo')!;
+  registry.register({ ...echo, requiresApproval: false });
+  const firstRequest = providerContract.requests.length;
+  try {
+   worker.start();
+   for (const [selection, expectedTools] of [['echo', ['echo']], ['', []], ['default', undefined]] as const) {
+    const session = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'Tool selection' } });
+    const before = providerContract.requests.length;
+    const { stdout } = await execute(process.execPath, [
+     cli!, '-p', '--gateway', '--tools', selection, '--resume', session.id, '--model', providerModelId,
+     '--output-format', 'json', 'Tool selection fixture',
+    ], {
+     cwd: policyHome,
+     env: { ...process.env, OCEAN_GATEWAY_URL: await app.getUrl(), OCEAN_API_KEY: auth() },
+     timeout: 10000,
+    });
+    expect(stdout).toContain('OCEAN_PROVIDER_OK');
+    const run = await db.agentRun.findFirstOrThrow({
+     where: { userId, metadata: { path: ['sessionId'], equals: session.id } },
+    });
+    const requests = providerContract.requests.slice(before);
+    expect(requests).toHaveLength(selection === '' ? 1 : 2);
+    for (const providerRequest of requests) {
+     const names = (providerRequest.tools ?? []).map(tool => tool.function.name);
+     if (expectedTools) expect(names).toEqual(expectedTools);
+     else expect(names.length).toBeGreaterThan(1);
+     expect(names).not.toContain('ask_user');
+    }
+    if (expectedTools) expect(run.metadata).toMatchObject({ toolNames: expectedTools });
+    else expect(run.metadata).not.toHaveProperty('toolNames');
+   }
+  } finally {
+   worker.stop();
+   registry.register(echo);
+   providerContract.requests.splice(firstRequest);
+  }
+ }, 35000);
+
+ (cli ? it : it.skip)('routes Gateway print approvals to the stdio host', async () => {
+  const echo = registry.get('echo')!;
+  registry.register({ ...echo, requiresApproval: true });
+  const start = providerContract.requests.length;
+  try {
+   worker.start();
+   for (const [behavior, replacement, interrupt] of [
+    ['allow', undefined], ['allow', { text: 'sdk-replacement' }], ['allow', { text: 42 }], ['deny', undefined], ['deny', undefined, true],
+   ] as const) {
+    const session = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'SDK approval' } });
+    const child = spawn(process.execPath, [
+     cli!, '-p', '--gateway', '--tools', 'echo', '--resume', session.id, '--model', providerModelId,
+     '--input-format', 'stream-json', '--output-format', 'stream-json', '--permission-prompt-tool', 'stdio',
+    ], {
+     cwd: policyHome,
+     env: { ...process.env, OCEAN_GATEWAY_URL: await app.getUrl(), OCEAN_API_KEY: auth() },
+     stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const exited = once(child, 'exit');
+    const timer = setTimeout(() => child.kill(), 10000);
+    const lines = createInterface({ input: child.stdout });
+    let requestCount = 0;
+    const results: unknown[] = [];
+    let status: string | undefined;
+    let errors = '';
+    child.stderr.on('data', chunk => { errors += String(chunk); });
+    child.stdin.write(JSON.stringify({ type: 'user', text: 'Approval fixture' }) + '\n');
+    try {
+     for await (const line of lines) {
+      const event = JSON.parse(line);
+      if (event.type === 'control_request') {
+       requestCount++;
+       expect(event.request).toMatchObject({ subtype: 'can_use_tool', tool_name: 'echo', tool_use_id: 'provider-echo' });
+       child.stdin.write(JSON.stringify({
+        type: 'control_response',
+        response: { subtype: 'success', request_id: event.request_id, response: { behavior, toolUseID: 'provider-echo', updatedInput: replacement, interrupt } },
+       }) + '\n');
+      }
+      if (event.type === 'tool_result') results.push(event.result);
+      if (event.type === 'result') {
+       status = event.status;
+       child.stdin.end();
+      }
+     }
+     const [exitCode] = await exited;
+     expect({ exitCode, errors, requestCount, status }).toMatchObject({
+      exitCode: 0, requestCount: 1, status: interrupt ? 'interrupted' : 'succeeded',
+     });
+     const run = await db.agentRun.findFirstOrThrow({ where: { userId, metadata: { path: ['sessionId'], equals: session.id } } });
+     expect(await db.runApproval.findFirst({ where: { runId: run.id } })).toMatchObject({
+      status: behavior === 'allow' ? 'approved' : 'rejected', scope: 'once',
+     });
+     expect(await db.runStep.count({ where: { runId: run.id, kind: 'tool_call' } })).toBe(interrupt ? 0 : 1);
+     if (behavior === 'allow') {
+      const approval = await db.runApproval.findFirstOrThrow({ where: { runId: run.id } });
+      expect(approval.args).toEqual({ text: 'provider-round-trip' });
+      expect(results).toEqual([typeof replacement?.text === 'number'
+       ? { error: 'Invalid replacement tool input.' } : { text: replacement?.text ?? 'provider-round-trip' }]);
+      expect(await db.auditLog.count({ where: { runId: run.id, action: 'tool.execute' } }))
+       .toBe(typeof replacement?.text === 'number' ? 0 : 1);
+     } else {
+      expect(results).toEqual(interrupt ? [] : [{ error: 'SDK host denied tool echo.' }]);
+      expect(await db.auditLog.count({ where: { runId: run.id, action: 'tool.execute' } })).toBe(0);
+     }
+    } finally {
+     clearTimeout(timer);
+     lines.close();
+     if (child.exitCode === null) child.kill();
+     await exited;
+    }
+   }
+  } finally {
+   registry.register(echo);
+   providerContract.requests.splice(start);
+   worker.stop();
+  }
+ }, 30000);
+
+ (cli ? it : it.skip)('interrupts an active provider stream from CLI stdin and continues the session', async () => {
+  const session = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'Control protocol' } });
+  const firstRequest = providerContract.requests.length;
+  const endpoint = await app.getUrl();
+  const child = spawn(process.execPath, [
+   cli!, '-p', '--gateway', '--tools', '', '--resume', session.id,
+   '--input-format', 'stream-json', '--output-format', 'stream-json',
+  ], {
+   cwd: policyHome,
+   env: { ...process.env, OCEAN_GATEWAY_URL: endpoint, OCEAN_API_KEY: auth() },
+   stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const exited = once(child, 'exit');
+  const lines = createInterface({ input: child.stdout });
+  const events: any[] = [];
+  lines.on('line', line => { try { events.push(JSON.parse(line)); } catch { /* checked through expected events */ } });
+  let errors = '';
+  child.stderr.on('data', chunk => { errors += String(chunk); });
+  const send = (message: object) => child.stdin.write(JSON.stringify(message) + '\n');
+  const control = (id: string, request: object) => send({ type: 'control_request', request_id: id, request });
+  const waitUntil = async (condition: () => boolean) => {
+   const deadline = Date.now() + 8000;
+   while (!condition()) {
+    if (Date.now() >= deadline || child.exitCode !== null) throw new Error(`CLI control timed out: ${errors} ${JSON.stringify(events)}`);
+    await new Promise(resolve => setTimeout(resolve, 30));
+   }
+  };
+
+  try {
+   worker.start();
+   control('init', { subtype: 'initialize', systemPrompt: 'Control fixture' });
+   control('model', { subtype: 'set_model', model: providerModelId });
+   send({ type: 'user', id: 'first', text: 'Hold provider until interrupted' });
+   await waitUntil(() => providerContract.requests.length > firstRequest);
+   const run = await db.agentRun.findFirstOrThrow({ where: { userId, metadata: { path: ['sessionId'], equals: session.id } } });
+   control('interrupt', { subtype: 'interrupt' });
+   await waitUntil(() => events.some(event => event.type === 'result' && event.requestId === 'first' && event.status === 'interrupted'));
+   await waitFor(run.id, 'cancelled');
+   await waitUntil(() => providerContract.interruptedRequests.length > 0);
+   send({ type: 'user', id: 'next', text: 'Finish without tools' });
+   child.stdin.end();
+   await waitUntil(() => events.some(event => event.type === 'result' && event.requestId === 'next' && event.status === 'succeeded'));
+   expect(await exited).toEqual([0, null]);
+   expect(events.filter(event => event.type === 'control_response').map(event => event.response)).toEqual([
+    expect.objectContaining({ request_id: 'init', subtype: 'success' }),
+    expect.objectContaining({ request_id: 'model', subtype: 'success' }),
+    expect.objectContaining({ request_id: 'interrupt', subtype: 'success' }),
+   ]);
+   expect(providerContract.requests.slice(firstRequest)).toHaveLength(2);
+   expect(providerContract.requests.at(-1)?.messages).toContainEqual(expect.objectContaining({ role: 'system', content: 'Control fixture' }));
+  } finally {
+   child.kill();
+   lines.close();
+   await exited;
+   worker.stop();
+   providerContract.requests.splice(firstRequest);
+   providerContract.interruptedRequests.length = 0;
   }
  }, 30000);
 

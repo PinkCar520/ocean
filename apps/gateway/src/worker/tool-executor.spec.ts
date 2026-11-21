@@ -45,6 +45,7 @@ function createExecutor(
     toolError?: Error;
     hooks?: { run: jest.Mock };
     sessionGrant?: Record<string, any> | null;
+    runs?: { cancelInTransaction: jest.Mock };
   } = {},
 ) {
   const defaultRun = { id: 'run_1', userId: 'user_1', status: 'queued' };
@@ -130,6 +131,8 @@ function createExecutor(
     audit as never,
     undefined as any,
     hooks as never,
+    undefined,
+    options.runs as never,
   );
   return { executor, tx, prisma, registry, toolExecute, hooks, audit };
 }
@@ -140,6 +143,57 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
     tx.$queryRaw.mockResolvedValueOnce([]);
     expect(await executor.execute(toolJob({ name: 'approval.tool' }))).toMatchObject({ status: 'succeeded' });
     expect(toolExecute).not.toHaveBeenCalled();
+  });
+
+  it('returns a disabled-tool result without seeking approval or executing the tool', async () => {
+    const { executor, toolExecute, hooks, prisma, tx, audit } = createExecutor({
+      run: { id: 'run_1', userId: 'user_1', status: 'queued', metadata: { nonInteractive: true, toolNames: [] } },
+    });
+    prisma.runStep.findFirst.mockResolvedValueOnce({ id: 'model_step' });
+    tx.runStep.findFirst.mockImplementation(async ({ where }) => where.kind === 'model_call' ? { id: 'model_step' } : null);
+
+    await expect(executor.execute(toolJob({ name: 'approval.tool' }))).resolves.toMatchObject({ status: 'succeeded' });
+    expect(tx.runStep.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ output: { error: 'Tool approval.tool is disabled for this Run.' } }),
+    }));
+    expect(hooks.run).not.toHaveBeenCalled();
+    expect(tx.runApproval.create).not.toHaveBeenCalled();
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('executes the validated replacement and records the original call identity', async () => {
+    const hooks = { run: jest.fn(async event => event === 'PermissionRequest'
+      ? { blocked: false, permission: 'allow', updatedInput: { text: 'replacement' } }
+      : { blocked: false }) };
+    const { executor, registry, toolExecute, tx, audit } = createExecutor({
+      hooks, run: { id: 'run_1', userId: 'user_1', status: 'queued', metadata: { nonInteractive: true } },
+    });
+    registry.register({ ...registry.get('approval.tool')!, inputSchema: z.object({ text: z.string() }) });
+
+    await expect(executor.execute(toolJob({ name: 'approval.tool' }))).resolves.toMatchObject({ status: 'succeeded' });
+    expect(toolExecute).toHaveBeenCalledWith({ text: 'replacement' }, expect.any(Object));
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ inputJson: { text: 'replacement' } }));
+    expect(tx.runStep.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        input: expect.objectContaining({ input: { text: 'hi' }, hookUpdatedInput: true }),
+      }),
+    }));
+  });
+
+  it('uses a fenced cancellation when a permission hook interrupts', async () => {
+    const runs = { cancelInTransaction: jest.fn().mockResolvedValue(undefined) };
+    const hooks = { run: jest.fn(async event => event === 'PermissionRequest'
+      ? { blocked: true, permission: 'deny', interrupt: true, reason: 'stop' }
+      : { blocked: false }) };
+    const { executor, tx, toolExecute } = createExecutor({
+      hooks, runs, run: { id: 'run_1', userId: 'user_1', status: 'queued', metadata: { nonInteractive: true } },
+    });
+
+    await expect(executor.execute(toolJob({ name: 'approval.tool' }))).resolves.toMatchObject({ status: 'succeeded' });
+    expect(runs.cancelInTransaction).toHaveBeenCalledWith(tx, 'run_1', 'user_1');
+    expect(toolExecute).not.toHaveBeenCalled();
+    expect(tx.runApproval.create).not.toHaveBeenCalled();
   });
 
   it('reuses an exact approved session grant without creating another approval', async () => {

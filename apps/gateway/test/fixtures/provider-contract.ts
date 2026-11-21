@@ -10,6 +10,7 @@ interface ChatRequest {
 
 export async function startProviderContract() {
   const requests: ChatRequest[] = [];
+  const interruptedRequests: ChatRequest[] = [];
   const server = createServer(async (req, res) => {
     try {
       if (req.method !== 'POST' || req.url !== '/v1/chat/completions') {
@@ -21,8 +22,15 @@ export async function startProviderContract() {
       for await (const part of req) body += part;
       const request = JSON.parse(body) as ChatRequest;
       requests.push(request);
-      const continued = request.messages.some(({ role }) => role === 'tool');
-      const chunks = continued
+      if ([...request.messages].reverse().find(message => message.role === 'user')?.content?.includes('Hold provider until interrupted')) {
+        res.once('close', () => interruptedRequests.push(request));
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.flushHeaders();
+        return;
+      }
+      const complete = request.messages.some(({ role }) => role === 'tool')
+        || !request.tools?.some(tool => tool.function.name === 'echo');
+      const chunks = complete
         ? [{ role: 'assistant', content: 'OCEAN_PROVIDER_' }, { content: 'OK' }]
         : [{ role: 'assistant', tool_calls: [{
           index: 0, id: 'provider-echo', type: 'function',
@@ -39,7 +47,7 @@ export async function startProviderContract() {
       }
       res.write(`data: ${JSON.stringify({
         ...envelope,
-        choices: [{ index: 0, delta: {}, finish_reason: continued ? 'stop' : 'tool_calls' }],
+        choices: [{ index: 0, delta: {}, finish_reason: complete ? 'stop' : 'tool_calls' }],
         usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 },
       })}\n\n`);
       res.end('data: [DONE]\n\n');
@@ -54,6 +62,7 @@ export async function startProviderContract() {
   return {
     baseURL: `http://127.0.0.1:${address.port}/v1`,
     requests,
+    interruptedRequests,
     close: () => new Promise<void>((resolve, reject) => {
       server.close(error => error ? reject(error) : resolve());
     }),

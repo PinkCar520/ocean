@@ -155,13 +155,17 @@ export class RunRunner {
           });
         }
         const policy = policyForRun(run.parentRunId, run.metadata);
-        const metadata = run.metadata;
-        const settings = !run.parentRunId && metadata && typeof metadata === 'object' && !Array.isArray(metadata)
-          ? metadata
+        const metadata = run.metadata && typeof run.metadata === 'object' && !Array.isArray(run.metadata)
+          ? run.metadata
           : undefined;
+        const settings = run.parentRunId ? undefined : metadata;
         const modelId = typeof settings?.modelId === 'string' ? settings.modelId : policy?.modelId;
         const reasoningEffort = reasoningEffortSchema.safeParse(settings?.reasoningEffort).data;
-        return { ok: true as const, input: run.input, priority: run.priority, spaceId: run.spaceId, policy, modelId, reasoningEffort, settings };
+        return {
+          ok: true as const, input: run.input, priority: run.priority, spaceId: run.spaceId,
+          policy, modelId, reasoningEffort, settings,
+          toolNames: Array.isArray(metadata?.toolNames) ? metadata.toolNames : undefined,
+        };
       });
 
       if (!takeover.ok) {
@@ -207,6 +211,8 @@ export class RunRunner {
         takeover.input,
         takeover.policy,
         takeover.settings?.nonInteractive !== true && typeof takeover.settings?.chatUserMessageId === 'string',
+        takeover.settings?.maxTurns,
+        takeover.toolNames,
       );
 
       if (typeof takeover.settings?.sessionId === 'string' && Array.isArray(takeover.settings.chatHistory)) {
@@ -248,7 +254,11 @@ export class RunRunner {
       const cancellationCheck = setInterval(() => void checkCancellation(), 300);
       cancellationCheck.unref();
       try {
+        const system = [takeover.settings?.systemPrompt, takeover.settings?.appendSystemPrompt]
+          .filter((part): part is string => typeof part === 'string' && part.length > 0 && part.length <= 256 * 1024)
+          .join('\n\n');
         const result = await this.modelGateway.generate({
+          ...(system && { system }),
           signal: modelAbort.signal,
           messages,
           tools,
@@ -555,6 +565,8 @@ export class RunRunner {
     runInput: string,
     policy?: SubagentPolicy,
     allowInquiry = false,
+    maxRequestedTurns?: unknown,
+    toolNames?: readonly unknown[],
   ): Promise<{ messages: ModelMessage[]; tools: ModelToolSpec[] }> {
     const steps = await this.prisma.runStep.findMany({
       where: { runId },
@@ -626,7 +638,9 @@ export class RunRunner {
     if (policy?.instructions) messages.unshift({ role: 'user', text: `Administrator agent instructions: ${policy.instructions}` });
     const configuredLimit = Number(process.env.WORKER_MAX_TURNS ?? '20');
     if (!Number.isSafeInteger(configuredLimit) || configuredLimit < 1) throw new Error('Invalid WORKER_MAX_TURNS');
-    const maxTurns = Math.min(configuredLimit, policy?.maxTurns ?? configuredLimit);
+    const requestedLimit = typeof maxRequestedTurns === 'number' && Number.isSafeInteger(maxRequestedTurns) && maxRequestedTurns > 0
+      ? maxRequestedTurns : configuredLimit;
+    const maxTurns = Math.min(configuredLimit, requestedLimit, policy?.maxTurns ?? configuredLimit);
     if (modelTurns >= maxTurns) {
       throw new Error(
         `max_turns_exceeded: run ${runId} used ${modelTurns} model turns (limit ${maxTurns})`,
@@ -636,14 +650,15 @@ export class RunRunner {
     // 暴露给模型：仅注册了 inputSchema 的工具（无 schema 的工具仍可被显式 ToolCall 调用）
     const tools: ModelToolSpec[] = this.registry
       .list()
-      .filter((tool) => tool.inputSchema && permitsSubagentTool(policy, tool.name))
+      .filter((tool) => tool.inputSchema && (toolNames === undefined || toolNames.includes(tool.name))
+        && permitsSubagentTool(policy, tool.name))
       .map((tool) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
       }));
 
-    if (allowInquiry && !policy) tools.push({
+    if (allowInquiry && !policy && (toolNames === undefined || toolNames.includes(RUN_INQUIRY_TOOL))) tools.push({
       name: RUN_INQUIRY_TOOL,
       inputSchema: runInquirySchema,
       description: 'Ask the user for missing goals, preferences or choices when the answer is needed to continue. Use short questions and distinct options. Do not use this tool to request permission to execute another tool.',

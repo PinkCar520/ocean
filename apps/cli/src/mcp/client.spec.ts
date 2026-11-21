@@ -19,6 +19,17 @@ describe('CLI MCP manager', () => {
     expect(() => normalizeMcpConfig({ mcpServers: { bad: { args: [] } } })).toThrow('stdio command');
   });
 
+  it('refuses to enable or reconnect untrusted executable configuration', async () => {
+    const manager = new McpClientManager({});
+    (manager as any).config = normalizeMcpConfig({ mcpServers: {
+      docs: { command: 'untrusted-command', enabled: false },
+    } });
+    expect(manager.getServerStatuses()).toEqual([{ name: 'docs', status: 'disabled' }]);
+    await expect(manager.configureServer('docs', true)).rejects.toThrow('untrusted workspace');
+    await expect(manager.configureServer('docs')).rejects.toThrow('untrusted workspace');
+    expect(manager.getServerStatuses()).toEqual([{ name: 'docs', status: 'disabled' }]);
+  });
+
   it('accepts Streamable HTTP and rejects unsafe remote URLs', () => {
     expect(normalizeMcpConfig({ mcpServers: { remote: { type: 'http', url: 'https://example.com/mcp' } } }).mcpServers[0]).toMatchObject({ type: 'http', url: 'https://example.com/mcp' });
     expect(() => normalizeMcpConfig({ mcpServers: { remote: { type: 'http', url: 'http://example.com/mcp' } } })).toThrow();
@@ -28,6 +39,7 @@ describe('CLI MCP manager', () => {
     const callTool = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'ok' }] });
     const manager = new McpClientManager({} as any);
     (manager as any).clients.set('docs', {
+      getServerCapabilities: () => ({ tools: {} }),
       listTools: async () => ({
         tools: [{
           name: 'search__docs',
@@ -74,6 +86,14 @@ it('connects to a real stdio MCP server, discovers and calls its tool', async ()
     await expect(manager.callTool('mcp__echo__echo', { text: 42 })).rejects.toThrow('Invalid MCP tool arguments');
     expect(await manager.callTool('mcp__echo__echo', { text: 'hello' })).toMatchObject({ content: [{ text: 'hello' }] });
     await expect(manager.callTool('mcp__unknown__echo', {})).rejects.toThrow('Unknown MCP tool');
+    expect(manager.getServerStatuses()).toMatchObject([{ name: 'echo', status: 'connected' }]);
+    await manager.configureServer('echo', false);
+    expect(manager.getServerStatuses()).toEqual([{ name: 'echo', status: 'disabled' }]);
+    await expect(manager.callTool('mcp__echo__echo', { text: 'disabled' })).rejects.toThrow('Unknown MCP tool');
+    await manager.configureServer('echo', true);
+    await manager.configureServer('echo');
+    expect((await manager.getAllTools()).map(tool => tool.name)).toEqual(['mcp__echo__echo']);
+    expect(await manager.callTool('mcp__echo__echo', { text: 'reconnected' })).toMatchObject({ content: [{ text: 'reconnected' }] });
   } finally { await manager.disconnectAll(); await rm(root, { recursive: true, force: true }); }
 });
 
@@ -111,7 +131,7 @@ it('connects to a real Streamable HTTP MCP server and returns results', async ()
 it('does not retry calls with an unknown execution outcome', async () => {
   const manager = new McpClientManager({} as any);
   const callTool = vi.fn().mockRejectedValue(new Error('connection lost'));
-  (manager as any).clients.set('test', { listTools: async () => ({ tools: [{ name: 'write', inputSchema: { type: 'object' } }] }), callTool });
+  (manager as any).clients.set('test', { getServerCapabilities: () => ({ tools: {} }), listTools: async () => ({ tools: [{ name: 'write', inputSchema: { type: 'object' } }] }), callTool });
   await manager.getAllTools();
   await expect(manager.callTool('mcp__test__write', {})).rejects.toThrow('outcome unknown');
   expect(callTool).toHaveBeenCalledTimes(1);
@@ -121,7 +141,7 @@ it('isolates manager routes and never dispatches an already cancelled call', asy
   const first = new McpClientManager({ userId: 'alice', workspacePath: '/alice' } as any);
   const second = new McpClientManager({ userId: 'bob', workspacePath: '/bob' } as any);
   const callTool = vi.fn();
-  (first as any).clients.set('private', { listTools: async () => ({ tools: [{ name: 'write', inputSchema: { type: 'object' } }] }), callTool });
+  (first as any).clients.set('private', { getServerCapabilities: () => ({ tools: {} }), listTools: async () => ({ tools: [{ name: 'write', inputSchema: { type: 'object' } }] }), callTool });
   await first.getAllTools();
   expect(await second.getAllTools()).toEqual([]);
   await expect(second.callTool('mcp__private__write', {})).rejects.toThrow('Unknown');
@@ -133,8 +153,59 @@ it('isolates manager routes and never dispatches an already cancelled call', asy
 
 it('diagnoses discovery failures without exposing server tokens', async () => {
  const manager = new McpClientManager({ userId: 'alice', workspacePath: '/alice' } as any);
- (manager as any).clients.set('private', { listTools: async () => { throw Object.assign(new Error('Bearer secret-token'), { status: 401 }); } });
+ (manager as any).clients.set('private', { getServerCapabilities: () => ({ tools: {} }), listTools: async () => { throw Object.assign(new Error('Bearer secret-token'), { status: 401 }); } });
  expect(await manager.getAllTools()).toEqual([]);
  expect(manager.getDiagnostics()).toMatchObject([{ serverId: 'private', state: 'authentication_failed' }]);
  expect(JSON.stringify(manager.getDiagnostics())).not.toContain('secret-token');
+});
+
+
+it('discovers resources without calling listTools on resource-only servers', async () => {
+  const manager = new McpClientManager({} as any);
+  const listTools = vi.fn();
+  const listResources = vi.fn().mockResolvedValue({ resources: [{ uri: 'fixture://docs', name: 'docs' }] });
+  (manager as any).clients.set('resources', { getServerCapabilities: () => ({ resources: {} }), listTools, listResources });
+  expect(await manager.getAllTools()).toEqual([]);
+  expect(listTools).not.toHaveBeenCalled();
+  expect(manager.listResourceServers()).toEqual(['resources']);
+  expect(await manager.listResources('resources')).toMatchObject({ resources: [{ uri: 'fixture://docs' }] });
+});
+
+it('pages through resource templates and reads an expanded URI over stdio', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-mcp-resources-'));
+  const manager = new McpClientManager({ workspacePath: process.cwd() } as any);
+  try {
+    const config = join(root, 'mcp.json');
+    await writeFile(config, JSON.stringify({
+      mcpServers: { docs: { command: process.execPath, args: [resolve('src/mcp/fixtures/resources.mjs')], enabled: true } },
+    }));
+    await manager.loadConfig(config);
+    await manager.connectAll();
+    expect(await manager.getAllTools()).toEqual([]);
+    expect(manager.listResourceServers()).toEqual(['docs']);
+    const first = await manager.listResourceTemplates('docs');
+    expect(first).toMatchObject({ nextCursor: 'next', resourceTemplates: [{ uriTemplate: 'fixture://docs/{id}' }] });
+    const second = await manager.listResourceTemplates('docs', first.nextCursor);
+    expect(second.resourceTemplates).toMatchObject([{ uriTemplate: 'fixture://archive/{id}' }]);
+    const uri = first.resourceTemplates[0].uriTemplate.replace('{id}', '42');
+    expect(await manager.readResource('docs', uri)).toEqual({ contents: [{ uri, text: 'Fixture document' }] });
+  } finally {
+    await manager.disconnectAll();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+it('registers tools returned on subsequent catalog pages', async () => {
+  const manager = new McpClientManager({} as any);
+  const definition = (name: string) => ({ name, inputSchema: { type: 'object' } });
+  const listTools = vi.fn()
+    .mockResolvedValueOnce({ tools: [definition('first')], nextCursor: 'page-two' })
+    .mockResolvedValueOnce({ tools: [definition('second')] });
+  const callTool = vi.fn().mockResolvedValue({ content: [] });
+  (manager as any).clients.set('paged', { getServerCapabilities: () => ({ tools: {} }), listTools, callTool });
+  expect((await manager.getAllTools()).map(tool => tool.name)).toEqual(['mcp__paged__first', 'mcp__paged__second']);
+  expect(listTools.mock.calls[1][0]).toEqual({ cursor: 'page-two' });
+  await manager.callTool('mcp__paged__second', {});
+  expect(callTool.mock.calls[0][0]).toMatchObject({ name: 'second' });
 });

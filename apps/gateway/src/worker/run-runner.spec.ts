@@ -568,6 +568,18 @@ describe('RunRunner', () => {
     );
   });
 
+  it('fails at the requested turn limit before calling the model again', async () => {
+    const run = { id: 'run_1', userId: 'user_1', status: 'queued', input: 'hi', metadata: { maxTurns: 1 } };
+    const { runner, gateway } = createRunner(
+      run,
+      { historySteps: [{ kind: 'model_call', status: 'succeeded', input: { prompt: 'hi' }, output: { text: 'first', toolCalls: [] } }] },
+    );
+    await expect(runner.execute(job)).resolves.toMatchObject({
+      status: 'failed', retryable: false, error: expect.stringContaining('used 1 model turns (limit 1)'),
+    });
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
   it('fails the run when the model turn limit is exceeded', async () => {
     const { runner, tx } = createRunner(
       { id: 'run_1', userId: 'user_1', status: 'queued', input: 'hi' },

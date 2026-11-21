@@ -12,6 +12,20 @@ describe('CLI local session store', () => {
     if (tempRoot) await rm(tempRoot, { recursive: true, force: true });
   });
 
+  it('forks a conversation without inheriting the worktree or rewriting the original', async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'ocean-session-fork-'));
+    const store = new SessionStore(path.join(tempRoot, 'sessions'));
+    const original = await store.create(tempRoot);
+    await store.save(original.id, tempRoot, [{ role: 'user', content: 'Original prompt' }]);
+    await store.saveWorktree(original.id, tempRoot, { path: '/fixture/worktree', branch: 'original' });
+    const fork = await store.fork(original.id, tempRoot);
+    expect(fork.id).not.toBe(original.id);
+    expect(fork.worktree).toBeUndefined();
+    expect(fork.messages).toEqual([{ role: 'user', content: 'Original prompt' }]);
+    await store.save(fork.id, tempRoot, [...fork.messages, { role: 'user', content: 'Follow-up' }]);
+    expect((await store.load(original.id, tempRoot)).messages).toEqual(fork.messages);
+  });
+
   it('persists and resumes complete model/tool messages with private file permissions', async () => {
     tempRoot = await mkdtemp(path.join(os.tmpdir(), 'ocean-sessions-'));
     const store = new SessionStore(path.join(tempRoot, 'sessions'));

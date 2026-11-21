@@ -9,6 +9,28 @@ const SPINNERS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇',
 // Blinking cursor for typing animation
 const CURSOR = '▊';
 
+/** Extract readable text from string or AI SDK content parts. */
+function extractText(content: unknown): string {
+  if (typeof content === 'string') {
+    const trimmed = content.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string'
+          && (parsed.type === 'text' || parsed.type === undefined)) {
+          return parsed.text;
+        }
+      } catch { /* not JSON, render as-is */ }
+    }
+    return content;
+  }
+  if (Array.isArray(content)) return content.map(extractText).join('');
+  if (content && typeof content === 'object' && typeof (content as { text?: unknown }).text === 'string') {
+    return (content as { text: string }).text;
+  }
+  return '';
+}
+
 interface MessageListProps {
   messages: ModelMessage[];
   streamingText: string;
@@ -66,7 +88,7 @@ export function MessageList({
                   {'❯ '}
                 </Text>
                 <Text bold>
-                  {msg.content as string}
+                  {extractText(msg.content)}
                 </Text>
               </Box>
             </Box>
@@ -74,16 +96,14 @@ export function MessageList({
         }
 
         if (msg.role === 'assistant') {
-          const content = typeof msg.content === 'string'
-            ? msg.content
-            : Array.isArray(msg.content)
-              ? msg.content.map(part => typeof part === 'string' ? part : JSON.stringify(part)).join('')
-              : '';
+          const content = extractText(msg.content);
 
           return (
             <Box key={i} flexDirection="column" marginBottom={1}>
-              <Text bold color="cyan">{'▸ '}</Text>
-              <Text wrap="wrap">{content}</Text>
+              <Box>
+                <Text bold color="cyan">{'▸ '}</Text>
+                <Text wrap="wrap">{content}</Text>
+              </Box>
             </Box>
           );
         }

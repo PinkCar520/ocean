@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  UnauthorizedException,
   Get,
   Post,
   Patch,
@@ -48,6 +49,17 @@ export class SessionController {
       body.workspaceSnapshot,
     );
     return { success: true, data: session };
+  }
+
+  @Post(':id/fork')
+  async forkSession(@Param('id') id: string, @Req() req: any, @Body('messageId') messageId?: unknown) {
+    const userId = req.user?.dbId;
+    if (!userId) throw new UnauthorizedException();
+    if (messageId !== undefined && (typeof messageId !== 'string' || !messageId.trim() || messageId.length > 200)) {
+      throw new BadRequestException('Invalid fork message ID.');
+    }
+    const data = await this.sessionService.forkSession(id, userId, messageId);
+    return { success: true, data };
   }
 
   @Get(':id/project-choices')

@@ -31,13 +31,15 @@ it('preserves provider input/output and cache usage without inventing missing co
  const { ConfigService } = require('@nestjs/config');
  streamText.mockReturnValue({ textStream: (async function* () { yield 'ok'; })(), toolCalls: Promise.resolve([]), reasoningText: Promise.resolve('provider continuation'),
   totalUsage: Promise.resolve({ inputTokens: 20, outputTokens: 3, totalTokens: 23, inputTokenDetails: { cacheReadTokens: 12, cacheWriteTokens: 4 } }) });
- const result = await new AiSdkModelGateway(new ConfigService()).generate({ messages: [{ role: 'user', text: 'hello' }] });
+ const result = await new AiSdkModelGateway(new ConfigService()).generate({ system: 'System instructions', messages: [{ role: 'user', text: 'hello' }] });
  expect(result.reasoning).toBe('provider continuation');
  expect(toUiMessage({ role: 'assistant', reasoning: result.reasoning, text: result.text }).content).toEqual([
   {type: 'reasoning', text: 'provider continuation'}, {type: 'text', text: 'ok'},
  ]);
+ expect(result.contextBreakdown?.systemTokens).toBeGreaterThan(0);
  expect(result.usage).toEqual({ inputTokens: 20, outputTokens: 3, totalTokens: 23, cacheReadTokens: 12, cacheWriteTokens: 4 });
  expect(streamText).toHaveBeenCalledWith(expect.objectContaining({
+  system: 'System instructions',
   providerOptions: { deepseek: { thinking: { type: 'enabled' }, reasoningEffort: 'high' } },
  }));
 });

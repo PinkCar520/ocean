@@ -8,8 +8,6 @@ packages:
   - "agents/skills"
   - "agents/mcp/*"
 
-managePackageManagerVersions: false
-
 allowBuilds:
   '@nestjs/core': true
   '@prisma/engines': true

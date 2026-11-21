@@ -23,6 +23,7 @@ import * as fs from 'node:fs';
 
 export interface InkAppProps {
   userId: string;
+  displayName?: string;
   workspace: string;
   cliConfig: CliConfig;
   skills: LoadedSkill[];
@@ -53,6 +54,7 @@ export function InkApp(props: InkAppProps) {
   const { exit } = useApp();
 
   const [userId, setUserId] = useState(props.userId);
+  const [displayName, setDisplayName] = useState(props.displayName);
   const [messages, setMessages] = useState<ModelMessage[]>(props.activeSession.session.messages);
   const [isThinking, setIsThinking] = useState(false);
   const [isWaitingInput, setIsWaitingInput] = useState(true);
@@ -132,7 +134,13 @@ export function InkApp(props: InkAppProps) {
       });
 
       const nextMessages = [...allMessages, ...result.responseMessages];
+      // Update the view in one batch before awaiting disk writes; otherwise the
+      // assistant reply renders twice (from messages and streamingText) and the
+      // intermediate frame looks like a visible refresh.
       setMessages(nextMessages);
+      setStreamingText('');
+      setCurrentToolCalls([]);
+      setCurrentToolResults([]);
       props.activeSession.session = await props.sessionStore.save(
         props.activeSession.session.id,
         props.workspace,
@@ -141,9 +149,6 @@ export function InkApp(props: InkAppProps) {
       if (result.usage) {
         props.activeSession.session = await props.sessionStore.saveUsage(props.activeSession.session.id, props.workspace, result.usage);
       }
-      setStreamingText('');
-      setCurrentToolCalls([]);
-      setCurrentToolResults([]);
     } catch (err: any) {
       setError(abortController.signal.aborted ? 'Stopped current turn.' : (err.message || 'Unknown error occurred'));
       setStreamingText('');
@@ -207,6 +212,7 @@ export function InkApp(props: InkAppProps) {
         if (removed) {
           setCommandOutput('✓ Successfully logged out. Credentials removed.');
           setUserId('guest');
+          setDisplayName(undefined);
         } else {
           setCommandOutput('! Already logged out.');
         }
@@ -217,7 +223,7 @@ export function InkApp(props: InkAppProps) {
         if (!key) {
           setCommandOutput('Status: Not Logged In');
         } else {
-          const id = await getAutoUserId();
+          const id = displayName || await getAutoUserId();
           setCommandOutput(`Status: Logged In\nIdentity: ${id}`);
         }
         break;
@@ -381,6 +387,7 @@ export function InkApp(props: InkAppProps) {
     <Box flexDirection="column" width="100%">
       <StatusBar
         userId={userId}
+        displayName={displayName}
         workspace={props.workspace}
         model={selectedModel}
         permissionMode={permissionMode}
@@ -415,9 +422,29 @@ export function InkApp(props: InkAppProps) {
 }
 
 /**
+ * Resolve the logged-in user's display name from Gateway.
+ * Falls back to undefined so the caller can show the local user id.
+ */
+async function resolveDisplayName(apiKey: string | null): Promise<string | undefined> {
+  if (!apiKey) return undefined;
+  try {
+    const gatewayUrl = process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
+    const response = await fetch(`${gatewayUrl}/api/user/profile`, {
+      headers: { Authorization: `Bearer ${apiKey}`, 'x-api-key': apiKey },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!response.ok) return undefined;
+    const data = await response.json() as { profile?: { name?: string; workId?: string } };
+    return data.profile?.name?.trim() || data.profile?.workId || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Initialize and render the Ink app
  */
-export async function runInkApp(options: { userId: string; workspace: string }) {
+export async function runInkApp(options: { userId: string; workspace: string; continueSession?: boolean; resume?: string }) {
   const cliConfig: CliConfig = {
     defaultAiProvider: process.env.DEFAULT_AI_PROVIDER,
     deepseekApiKey: process.env.DEEPSEEK_API_KEY,
@@ -453,8 +480,14 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
   } catch { /* skip */ }
 
   const sessionStore = new SessionStore();
+  // Default: every interactive launch starts a fresh conversation; previous
+  // sessions are persisted and can be reopened with -r/--resume or -c/--continue.
   const activeSession: { session: StoredSession } = {
-    session: await sessionStore.latestOrCreate(options.workspace),
+    session: options.resume
+      ? await sessionStore.load(options.resume, options.workspace)
+      : options.continueSession
+        ? await sessionStore.latestOrCreate(options.workspace)
+        : await sessionStore.create(options.workspace),
   };
 
   const modes = new Map<string, PermissionMode>();
@@ -472,6 +505,7 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
 
   // 审批门：CLI 负责执行，审批弹在对话窗口（Web 审批面板）——有 API Key 时启用
   const apiKey = await resolveApiKey();
+  const displayName = await resolveDisplayName(apiKey);
   const approvalHandler = apiKey
     ? createGatewayApprovalHandler({
         gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
@@ -483,6 +517,7 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
   const { waitUntilExit } = render(
     <InkApp
       userId={options.userId}
+      displayName={displayName}
       workspace={options.workspace}
       cliConfig={cliConfig}
       skills={skills}
@@ -502,6 +537,7 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
 
   await waitUntilExit();
   await mcpManager.disconnectAll();
+  process.stdout.write(`\nResume this session with:\nocean --resume ${activeSession.session.id}\n`);
   process.exit(0);
 }
 

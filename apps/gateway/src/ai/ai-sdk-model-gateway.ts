@@ -92,6 +92,7 @@ export class AiSdkModelGateway implements ModelGateway {
       abortSignal: req.signal,
       maxOutputTokens: req.maxOutputTokens,
       messages: sdkMessages,
+      ...(req.system !== undefined && { system: req.system }),
     };
     const providerOptions = createChatProviderOptions(this.config, modelId, req.reasoningEffort);
     if (providerOptions) options.providerOptions = providerOptions;
@@ -159,7 +160,7 @@ export class AiSdkModelGateway implements ModelGateway {
           parameters: await asSchema(tool.inputSchema as FlexibleSchema<unknown>).jsonSchema,
         })));
         contextBreakdown = {
-          systemTokens: 0, // This Run path supplies only user, assistant and tool messages.
+          systemTokens: req.system ? countTextTokens(req.system) : 0,
           toolTokens: definitions.length ? countTextTokens(JSON.stringify(definitions)) : 0,
           messageTokens: countTextTokens(JSON.stringify(sdkMessages, function (key, value) {
             return key === 'data' && this?.type === 'data' ? undefined : value;

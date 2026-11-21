@@ -93,6 +93,11 @@ export class ChatService {
     history?: { userMessageId: string; messages: { id: string; parentId?: string | null; role: string; text: string; runId?: string }[] },
     nonInteractive?: boolean,
     signal?: AbortSignal,
+    maxTurns?: number,
+    systemPrompt?: string,
+    appendSystemPrompt?: string,
+    toolNames?: string[],
+    sdkApproval = false,
   ): Promise<string> {
     signal?.throwIfAborted();
     const input = buildRunPrompt(messages, ctx, modelId);
@@ -105,7 +110,7 @@ export class ChatService {
       space: { id: spaceId, type: 'work' },
       input,
       priority: 'interactive',
-      metadata: { sessionId, modelId, ...(nonInteractive && { nonInteractive: true }), ...(history && { chatHistory: history.messages, chatUserMessageId: history.userMessageId }), ...(reasoningEffort && { reasoningEffort }) },
+      metadata: { sessionId, modelId, ...(sdkApproval && { sdkApproval: true }), ...(toolNames !== undefined && { toolNames }), ...(nonInteractive && { nonInteractive: true }), ...(maxTurns !== undefined && { maxTurns }), ...(systemPrompt !== undefined && { systemPrompt }), ...(appendSystemPrompt !== undefined && { appendSystemPrompt }), ...(history && { chatHistory: history.messages, chatUserMessageId: history.userMessageId }), ...(reasoningEffort && { reasoningEffort }) },
     });
     const runId = snapshot.run.id;
     let after = snapshot.events.at(-1)?.sequence ?? -1;
@@ -178,7 +183,7 @@ export class ChatService {
             approvalPending = true;
             onChunk({
               type: 'data-run-approval', transient: true,
-              data: { id: event.approval.id, runId, toolName: call.name, args: call.input },
+              data: { id: event.approval.id, runId, toolName: call.name, args: call.input, ...(sdkApproval && { toolCallId: event.approval.toolCallId }) },
             });
           }
         } else if (event.type === 'artifact.created') {

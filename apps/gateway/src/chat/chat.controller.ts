@@ -200,7 +200,7 @@ export class ChatController {
       });
     }
     const body = parsedBody.data;
-    if (body.nonInteractive && !this.chatService.isRunMode()) {
+    if ((body.nonInteractive || body.sdkApproval || body.toolNames !== undefined || body.systemPrompt !== undefined || body.appendSystemPrompt !== undefined) && !this.chatService.isRunMode()) {
       throw new BadRequestException('Non-interactive execution requires Gateway Run mode.');
     }
 
@@ -357,6 +357,11 @@ export class ChatController {
               } : undefined,
               body.nonInteractive,
               abort?.signal,
+              body.maxTurns,
+              body.systemPrompt,
+              body.appendSystemPrompt,
+              body.toolNames,
+              body.nonInteractive === true && body.sdkApproval === true,
             );
           } finally {
             if (abort) res.removeListener('close', onClose);

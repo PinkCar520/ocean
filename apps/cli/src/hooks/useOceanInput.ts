@@ -39,8 +39,10 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
       return;
     }
 
-    // 2. Handle Backspace - supports both single char and word deletion (Ctrl+Backspace)
-    if (key.backspace) {
+    // 2. Handle Backspace / Delete
+    // Ink reports the terminal Backspace (0x7f) as key.delete, so both keys
+    // must delete backward or Backspace does nothing at the end of the input.
+    if (key.backspace || key.delete) {
       const currentOffset = cursorRef.current;
       const currentValue = valueRef.current;
       if (currentOffset > 0) {
@@ -52,19 +54,6 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
         valueRef.current = newValue;
         setCursorOffset(currentOffset - deleteFrom);
         cursorRef.current = currentOffset - deleteFrom;
-      }
-      return;
-    }
-
-    if (key.delete) {
-      const currentOffset = cursorRef.current;
-      const currentValue = valueRef.current;
-      if (currentOffset < currentValue.length) {
-        const rest = currentValue.slice(currentOffset);
-        const deleteLength = [...rest].slice(0, 1).join('').length;
-        const newValue = currentValue.slice(0, currentOffset) + currentValue.slice(currentOffset + deleteLength);
-        setValue(newValue);
-        valueRef.current = newValue;
       }
       return;
     }

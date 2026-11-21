@@ -24,12 +24,14 @@ CLI 和 Gateway 的启动环境可设置 `OCEAN_MANAGED_SETTINGS_PATH` 指向部
 
 ## 非交互权限
 
-本地 `ocean -p` 继续执行已获准的工具，并通过现有工具结果反馈无法获得确认的调用。`ocean -p --gateway` 将非交互模式写入 Run，不提供询问工具；需要新人工审批时拒绝该调用，将结果交给模型继续处理。两端已接入 `PermissionRequest` Hook 的显式允许和拒绝。修改输入、持久化权限更新和中断语义待对齐。
+本地 `ocean -p` 继续执行已获准的工具，并通过现有工具结果反馈无法获得确认的调用。`ocean -p --gateway` 将非交互模式写入 Run，不提供询问工具；需要新人工审批时拒绝该调用，将结果交给模型继续处理。两端已接入 `PermissionRequest` Hook 的显式允许和拒绝。两端支持通过 Hook 替换本次工具输入，替换后重新校验参数和权限。Hook 拒绝并要求中断时，CLI 取消当前轮次，Gateway 取消 Run。CLI 支持把权限规则的添加、替换、移除和默认模式修改写入用户、项目或项目本地设置。会话内规则更新、附加目录和 Gateway 按用户持久化权限更新仍待实现。
 
 
 ## 非交互与程序化入口
 
-`ocean -p` 支持 `--output-format text|json|stream-json`。本地执行默认保存会话，结构化结果包含会话 ID。用 `--continue` 恢复当前工作区最近会话，或用 `--resume <session-id>` 恢复指定会话。`--no-session-persistence` 可关闭会话保存。`@ocean/cli/sdk` 提供 Gateway 非交互执行入口 `runOceanPrompt`，支持文本分块和取消信号。Gateway 执行也支持指定会话恢复，`--continue` 选择当前用户在默认 Space 最近的 CLI 会话。流式 JSON 已包含会话、文本增量、工具调用与工具结果。更完整的控制协议仍待实现。
+`ocean -p` 支持 `--output-format text|json|stream-json`。本地执行默认保存会话，结构化结果包含会话 ID。用 `--continue` 恢复当前工作区最近会话，或用 `--resume <session-id>` 恢复指定会话。`--no-session-persistence` 可关闭会话保存。`@ocean/cli/sdk` 提供 Gateway 非交互执行入口 `runOceanPrompt`，支持文本分块和取消信号。Gateway 执行也支持指定会话恢复，`--continue` 选择当前用户在默认 Space 最近的 CLI 会话。流式 JSON 已包含会话、文本增量、工具调用与工具结果。`stream-json` 输入接通 `initialize`、`interrupt`、`set_model` 和本地 `set_permission_mode`，控制请求在模型执行期间仍可读取，用户消息串行执行。本地可通过 `--permission-prompt-tool stdio` 让 SDK 宿主双向处理 `can_use_tool` 授权，支持允许、拒绝、输入替换、超时和撤销。Gateway 同一入口通过 Run 审批支持绑定原始输入的单次授权、替换参数和拒绝。替换参数写入审批检查点，在 Worker 执行前重新校验。拒绝会把工具错误交回模型，请求中断时取消 Run。本地流式会话复用 MCP 连接，并支持 `mcp_status`、`mcp_reconnect` 和 `mcp_toggle`，连接变更在两个模型轮次之间生效。Gateway MCP 控制、动态 SDK MCP 服务、按用户持久化权限更新和其他控制消息仍待实现。
+
+`ocean -p --gateway --tools <names>` 与 SDK 的 `toolNames` 可按 Ocean 工具名限制单个 Run 的工具集。CLI 接受逗号或空白分隔的名单，`--tools default` 使用默认工具集，`--tools ""` 关闭工具。Worker 在每一轮模型请求和实际执行时校验清单，子 Run 继承该限制。入选工具仍需通过现有权限和审批。
 
 
 ## LSP 和 MCP 资源
@@ -56,3 +58,11 @@ CLI 对声明资源能力且已连接的 MCP 服务提供资源列表与读取�
 ## 远程工作区入口
 
 `ocean remote pair` 配对主机，`ocean remote add-workspace <directory>` 注册主机本地明确授权的根目录，`ocean remote serve` 启动工作区连接。通过 `ocean -p --gateway --remote-workspace <id>` 在 Gateway 会话中绑定远程工作区。文件、Notebook 和 LSP 工具复用现有设备权限与工作区快照校验。远程连接的全部设备矩阵仍待验收。
+
+## 独立构建阶段证据
+
+在临时源码快照中排除整个 `restored-src` 目录，使用已安装的第三方依赖，重新编译 Contracts、Core、CLI 和 Gateway。编译后运行了该快照中的 CLI `--help`，并加载 Gateway HTTP 和 Worker 的编译模块。同一隔离快照中使用 PostgreSQL、HTTP Gateway、Worker 和本机模型协议服务验收非交互链路，包括工具选择及中断正在运行的模型流后继续原会话。独立安装依赖、真实外部 Provider 链路以及 Web/Desktop 打包仍待验收。
+
+## 会话分支
+
+`ocean -p --fork-session --resume <id>` 和 `ocean -p --fork-session --continue` 在新会话中继续执行，本地和 Gateway 均支持。Gateway 在同一事务内复制最新消息分支并重建父子关系。分支不继承工作区设备绑定。隔离 PostgreSQL 已验证接口鉴权、消息分支和原会话保留。CLI 进程已用模拟 Gateway 验证后续提示词和结构化结果均使用新会话 ID。

@@ -103,7 +103,14 @@ describe('CLI/Gateway permission parity (Worker uses PermissionService)', () => 
     [{ mode: 'dontAsk' }, 'unknown', 'deny'],
     [{ allow: ['*'], deny: ['*'] }, 'file_read', 'deny'],
     [{ allow: ['unknown'] }, 'unknown', 'allow'],
+    [{ deny: ['mcp__docs_internal'] }, 'mcp__docs_internal__read', 'deny'],
+    [{ deny: ['mcp__docs_internal'] }, 'mcp__docs_internal:read', 'deny'],
+    [{ allow: ['mcp__docs_internal__read'] }, 'mcp__docs_internal:read', 'allow'],
+    [{ ask: ['mcp__docs_internal__*'] }, 'mcp__docs_internal:read', 'ask'],
     [{ ask: ['mcp__docs__write'], mcp: { servers: { docs: { permissions: 'allow' } } } }, 'mcp__docs__write', 'ask'],
+    [{ mcp: { servers: { docs_internal: { enabled: false } } } }, 'mcp__docs_internal__read', 'deny'],
+    [{ mcp: { servers: { docs_internal: { enabled: false } } } }, 'mcp__docs_internal:read', 'deny'],
+    [{ mcp: { servers: { docs: { enabled: true }, docs__internal: { enabled: false } } } }, 'mcp__docs__internal__read', 'deny'],
     [{ mcp: { servers: { docs: { enabled: false } } } }, 'mcp__docs__read', 'deny'],
   ] as [PermissionSettings, string, string][])('matches for %j / %s', (settings, name, expected) => {
     fs.writeFileSync(path.join(root, '.ocean/settings.json'), JSON.stringify(settings));

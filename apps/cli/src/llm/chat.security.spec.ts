@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 import { applyApprovalGate } from './chat.js';
 
@@ -100,4 +101,29 @@ it('rechecks policy after approval instead of using the stale preflight', async 
   } }, async () => { denied = true; return 'approved'; });
   expect(await gate.write.execute({}, {})).toEqual({ error: 'denied' });
   expect(execute).not.toHaveBeenCalled();
+});
+
+it.each([
+  [{ path: 'approved' }, true],
+  [{ path: 42 }, false],
+  [{ path: 'denied' }, false],
+] as const)('validates replacement input and persists updates only for an allowed call (%j)', async (updatedInput, allowed) => {
+  const execute = vi.fn();
+  const persistUpdates = vi.fn(async () => {});
+  const gate = applyApprovalGate({ write: {
+    requiresApproval: true,
+    inputSchema: z.object({ path: z.string() }),
+    beforeApproval: async (input: { path: string }) => input.path === 'denied' ? 'denied' : undefined,
+    execute,
+  } }, async () => ({
+    blocked: false, reason: '', permission: 'allow', updatedInput, updatedPermissions: [{}], persistUpdates,
+  }));
+  await gate.write.execute({ path: 'proposed' }, {});
+  if (allowed) {
+    expect(execute).toHaveBeenCalledWith(updatedInput, {});
+    expect(persistUpdates).toHaveBeenCalledOnce();
+  } else {
+    expect(execute).not.toHaveBeenCalled();
+    expect(persistUpdates).not.toHaveBeenCalled();
+  }
 });

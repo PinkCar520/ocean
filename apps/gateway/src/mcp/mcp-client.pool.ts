@@ -112,6 +112,10 @@ export class MCPClientPool implements OnModuleDestroy {
     return (await this.managerFor(scope)).listServerResources(server, cursor);
   }
 
+  async listServerResourceTemplates(scope: MCPToolScope, server: string, cursor?: string) {
+    return (await this.managerFor(scope)).listServerResourceTemplates(server, cursor);
+  }
+
   async readServerResource(scope: MCPToolScope, server: string, uri: string) {
     return (await this.managerFor(scope)).readServerResource(server, uri);
   }

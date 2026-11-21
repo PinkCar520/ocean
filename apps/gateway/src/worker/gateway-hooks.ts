@@ -1,4 +1,4 @@
-import { permissionHookVerdict } from '@ocean/core';
+import { permissionHookVerdict, type PermissionHookOutcome } from '@ocean/core';
 import type { ModelGateway } from '../ai/model-gateway';
 import { Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
@@ -29,11 +29,7 @@ interface GatewayHookConfig {
   httpHookAllowedEnvVars?: string[];
 }
 
-export interface HookRunResult {
-  blocked: boolean;
-  reason: string;
-  permission?: 'allow' | 'deny';
-}
+export type HookRunResult = PermissionHookOutcome;
 
 const MAX_CONFIG_BYTES = 256 * 1024;
 const MAX_OUTPUT_BYTES = 256 * 1024;

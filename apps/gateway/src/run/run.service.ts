@@ -423,42 +423,44 @@ export class RunService {
     const snapshot = await this.get(id, userId);
     if (!CANCELLABLE_STATUSES.has(snapshot.run.status)) return snapshot;
 
-    await this.prisma.$transaction(async (transaction) => {
-      const updated = await transaction.agentRun.updateMany({
-        where: { id, userId, status: { in: [...CANCELLABLE_STATUSES] } },
-        data: { status: 'cancelled' },
-      });
-      if (!updated.count) return;
-      await this.cancelDescendants(transaction, id, userId);
-      await transaction.runApproval.updateMany({
-        where: { runId: id, userId, status: 'pending' },
-        data: { status: 'rejected', decidedBy: userId, decidedAt: new Date() },
-      });
-      await transaction.outboxEvent.updateMany({
-        where: { topic: 'device.rpc', aggregateType: 'AgentRun', aggregateId: id, status: 'pending' },
-        data: { status: 'cancelled', lastError: 'Run cancelled before dispatch.' },
-      });
-      const sequence = await this.nextRunSequence(transaction, id);
-      const event = runEventSchema.parse({
-        id: crypto.randomUUID(),
-        runId: id,
-        sequence,
-        occurredAt: new Date().toISOString(),
-        type: 'run.status_changed',
-        status: 'cancelled',
-      });
-      await transaction.runEvent.create({
-        data: {
-          id: event.id,
-          runId: id,
-          sequence: event.sequence,
-          type: event.type,
-          payload: event as Prisma.InputJsonValue,
-          occurredAt: new Date(event.occurredAt),
-        },
-      });
-    });
+    await this.prisma.$transaction(transaction => this.cancelInTransaction(transaction, id, userId));
     return this.get(id, userId);
+  }
+
+  async cancelInTransaction(transaction: Prisma.TransactionClient, id: string, userId: string): Promise<void> {
+    const updated = await transaction.agentRun.updateMany({
+      where: { id, userId, status: { in: [...CANCELLABLE_STATUSES] } },
+      data: { status: 'cancelled' },
+    });
+    if (!updated.count) return;
+    await this.cancelDescendants(transaction, id, userId);
+    await transaction.runApproval.updateMany({
+      where: { runId: id, userId, status: 'pending' },
+      data: { status: 'rejected', decidedBy: userId, decidedAt: new Date() },
+    });
+    await transaction.outboxEvent.updateMany({
+      where: { topic: 'device.rpc', aggregateType: 'AgentRun', aggregateId: id, status: 'pending' },
+      data: { status: 'cancelled', lastError: 'Run cancelled before dispatch.' },
+    });
+    const sequence = await this.nextRunSequence(transaction, id);
+    const event = runEventSchema.parse({
+      id: crypto.randomUUID(),
+      runId: id,
+      sequence,
+      occurredAt: new Date().toISOString(),
+      type: 'run.status_changed',
+      status: 'cancelled',
+    });
+    await transaction.runEvent.create({
+      data: {
+        id: event.id,
+        runId: id,
+        sequence: event.sequence,
+        type: event.type,
+        payload: event as Prisma.InputJsonValue,
+        occurredAt: new Date(event.occurredAt),
+      },
+    });
   }
 
   /**
@@ -636,11 +638,13 @@ export class RunService {
     userId: string,
     decision: 'approved' | 'rejected',
     scope: 'once' | 'session' = 'once',
+    updatedInput?: Record<string, unknown>,
+    continueOnDeny = false,
   ): Promise<RunSnapshot> {
     if (scope !== 'once' && scope !== 'session') throw new BadRequestException('Invalid approval scope');
     const run = await this.prisma.agentRun.findUnique({
       where: { id: runId },
-      select: { id: true, userId: true, priority: true, status: true },
+      select: { id: true, userId: true, priority: true, status: true, metadata: true },
     });
     if (!run) throw new NotFoundException(`Run ${runId} not found`);
     if (run.userId !== userId)
@@ -657,6 +661,16 @@ export class RunService {
       );
     if (approval.status !== 'pending') {
       return this.get(runId, userId); // 幂等：已决策
+    }
+    const metadata = run.metadata as Prisma.JsonObject | null;
+    const oneTimeSDKDecision = scope === 'once' && metadata?.sdkApproval === true && metadata?.nonInteractive === true;
+    if (continueOnDeny && (decision !== 'rejected' || !oneTimeSDKDecision || updatedInput !== undefined)) {
+      throw new BadRequestException('Continuing after denial requires a rejected one-time SDK decision.');
+    }
+    if (updatedInput !== undefined) {
+      if (decision !== 'approved' || !oneTimeSDKDecision) {
+        throw new BadRequestException('Replacement input requires an approved one-time SDK decision.');
+      }
     }
     if (scope === 'session' && !approval.sessionId) {
       throw new BadRequestException('Session approval requires a session-scoped request');
@@ -696,11 +710,12 @@ export class RunService {
       return this.get(runId, userId);
     }
 
+    const resumeTool = decision === 'approved' || continueOnDeny;
     await this.prisma.$transaction(async (transaction) => {
       const now = new Date();
       const transitioned = await transaction.agentRun.updateMany({
         where: { id: runId, userId, status: 'waiting_for_approval' },
-        data: { status: decision === 'approved' ? 'queued' : 'cancelled' },
+        data: { status: resumeTool ? 'queued' : 'cancelled' },
       });
       if (!transitioned.count) return;
       const stepRow = await transaction.runStep.findUnique({
@@ -726,6 +741,8 @@ export class RunService {
           checkpoint: {
             approval: decision,
             scope,
+            ...(continueOnDeny && { continueOnDeny: true }),
+            ...(updatedInput !== undefined && { updatedInput: updatedInput as Prisma.InputJsonObject }),
             policyVersion: approval.policyVersion ?? null,
             ruleId: approval.policyRuleId ?? null,
             decidedAt: now.toISOString(),
@@ -761,7 +778,7 @@ export class RunService {
         },
       });
 
-      if (decision === 'approved') {
+      if (resumeTool) {
         // 续跑：Run → queued + 重新投递 tool.requested（同一 toolCall，含 idempotencyKey）
         const toolCall = stepRow.input as ToolCall | null;
         if (!toolCall) {

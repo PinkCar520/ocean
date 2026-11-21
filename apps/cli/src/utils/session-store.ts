@@ -206,6 +206,24 @@ export class SessionStore {
     return session;
   }
 
+  async fork(id: string, workspace: string): Promise<StoredSession> {
+    const original = await this.load(id, workspace);
+    const now = new Date().toISOString();
+    const fork: StoredSession = {
+      version: SESSION_VERSION,
+      id: randomUUID(),
+      workspace: original.workspace,
+      title: original.title,
+      createdAt: now,
+      updatedAt: now,
+      messages: original.messages,
+      compaction: original.compaction,
+      usage: original.usage,
+    };
+    await this.write(fork);
+    return fork;
+  }
+
   async load(id: string, workspace: string): Promise<StoredSession> {
     const session = await this.readFile(this.filePath(id));
     if (session.workspace !== path.resolve(workspace)) {

@@ -1,3 +1,4 @@
+import { RunService } from '../run/run.service';
 import { SubagentRunsService } from '../run/subagent-runs.service';
 import { DELEGATE_TASK_TOOL, delegateTaskSchema, policyForRun, permitsSubagentTool } from '../run/subagent-policy';
 import { canonicalPermissionInput, isReadOnlyTool, type PermissionDecision } from '@ocean/core';
@@ -23,7 +24,7 @@ import { MetricsService } from '../obs/metrics.service';
 import { AuditService } from '../audit/audit.service';
 import { ToolRegistry } from '../tool/tool.registry';
 import { TerminalToolError } from '../tool/tool.types';
-import { GatewayHooks } from './gateway-hooks';
+import { GatewayHooks, type HookRunResult } from './gateway-hooks';
 import { claimRun, verifyRun, LostRunOwnership } from './run-ownership';
 
 /** TerminalToolError 由 tool.types 定义并在此 re-export（spec/外部兼容）。 */
@@ -55,6 +56,7 @@ export class ToolExecutor {
     private readonly permissions: PermissionService = new PermissionService(),
     private readonly hooks: GatewayHooks = GatewayHooks.load(),
     @Optional() private readonly subagents?: SubagentRunsService,
+    @Optional() private readonly runs?: RunService,
   ) {}
 
   private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
@@ -103,6 +105,7 @@ export class ToolExecutor {
     const { runId, userId, toolCall } = job.payload;
     this.metrics.inc('tool.executed', { tool: toolCall?.name ?? 'unknown' });
     let invocationStarted = false;
+    let executionInput = toolCall.input;
     try {
       // 1) 幂等检查：同 run + 同 idempotencyKey 的 succeeded tool_call 步骤 → 缓存命中
       if (toolCall.idempotencyKey) {
@@ -183,13 +186,15 @@ export class ToolExecutor {
       const decision = server === undefined
         ? this.permissions.evaluateToolDecision(permissionName, undefined, toolCall.input)
         : this.permissions.evaluateToolDecision(permissionName, undefined, toolCall.input, server);
-      const metadata = runCheck.metadata as { sessionId?: unknown; nonInteractive?: unknown } | null;
+      const metadata = runCheck.metadata as { sessionId?: unknown; nonInteractive?: unknown; sdkApproval?: unknown; toolNames?: unknown } | null;
       const nonInteractive = metadata?.nonInteractive === true;
       let permissionDenial: string | undefined;
-      if (decision.action === 'deny') {
+      if (Array.isArray(metadata?.toolNames) && !metadata.toolNames.includes(toolCall.name)) {
+        permissionDenial = `Tool ${toolCall.name} is disabled for this Run.`;
+      } else if (decision.action === 'deny') {
         permissionDenial = `Permission Denied: ${toolCall.name} (${decision.reason}${decision.ruleId ? `; ${decision.ruleId}` : ''}; policy ${decision.policyVersion})`;
-        if (!nonInteractive) throw new TerminalToolError(permissionDenial);
       }
+      if (permissionDenial && !nonInteractive) throw new TerminalToolError(permissionDenial);
 
       const hookInput = {
         tool_name: toolCall.name,
@@ -204,29 +209,90 @@ export class ToolExecutor {
         if (preHook.blocked) throw new TerminalToolError(`Hook blocked tool ${toolCall.name}: ${preHook.reason}`);
       }
 
-      const requiresApproval = tool.requiresApproval || decision.action === 'ask';
+      const sdkApproval = nonInteractive && metadata?.sdkApproval === true;
+      const priorSDKApproval = sdkApproval && !permissionDenial
+        ? await this.prisma.runApproval.findFirst({ where: { runId, toolCallId: toolCall.id }, select: { id: true } })
+        : null;
+      const requiresApproval = tool.requiresApproval || decision.action === 'ask' || Boolean(priorSDKApproval);
       const sessionId = !decision.managedRulesOnly && typeof metadata?.sessionId === 'string'
         ? metadata.sessionId || undefined
         : undefined;
       const argsHash = createHash('sha256').update(canonicalPermissionInput(toolCall.input)).digest('hex');
       let sessionGranted = false;
       let hookGranted = false;
+      let updatedInput: Record<string, unknown> | undefined;
       if (!permissionDenial && requiresApproval) {
-        sessionGranted = Boolean(sessionId && decision.source !== 'rule'
+        sessionGranted = Boolean(!priorSDKApproval && sessionId && decision.source !== 'rule'
           && await this.hasSessionGrant(userId, sessionId, toolCall, argsHash, decision.policyVersion));
         if (!sessionGranted && nonInteractive) {
-          const verdict = await this.hooks.run('PermissionRequest', hookInput, { spaceId: runCheck.spaceId });
+          const verdict: HookRunResult = priorSDKApproval ? { blocked: false, reason: '' }
+            : await this.hooks.run('PermissionRequest', hookInput, { spaceId: runCheck.spaceId })
+            .catch((error): HookRunResult => ({ blocked: true, reason: error instanceof Error ? error.message : String(error) }));
+          if (verdict.interrupt) {
+            const runs = this.runs;
+            if (!runs) throw new TerminalToolError(verdict.reason);
+            await this.fencedTransaction(tx => runs.cancelInTransaction(tx, runId, userId));
+            return { jobId: job.id, runId, status: 'succeeded' };
+          }
           hookGranted = verdict.permission === 'allow';
           if (hookGranted && this.permissions.getPolicyVersion() !== decision.policyVersion) {
             permissionDenial = 'Permission settings changed while the hook was deciding.';
             hookGranted = false;
           }
+          if (hookGranted && verdict.updatedPermissions?.length) {
+            permissionDenial = 'A Gateway permission hook cannot update shared settings for an individual Run.';
+            hookGranted = false;
+          }
+          if (hookGranted) updatedInput = verdict.updatedInput;
           if (!hookGranted && !permissionDenial) {
-            permissionDenial = verdict.reason || `Tool ${toolCall.name} requires approval, which is unavailable in non-interactive mode.`;
+            if (sdkApproval && !verdict.blocked && !verdict.permission) {
+              const gate = await this.ensureApproval(runId, userId, toolCall, decision, argsHash, sessionId);
+              if (gate.approvalId && (gate.executable || gate.rejected)) {
+                const step = await this.prisma.runStep.findUnique({
+                  where: { id: gate.approvalId }, select: { runId: true, kind: true, checkpoint: true },
+                });
+                if (step?.runId !== runId || step.kind !== 'approval') throw new TerminalToolError('Approval checkpoint is missing.');
+                const checkpoint = step.checkpoint as Prisma.JsonObject | null;
+                if (gate.rejected && checkpoint?.continueOnDeny === true) {
+                  permissionDenial = `SDK host denied tool ${toolCall.name}.`;
+                }
+                const stored = gate.executable ? checkpoint?.updatedInput : undefined;
+                if (stored !== undefined) {
+                  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) throw new TerminalToolError('Invalid approval checkpoint input.');
+                  updatedInput = stored;
+                }
+              }
+              if (!gate.executable && !permissionDenial) return { jobId: job.id, runId, status: 'succeeded' };
+            } else {
+              permissionDenial = verdict.reason || `Tool ${toolCall.name} requires approval, which is unavailable in non-interactive mode.`;
+            }
           }
         } else if (!sessionGranted) {
           const gate = await this.ensureApproval(runId, userId, toolCall, decision, argsHash, sessionId);
           if (!gate.executable) return { jobId: job.id, runId, status: 'succeeded' };
+        }
+      }
+
+      if (!permissionDenial && updatedInput !== undefined && !isDeepStrictEqual(updatedInput, toolCall.input)) {
+        const parsed = await tool.inputSchema?.safeParseAsync(updatedInput);
+        if (!parsed?.success || !parsed.data || typeof parsed.data !== 'object' || Array.isArray(parsed.data)) {
+          permissionDenial = 'Invalid replacement tool input.';
+        } else {
+          const replacement = parsed.data as Record<string, unknown>;
+          const name = tool.permissionName?.(replacement) ?? toolCall.name;
+          const replacementServer = tool.permissionServer?.(replacement);
+          const replacementDecision = this.permissions.evaluateToolDecision(name, undefined, replacement, replacementServer);
+          if (!permitsSubagentTool(policyForRun(runCheck.parentRunId, runCheck.metadata), name)
+            || replacementDecision.action === 'deny' || replacementDecision.policyVersion !== decision.policyVersion) {
+            permissionDenial = 'Permission policy denied the replacement tool input.';
+          } else {
+            executionInput = replacement;
+            const updatedPreHook = await this.hooks.run('PreToolUse', { ...hookInput, tool_input: executionInput }, { spaceId: runCheck.spaceId });
+            if (updatedPreHook.blocked) permissionDenial = updatedPreHook.reason || 'Hook blocked the replacement tool input.';
+            if (this.permissions.getPolicyVersion() !== decision.policyVersion) {
+              permissionDenial = 'Permission settings changed before the replacement could execute.';
+            }
+          }
         }
       }
 
@@ -240,7 +306,7 @@ export class ToolExecutor {
 
       if (toolCall.name === DELEGATE_TASK_TOOL && !permissionDenial) {
         if (!this.subagents) throw new TerminalToolError('Subagent execution is unavailable.');
-        const args = delegateTaskSchema.parse(toolCall.input);
+        const args = delegateTaskSchema.parse(executionInput);
         const subagents = this.subagents;
         await this.fencedTransaction(async (tx) => {
           const modelStep = await tx.runStep.findFirst({
@@ -290,7 +356,7 @@ export class ToolExecutor {
       if (!active) return { jobId: job.id, runId, status: 'succeeded' };
 
       // 4) 步骤 started（崩溃续跑复用 started 步骤，不重复写 step_started）
-      const step = await this.ensureStepStarted(runId, toolCall);
+      const step = await this.ensureStepStarted(runId, toolCall, executionInput);
       if (!step) return { jobId: job.id, runId, status: 'succeeded' };
 
       let output: Prisma.InputJsonValue;
@@ -305,17 +371,17 @@ export class ToolExecutor {
           spaceId: runCheck.spaceId,
           runId,
           toolName: toolCall.name,
-          inputJson: toolCall.input,
+          inputJson: executionInput,
           authorization: sessionGranted ? `session:${decision.policyVersion}` : hookGranted ? 'hook:PermissionRequest' : requiresApproval ? 'approval' : `policy:${decision.source}:${decision.policyVersion}`,
         });
         invocationStarted = true;
         try {
-          output = await tool.execute(toolCall.input, { runId, userId, spaceId: runCheck.spaceId, toolCallId: toolCall.id }) as Prisma.InputJsonValue;
+          output = await tool.execute(executionInput, { runId, userId, spaceId: runCheck.spaceId, toolCallId: toolCall.id }) as Prisma.InputJsonValue;
         } catch (error) {
-          await this.hooks.run('ToolUseFailure', { ...hookInput, error: error instanceof Error ? error.message : String(error) }, { spaceId: runCheck.spaceId });
+          await this.hooks.run('ToolUseFailure', { ...hookInput, tool_input: executionInput, error: error instanceof Error ? error.message : String(error) }, { spaceId: runCheck.spaceId });
           throw error;
         }
-        const postHook = await this.hooks.run('PostToolUse', { ...hookInput, tool_response: output }, { spaceId: runCheck.spaceId });
+        const postHook = await this.hooks.run('PostToolUse', { ...hookInput, tool_input: executionInput, tool_response: output }, { spaceId: runCheck.spaceId });
         if (postHook.blocked) {
           const modelStep = await this.prisma.runStep.findFirst({ where: { runId, kind: 'model_call' }, select: { id: true } });
           // Standalone tool calls have no model continuation to consume the gate.
@@ -405,7 +471,7 @@ export class ToolExecutor {
 
       return { jobId: job.id, runId, status: 'succeeded' };
     } catch (error) {
-      const failure = invocationStarted && !isReadOnlyTool(toolCall.name, toolCall.input)
+      const failure = invocationStarted && (executionInput !== toolCall.input || !isReadOnlyTool(toolCall.name, executionInput))
         ? new UnknownToolResult(`Tool result unknown; automatic replay prohibited: ${error instanceof Error ? error.message : String(error)}`) : error;
       return this.handleFailure(job, toolCall, failure);
     }
@@ -437,7 +503,7 @@ export class ToolExecutor {
         throw new TerminalToolError('Idempotency key conflicts with tool or arguments.');
       }
     }
-    if (hit && hit.status !== 'succeeded' && !isReadOnlyTool(toolCall.name, toolCall.input)) throw new UnknownToolResult('Prior tool result unknown; automatic replay prohibited.');
+    if (hit && hit.status !== 'succeeded' && ((hit.input as Prisma.JsonObject | null)?.hookUpdatedInput === true || !isReadOnlyTool(toolCall.name, toolCall.input))) throw new UnknownToolResult('Prior tool result unknown; automatic replay prohibited.');
     return hit?.status === 'succeeded' ? { id: hit.id } : null;
   }
 
@@ -503,7 +569,7 @@ export class ToolExecutor {
     decision: PermissionDecision,
     argsHash: string,
     sessionId?: string,
-  ): Promise<{ executable: boolean }> {
+  ): Promise<{ executable: boolean; rejected?: boolean; approvalId?: string }> {
     const existing = await this.prisma.runApproval.findFirst({
       where: { runId, toolCallId: toolCall.id },
       orderBy: { createdAt: 'desc' },
@@ -516,10 +582,11 @@ export class ToolExecutor {
       if (existing.argsHash && existing.argsHash !== argsHash) {
         throw new TerminalToolError('Approval does not match the requested argument digest.');
       }
+      if (existing.status === 'rejected') return { executable: false, rejected: true, approvalId: existing.id };
       if (existing.policyVersion && existing.policyVersion !== decision.policyVersion) {
         return this.supersedeApproval(existing, runId, userId, toolCall, decision, argsHash, sessionId);
       }
-      return { executable: existing.status === 'approved' };
+      return { executable: existing.status === 'approved', approvalId: existing.id };
     }
 
     return this.fencedTransaction(async (tx) => {
@@ -537,7 +604,7 @@ export class ToolExecutor {
         }
         if (fresh.status === 'approved') {
           await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
-          return { executable: true };
+          return { executable: true, approvalId: fresh.id };
         }
         return { executable: false };
       }
@@ -680,6 +747,7 @@ export class ToolExecutor {
   private async ensureStepStarted(
     runId: string,
     toolCall: ToolCall,
+    executionInput: ToolCall['input'],
   ): Promise<{ id: string; seq: number } | null> {
     return this.fencedTransaction(async (tx) => {
       const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
@@ -687,7 +755,8 @@ export class ToolExecutor {
       const existing = toolCall.idempotencyKey
         ? await tx.runStep.findFirst({ where: { runId, kind: 'tool_call', idempotencyKey: toolCall.idempotencyKey }, orderBy: { seq: 'desc' } })
         : await tx.runStep.findFirst({ where: { runId, kind: 'tool_call' }, orderBy: { seq: 'desc' } });
-      if (existing && ['started', 'failed', 'unknown'].includes(existing.status) && !isReadOnlyTool(toolCall.name, toolCall.input)) {
+      if (existing && ['started', 'failed', 'unknown'].includes(existing.status)
+        && (executionInput !== toolCall.input || (existing.input as Prisma.JsonObject | null)?.hookUpdatedInput === true || !isReadOnlyTool(toolCall.name, toolCall.input))) {
         throw new UnknownToolResult('Prior tool result unknown; automatic replay prohibited.');
       }
       if (existing && existing.status === 'started') {
@@ -705,7 +774,7 @@ export class ToolExecutor {
             kind: 'tool_call',
             status: 'started',
             idempotencyKey: toolCall.idempotencyKey ?? null,
-            input: JSON.parse(JSON.stringify({ ...toolCall, inputDigest: createHash('sha256').update(JSON.stringify(toolCall.input)).digest('hex'), effect: this.registry.get(toolCall.name)?.effect ?? (isReadOnlyTool(toolCall.name, toolCall.input) ? 'read' : 'non-idempotent-write') })) as Prisma.InputJsonValue,
+            input: JSON.parse(JSON.stringify({ ...toolCall, ...(executionInput !== toolCall.input && { hookUpdatedInput: true }), inputDigest: createHash('sha256').update(JSON.stringify(toolCall.input)).digest('hex'), effect: executionInput !== toolCall.input ? 'non-idempotent-write' : (this.registry.get(toolCall.name)?.effect ?? (isReadOnlyTool(toolCall.name, toolCall.input) ? 'read' : 'non-idempotent-write')) })) as Prisma.InputJsonValue,
           },
         });
       } catch (error) {

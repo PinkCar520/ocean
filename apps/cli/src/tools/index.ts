@@ -114,10 +114,15 @@ export async function toAgentToolSet(
   const resourceServers = mcpManager.listResourceServers?.() ?? [];
   if (resourceServers.length > 0) {
     const server = z.string().min(1).max(64).refine((id) => resourceServers.includes(id), 'Unknown MCP resource server');
+    const pageSchema = z.object({ server, cursor: z.string().max(4096).optional() });
     const resourceTools = {
       mcp_list_resources: {
         description: `List resources from a connected MCP server. Resource servers: ${resourceServers.join(', ')}`,
-        schema: z.object({ server, cursor: z.string().max(4096).optional() }),
+        schema: pageSchema,
+      },
+      mcp_list_resource_templates: {
+        description: 'List URI templates for parameterized resources on a connected MCP server.',
+        schema: pageSchema,
       },
       mcp_read_resource: {
         description: 'Read a resource URI exposed by a connected MCP server.',
@@ -141,9 +146,13 @@ export async function toAgentToolSet(
           const denial = await blocked(parsed.data);
           if (denial) return { error: denial };
           try {
-            const value = name === 'mcp_read_resource'
-              ? await mcpManager.readResource(parsed.data.server, (parsed.data as { uri: string }).uri, options?.abortSignal)
-              : await mcpManager.listResources(parsed.data.server, (parsed.data as { cursor?: string }).cursor, options?.abortSignal);
+            const { data } = parsed;
+            const signal = options?.abortSignal;
+            const value = 'uri' in data
+              ? await mcpManager.readResource(data.server, data.uri, signal)
+              : name === 'mcp_list_resource_templates'
+                ? await mcpManager.listResourceTemplates(data.server, data.cursor, signal)
+                : await mcpManager.listResources(data.server, data.cursor, signal);
             const serialized = JSON.stringify(value);
             return serialized.length <= 80_000 ? value : { truncated: true, preview: serialized.slice(0, 80_000) };
           } catch (error) {

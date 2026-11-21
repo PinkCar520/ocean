@@ -171,8 +171,9 @@ export function evaluateToolDecision(
   args?: any,
   mode: PermissionMode = 'default',
   policyVersion = 'unversioned',
+  mcpServer?: string,
 ): PermissionDecision {
-  const matchingRules = rules.filter((rule) => permissionRuleMatches(rule, toolName, args));
+  const matchingRules = rules.filter((rule) => permissionRuleMatches(rule, toolName, args, mcpServer));
   const deny = matchingRules.find((rule) => rule.action === 'deny');
   if (deny) return matchingRuleDecision(deny, policyVersion);
 
@@ -232,22 +233,27 @@ export function evaluatePermissionDecision(
     return decision('deny', 'Invalid permission settings; denying by default.', 'invalid', 'invalid');
   }
   const policyVersion = options.policyVersion ?? permissionPolicyVersion(settings, rules);
-  const matchingRules = rules.filter((rule) => permissionRuleMatches(rule, toolName, args));
+  const servers = settings.mcp?.servers;
+  const gatewayServer = /^mcp__([^:]+):/.exec(toolName)?.[1];
+  const cliServer = Object.keys(servers ?? {})
+    .filter(name => toolName.startsWith(`mcp__${name}__`))
+    .sort((a, b) => b.length - a.length)[0];
+  const serverName = mcpServer ?? gatewayServer ?? cliServer;
+  const matchingRules = rules.filter((rule) => permissionRuleMatches(rule, toolName, args, serverName));
   const deny = matchingRules.find((rule) => rule.action === 'deny');
   if (deny) return matchingRuleDecision(deny, policyVersion);
 
-  if ((settings.mode ?? 'default') === 'plan') {
-    return evaluateToolDecision(toolName, rules, args, 'plan', policyVersion);
-  }
-
-  const serverName = mcpServer ?? /^mcp__([^_:]+)(?:__|:)/.exec(toolName)?.[1];
-  const server = serverName ? settings.mcp?.servers?.[serverName] : undefined;
+  const server = serverName && servers && Object.hasOwn(servers, serverName) ? servers[serverName] : undefined;
   if (server?.enabled === false || server?.permissions === 'deny') {
     return decision('deny', `MCP server ${serverName} is disabled or denied.`, policyVersion, 'mcp-server', `mcp:${serverName}`);
   }
 
+  if ((settings.mode ?? 'default') === 'plan') {
+    return evaluateToolDecision(toolName, rules, args, 'plan', policyVersion, serverName);
+  }
+
   if (matchingRules.some((rule) => rule.action === 'ask')) {
-    return evaluateToolDecision(toolName, rules, args, settings.mode ?? 'default', policyVersion);
+    return evaluateToolDecision(toolName, rules, args, settings.mode ?? 'default', policyVersion, serverName);
   }
 
   if (options.sessionGrant) {
@@ -259,14 +265,14 @@ export function evaluatePermissionDecision(
       ? decision('deny', `dontAsk denies MCP server ${serverName}.`, policyVersion, 'mcp-server', `mcp:${serverName}`)
       : decision('ask', `MCP server ${serverName} requires approval.`, policyVersion, 'mcp-server', `mcp:${serverName}`);
   }
-  if (server?.permissions === 'allow' && !matchingRules.some((rule) => rule.action === 'ask')) {
+  if (server?.permissions === 'allow') {
     return decision('allow', `MCP server ${serverName} allows the tool.`, policyVersion, 'mcp-server', `mcp:${serverName}`);
   }
 
-  return evaluateToolDecision(toolName, rules, args, settings.mode ?? 'default', policyVersion);
+  return evaluateToolDecision(toolName, rules, args, settings.mode ?? 'default', policyVersion, serverName);
 }
 
-function permissionRuleMatches(rule: NormalizedRule, toolName: string, args?: any): boolean {
+function permissionRuleMatches(rule: NormalizedRule, toolName: string, args?: any, mcpServer?: string): boolean {
   const parsed = parseToolPattern(rule.pattern);
   const aliases: Record<string, string[]> = {
     bash: ['bash', 'local_bash', 'Bash'],
@@ -286,7 +292,15 @@ function permissionRuleMatches(rule: NormalizedRule, toolName: string, args?: an
     lsp: ['lsp', 'local_lsp', 'LSP'],
     local_lsp: ['lsp', 'local_lsp', 'LSP'],
   };
-  const names = aliases[toolName] ?? [toolName];
+  const names = [...(aliases[toolName] ?? [toolName])];
+  const server = mcpServer ?? /^mcp__(.+?):/.exec(toolName)?.[1]
+    ?? /^mcp__(.+?)__/.exec(toolName)?.[1];
+  if (server) {
+    const prefix = `mcp__${server}`;
+    const remoteName = toolName.startsWith(`${prefix}:`) ? toolName.slice(prefix.length + 1)
+      : toolName.startsWith(`${prefix}__`) ? toolName.slice(prefix.length + 2) : undefined;
+    if (remoteName) names.push(prefix, `${prefix}:${remoteName}`, `${prefix}__${remoteName}`);
+  }
   if (!parsed) return names.some((name) => rule.regex.test(name));
   if (!names.includes(parsed.toolName)) return false;
   if (parsed.content === undefined) return true;
@@ -442,6 +456,9 @@ export interface PermissionHookOutcome {
   blocked: boolean;
   reason: string;
   permission?: 'allow' | 'deny';
+  updatedInput?: Record<string, unknown>;
+  interrupt?: boolean;
+  updatedPermissions?: readonly unknown[];
 }
 
 export function permissionHookVerdict(event: string, specific: Record<string, unknown> | undefined): PermissionHookOutcome | undefined {
@@ -450,9 +467,20 @@ export function permissionHookVerdict(event: string, specific: Record<string, un
   if (!decision || typeof decision !== 'object') return;
   const verdict = decision as Record<string, unknown>;
   if (verdict.behavior === 'deny') {
-    return { blocked: true, reason: typeof verdict.message === 'string' ? verdict.message : 'Permission denied by hook', permission: 'deny' };
+    return { blocked: true, reason: typeof verdict.message === 'string' ? verdict.message : 'Permission denied by hook', permission: 'deny', ...(verdict.interrupt === true && { interrupt: true }) };
   }
-  if (verdict.behavior === 'allow' && verdict.updatedInput === undefined && verdict.updatedPermissions === undefined) {
-    return { blocked: false, reason: '', permission: 'allow' };
+  if (verdict.behavior === 'allow') {
+    const input = verdict.updatedInput;
+    if (input !== undefined && (!input || typeof input !== 'object' || Array.isArray(input))) {
+      return { blocked: true, reason: 'Invalid replacement tool input', permission: 'deny' };
+    }
+    if (verdict.updatedPermissions !== undefined && !Array.isArray(verdict.updatedPermissions)) {
+      return { blocked: true, reason: 'Invalid permission updates', permission: 'deny' };
+    }
+    return {
+      blocked: false, reason: '', permission: 'allow',
+      ...(verdict.updatedPermissions?.length && { updatedPermissions: verdict.updatedPermissions }),
+      ...(input !== undefined && { updatedInput: input as Record<string, unknown> }),
+    };
   }
 }

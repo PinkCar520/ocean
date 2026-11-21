@@ -1,3 +1,4 @@
+import { collectMcpTools, mcpToolPages } from '@ocean/core';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
 import {
   Injectable,
@@ -12,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import type {
   GetPromptResult,
   CreateMessageRequestSchema,
@@ -76,6 +78,12 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
 
   /** 聚合后的工具定义缓存 */
   private cachedAITools: Record<string, any> | null = null;
+  private toolCatalogRevision = 0;
+
+  private invalidateToolCatalog(): void {
+    this.toolCatalogRevision++;
+    this.cachedAITools = null;
+  }
 
   constructor(
     private configService: ConfigService,
@@ -186,7 +194,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.clients.clear();
-    this.cachedAITools = null;
+    this.invalidateToolCatalog();
     this.initialized = false;
   }
 
@@ -198,11 +206,14 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
       return this.cachedAITools;
     }
 
+    const revision = this.toolCatalogRevision;
+    let discoveryFailed = false;
     const aggregated: Record<string, any> = {};
 
     for (const [serverId, managed] of this.clients.entries()) {
+      if (!managed.client.getServerCapabilities()?.tools) continue;
       try {
-        const { tools } = await managed.client.listTools();
+        const tools = await collectMcpTools(cursor => managed.client.listTools({ cursor }, { timeout: 10_000 }));
 
         for (const toolDef of tools) {
           const namespacedName = mcpToolName(serverId, toolDef.name);
@@ -226,13 +237,14 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
           });
         }
       } catch (err) {
+        discoveryFailed = true;
         this.logger.warn(
           `[${serverId}] Failed to list tools: remote operation failed`,
         );
       }
     }
 
-    this.cachedAITools = aggregated;
+    if (!discoveryFailed && revision === this.toolCatalogRevision) this.cachedAITools = aggregated;
     this.logger.log(
       `Tool registry built: [${Object.keys(aggregated).join(', ')}]`,
     );
@@ -374,17 +386,14 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   async listServerTools(serverId: string, cursor?: string) {
     const client = this.clients.get(serverId)?.client;
     if (!client?.getServerCapabilities()?.tools) throw new Error('MCP server does not expose tools.');
-    return client.listTools(cursor ? { cursor } : {}, { timeout: 10_000 });
+    return client.listTools(cursor === undefined ? {} : { cursor }, { timeout: 10_000 });
   }
 
   async callServerTool(serverId: string, name: string, args: Record<string, unknown>) {
     const managed = this.clients.get(serverId);
     if (!managed?.client.getServerCapabilities()?.tools) throw new Error('MCP server does not expose tools.');
-    const visited = new Set<string>();
-    let cursor: string | undefined;
-    for (let page = 0; page < 8; page++) {
-      const result = await this.listServerTools(serverId, cursor);
-      const definition = result.tools.find((tool) => tool.name === name);
+    for await (const tools of mcpToolPages(cursor => this.listServerTools(serverId, cursor))) {
+      const definition = tools.find(tool => tool.name === name);
       if (definition) {
         const validator = new AjvJsonSchemaValidator().getValidator(definition.inputSchema);
         const check = validator(args);
@@ -395,9 +404,6 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
           throw new Error('MCP execution outcome unknown; automatic replay prohibited.');
         }
       }
-      if (!result.nextCursor || visited.has(result.nextCursor)) break;
-      visited.add(result.nextCursor);
-      cursor = result.nextCursor;
     }
     throw new Error('MCP tool not found on this server.');
   }
@@ -405,6 +411,10 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   async listServerResources(serverId: string, cursor?: string) {
     const client = this.resourceClient(serverId);
     return client.listResources(cursor ? { cursor } : {}, { timeout: 10_000 });
+  }
+
+  async listServerResourceTemplates(serverId: string, cursor?: string) {
+    return this.resourceClient(serverId).listResourceTemplates(cursor ? { cursor } : {}, { timeout: 10_000 });
   }
 
   async readServerResource(serverId: string, uri: string) {
@@ -615,6 +625,9 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         };
       });
 
+      client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+        if (this.clients.get(resolvedConfig.id)?.client === client) this.invalidateToolCatalog();
+      });
       await client.connect(transport);
       this.clients.set(resolvedConfig.id, {
         client,
@@ -625,8 +638,8 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
         elicitationCallbacks: new Map(),
       });
 
-      this.cachedAITools = null;
-      const { tools } = await client.listTools();
+      this.invalidateToolCatalog();
+      const tools = client.getServerCapabilities()?.tools ? (await client.listTools()).tools : [];
       this.logger.log(
         `[${resolvedConfig.id}] Connected via ${transportType}. Tools: [${tools.map((t) => t.name).join(', ')}]`,
       );
@@ -645,7 +658,7 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
     try {
       await managed.client.close();
       this.clients.delete(serverId);
-      this.cachedAITools = null;
+      this.invalidateToolCatalog();
     } catch (err) {
       this.logger.warn(
         `[${serverId}] Error during disconnect: remote operation failed`,

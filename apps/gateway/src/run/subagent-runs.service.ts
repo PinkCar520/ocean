@@ -83,6 +83,7 @@ export class SubagentRunsService {
       if (!next) throw new BadRequestException('Invalid subagent lineage');
       ancestor = next;
     }
+    const parentSettings = parent.metadata as Prisma.JsonObject | null;
     const child = await tx.agentRun.create({
       data: {
         userId,
@@ -95,7 +96,8 @@ export class SubagentRunsService {
         metadata: {
           agent: input.agent,
           subagentPolicy: childPolicy(input.agent, parent.parentRunId, parent.metadata) as any,
-          ...((parent.metadata as Prisma.JsonObject | null)?.nonInteractive === true && { nonInteractive: true }),
+          ...(parentSettings?.nonInteractive === true && { nonInteractive: true }),
+          ...(Array.isArray(parentSettings?.toolNames) && { toolNames: parentSettings.toolNames }),
         },
       },
     });
