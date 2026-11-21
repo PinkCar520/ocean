@@ -52,6 +52,10 @@ function createWorker(
       }),
       update: jest.fn().mockResolvedValue({}),
     },
+    runStep: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue({}),
+    },
     outboxEvent: {
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({}),
