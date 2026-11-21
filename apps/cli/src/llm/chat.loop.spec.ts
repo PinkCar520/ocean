@@ -355,4 +355,32 @@ describe('CLI Agent loop transcript', () => {
     expect(streamTextMock).toHaveBeenCalledTimes(1);
   });
 
+  it('recovers once from prompt overflow using a smaller context budget', async () => {
+    const messages = Array.from({ length: 12 }, (_, i) => ({
+      role: 'user' as const, content: `history ${i}: ${'x'.repeat(3500)}`,
+    }));
+    const persist = vi.fn();
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ goal: 'complete task', constraints: [], fileChanges: [],
+        failedTests: [], completedTools: [], pendingWork: ['finish'] }),
+    });
+    let requests = 0;
+    streamTextMock.mockImplementation(async (options) => {
+      requests++;
+      if (requests === 1) return {
+        text: Promise.reject(new Error('context_length_exceeded')),
+        finishReason: 'error', responseMessages: [],
+      };
+      expect(options.messages.length).toBeLessThan(messages.length);
+      return { text: 'recovered', finishReason: 'stop', responseMessages: [] };
+    });
+    const result = await runChatLoop(messages, {
+      model: {}, systemPrompt: '', tools: {},
+      compaction: { budget: 20000, persist },
+    });
+    expect(result.text).toBe('recovered');
+    expect(streamTextMock).toHaveBeenCalledTimes(2);
+    expect(persist).toHaveBeenCalled();
+  });
+
 });
