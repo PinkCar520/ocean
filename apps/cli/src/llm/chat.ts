@@ -47,6 +47,12 @@ export function modelUsageMetrics(usage: any): ModelUsageMetrics {
   };
 }
 
+/** Provider context overflow is not transient: retry only after changing context. */
+export function isPromptTooLongError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:prompt|context|input|request).{0,48}(?:too long|too large|exceeds?|overflow|maximum (?:context|tokens)|token limit)|(?:context_length_exceeded|maximum context length|prompt_too_long|input_tokens_exceeded)/i.test(message);
+}
+
 type HookApproval = PermissionHookOutcome & { persistUpdates?: () => Promise<void> };
 
 /**
@@ -562,12 +568,6 @@ export async function runChatLoop(
     }
     return false;
   }
-
-/** Provider context overflow is not transient: retry only after changing context. */
-export function isPromptTooLongError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /(?:prompt|context|input|request).{0,48}(?:too long|too large|exceeds?|overflow|maximum (?:context|tokens)|token limit)|(?:context_length_exceeded|maximum context length|prompt_too_long|input_tokens_exceeded)/i.test(message);
-}
 
   const MAX_STREAM_RETRIES = 1;
   let finalResult: any;
