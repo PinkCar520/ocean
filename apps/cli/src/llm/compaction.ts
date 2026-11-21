@@ -127,6 +127,9 @@ export async function compactContext(messages: ModelMessage[], options: {
       contextTokens(microcompacted) + systemTokens < budget) {
     return microcompacted;
   }
+  // If microcompaction alone cannot fit, summarize the reduced historical
+  // view rather than paying again for stale tool outputs.
+  const summaryView = microcompacted !== effective ? microcompacted : effective;
   const originalFits = contextTokens(effective) + systemTokens < budget;
   const cannotCompactSafely = (): ModelMessage[] => {
     if (originalFits) return effective;
@@ -146,7 +149,9 @@ export async function compactContext(messages: ModelMessage[], options: {
   }
   // A restored transcript can contain an unfinished call spanning user turns.
   if (!hasClosedToolPairs(messages.slice(0, covered))) return cannotCompactSafely();
-  const source = valid ? [summaryMessage(previous.summary), ...messages.slice(previous.covered, covered)] : messages.slice(0, covered);
+  const source = valid
+    ? [summaryMessage(previous.summary), ...summaryView.slice(1, 1 + covered - previous.covered)]
+    : summaryView.slice(0, covered);
   const scope = options.scope ?? historyDigest([{ role: 'system', content: options.systemPrompt }]);
   // If an estimate triggered compaction prematurely, the original transcript
   // may still fit. Only fall back when the full context is safely within budget.
@@ -172,10 +177,21 @@ export async function compactContext(messages: ModelMessage[], options: {
       messages: [{ role: 'user', content: JSON.stringify(source) }],
     });
     options.signal?.throwIfAborted();
-    const parsed = JSON.parse(result.text);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid context summary');
-    for (const key of ['goal', 'constraints', 'fileChanges', 'failedTests', 'completedTools', 'pendingWork']) {
-      if (!(key in parsed)) throw new Error(`Incomplete context summary: ${key}`);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.text);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Invalid summary JSON');
+      continue;
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      lastError = new Error('Invalid context summary');
+      continue;
+    }
+    const required = ['goal', 'constraints', 'fileChanges', 'failedTests', 'completedTools', 'pendingWork'];
+    if (required.some(key => !(key in parsed!))) {
+      lastError = new Error('Incomplete context summary');
+      continue;
     }
     const snapshot: Compaction = { covered, digest: historyDigest(messages.slice(0, covered)), summary: JSON.stringify(parsed) };
     const compacted = [summaryMessage(snapshot.summary), ...messages.slice(covered)];
