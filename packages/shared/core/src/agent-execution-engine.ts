@@ -36,11 +36,29 @@ export interface AgentExecutionResult {
 export class AgentExecutionEngine<Message> {
   constructor(private readonly ports: AgentExecutionPorts<Message>) {}
 
+  async resume(sessionId: string, runId: string, maxSteps = 30, signal?: AbortSignal): Promise<AgentExecutionResult> {
+    return this.execute(sessionId, runId, maxSteps, signal, true);
+  }
+
   async run(sessionId: string, runId: string, maxSteps = 30, signal?: AbortSignal): Promise<AgentExecutionResult> {
+    return this.execute(sessionId, runId, maxSteps, signal, false);
+  }
+
+  private async execute(sessionId: string, runId: string, maxSteps: number, signal: AbortSignal | undefined, resume: boolean): Promise<AgentExecutionResult> {
     if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid agent step limit');
     const runtime = new AgentRuntime(this.ports.events, this.ports.host);
     const tools = new ToolRuntime(this.ports.events, this.ports.host, this.ports.authorization);
-    await runtime.create(runId, sessionId);
+    if (resume) {
+      const events = await this.ports.events.read(runId);
+      const snapshot = await runtime.snapshot(runId);
+      if (snapshot.sessionId !== sessionId || snapshot.state !== 'interrupted') throw new Error('Run is not resumable for this session');
+      // Transcript reconciliation is host-specific. Never resume a run with
+      // recorded tool side effects until the host has verified its journal.
+      if (events.some(event => event.type === 'tool.prepared'))
+        throw new Error('Tool journal reconciliation required before resume');
+    } else {
+      await runtime.create(runId, sessionId);
+    }
     let messages = [...await this.ports.transcript.load(sessionId)];
     for (let step = 0; step < maxSteps; step++) {
       signal?.throwIfAborted();
