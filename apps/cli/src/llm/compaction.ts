@@ -198,7 +198,14 @@ export async function compactContext(messages: ModelMessage[], options: {
   // The summary request has its own finite context budget. Trim only whole
   // historical groups; never split a tool call from its result. Keep the
   // newest available context and refuse unsafe boundaries.
-  const summaryInputBudget = budget - systemTokens;
+  // The summary model can consume a larger input than the *target* compacted
+  // transcript. Reserve output/tool space from its actual context window,
+  // rather than truncating history at the small post-compaction target budget.
+  const summaryInputBudget = contextBudget({
+    contextWindow: options.contextWindow,
+    outputReserve: options.outputReserve,
+    toolReserve: options.toolReserve,
+  }) - systemTokens;
   const boundedSource = trimSummarySource(source, summaryInputBudget);
   const sourceWasTrimmed = boundedSource.length !== source.length;
   const scope = options.scope ?? historyDigest([{ role: 'system', content: options.systemPrompt }]);
