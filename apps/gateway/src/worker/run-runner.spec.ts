@@ -492,6 +492,18 @@ describe('RunRunner', () => {
 
   });
 
+  it('fails closed rather than silently dropping history when no summary fits the budget', async () => {
+    const { runner, tx } = createRunner(null);
+    jest.spyOn(runner as any, 'fencedTransaction').mockImplementation(async (persist: any) => persist(tx));
+    const history = [
+      { role: 'user', text: 'critical constraint must not be omitted' },
+      { role: 'assistant', text: 'acknowledged' },
+    ];
+    await expect(runner['compactChatHistory']('run', {}, history,
+      'deepseek-flash', 'oversized prompt '.repeat(16_000))).rejects.toThrow(/context|budget/i);
+    expect(tx.agentRun.update).not.toHaveBeenCalled();
+  });
+
   it('rejects a cached history summary when the Session prefix fingerprint no longer matches', async () => {
     const { runner, gateway } = createRunner(null, {
       generateResult: { text: 'new summary', toolCalls: [] },
