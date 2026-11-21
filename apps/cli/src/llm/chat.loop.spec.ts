@@ -277,4 +277,23 @@ describe('CLI Agent loop transcript', () => {
     await runChatLoop([], { model: {}, systemPrompt: '', tools: {}, maxSteps: 12 });
     expect(stepCountIsMock).toHaveBeenCalledWith(12);
   });
+  it('retains active skill instructions in model system and compaction budget', async () => {
+    const messages = [
+      { role: 'user' as const, content: '[Activated Skill: code-review]\\nFollow review protocol\\nResource directory: /skills/review' },
+      ...Array.from({ length: 12 }, (_, i) => ({ role: 'user' as const, content: `turn ${i} ${'x'.repeat(3000)}` })),
+    ];
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ goal: 'review', constraints: [], fileChanges: [], failedTests: [], completedTools: [], pendingWork: [] }),
+    });
+    streamTextMock.mockImplementation(async (options) => {
+      expect(options.system).toContain('Follow review protocol');
+      expect(options.system).toContain('code-review');
+      return { text: 'done', responseMessages: [] };
+    });
+    await runChatLoop(messages, {
+      model: {}, systemPrompt: 'base', tools: {},
+      compaction: { budget: 5000, persist: vi.fn() },
+    });
+  });
+
 });
