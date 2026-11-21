@@ -97,3 +97,20 @@ describe('runtime replay input validation', () => {
   }])).toThrow('another run');
  });
 });
+
+describe('explicit tool outcome reconciliation', () => {
+ it('does not replay unknown side effects when reconciled', async () => {
+  let calls = 0;
+  const store = new MemoryRuntimeEventStore();
+  const runtime = new AgentRuntime(store, { execute: async () => { calls++; throw new Error('timeout'); } });
+  await runtime.create('r');
+  for (const state of ['preparing_context', 'calling_model', 'validating_tools', 'executing_tools'] as const) await runtime.transition('r', state);
+  await expect(runtime.executeTool('r', 'x', 'remote', { id: 1 }, 'remote')).rejects.toThrow('unknown');
+  expect(calls).toBe(1);
+  expect((await runtime.reconcileTool('r', 'x', 'succeeded', { verified: true })).pendingTools.x).toBe('succeeded');
+  await expect(runtime.reconcileTool('r', 'x', 'succeeded', {})).rejects.toThrow('Only unknown');
+  await runtime.transition('r', 'persisting_results');
+  expect((await runtime.transition('r', 'completed')).state).toBe('completed');
+  expect(calls).toBe(1);
+ });
+});
