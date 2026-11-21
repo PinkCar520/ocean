@@ -51,6 +51,7 @@ import { ToolRegistry } from '../src/tool/tool.registry';
 import { RunRunner } from '../src/worker/run-runner';
 import { ToolExecutor } from '../src/worker/tool-executor';
 import { WorkerService } from '../src/worker/worker.service';
+import { ToolOutcomeReconciler, type ToolOutcomeQueryAdapter } from '../src/worker/tool-outcome-reconciler';
 import { ConfigService } from '@nestjs/config';
 import { AiSdkModelGateway } from '../src/ai/ai-sdk-model-gateway';
 import { startProviderContract } from './fixtures/provider-contract';
@@ -161,6 +162,50 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   await pool?.end();
   rmSync(policyHome, { recursive: true, force: true });
  });
+ it('reconciles a persisted unknown external effect through Worker polling without dispatching it again', async () => {
+  const run = await db.agentRun.create({ data: {
+   userId, spaceId, spaceType: 'work', input: 'Reconcile lost external result', status: 'failed',
+  } });
+  const key = 'reconcile-' + randomUUID();
+  const step = await db.runStep.create({ data: {
+   runId: run.id, seq: 1, kind: 'tool_call', status: 'unknown',
+   idempotencyKey: key,
+   input: { name: 'external.fixture', input: { target: 'remote-resource' }, idempotencyKey: key },
+  } });
+  const query = jest.fn(async () => ({
+   status: 'succeeded' as const, idempotencyKey: key, output: { receipt: 'confirmed' },
+  }));
+  const adapter: ToolOutcomeQueryAdapter = { query };
+  const reconciliationWorker = new WorkerService(
+   { execute: jest.fn() } as never,
+   { execute: jest.fn() } as never,
+   { claimRunRequests: jest.fn().mockResolvedValue([]) } as never,
+   db,
+   undefined,
+   new ToolOutcomeReconciler(db, new Map([['external.fixture', adapter]])),
+  );
+  try {
+   reconciliationWorker.start();
+   const deadline = Date.now() + 8000;
+   let result = await db.runStep.findUniqueOrThrow({ where: { id: step.id } });
+   while (result.status !== 'succeeded' && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 30));
+    result = await db.runStep.findUniqueOrThrow({ where: { id: step.id } });
+   }
+   expect(result.status).toBe('succeeded');
+   expect(result.output).toEqual({ receipt: 'confirmed' });
+   expect(query).toHaveBeenCalledTimes(1);
+   expect(query).toHaveBeenCalledWith({
+    runId: run.id, stepId: step.id, toolName: 'external.fixture',
+    idempotencyKey: key, input: { target: 'remote-resource' },
+   });
+   expect((await db.agentRun.findUniqueOrThrow({ where: { id: run.id } })).status).toBe('failed');
+  } finally {
+   reconciliationWorker.stop();
+   await db.agentRun.delete({ where: { id: run.id } });
+  }
+ }, 15000);
+
  it('rejects unauthenticated creation without persisting a Run', async () => {
   await request(app.getHttpServer()).post('/api/runs').send({ space: { id: spaceId, type: 'work' }, input: 'hello' }).expect(401);
   expect(await db.agentRun.count({ where: { userId } })).toBe(0);
