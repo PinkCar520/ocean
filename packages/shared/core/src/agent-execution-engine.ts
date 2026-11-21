@@ -71,6 +71,8 @@ export class AgentExecutionEngine<Message> {
       if (snapshot.sessionId !== sessionId || snapshot.state !== 'interrupted') throw new Error('Run is not resumable for this session');
       // Transcript reconciliation is host-specific. Never resume a run with
       // recorded tool side effects until the host has verified its journal.
+      if (Object.keys(snapshot.queuedTools).some(id => !Object.hasOwn(snapshot.pendingTools, id)))
+        throw new Error('Unfinished model tool batch requires journal reconciliation before resume');
       if (events.some(event => event.type === 'tool.prepared')) {
         if (!this.ports.reconcileRecovery)
           throw new Error('Tool journal reconciliation required before resume');
@@ -152,6 +154,14 @@ export class AgentExecutionEngine<Message> {
           if (!descriptor) throw new Error(`Unknown tool: ${call.name}`);
           return { call, descriptor };
         });
+      } catch (error) {
+        await runtime.transition(runId, 'failed');
+        throw error;
+      }
+      // Persist all model-declared calls atomically, before the first host
+      // effect; a partial batch must not silently disappear on recovery.
+      try {
+        await runtime.proposeTools(runId, prepared.map(({ call }) => call));
       } catch (error) {
         await runtime.transition(runId, 'failed');
         throw error;
