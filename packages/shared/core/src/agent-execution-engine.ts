@@ -4,7 +4,7 @@ import type { RuntimeEventStore, RuntimeHost, RuntimeSnapshot } from './runtime-
 
 export type AgentModelDecision =
   | { kind: 'complete'; text: string }
-  | { kind: 'tools'; calls: readonly { id: string; name: string; input: unknown }[] };
+  | { kind: 'tools'; calls: readonly { id: string; name: string; input: unknown }[]; text?: string };
 export interface AgentModelPort<Message> {
   next(messages: readonly Message[], signal?: AbortSignal): Promise<AgentModelDecision>;
 }
@@ -168,14 +168,17 @@ export class AgentExecutionEngine<Message> {
       }
       await runtime.transition(runId, 'executing_tools');
       try {
-        for (const { call, descriptor } of prepared) {
+        for (const [callIndex, { call, descriptor }] of prepared.entries()) {
           signal?.throwIfAborted();
           try { this.ports.onToolCall?.(call.name, call.input); } catch { /* telemetry cannot affect execution */ }
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
           try { this.ports.onToolResult?.(call.name, result); } catch { /* telemetry cannot affect execution */ }
           const activated = this.ports.activatedSkill?.(call.name, result);
           if (activated) await runtime.activateSkill(runId, activated.id, activated.source);
-          const toolDecision: AgentModelDecision = { kind: 'tools', calls: [call] };
+          const toolDecision: AgentModelDecision = {
+            kind: 'tools', calls: [call],
+            text: callIndex === 0 ? decision.text : undefined,
+          };
           const next = this.ports.toMessages?.(toolDecision, result) ?? [this.ports.toMessage(toolDecision, result)];
           await this.ports.transcript.append(sessionId, messages.length, next);
           messages.push(...next);
