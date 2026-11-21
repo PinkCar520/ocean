@@ -11,3 +11,5 @@ export function runOceanPrompt(options: OceanPromptOptions): Promise<string> {
 }
 
 export { streamOceanRunEvents, type OceanRunEventsOptions } from './llm/gateway-run-events.js';
+
+export { runOceanCoreLocal } from './llm/core-local-runtime.js';
