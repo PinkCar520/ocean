@@ -102,7 +102,7 @@ export class SessionStore {
 
   /**
    * Rebuild the transcript from a completed tool journal when the process died
-   * after the side effect but before the turn snapshot was saved. Unknown or
+   * after the side effect but before the turn snapshot was saved. Both successful and\n   * failed terminal outcomes are durable. Unknown or
    * still-executing journals are never turned into a result.
    */
   private async recoverCompletedToolCalls(session: StoredSession): Promise<void> {
@@ -117,7 +117,7 @@ export class SessionStore {
         if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SESSION_BYTES) continue;
         const value = JSON.parse(await fs.readFile(file, 'utf8'));
         if (value?.sessionId === session.id && value?.workspace === session.workspace
-          && value?.state === 'succeeded' && typeof value.toolCallId === 'string'
+          && (value?.state === 'succeeded' || value?.state === 'failed') && typeof value.toolCallId === 'string'
           && typeof value.toolName === 'string' && value.input !== undefined) journals.push(value);
       } catch {
         // Corrupt journals are ignored; they cannot prove an outcome.
