@@ -60,7 +60,7 @@ const transitions: Readonly<Record<RuntimeState, readonly RuntimeState[]>> = {
   validating_tools: ['awaiting_approval', 'executing_tools', 'failed', 'cancelled'],
   awaiting_approval: ['executing_tools', 'cancelled', 'interrupted'],
   executing_tools: ['persisting_results', 'failed', 'cancelled', 'interrupted'],
-  persisting_results: ['preparing_context', 'completed', 'failed', 'interrupted'],
+  persisting_results: ['preparing_context', 'completed', 'failed', 'cancelled', 'interrupted'],
   interrupted: ['preparing_context', 'failed', 'cancelled'],
   completed: [], failed: [], cancelled: [],
 };
