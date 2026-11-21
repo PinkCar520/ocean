@@ -22,6 +22,8 @@ export interface AgentExecutionPorts<Message> {
   /** Context adapter may compact or retrieve history without mutating transcript. */
   prepareContext?(messages: readonly Message[], signal?: AbortSignal): Promise<readonly Message[]>;
   transcript: AgentTranscriptPort<Message>;
+  /** Host must reconcile persisted tool events against transcript and journal before resume. */
+  reconcileRecovery?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<void>;
   authorization: ToolAuthorization;
   resolveTool(name: string): ToolDescriptor | undefined;
   toMessage(decision: AgentModelDecision, result?: unknown): Message;
@@ -60,8 +62,16 @@ export class AgentExecutionEngine<Message> {
       if (snapshot.sessionId !== sessionId || snapshot.state !== 'interrupted') throw new Error('Run is not resumable for this session');
       // Transcript reconciliation is host-specific. Never resume a run with
       // recorded tool side effects until the host has verified its journal.
-      if (events.some(event => event.type === 'tool.prepared'))
-        throw new Error('Tool journal reconciliation required before resume');
+      if (events.some(event => event.type === 'tool.prepared')) {
+        if (!this.ports.reconcileRecovery)
+          throw new Error('Tool journal reconciliation required before resume');
+        await this.ports.reconcileRecovery(sessionId, runId, events);
+        // A host may repair the transcript, but unresolved tool effects must
+        // never be retried by the model on the strength of a callback alone.
+        const recovered = await runtime.snapshot(runId);
+        if (Object.values(recovered.pendingTools).some(outcome => outcome === 'prepared' || outcome === 'unknown'))
+          throw new Error('Unresolved tool effects require manual reconciliation');
+      }
     } else {
       await runtime.create(runId, sessionId);
     }
