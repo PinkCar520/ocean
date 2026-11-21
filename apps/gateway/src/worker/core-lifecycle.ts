@@ -37,8 +37,9 @@ export class GatewayCoreLifecycle {
     if (!current) current = await runtime.create(runId, sessionId || runId);
     if (Object.values(current.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
       throw new Error('Gateway recovery requires tool journal reconciliation; automatic replay prohibited');
+    const captured = current;
     if (current.state === 'validating_tools' &&
-        Object.keys(current.queuedTools).some(id => current.pendingTools[id] === undefined))
+        Object.keys(captured.queuedTools).some(id => captured.pendingTools[id] === undefined))
       throw new Error('Gateway queued tool has not executed; model replay prohibited');
 
     if (current.state === 'executing_tools') {
