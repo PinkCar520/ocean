@@ -19,6 +19,19 @@ export interface ToolAuthorization {
   /** Required for callers that need to pin approvals to a mutable policy source. */
   policyVersion?(): Promise<string>;
 }
+/** Normalize host output before either durable journal or Runtime Event
+ * persists it, so recovery compares the same bounded representation.
+ */
+export function normalizeToolOutput(result: unknown): unknown {
+  let serialized: string | undefined;
+  try { serialized = JSON.stringify(result); }
+  catch { return { error: 'Tool output is not JSON serializable' }; }
+  if (serialized === undefined) return null;
+  if (new TextEncoder().encode(serialized).byteLength > 1024 * 1024)
+    return { truncated: true, error: 'Tool output exceeded 1 MiB limit' };
+  return result;
+}
+
 /**
  * One authorization boundary for local and remote hosts. Skills may filter
  * descriptors, but cannot supply or override the policy evaluator.
@@ -28,11 +41,7 @@ export class ToolRuntime {
   constructor(private readonly store: RuntimeEventStore, host: RuntimeHost, private readonly authorization: ToolAuthorization) {
     const guardedHost: RuntimeHost = {
       execute: async invocation => {
-        const result = await host.execute(invocation);
-        const serialized = JSON.stringify(result);
-        if (serialized && new TextEncoder().encode(serialized).byteLength > 1024 * 1024)
-          return { truncated: true, error: 'Tool output exceeded 1 MiB limit' };
-        return result;
+        return normalizeToolOutput(await host.execute(invocation));
       },
     };
     this.agent = new AgentRuntime(store, guardedHost);
