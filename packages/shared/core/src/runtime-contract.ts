@@ -5,8 +5,14 @@ export const RUNTIME_STATES = [
   'completed', 'failed', 'cancelled', 'interrupted',
 ] as const;
 export type RuntimeState = (typeof RUNTIME_STATES)[number];
+export interface RuntimeIdentity {
+  sessionId: string;
+  runId: string;
+  /** A session may contain multiple runs, but each run has one stable identity. */
+  stepId?: string;
+}
 export type RuntimeEvent =
-  | { type: 'run.created'; runId: string; at: string }
+  | { type: 'run.created'; runId: string; at: string; sessionId?: string; schemaVersion?: 1 }
   | { type: 'run.transitioned'; runId: string; at: string; from: RuntimeState; to: RuntimeState }
   | { type: 'tool.prepared'; runId: string; at: string; invocation: ToolInvocation }
   | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
@@ -21,6 +27,7 @@ export interface ToolInvocation {
 }
 export interface RuntimeSnapshot {
   runId: string;
+  sessionId?: string;
   state: RuntimeState;
   revision: number;
   pendingTools: Readonly<Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'>>;
@@ -52,10 +59,14 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
   let state: RuntimeState = 'created';
   let revision = 0;
   let created = false;
+  let sessionId: string | undefined;
   for (const event of events) {
     if (event.runId !== runId) throw new Error('Runtime event belongs to another run');
     if (event.type === 'run.created') {
       if (created || revision !== 0) throw new Error('Duplicate run creation');
+      if (event.schemaVersion !== undefined && event.schemaVersion !== 1) throw new Error('Unsupported runtime event schema');
+      if (event.sessionId !== undefined && !event.sessionId.trim()) throw new Error('Invalid runtime session identity');
+      sessionId = event.sessionId;
       created = true;
     } else if (!created) {
       throw new Error('Runtime event stream missing creation');
@@ -78,5 +89,5 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     revision++;
   }
   if (!created) throw new Error('Runtime event stream missing creation');
-  return { runId, state, revision, pendingTools };
+  return { runId, sessionId, state, revision, pendingTools };
 }
