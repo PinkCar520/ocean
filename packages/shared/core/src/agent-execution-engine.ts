@@ -26,6 +26,8 @@ export interface AgentExecutionPorts<Message> {
   reconcileRecovery?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<void>;
   /** Durable host reconciliation proving Tool Journal and transcript cover every settled invocation. */
   verifyToolJournal?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<boolean>;
+  /** Used when a provider yields no side effects but a host still needs to validate recovery. */
+  verifyTranscript?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<boolean>;
   authorization: ToolAuthorization;
   resolveTool(name: string): ToolDescriptor | undefined;
   toMessage(decision: AgentModelDecision, result?: unknown): Message;
@@ -75,6 +77,8 @@ export class AgentExecutionEngine<Message> {
           throw new Error('Unresolved tool effects require manual reconciliation');
         if (!this.ports.verifyToolJournal || !await this.ports.verifyToolJournal(sessionId, runId, await this.ports.events.read(runId)))
           throw new Error('Tool journal and transcript verification required before resume');
+      } else if (this.ports.verifyTranscript && !await this.ports.verifyTranscript(sessionId, runId, events)) {
+        throw new Error('Transcript verification required before resume');
       }
     } else {
       await runtime.create(runId, sessionId);
