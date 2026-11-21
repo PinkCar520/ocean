@@ -114,6 +114,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    LOCAL_API_KEY: 'fixture',
   }));
   const sim = new SimModelGateway(0);
+  const core = new GatewayCoreLifecycle();
   worker = new WorkerService(new RunRunner(db, {
    generate: req => {
     if (req.modelId === providerModelId) return provider.generate(req);
@@ -126,7 +127,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
     }
     return sim.generate(req);
    },
-  }, outbox, registry, metrics, hooks),
+  }, outbox, registry, metrics, hooks, core),
    new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents, service, core), outbox, db, subagents);
   const module = await Test.createTestingModule({ controllers: [ChatController, SessionController, RunScheduleController, SubagentRunsController, RunController, ExternalApprovalController, MCPCredentialsController, MCPOAuthController], providers: [
    { provide: ChatService, useValue: new ChatService(new ConfigService({ CHAT_USE_RUN: 'true' }), service) },
