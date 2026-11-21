@@ -19,6 +19,8 @@ export interface AgentExecutionPorts<Message> {
   events: RuntimeEventStore;
   host: RuntimeHost;
   model: AgentModelPort<Message>;
+  /** Context adapter may compact or retrieve history without mutating transcript. */
+  prepareContext?(messages: readonly Message[], signal?: AbortSignal): Promise<readonly Message[]>;
   transcript: AgentTranscriptPort<Message>;
   authorization: ToolAuthorization;
   resolveTool(name: string): ToolDescriptor | undefined;
@@ -69,7 +71,8 @@ export class AgentExecutionEngine<Message> {
       await runtime.transition(runId, 'calling_model');
       let decision: AgentModelDecision;
       try {
-        decision = await this.ports.model.next(messages, signal);
+        const context = this.ports.prepareContext ? await this.ports.prepareContext(messages, signal) : messages;
+        decision = await this.ports.model.next(context, signal);
       } catch (error) {
         await runtime.transition(runId, signal?.aborted ? 'cancelled' : 'failed');
         throw error;
