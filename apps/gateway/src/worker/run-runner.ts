@@ -442,21 +442,25 @@ export class RunRunner {
     if (!Number.isSafeInteger(configured) || configured < 8192) throw new Error('Invalid WORKER_CHAT_CONTEXT_TOKENS');
     // Reserve space for model output, tool definitions and the current tool loop.
     const historyBudget = Math.max(0, Math.floor(configured / 2) - countTextTokens(input));
-    const cached = metadata.chatCompaction;
-    if (cached && typeof cached === 'object' && !Array.isArray(cached) &&
-        typeof cached.boundary === 'number' && Number.isSafeInteger(cached.boundary) &&
-        cached.boundary > 0 && cached.boundary <= history.length && typeof cached.summary === 'string') {
-      const rows = history.slice(cached.boundary);
-      return { rows, summary: cached.summary,
-        toolBudget: Math.max(0, historyBudget - countTextTokens(JSON.stringify(rows)) - countTextTokens(cached.summary)) };
-    }
-    // A previous Run is reusable only if its compressed prefix is identical
-    // to the selected Session branch, including message IDs and content.
+    // Summaries belong to a specific immutable Session history prefix.
+    // Never reuse them after a conversation edit, fork or context-budget change.
     const fingerprint = (boundary: number) => createHash('sha256')
       .update(JSON.stringify(history.slice(0, boundary).map(row =>
         row && typeof row === 'object' && !Array.isArray(row)
           ? [row.id, row.parentId, row.role, row.text, row.runId] : null,
       ))).digest('hex');
+    const cached = metadata.chatCompaction;
+    if (cached && typeof cached === 'object' && !Array.isArray(cached) &&
+        typeof cached.boundary === 'number' && Number.isSafeInteger(cached.boundary) &&
+        cached.boundary > 0 && cached.boundary <= history.length &&
+        typeof cached.summary === 'string' && Boolean(cached.summary) &&
+        cached.fingerprint === fingerprint(cached.boundary)) {
+      const rows = history.slice(cached.boundary);
+      const after = countTextTokens(JSON.stringify(rows)) + countTextTokens(cached.summary);
+      if (after < historyBudget && after < countTextTokens(JSON.stringify(history))) {
+        return { rows, summary: cached.summary, toolBudget: historyBudget - after };
+      }
+    }
     let previousBoundary = 0;
     let previousSummary = '';
     const previousReply = [...history].reverse().find(row => row && typeof row === 'object' &&
