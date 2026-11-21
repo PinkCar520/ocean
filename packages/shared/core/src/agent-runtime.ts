@@ -45,10 +45,14 @@ export class AgentRuntime {
     return this.transition(runId, 'interrupted');
   }
 
-  async activateSkill(runId: string, skillId: string, source: 'plugin' | 'user' | 'project'): Promise<RuntimeSnapshot> {
+  async activateSkill(
+    runId: string, skillId: string, source: 'plugin' | 'user' | 'project',
+    allowedTools?: readonly string[],
+  ): Promise<RuntimeSnapshot> {
     const current = await this.snapshot(runId);
     await this.store.append(runId, current.revision, [{
       type: 'skill.activated', runId, at: stamp(), skillId, source,
+      ...(allowedTools === undefined ? {} : { allowedTools: [...allowedTools] }),
     }]);
     return this.snapshot(runId);
   }
