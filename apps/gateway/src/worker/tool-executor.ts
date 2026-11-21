@@ -1,4 +1,5 @@
 import { RunService } from '../run/run.service';
+import { GatewayCoreLifecycle } from './core-lifecycle';
 import { SubagentRunsService } from '../run/subagent-runs.service';
 import { DELEGATE_TASK_TOOL, delegateTaskSchema, policyForRun, permitsSubagentTool } from '../run/subagent-policy';
 import { canonicalPermissionInput, isReadOnlyTool, type PermissionDecision } from '@ocean/core';
@@ -57,6 +58,7 @@ export class ToolExecutor {
     private readonly hooks: GatewayHooks = GatewayHooks.load(),
     @Optional() private readonly subagents?: SubagentRunsService,
     @Optional() private readonly runs?: RunService,
+    @Optional() private readonly core?: GatewayCoreLifecycle,
   ) {}
 
   private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
@@ -358,6 +360,9 @@ export class ToolExecutor {
       // 4) 步骤 started（崩溃续跑复用 started 步骤，不重复写 step_started）
       const step = await this.ensureStepStarted(runId, toolCall, executionInput);
       if (!step) return { jobId: job.id, runId, status: 'succeeded' };
+      if (this.core) await this.fencedTransaction(tx => this.core!.prepareToolExecution(
+        tx, runId, { id: toolCall.id, name: toolCall.name, input: executionInput },
+      ));
 
       let output: Prisma.InputJsonValue;
       let hookFeedback: string | undefined;
@@ -439,6 +444,9 @@ export class ToolExecutor {
           runId,
           userId,
           runCheck.priority,
+        );
+        if (this.core) await this.core.settleQueuedTool(
+          tx, runId, toolCall.id, permissionDenial ? 'failed' : 'succeeded', output, !loop,
         );
         if (loop) {
           await tx.agentRun.update({
