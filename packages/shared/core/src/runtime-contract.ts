@@ -25,6 +25,13 @@ export interface ToolInvocation {
   inputDigest: string;
   host: 'local' | 'remote';
 }
+export interface ToolExecutionRecord {
+  invocation: ToolInvocation;
+  outcome: 'succeeded' | 'failed' | 'unknown';
+  result?: unknown;
+  /** Persisted event revision for cross-host replay diagnostics. */
+  revision: number;
+}
 export interface RuntimeSnapshot {
   runId: string;
   sessionId?: string;
