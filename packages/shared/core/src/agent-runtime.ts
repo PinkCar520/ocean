@@ -36,6 +36,15 @@ export class AgentRuntime {
     return this.snapshot(runId);
   }
 
+  /** Crash recovery marks an active run interrupted; it never replays a tool. */
+  async markInterrupted(runId: string): Promise<RuntimeSnapshot> {
+    const current = await this.snapshot(runId);
+    if (current.state === 'interrupted') return current;
+    if (current.state === 'completed' || current.state === 'failed' || current.state === 'cancelled')
+      throw new Error('Cannot interrupt a terminal run');
+    return this.transition(runId, 'interrupted');
+  }
+
   async activateSkill(runId: string, skillId: string, source: 'plugin' | 'user' | 'project'): Promise<RuntimeSnapshot> {
     const current = await this.snapshot(runId);
     await this.store.append(runId, current.revision, [{
