@@ -242,7 +242,10 @@ describe('CLI Agent loop transcript', () => {
 
     generateTextMock.mockRejectedValue(new Error('summary unavailable'));
     streamTextMock.mockImplementation(async (options) => {
-      await expect(options.prepareStep({ stepNumber: 1, messages: big })).rejects.toThrow('summary unavailable');
+      await expect(options.prepareStep({ stepNumber: 1, messages: big })).rejects.toMatchObject({
+        name: 'ContextCompactionError',
+        cause: { message: 'summary unavailable' },
+      });
       return { text: 'done', responseMessages: [] };
     });
     expect((await runChatLoop([{ role: 'user', content: 'go' }], { model: {}, systemPrompt: '', tools: {}, compaction: { budget: 5000, persist } })).text).toBe('done');
