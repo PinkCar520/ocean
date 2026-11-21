@@ -83,9 +83,9 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       throw new Error('Runtime event stream missing creation');
     } else if (event.type === 'run.transitioned') {
       if (event.from !== state || !canTransition(state, event.to)) throw new Error('Invalid runtime transition');
-      if (event.to === 'completed' && !completionVerified) throw new Error('Completion requires independent verification');
       if (event.to === 'completed' && Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
         throw new Error('Cannot complete with unsettled tools');
+      if (event.to === 'completed' && !completionVerified) throw new Error('Completion requires independent verification');
       state = event.to;
     } else if (event.type === 'tool.prepared') {
       if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
