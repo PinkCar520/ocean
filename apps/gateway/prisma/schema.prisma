@@ -166,6 +166,7 @@ model AgentRun {
   idempotencyKey String?
   metadata       Json?
   events         RunEvent[]
+  coreEvents     RuntimeCoreEvent[]
   steps          RunStep[]
   approvals      RunApproval[]
   artifacts      RunArtifact[]
@@ -220,6 +221,20 @@ model RunStep {
   @@unique([runId, idempotencyKey])
   @@index([runId, status])
   @@map("run_steps")
+}
+
+/** Portable Agent Core events are isolated from legacy RunEvent sequences. */
+model RuntimeCoreEvent {
+  id         String   @id @default(uuid())
+  runId      String
+  run        AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sequence   Int
+  payload    Json
+  createdAt  DateTime @default(now())
+
+  @@unique([runId, sequence])
+  @@index([runId, createdAt])
+  @@map("runtime_core_events")
 }
 
 model RunEvent {
