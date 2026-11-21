@@ -42,3 +42,43 @@ describe('runtime event store adapter', () => {
   expect(await store.read('r')).toEqual([created]);
  });
 });
+
+import { AgentRuntime } from '@ocean/core';
+
+describe('host-neutral agent runtime', () => {
+ const setup = async (execute: (invocation: any) => Promise<unknown>) => {
+  const store = new MemoryRuntimeEventStore();
+  const runtime = new AgentRuntime(store, { execute });
+  await runtime.create('r');
+  await runtime.transition('r', 'preparing_context');
+  await runtime.transition('r', 'calling_model');
+  await runtime.transition('r', 'validating_tools');
+  await runtime.transition('r', 'executing_tools');
+  return { runtime, store };
+ };
+ it('persists a tool claim before invoking the host and prevents replay', async () => {
+  let calls = 0;
+  let store!: MemoryRuntimeEventStore;
+  const setupResult = await setup(async () => {
+   calls++;
+   const events = await store.read('r');
+   expect(events.at(-1)?.type).toBe('tool.prepared');
+   return { ok: true };
+  });
+  store = setupResult.store;
+  const { runtime } = setupResult;
+  await expect(runtime.executeTool('r', 'call', 'shell', { cmd: 'echo hi' }, 'local')).resolves.toEqual({ ok: true });
+  await expect(runtime.executeTool('r', 'call', 'shell', { cmd: 'echo hi' }, 'local')).rejects.toThrow('replay prohibited');
+  expect(calls).toBe(1);
+ });
+ it('fails closed on uncertain external side effects', async () => {
+  let calls = 0;
+  const { runtime } = await setup(async () => { calls++; throw new Error('connection lost'); });
+  await expect(runtime.executeTool('r', 'call', 'remote', {}, 'remote')).rejects.toThrow('manual reconciliation');
+  expect((await runtime.snapshot('r')).pendingTools.call).toBe('unknown');
+  await expect(runtime.executeTool('r', 'call', 'remote', {}, 'remote')).rejects.toThrow('replay prohibited');
+  expect(calls).toBe(1);
+  await runtime.transition('r', 'persisting_results');
+  await expect(runtime.transition('r', 'completed')).rejects.toThrow('unsettled tools');
+ });
+});
