@@ -18,6 +18,7 @@ export type RuntimeEvent = (
   | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
   | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown }
   | { type: 'run.completion_verified'; runId: string; at: string; checks: readonly string[] }
+  | { type: 'skill.activated'; runId: string; at: string; skillId: string; source: 'plugin' | 'user' | 'project' }
 ) & { schemaVersion?: 1 };
 export interface ToolInvocation {
   id: string;
@@ -41,6 +42,7 @@ export interface RuntimeSnapshot {
   revision: number;
   pendingTools: Readonly<Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'>>;
   completionVerified: boolean;
+  activeSkills: readonly string[];
 }
 export interface RuntimeEventStore {
   append(runId: string, expectedRevision: number, events: readonly RuntimeEvent[]): Promise<number>;
@@ -71,6 +73,7 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
   let created = false;
   let sessionId: string | undefined;
   let completionVerified = false;
+  const activeSkills = new Set<string>();
   for (const event of events) {
     if (event.runId !== runId) throw new Error('Runtime event belongs to another run');
     if (event.schemaVersion !== undefined && event.schemaVersion !== 1) throw new Error('Unsupported runtime event schema');
@@ -91,6 +94,9 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
         throw new Error('Invalid tool preparation');
       pendingTools[event.invocation.id] = 'prepared';
+    } else if (event.type === 'skill.activated') {
+      if (!event.skillId.trim()) throw new Error('Invalid skill activation identity');
+      activeSkills.add(event.skillId);
     } else if (event.type === 'run.completion_verified') {
       if (completionVerified || !event.checks.length || event.checks.some(check => !check.trim()) ||
           Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
@@ -106,5 +112,5 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     revision++;
   }
   if (!created) throw new Error('Runtime event stream missing creation');
-  return { runId, sessionId, state, revision, pendingTools, completionVerified };
+  return { runId, sessionId, state, revision, pendingTools, completionVerified, activeSkills: [...activeSkills] };
 }
