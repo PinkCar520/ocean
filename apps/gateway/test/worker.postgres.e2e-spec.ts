@@ -694,7 +694,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   try {
    worker.start();
    await waitFor(runId, 'waiting_for_approval');
-   expect(providerContract.requests).toHaveLength(1);
+   expect(providerContract.requests.slice(requestsBeforeCancellation)).toHaveLength(1);
    const approval = await db.runApproval.findFirstOrThrow({ where: { runId, status: 'pending' } });
    expect(approval.argsHash).toBeTruthy();
    expect(approval.policyVersion).toBeTruthy();
@@ -708,18 +708,18 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    expect(steps.map(({ kind, status }) => [kind, status])).toEqual([
     ['model_call', 'succeeded'], ['approval', 'succeeded'], ['tool_call', 'succeeded'], ['model_call', 'succeeded'],
    ]);
-   expect(providerContract.requests).toHaveLength(2);
-   expect(providerContract.requests[0]).toMatchObject({ model: providerModelId, stream: true });
-   expect(providerContract.requests[0].tools).toEqual(expect.arrayContaining([
+   expect(providerContract.requests.slice(requestsBeforeCancellation)).toHaveLength(2);
+   expect(providerContract.requests[requestsBeforeCancellation]).toMatchObject({ model: providerModelId, stream: true });
+   expect(providerContract.requests[requestsBeforeCancellation].tools).toEqual(expect.arrayContaining([
     expect.objectContaining({ function: expect.objectContaining({ name: 'echo' }) }),
    ]));
-   for (const providerRequest of providerContract.requests) {
+   for (const providerRequest of providerContract.requests.slice(requestsBeforeCancellation)) {
     expect(providerRequest.messages.filter(message => message.role === 'system')).toEqual([
      expect.objectContaining({ role: 'system', content: 'System fixture\n\nExtra fixture' }),
     ]);
     expect(providerRequest.messages.some(message => message.role === 'user')).toBe(true);
    }
-   const toolMessage = providerContract.requests[1].messages.find(({ role }) => role === 'tool');
+   const toolMessage = providerContract.requests[requestsBeforeCancellation + 1].messages.find(({ role }) => role === 'tool');
    expect(toolMessage).toMatchObject({ tool_call_id: 'provider-echo' });
    expect(JSON.parse(toolMessage!.content!)).toEqual({ text: 'provider-round-trip' });
    expect(steps[3].output).toMatchObject({ text: 'OCEAN_PROVIDER_OK', usage: { inputTokens: 12, outputTokens: 5, totalTokens: 17 } });
