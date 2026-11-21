@@ -30,7 +30,7 @@ export class ToolRuntime {
       execute: async invocation => {
         const result = await host.execute(invocation);
         const serialized = JSON.stringify(result);
-        if (serialized && Buffer.byteLength(serialized, 'utf8') > 1024 * 1024)
+        if (serialized && new TextEncoder().encode(serialized).byteLength > 1024 * 1024)
           return { truncated: true, error: 'Tool output exceeded 1 MiB limit' };
         return result;
       },
