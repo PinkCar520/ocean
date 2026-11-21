@@ -9,7 +9,8 @@ export type RuntimeEvent =
   | { type: 'run.created'; runId: string; at: string }
   | { type: 'run.transitioned'; runId: string; at: string; from: RuntimeState; to: RuntimeState }
   | { type: 'tool.prepared'; runId: string; at: string; invocation: ToolInvocation }
-  | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown };
+  | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
+  | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown };
 export interface ToolInvocation {
   id: string;
   runId: string;
@@ -67,8 +68,11 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
         throw new Error('Invalid tool preparation');
       pendingTools[event.invocation.id] = 'prepared';
-    } else {
+    } else if (event.type === 'tool.settled') {
       if (pendingTools[event.invocationId] !== 'prepared') throw new Error('Tool settlement without preparation');
+      pendingTools[event.invocationId] = event.outcome;
+    } else {
+      if (pendingTools[event.invocationId] !== 'unknown') throw new Error('Only unknown tool outcomes can be reconciled');
       pendingTools[event.invocationId] = event.outcome;
     }
     revision++;
