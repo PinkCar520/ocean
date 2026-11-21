@@ -117,26 +117,30 @@ export async function compactContext(messages: ModelMessage[], options: {
       : tokenCountWithEstimation(messages, options.usage))
     : contextTokens(effective);
   if (currentTokens + systemTokens < budget) return effective;
+  const originalFits = contextTokens(effective) + systemTokens < budget;
+  const cannotCompactSafely = (): ModelMessage[] => {
+    if (originalFits) return effective;
+    throw new ContextCompactionError('Context exceeds the configured budget and no safe compaction boundary is available.');
+  };
   const floor = valid ? previous.covered : 0;
   let covered = messages.length - 4;
   if ((options.boundary ?? 'user') === 'user') {
     // Cut only before a user turn: calls and results from a turn stay together.
     while (covered > floor && messages[covered]?.role !== 'user') covered--;
-    if (covered <= floor) return effective;
+    if (covered <= floor) return cannotCompactSafely();
   } else {
     // Mid-turn compaction runs between completed steps, so a boundary only has
     // to keep every tool call paired with its result on the same side.
     while (covered > floor && !hasClosedToolPairs(messages.slice(0, covered))) covered--;
-    if (covered <= floor) return effective;
+    if (covered <= floor) return cannotCompactSafely();
   }
   // A restored transcript can contain an unfinished call spanning user turns.
-  if (!hasClosedToolPairs(messages.slice(0, covered))) return effective;
+  if (!hasClosedToolPairs(messages.slice(0, covered))) return cannotCompactSafely();
   const source = valid ? [summaryMessage(previous.summary), ...messages.slice(previous.covered, covered)] : messages.slice(0, covered);
   const scope = options.scope ?? historyDigest([{ role: 'system', content: options.systemPrompt }]);
   // If an estimate triggered compaction prematurely, the original transcript
   // may still fit. Only fall back when the full context is safely within budget.
   // Do not silently send an oversized request after a failed compaction.
-  const originalFits = contextTokens(effective) + systemTokens < budget;
   if ((failures.get(scope) ?? 0) >= 2) {
     if (originalFits) return effective;
     throw new ContextCompactionError('Context compaction failure limit reached; original context exceeds the configured budget.');
