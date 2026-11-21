@@ -12,8 +12,6 @@ export class SessionTranscriptPort implements AgentTranscriptPort<ModelMessage> 
   }
 
   async append(sessionId: string, expectedLength: number, messages: readonly ModelMessage[]): Promise<void> {
-    const session = await this.sessions.load(sessionId, this.workspace);
-    if (session.messages.length !== expectedLength) throw new Error('Agent transcript revision conflict');
-    await this.sessions.save(sessionId, this.workspace, [...session.messages, ...structuredClone(messages)]);
+    await this.sessions.appendMessages(sessionId, this.workspace, expectedLength, messages);
   }
 }
