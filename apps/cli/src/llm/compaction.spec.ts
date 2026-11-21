@@ -308,3 +308,35 @@ it('does not persist malformed summaries after exhausting retries', async () => 
   expect(generate).toHaveBeenCalledTimes(2);
   expect(persist).not.toHaveBeenCalled();
 });
+
+it('keeps active runtime recovery context inside the reserved budget', async () => {
+  generate.mockClear();
+  const messages: ModelMessage[] = [{ role: 'user', content: 'short request' }];
+  await expect(compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 512,
+    recoveryContext: 'active workspace state '.repeat(500),
+    scope: 'recovery-budget', persist: vi.fn(),
+  })).rejects.toThrow('no safe compaction boundary');
+  expect(generate).not.toHaveBeenCalled();
+});
+
+it('reports microcompact token savings without changing durable history', async () => {
+  generate.mockClear();
+  const messages: ModelMessage[] = [{ role: 'user', content: 'inspect logs' }];
+  for (let i = 0; i < 5; i++) messages.push(
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `metric-${i}`, toolName: 'bash', input: {} }] },
+    { role: 'tool', content: [{ type: 'tool-result', toolCallId: `metric-${i}`, toolName: 'bash', output: { type: 'text', value: 'x'.repeat(3000) } }] },
+  );
+  const onMetrics = vi.fn();
+  const before = JSON.stringify(messages);
+  await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 1500, scope: 'microcompact-metrics',
+    onMetrics, persist: vi.fn(),
+  });
+  expect(onMetrics).toHaveBeenCalledWith(expect.objectContaining({
+    strategy: 'microcompact', budget: 1500,
+  }));
+  const metric = onMetrics.mock.calls[0][0];
+  expect(metric.afterTokens).toBeLessThan(metric.beforeTokens);
+  expect(JSON.stringify(messages)).toBe(before);
+});
