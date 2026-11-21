@@ -171,3 +171,52 @@ describe('CLI model decision fidelity', () => {
   expect(settled?.type === 'tool.settled' && settled.result).toEqual(journal?.output);
  });
 });
+
+describe('CLI Skill activation and Session restoration', () => {
+ it('applies activated Skill tool restrictions immediately and after a new Run restores the Session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-skill-recovery-')); roots.push(root);
+  const sessions = new SessionStore(join(root, 'sessions'));
+  const session = await sessions.create(root);
+  await sessions.save(session.id, root, [{ role: 'user', content: 'use review skill' }]);
+  const skill = {
+   manifest: { name: 'review', description: 'Review code', 'allowed-tools': ['file_read'] },
+   sourcePath: join(root, '.ocean', 'skills', 'review'),
+   source: 'project' as const,
+   content: 'Review instructions',
+  };
+  const executeRead = vi.fn(async () => ({ file: 'x' }));
+  const tools = {
+   activate_skill: { inputSchema: z.object({ skill_name: z.string() }),
+    execute: async () => ({ skill: 'review', sourcePath: skill.sourcePath, instructions: 'Review instructions' }) },
+   shell: { inputSchema: z.object({ command: z.string() }), execute: executeRead },
+  };
+  const options = {
+   sessionStore: sessions, sessionId: session.id, runId: 'activate-run',
+   workspace: root, runtimeDirectory: join(root, 'events'),
+   model: {} as any, systemPrompt: 'test', tools, skills: [skill],
+   authorization: { evaluate: async () => 'allow' as const },
+   completion: { verify: async () => ['verified'] },
+  };
+  next.mockResolvedValueOnce({
+   kind: 'tools', calls: [{ id: 'activate-1', name: 'activate_skill', input: { skill_name: 'review' } }],
+  }).mockResolvedValueOnce({
+   kind: 'tools', calls: [{ id: 'denied-1', name: 'shell', input: { command: 'unsafe' } }],
+  });
+  await expect(runOceanCoreLocal(options)).rejects.toThrow('denied by policy');
+  expect(executeRead).not.toHaveBeenCalled();
+  const runtime = new FileRuntimeEventStore(join(root, 'events'));
+  const state = replayRuntime('activate-run', await runtime.read('activate-run'));
+  expect(state.skillToolConstraints.review).toEqual(['file_read']);
+  const transcript = await sessions.loadPersisted(session.id, root);
+  expect(transcript.messages.map(m => m.role)).toEqual(['user', 'assistant', 'tool']);
+  next.mockResolvedValueOnce({
+   kind: 'tools', calls: [{ id: 'denied-2', name: 'shell', input: { command: 'unsafe again' } }],
+  });
+  await expect(runOceanCoreLocal({ ...options, runId: 'restored-run' }))
+   .rejects.toThrow('denied by policy');
+  expect(executeRead).not.toHaveBeenCalled();
+  const restored = replayRuntime('restored-run', await runtime.read('restored-run'));
+  expect(restored.activeSkills).toEqual(['review']);
+  expect(restored.skillToolConstraints.review).toEqual(['file_read']);
+ });
+});
