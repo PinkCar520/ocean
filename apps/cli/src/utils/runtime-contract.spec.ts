@@ -225,3 +225,19 @@ describe('skills runtime policy boundary', () => {
   expect(skillAllowedTools({ ...skill, allowedTools: undefined }, ['read'])).toEqual(['read']);
  });
 });
+
+describe('tool result normalization', () => {
+ it('bounds oversized host outputs before they enter the event journal', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const agent = new AgentRuntime(store, { execute: async () => undefined });
+  await agent.create('r');
+  for (const state of ['preparing_context', 'calling_model', 'validating_tools', 'executing_tools'] as const) await agent.transition('r', state);
+  const runtime = new ToolRuntime(store, { execute: async () => 'x'.repeat(2 * 1024 * 1024) }, {
+   evaluate: async () => 'allow',
+  });
+  const result = await runtime.invoke('r', 'x', { name: 'large', host: 'local', validate: x => x }, {});
+  expect(result).toEqual({ truncated: true, error: 'Tool output exceeded 1 MiB limit' });
+  const events = await store.read('r');
+  expect(JSON.stringify(events).length).toBeLessThan(4096);
+ });
+});
