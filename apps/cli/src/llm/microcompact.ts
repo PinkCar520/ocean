@@ -34,7 +34,7 @@ export function microcompactMessages(
       if (part.type === 'tool-call') calls.set(part.toolCallId, part.toolName);
       else if (part.type === 'tool-result' && message.role === 'tool' &&
         calls.get(part.toolCallId) === part.toolName && ELIGIBLE_TOOLS.has(part.toolName) &&
-        !part.isError && part.output.type === 'text' &&
+        part.output.type === 'text' &&
         part.output.value.length >= minChars &&
         part.output.value !== MICROCOMPACT_MARKER) {
         completed.push({ index: i, partIndex: j });
