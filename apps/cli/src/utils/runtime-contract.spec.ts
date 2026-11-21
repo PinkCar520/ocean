@@ -82,3 +82,18 @@ describe('host-neutral agent runtime', () => {
   await expect(runtime.transition('r', 'completed')).rejects.toThrow('unsettled tools');
  });
 });
+
+describe('runtime replay input validation', () => {
+ it('rejects transitions without a creation event', () => {
+  expect(() => replayRuntime('r', [{
+   type: 'run.transitioned', runId: 'r', at: '2026-01-01T00:00:00Z',
+   from: 'created', to: 'preparing_context',
+  }])).toThrow('missing creation');
+ });
+ it('rejects empty streams and foreign run identities', () => {
+  expect(() => replayRuntime('r', [])).toThrow('missing creation');
+  expect(() => replayRuntime('r', [{
+   type: 'run.created', runId: 'foreign', at: '2026-01-01T00:00:00Z',
+  }])).toThrow('another run');
+ });
+});
