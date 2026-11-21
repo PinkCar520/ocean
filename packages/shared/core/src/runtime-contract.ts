@@ -91,12 +91,14 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       if (event.to === 'completed' && Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
         throw new Error('Cannot complete with unsettled tools');
       if (event.to === 'completed' && !completionVerified) throw new Error('Completion requires independent verification');
+      if (event.to !== 'completed') completionVerified = false;
       state = event.to;
     } else if (event.type === 'tool.prepared') {
       if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
         throw new Error('Invalid tool preparation');
       if (createHash('sha256').update(JSON.stringify(event.invocation.input)).digest('hex') !== event.invocation.inputDigest)
         throw new Error('Tool invocation digest mismatch');
+      completionVerified = false;
       pendingTools[event.invocation.id] = 'prepared';
     } else if (event.type === 'skill.activated') {
       if (!event.skillId.trim() || state === 'completed' || state === 'failed' || state === 'cancelled')
