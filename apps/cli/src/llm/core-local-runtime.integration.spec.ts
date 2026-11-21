@@ -112,3 +112,62 @@ describe('CLI Core interrupted-run recovery', () => {
   expect(next).toHaveBeenCalledOnce();
  });
 });
+
+describe('CLI model decision fidelity', () => {
+ it('preserves model commentary and all tool/result pairs across a multi-tool decision', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-batch-transcript-')); roots.push(root);
+  const sessions = new SessionStore(join(root, 'sessions'));
+  const session = await sessions.create(root);
+  await sessions.save(session.id, root, [{ role: 'user', content: 'read two files' }]);
+  next.mockResolvedValueOnce({ kind: 'tools', text: 'Inspecting both files.',
+   calls: [
+    { id: 'read-a', name: 'read', input: { file: 'a.txt' } },
+    { id: 'read-b', name: 'read', input: { file: 'b.txt' } },
+   ],
+  }).mockResolvedValueOnce({ kind: 'complete', text: 'Both files inspected.' });
+  const execute = vi.fn(async ({ file }: { file: string }) => ({ file }));
+  const result = await runOceanCoreLocal({
+   sessionStore: sessions, sessionId: session.id, runId: 'batch-run',
+   workspace: root, runtimeDirectory: join(root, 'events'),
+   model: {} as any, systemPrompt: 'test',
+   tools: { read: { inputSchema: z.object({ file: z.string() }), execute } },
+   authorization: { evaluate: async () => 'allow' },
+   completion: { verify: async () => ['verified'] },
+  });
+  expect(result.snapshot.state).toBe('completed');
+  expect(execute).toHaveBeenCalledTimes(2);
+  const persisted = await sessions.loadPersisted(session.id, root);
+  expect(persisted.messages.map(m => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant', 'tool', 'assistant']);
+  expect(persisted.messages[1].content).toEqual([
+   { type: 'text', text: 'Inspecting both files.' },
+   { type: 'tool-call', toolCallId: 'read-a', toolName: 'read', input: { file: 'a.txt' } },
+  ]);
+  const events = await new FileRuntimeEventStore(join(root, 'events')).read('batch-run');
+  expect(events.filter(e => e.type === 'tool.proposed')).toHaveLength(2);
+  expect(events.filter(e => e.type === 'tool.settled')).toHaveLength(2);
+ });
+ it('persists the same bounded output to journal and Core events', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-large-output-')); roots.push(root);
+  const sessions = new SessionStore(join(root, 'sessions'));
+  const session = await sessions.create(root);
+  await sessions.save(session.id, root, [{ role: 'user', content: 'large output' }]);
+  next.mockResolvedValueOnce({
+   kind: 'tools', calls: [{ id: 'huge-1', name: 'read', input: {} }],
+  }).mockResolvedValueOnce({ kind: 'complete', text: 'done' });
+  const execute = vi.fn(async () => ({ body: 'a'.repeat(1024 * 1024 + 100) }));
+  await runOceanCoreLocal({
+   sessionStore: sessions, sessionId: session.id, runId: 'huge-run',
+   workspace: root, runtimeDirectory: join(root, 'events'),
+   model: {} as any, systemPrompt: 'test',
+   tools: { read: { inputSchema: z.object({}), execute } },
+   authorization: { evaluate: async () => 'allow' },
+   completion: { verify: async () => ['verified'] },
+  });
+  expect(execute).toHaveBeenCalledOnce();
+  const journal = await sessions.readToolCallJournal(session.id, root, 'huge-1');
+  const settled = (await new FileRuntimeEventStore(join(root, 'events')).read('huge-run'))
+   .find(e => e.type === 'tool.settled' && e.invocationId === 'huge-1');
+  expect(journal?.output).toEqual({ truncated: true, error: 'Tool output exceeded 1 MiB limit' });
+  expect(settled?.type === 'tool.settled' && settled.result).toEqual(journal?.output);
+ });
+});
