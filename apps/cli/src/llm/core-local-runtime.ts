@@ -11,6 +11,7 @@ import { SessionTranscriptPort } from '../utils/agent-transcript-port.js';
 import type { SessionStore } from '../utils/session-store.js';
 import { createCliToolHost } from '../tools/core-tool-adapter.js';
 import { createAiSdkModelPort } from './core-model-adapter.js';
+import { createAiSdkStreamingModelPort } from './core-streaming-model-adapter.js';
 
 /**
  * Programmatic local execution entrypoint for Ocean Core v2.
@@ -30,17 +31,26 @@ export async function runOceanCoreLocal(options: {
   activatedSkill?: (toolName: string, result: unknown) => { id: string; source: 'plugin' | 'user' | 'project' } | undefined;
   runtimeDirectory?: string;
   maxSteps?: number;
+  streaming?: boolean;
+  onText?: (delta: string) => void;
   signal?: AbortSignal;
 }) {
   const { host, resolveTool } = createCliToolHost(options.tools);
   const engine = new AgentExecutionEngine<ModelMessage>({
     events: new FileRuntimeEventStore(options.runtimeDirectory ?? join(homedir(), '.ocean', 'runtime')),
     host,
-    model: createAiSdkModelPort({
-      model: options.model,
-      systemPrompt: options.systemPrompt,
-      tools: options.tools,
-    }),
+    model: options.streaming
+      ? createAiSdkStreamingModelPort({
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          tools: options.tools,
+          onText: options.onText,
+        })
+      : createAiSdkModelPort({
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          tools: options.tools,
+        }),
     transcript: new SessionTranscriptPort(options.sessionStore, options.workspace),
     prepareContext: options.prepareContext,
     authorization: options.authorization,
