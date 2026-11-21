@@ -62,7 +62,17 @@ export class SessionStore {
       if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SESSION_BYTES) throw new Error('Unsafe tool journal');
       const previous = JSON.parse(await fs.readFile(file, 'utf8'));
       if (previous.sessionId !== id || previous.toolCallId !== toolCallId || previous.toolName !== toolName || previous.inputDigest !== inputDigest) throw new Error('Tool journal identity mismatch');
-      if (previous.state === 'succeeded' || previous.state === 'failed') return previous.output;
+      if (previous.state === 'succeeded' || previous.state === 'failed') {
+        // A terminal result is only reusable when its persisted evidence is intact.
+        // Never replay the side effect when the journal is corrupt or incomplete.
+        if (previous.version !== 1 || previous.workspace !== path.resolve(workspace)
+          || !Object.hasOwn(previous, 'output') || previous.output === undefined
+          || previous.input === undefined
+          || createHash('sha256').update(JSON.stringify(previous.input)).digest('hex') !== previous.inputDigest) {
+          throw new Error('Invalid terminal tool journal; automatic replay is prohibited');
+        }
+        return previous.output;
+      }
       throw new Error('Tool execution outcome unknown; automatic replay is prohibited');
     }
     try { await handle.writeFile(JSON.stringify(record)); await handle.sync(); } finally { await handle.close(); }
