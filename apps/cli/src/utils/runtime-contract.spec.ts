@@ -173,3 +173,22 @@ describe('shared tool authorization pipeline', () => {
   expect(calls()).toBe(1);
  });
 });
+
+describe('tool approval integrity', () => {
+ it('rejects policy drift after an approval prompt', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const agent = new AgentRuntime(store, { execute: async () => 'should-not-run' });
+  await agent.create('r');
+  for (const state of ['preparing_context', 'calling_model', 'validating_tools', 'executing_tools'] as const) await agent.transition('r', state);
+  let version = 'v1';
+  let calls = 0;
+  const runtime = new ToolRuntime(store, { execute: async () => { calls++; return 'bad'; } }, {
+   evaluate: async () => 'ask',
+   approve: async () => { version = 'v2'; return true; },
+   policyVersion: async () => version,
+  });
+  await expect(runtime.invoke('r', 'x', { name: 'shell', host: 'local', validate: x => x }, {}))
+   .rejects.toThrow('policy change');
+  expect(calls).toBe(0);
+ });
+});
