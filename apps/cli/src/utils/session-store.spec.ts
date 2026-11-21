@@ -210,3 +210,20 @@ it('reconciles unknown journals only from an exact terminal provider result with
   expect(await store.executeToolCall(session.id, root, 'call', 'write', { a: 1 }, async () => { throw new Error('must not execute'); })).toEqual({ ok: true });
  } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+it('recovers a persisted failed terminal tool result without replaying its side effect', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-failed-journal-recover-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'attempt tool' }] as any);
+  let calls = 0;
+  const result = { error: 'permission denied' };
+  expect(await store.executeToolCall(session.id, root, 'failed-call', 'file_write', { path: 'blocked' }, async () => { calls++; return result; })).toEqual(result);
+  const restored = await new SessionStore(root).load(session.id, root);
+  expect(restored.messages).toHaveLength(3);
+  expect(restored.messages[2]).toMatchObject({ role: 'tool', content: [{ type: 'tool-result', toolCallId: 'failed-call', toolName: 'file_write', output: result }] });
+  expect(await store.executeToolCall(session.id, root, 'failed-call', 'file_write', { path: 'blocked' }, async () => { calls++; throw new Error('replayed'); })).toEqual(result);
+  expect(calls).toBe(1);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
