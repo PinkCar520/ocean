@@ -10,14 +10,14 @@ export class MemoryRuntimeEventStore implements RuntimeEventStore {
     const existing = this.streams.get(runId) ?? [];
     if (existing.length !== expectedRevision) throw new Error('Runtime revision conflict');
     if (events.length === 0) return existing.length;
-    const combined = [...existing, ...events];
+    const combined = [...existing, ...structuredClone(events)];
     replayRuntime(runId, combined); // Validate the entire transition before mutation.
     this.streams.set(runId, combined);
     return combined.length;
   }
 
   async read(runId: string): Promise<readonly RuntimeEvent[]> {
-    return [...(this.streams.get(runId) ?? [])];
+    return structuredClone(this.streams.get(runId) ?? []);
   }
 
   async snapshot(runId: string): Promise<RuntimeSnapshot> {
