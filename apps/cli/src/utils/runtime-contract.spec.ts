@@ -329,3 +329,18 @@ describe('crash interruption protocol', () => {
   expect(calls).toBe(0);
  });
 });
+
+describe('tool schema rejection audit', () => {
+ it('records invalid input without invoking the host', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const agent = new AgentRuntime(store, { execute: async () => undefined });
+  await agent.create('r');
+  for (const state of ['preparing_context', 'calling_model', 'validating_tools', 'executing_tools'] as const) await agent.transition('r', state);
+  let calls = 0;
+  const tools = new ToolRuntime(store, { execute: async () => { calls++; } }, { evaluate: async () => 'allow' });
+  await expect(tools.invoke('r', 'x', { name: 'shell', host: 'local', validate: () => { throw new Error('invalid'); } }, {}))
+   .rejects.toThrow('invalid');
+  expect(calls).toBe(0);
+  expect((await store.read('r')).some(e => e.type === 'tool.rejected' && e.reason === 'input')).toBe(true);
+ });
+});
