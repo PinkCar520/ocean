@@ -21,6 +21,7 @@ export type RuntimeEvent = (
   | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown }
   | { type: 'run.completion_verified'; runId: string; at: string; checks: readonly string[] }
   | { type: 'skill.activated'; runId: string; at: string; skillId: string; source: 'plugin' | 'user' | 'project' }
+  | { type: 'tool.rejected'; runId: string; at: string; invocationId: string; toolName: string; reason: 'policy' | 'approval' | 'input' }
 ) & { schemaVersion?: 1 };
 export interface ToolInvocation {
   id: string;
@@ -100,6 +101,8 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
         throw new Error('Tool invocation digest mismatch');
       completionVerified = false;
       pendingTools[event.invocation.id] = 'prepared';
+    } else if (event.type === 'tool.rejected') {
+      if (!event.invocationId.trim() || !event.toolName.trim()) throw new Error('Invalid tool rejection event');
     } else if (event.type === 'skill.activated') {
       if (!event.skillId.trim() || state === 'completed' || state === 'failed' || state === 'cancelled')
         throw new Error('Invalid skill activation identity');
