@@ -443,6 +443,9 @@ export async function runChatLoop(
       const pre = await options.hooks?.run('PreToolUse', input, options.signal);
       if (pre?.blocked) return { error: pre.reason };
       options.signal?.throwIfAborted();
+      // Record entry into the executable tool path before awaiting any effect.
+      // A provider may omit tool-call chunks even when it executes a tool.
+      toolExecutionObserved = true;
       let output;
       try { output = options.journal
         ? await options.journal.store.executeToolCall(options.journal.sessionId, options.journal.workspace, args[1]?.toolCallId, name, args[0], () => definition.execute(...args))
