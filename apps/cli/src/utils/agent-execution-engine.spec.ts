@@ -356,3 +356,42 @@ describe('durable model tool batch', () => {
   expect(calls()).toBe(0);
  });
 });
+
+describe('Skill scopes constrain shared ToolRuntime authorization', () => {
+ it('denies a newly disallowed tool after a skill activates in the same Run', async () => {
+  const { engine, events, calls } = fixture([
+   { kind: 'tools', calls: [{ id: 'activate', name: 'shell', input: {} }] },
+   { kind: 'tools', calls: [{ id: 'blocked', name: 'shell', input: {} }] },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.activatedSkill = () => ({ id: 'read-only', source: 'project', allowedTools: ['file_read'] });
+  await expect(engine.run('session', 'skill-run')).rejects.toThrow('denied by policy');
+  expect(calls()).toBe(1);
+  const state = await events.snapshot('skill-run');
+  expect(state.activeSkills).toEqual(['read-only']);
+  expect(state.skillToolConstraints['read-only']).toEqual(['file_read']);
+  expect((await events.read('skill-run')).some(e => e.type === 'tool.rejected'
+   && e.invocationId === 'blocked' && e.reason === 'policy')).toBe(true);
+ });
+ it('restores restrictive skill scopes before the model can dispatch tools', async () => {
+  const { engine, events, calls } = fixture([
+   { kind: 'tools', calls: [{ id: 'disallowed', name: 'shell', input: {} }] },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.restoreSkills = async () => [{ id: 'read-only', source: 'user', allowedTools: ['file_read'] }];
+  await expect(engine.run('session', 'restored-skill')).rejects.toThrow('denied by policy');
+  expect(calls()).toBe(0);
+  expect((await events.snapshot('restored-skill')).skillToolConstraints['read-only'])
+   .toEqual(['file_read']);
+ });
+ it('never elevates host permission even when an activated skill lists a tool', async () => {
+  const { engine, calls } = fixture([
+   { kind: 'tools', calls: [{ id: 'denied', name: 'shell', input: {} }] },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.restoreSkills = async () => [{ id: 'all-tools', source: 'project', allowedTools: ['shell'] }];
+  ports.authorization = { evaluate: async () => 'deny' };
+  await expect(engine.run('session', 'host-denied')).rejects.toThrow('denied by policy');
+  expect(calls()).toBe(0);
+ });
+});
