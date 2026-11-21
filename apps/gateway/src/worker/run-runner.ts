@@ -769,7 +769,7 @@ export class RunRunner {
         }),
       });
       if (this.core && toolCall.name !== RUN_INQUIRY_TOOL)
-        await this.core.prepareQueuedTool(tx, runId, toolCall);
+        await this.core.queueTool(tx, runId, toolCall);
       if (toolCall.name !== RUN_INQUIRY_TOOL) {
         await this.outbox.enqueueToolRequested(tx, message, priorityRankOf(priority));
       }
