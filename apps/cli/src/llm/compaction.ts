@@ -1,6 +1,7 @@
 import { countTextTokens, type TokenEncoding } from '@ocean/core';
 import { generateText, type ModelMessage } from 'ai';
 import { createHash } from 'node:crypto';
+import { microcompactMessages } from './microcompact.js';
 
 export interface Compaction {
   covered: number;
@@ -117,6 +118,15 @@ export async function compactContext(messages: ModelMessage[], options: {
       : tokenCountWithEstimation(messages, options.usage))
     : contextTokens(effective);
   if (currentTokens + systemTokens < budget) return effective;
+  // First clear stale, replayable tool outputs without touching the durable
+  // transcript. Only use the ephemeral view when it actually fits the budget.
+  // Keep provider usage as the pressure signal, but use local token counting
+  // to verify the reduced request before sending it.
+  const microcompacted = microcompactMessages(effective);
+  if (microcompacted !== effective &&
+      contextTokens(microcompacted) + systemTokens < budget) {
+    return microcompacted;
+  }
   const originalFits = contextTokens(effective) + systemTokens < budget;
   const cannotCompactSafely = (): ModelMessage[] => {
     if (originalFits) return effective;
