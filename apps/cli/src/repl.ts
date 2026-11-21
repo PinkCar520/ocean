@@ -66,7 +66,7 @@ interface ReplOptions {
 
 /**
  * Run the interactive REPL
- * - Single query mode: legacy text-based approach
+ * - Single query mode: shared durable Agent Core (legacy opt-out supported)
  * - Interactive mode: Ink UI if TTY, otherwise readline fallback
  */
 export async function runRepl(options: ReplOptions) {
@@ -505,7 +505,10 @@ async function runSingleQuery(
   // Load skills
   const skills: LoadedSkill[] = discoverSkills(options.workspace);
 
-  const sessionStore = options.print && options.persistSession !== false ? new SessionStore() : undefined;
+  // Default local execution uses a durable session regardless of output mode.
+  // --no-persist/legacy remains available for explicitly ephemeral scripting.
+  const sessionStore = options.persistSession !== false &&
+    (options.print || process.env.OCEAN_AGENT_CORE !== 'legacy') ? new SessionStore() : undefined;
   let session = sessionStore && (
     options.continueSession
       ? options.forkSession
@@ -615,9 +618,9 @@ async function runSingleQuery(
     let streamedText = '';
     if (sessionStore && sessionId) session = await sessionStore.save(sessionId, options.workspace, messages);
 
-    // Structured CLI sessions use the shared portable Agent ExecutionEngine.
-    // Legacy chat remains available for environments without session storage.
-    if (sessionStore && sessionId && options.print && process.env.OCEAN_AGENT_CORE !== 'legacy') {
+    // Local CLI requests use the shared portable Agent ExecutionEngine.
+    // Ephemeral and explicitly opted-out legacy requests retain compatibility.
+    if (sessionStore && sessionId && process.env.OCEAN_AGENT_CORE !== 'legacy') {
       const handler = approvalHandler ? normalizeApprovalHandler(approvalHandler) : undefined;
       const authorization = createCliToolAuthorization(approvalPolicy,
         handler ? async context => {
