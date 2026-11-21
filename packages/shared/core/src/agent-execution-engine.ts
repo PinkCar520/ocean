@@ -26,7 +26,7 @@ export interface AgentExecutionPorts<Message> {
   reconcileRecovery?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<void>;
   /** Durable host reconciliation proving Tool Journal and transcript cover every settled invocation. */
   verifyToolJournal?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<boolean>;
-  /** Used when a provider yields no side effects but a host still needs to validate recovery. */
+  /** Hosts must certify transcript consistency before a model-only recovery. */
   verifyTranscript?(sessionId: string, runId: string, events: readonly import('./runtime-contract.js').RuntimeEvent[]): Promise<boolean>;
   authorization: ToolAuthorization;
   resolveTool(name: string): ToolDescriptor | undefined;
