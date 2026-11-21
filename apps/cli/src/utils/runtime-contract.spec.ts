@@ -279,3 +279,22 @@ describe('event store mutation isolation', () => {
   expect((await store.read('r'))[0].at).toBe('2026-01-01T00:00:00Z');
  });
 });
+
+describe('journal input integrity', () => {
+ it('refuses replay of a tool claim with a forged input fingerprint', () => {
+  const runId = 'r', at = '2026-01-01T00:00:00Z';
+  const transition = (from: any, to: any): RuntimeEvent =>
+   ({ type: 'run.transitioned', runId, at, from, to });
+  const events: RuntimeEvent[] = [
+   { type: 'run.created', runId, at },
+   transition('created', 'preparing_context'),
+   transition('preparing_context', 'calling_model'),
+   transition('calling_model', 'validating_tools'),
+   transition('validating_tools', 'executing_tools'),
+   { type: 'tool.prepared', runId, at, invocation: {
+    id: 'x', runId, toolName: 'shell', input: { changed: true }, inputDigest: 'forged', host: 'local',
+   } },
+  ];
+  expect(() => replayRuntime(runId, events)).toThrow('digest mismatch');
+ });
+});
