@@ -181,3 +181,35 @@ it('counts serialized context with the selected BPE tokenizer rather than byte d
  expect(countTextTokens('hello world', 'cl100k_base')).toBe(2);
  expect(countTextTokens('')).toBe(0);
 });
+
+it('retries an ineffective summary with a smaller token cap and persists only the effective result', async () => {
+  generate.mockReset();
+  const messages = history();
+  const verbose = { ...summary, goal: 'x'.repeat(100000) };
+  generate.mockResolvedValueOnce({ text: JSON.stringify(verbose) })
+    .mockResolvedValueOnce({ text: JSON.stringify(summary) });
+  const persist = vi.fn();
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    scope: 'ineffective-summary-retry', persist,
+  });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(generate.mock.calls[0][0].maxOutputTokens).toBe(2000);
+  expect(generate.mock.calls[1][0].maxOutputTokens).toBe(700);
+  expect(persist).toHaveBeenCalledTimes(1);
+  expect(contextTokens(result)).toBeLessThan(contextTokens(messages));
+});
+
+it('never persists a summary that fails to reduce context after bounded retries', async () => {
+  generate.mockReset();
+  const messages = history();
+  const verbose = { ...summary, goal: 'x'.repeat(100000) };
+  generate.mockResolvedValue({ text: JSON.stringify(verbose) });
+  const persist = vi.fn();
+  await expect(compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    scope: 'ineffective-summary-exhausted', persist,
+  })).rejects.toThrow('did not reduce');
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(persist).not.toHaveBeenCalled();
+});
