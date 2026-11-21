@@ -678,6 +678,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
  });
 
  it('streams a provider tool call through cancellation, retry, session approval and completion', async () => {
+  const requestsBeforeCancellation = providerContract.requests.length;
   const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
    .send({ space: { id: spaceId, type: 'work' }, input: 'Provider contract',
     metadata: { modelId: providerModelId, sessionId: 'provider-contract', systemPrompt: 'System fixture', appendSystemPrompt: 'Extra fixture' } }).expect(201);
@@ -685,7 +686,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   await request(app.getHttpServer()).post(`/api/runs/${runId}/cancel`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
   expect(await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).toMatchObject({ status: 'cancelled' });
   expect(await db.runStep.count({ where: { runId } })).toBe(0);
-  expect(providerContract.requests).toHaveLength(0);
+  expect(providerContract.requests).toHaveLength(requestsBeforeCancellation);
   await request(app.getHttpServer()).post(`/api/runs/${runId}/retry`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
 
   const echo = registry.get('echo')!;
