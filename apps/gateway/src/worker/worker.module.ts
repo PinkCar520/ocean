@@ -16,6 +16,8 @@ import { ToolModule } from '../tool/tool.module';
 import { RunRunner } from './run-runner';
 import { ToolExecutor } from './tool-executor';
 import { WorkerService } from './worker.service';
+import { ToolOutcomeReconciler, type ToolOutcomeQueryAdapter } from './tool-outcome-reconciler';
+import { PrismaClient } from '@prisma/client';
 import { GatewayHooks } from './gateway-hooks';
 
 /**
@@ -47,6 +49,11 @@ import { GatewayHooks } from './gateway-hooks';
     WorkerService,
     RunRunner,
     ToolExecutor,
+    {
+      provide: ToolOutcomeReconciler,
+      useFactory: (prisma: PrismaClient) => new ToolOutcomeReconciler(prisma, new Map<string, ToolOutcomeQueryAdapter>()),
+      inject: ['PRISMA_CLIENT'],
+    },
     { provide: GatewayHooks, useFactory: (model: ModelGateway) => GatewayHooks.load(undefined, model), inject: [MODEL_GATEWAY] },
   ],
 })
