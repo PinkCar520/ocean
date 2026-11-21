@@ -296,4 +296,15 @@ describe('CLI Agent loop transcript', () => {
     });
   });
 
+  it('never retries an incomplete stream after a tool call was observed', async () => {
+    streamTextMock.mockImplementation(async (options) => {
+      options.onChunk({ chunk: { type: 'tool-call', toolName: 'bash', input: { command: 'touch marker' } } });
+      return { text: 'partial', finishReason: 'other', responseMessages: [] };
+    });
+    await expect(runChatLoop([{ role: 'user', content: 'run command' }], {
+      model: {}, systemPrompt: '', tools: {},
+    })).rejects.toThrow('Model stream incomplete');
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+  });
+
 });
