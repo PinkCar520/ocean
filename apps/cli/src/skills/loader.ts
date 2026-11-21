@@ -22,15 +22,15 @@ const skillSchema = z.object({
 function normalizeTools(value: string | string[] | undefined): string[] | undefined {
   if (value === undefined) return undefined;
   const list = typeof value === 'string'
-    ? value.replace(/^\\[|\\]$/g, '').split(/[,\\s]+/)
+    ? value.replace(/^\[|\]$/g, '').split(/[,\s]+/)
     : value;
   return [...new Set(list.map(item => item.trim()).filter(Boolean))];
 }
 
 /** Standard YAML parser with typed frontmatter validation. */
 function parseFrontmatter(content: string): { manifest: SkillManifest | null; body: string } {
-  content = content.replace(/\\r\\n/g, '\\n');
-  const match = content.match(/^---\\n([\\s\\S]*?)\\n---\\n?([\\s\\S]*)$/);
+  content = content.replace(/\r\n/g, '\n');
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) return { manifest: null, body: content };
   const [, source, body] = match;
   try {
