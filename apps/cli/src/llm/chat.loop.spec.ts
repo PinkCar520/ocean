@@ -187,8 +187,8 @@ describe('CLI Agent loop transcript', () => {
     const midTurn: any[] = [...messages];
     for (let i = 0; i < 12; i += 1) {
       midTurn.push(
-        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `call-${i}`, toolName: 'bash', input: { command: `step ${i}` } }] },
-        { role: 'tool', content: [{ type: 'tool-result', toolCallId: `call-${i}`, toolName: 'bash', output: { type: 'text', value: 'z'.repeat(3000) } }] },
+        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `call-${i}`, toolName: 'nonreplayable', input: { command: `step ${i}` } }] },
+        { role: 'tool', content: [{ type: 'tool-result', toolCallId: `call-${i}`, toolName: 'nonreplayable', output: { type: 'text', value: 'z'.repeat(3000) } }] },
       );
     }
     streamTextMock.mockImplementation(async (options) => {
@@ -226,8 +226,8 @@ describe('CLI Agent loop transcript', () => {
     const big: any[] = [{ role: 'user', content: 'go' }];
     for (let i = 0; i < 12; i += 1) {
       big.push(
-        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `cancel-${i}`, toolName: 'bash', input: { command: `step ${i}` } }] },
-        { role: 'tool', content: [{ type: 'tool-result', toolCallId: `cancel-${i}`, toolName: 'bash', output: { type: 'text', value: 'q'.repeat(3000) } }] },
+        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `cancel-${i}`, toolName: 'nonreplayable', input: { command: `step ${i}` } }] },
+        { role: 'tool', content: [{ type: 'tool-result', toolCallId: `cancel-${i}`, toolName: 'nonreplayable', output: { type: 'text', value: 'q'.repeat(3000) } }] },
       );
     }
     const controller = new AbortController();
