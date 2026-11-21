@@ -284,3 +284,27 @@ it('microcompacts stale tool results before invoking the summary model', async (
   expect(generate).not.toHaveBeenCalled();
   expect(persist).not.toHaveBeenCalled();
 });
+
+it('retries malformed summary JSON with the concise summary request', async () => {
+  generate.mockReset();
+  generate.mockResolvedValueOnce({ text: '{"goal": "unfinished' });
+  generate.mockResolvedValueOnce({ text: JSON.stringify(summary) });
+  const persist = vi.fn();
+  const result = await compactContext(history(), {
+    model: {}, systemPrompt: '', budget: 5000, scope: 'malformed-json-retry', persist,
+  });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(result.length).toBeLessThan(history().length);
+  expect(persist).toHaveBeenCalledTimes(1);
+});
+
+it('does not persist malformed summaries after exhausting retries', async () => {
+  generate.mockReset();
+  generate.mockResolvedValue({ text: '{"goal":' });
+  const persist = vi.fn();
+  await expect(compactContext(history(), {
+    model: {}, systemPrompt: '', budget: 5000, scope: 'malformed-json-exhaustion', persist,
+  })).rejects.toThrow('Context compaction failed');
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(persist).not.toHaveBeenCalled();
+});
