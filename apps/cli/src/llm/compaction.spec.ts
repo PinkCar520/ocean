@@ -89,8 +89,8 @@ it('keeps an unresolved tool call on its original side of a compaction boundary'
  const messages = history();
  messages.splice(2, 1); // Remove the first call result: a later user boundary is unsafe.
  const persist = vi.fn();
- const result = await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, scope: 'unresolved-pair', persist });
- expect(result).toBe(messages);
+ await expect(compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, scope: 'unresolved-pair', persist }))
+   .rejects.toThrow('no safe compaction boundary');
  expect(generate).not.toHaveBeenCalled(); expect(persist).not.toHaveBeenCalled();
 });
 
@@ -244,5 +244,22 @@ it('refuses oversized original context when summary generation fails', async () 
     model: {}, systemPrompt: '', budget: 5000,
     scope: 'unsafe-fallback', persist,
   })).rejects.toBeInstanceOf(ContextCompactionError);
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it('preserves a short unresolved tool call when provider usage alone triggers compaction', async () => {
+  generate.mockClear();
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'run' },
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'pending', toolName: 'bash', input: {} }] },
+  ];
+  const persist = vi.fn();
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    usage: { totalTokens: 6000, messageCount: messages.length },
+    scope: 'safe-unresolved-pair', persist,
+  });
+  expect(result).toBe(messages);
+  expect(generate).not.toHaveBeenCalled();
   expect(persist).not.toHaveBeenCalled();
 });
