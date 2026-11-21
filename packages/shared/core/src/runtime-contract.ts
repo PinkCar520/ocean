@@ -17,6 +17,7 @@ export type RuntimeEvent = (
   | { type: 'tool.prepared'; runId: string; at: string; invocation: ToolInvocation }
   | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
   | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown }
+  | { type: 'run.completion_verified'; runId: string; at: string; checks: readonly string[] }
 ) & { schemaVersion?: 1 };
 export interface ToolInvocation {
   id: string;
@@ -39,6 +40,7 @@ export interface RuntimeSnapshot {
   state: RuntimeState;
   revision: number;
   pendingTools: Readonly<Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'>>;
+  completionVerified: boolean;
 }
 export interface RuntimeEventStore {
   append(runId: string, expectedRevision: number, events: readonly RuntimeEvent[]): Promise<number>;
@@ -68,6 +70,7 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
   let revision = 0;
   let created = false;
   let sessionId: string | undefined;
+  let completionVerified = false;
   for (const event of events) {
     if (event.runId !== runId) throw new Error('Runtime event belongs to another run');
     if (event.schemaVersion !== undefined && event.schemaVersion !== 1) throw new Error('Unsupported runtime event schema');
@@ -80,6 +83,7 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       throw new Error('Runtime event stream missing creation');
     } else if (event.type === 'run.transitioned') {
       if (event.from !== state || !canTransition(state, event.to)) throw new Error('Invalid runtime transition');
+      if (event.to === 'completed' && !completionVerified) throw new Error('Completion requires independent verification');
       if (event.to === 'completed' && Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
         throw new Error('Cannot complete with unsettled tools');
       state = event.to;
@@ -87,6 +91,10 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
         throw new Error('Invalid tool preparation');
       pendingTools[event.invocation.id] = 'prepared';
+    } else if (event.type === 'run.completion_verified') {
+      if (completionVerified || !event.checks.length || event.checks.some(check => !check.trim()))
+        throw new Error('Invalid completion verification');
+      completionVerified = true;
     } else if (event.type === 'tool.settled') {
       if (pendingTools[event.invocationId] !== 'prepared') throw new Error('Tool settlement without preparation');
       pendingTools[event.invocationId] = event.outcome;
@@ -97,5 +105,5 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     revision++;
   }
   if (!created) throw new Error('Runtime event stream missing creation');
-  return { runId, sessionId, state, revision, pendingTools };
+  return { runId, sessionId, state, revision, pendingTools, completionVerified };
 }
