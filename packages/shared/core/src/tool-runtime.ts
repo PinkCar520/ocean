@@ -44,9 +44,11 @@ export class ToolRuntime {
         throw new Error('Tool approval invalidated by policy change');
       if (JSON.stringify(input) !== inputFingerprint)
         throw new Error('Tool input changed after approval');
-      if (await this.authorization.evaluate(context) !== 'ask' && await this.authorization.evaluate(context) !== 'allow')
+      if (await this.authorization.evaluate(context) === 'deny')
         throw new Error('Tool invocation denied after approval');
     }
+    if (JSON.stringify(input) !== inputFingerprint) throw new Error('Tool input changed before execution');
+    if (policyVersion !== await this.authorization.policyVersion?.()) throw new Error('Tool policy changed before execution');
     return this.agent.executeTool(runId, invocationId, descriptor.name, input, descriptor.host);
   }
 }
