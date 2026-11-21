@@ -29,6 +29,24 @@ function usageTokenTotal(usage: any): number | undefined {
   if (!Number.isFinite(input) && !Number.isFinite(output)) return undefined;
   return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
 }
+export interface ModelUsageMetrics {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+}
+
+export function modelUsageMetrics(usage: any): ModelUsageMetrics {
+  const valid = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+  return {
+    inputTokens: valid(usage?.inputTokens),
+    outputTokens: valid(usage?.outputTokens),
+    cacheReadTokens: valid(usage?.inputTokenDetails?.cacheReadTokens ?? usage?.cachedInputTokens),
+    cacheWriteTokens: valid(usage?.inputTokenDetails?.cacheWriteTokens),
+  };
+}
+
 type HookApproval = PermissionHookOutcome & { persistUpdates?: () => Promise<void> };
 
 /**
@@ -345,6 +363,7 @@ export async function runChatLoop(
     journal?: { store: SessionStore; sessionId: string; workspace: string };
     onToolCall?: (toolName: string, args: any) => void;
     onToolResult?: (toolName: string, result: any) => void;
+    onUsage?: (metrics: ModelUsageMetrics) => void;
     signal?: AbortSignal;
     /** Maximum model/tool steps in one turn. */
     maxSteps?: number;
@@ -583,6 +602,7 @@ export async function runChatLoop(
       onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults, usage }) => {
         if (stepToolCalls?.length || stepToolResults?.length) sawToolActivity = true;
         lastStepTotalTokens = usageTokenTotal(usage);
+        try { options.onUsage?.(modelUsageMetrics(usage)); } catch { /* telemetry is non-critical */ }
         if (stepToolCalls) {
           toolCalls.push(...(stepToolCalls as ToolCallPart[]));
         }
