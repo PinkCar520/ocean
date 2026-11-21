@@ -1,4 +1,5 @@
 import { GatewayCheckpointService } from './checkpoint.service';
+import type { ToolDescriptor } from '@ocean/core';
 import { Injectable, Optional } from '@nestjs/common';
 
 import { ArtifactStore } from '../artifact/artifact.store';
@@ -27,6 +28,17 @@ export class ToolRegistry {
 
   register(tool: Tool): void {
     this.tools.set(tool.name, tool);
+  }
+
+  /** Expose Gateway tools through the same descriptor contract as local hosts. */
+  getDescriptor(name: string): ToolDescriptor | undefined {
+    const tool = this.tools.get(name);
+    if (!tool) return undefined;
+    return {
+      name: tool.name,
+      host: 'remote',
+      validate: input => tool.inputSchema ? tool.inputSchema.parse(input) : input,
+    };
   }
 
   get(name: string): Tool | undefined {
