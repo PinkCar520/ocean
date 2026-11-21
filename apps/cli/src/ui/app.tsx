@@ -1,5 +1,6 @@
+import type { PermissionMode } from '@ocean/core/permission-policy';
 import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { render, Box, Text, useInput, useApp, useStdin } from 'ink';
 import TextInput from 'ink-text-input';
 import type { ModelMessage } from 'ai';
@@ -26,6 +27,7 @@ export interface InkAppProps {
   cliConfig: CliConfig;
   skills: LoadedSkill[];
   toolContext: ToolContext;
+  setSessionMode?: (mode: PermissionMode) => void;
   tools: Record<string, any>;
   modelRouter: ReturnType<typeof createModelRouter>;
   mcpManager: McpClientManager;
@@ -57,6 +59,11 @@ export function InkApp(props: InkAppProps) {
   const [currentToolCalls, setCurrentToolCalls] = useState<Array<{ name: string; args: any }>>([]);
   const [currentToolResults, setCurrentToolResults] = useState<Array<{ name: string; result: any }>>([]);
   const [selectedModel, setSelectedModel] = useState('');
+  const permissionPolicy = useMemo(
+    () => new PermissionPolicy(props.workspace, undefined, { mode: props.toolContext.getPermissionMode }),
+    [props.workspace, props.toolContext.getPermissionMode],
+  );
+  const permissionMode = permissionPolicy.getMode();
   const [commandOutput, setCommandOutput] = useState<string | null>(null);
   const [commandType, setCommandType] = useState<'help' | 'model' | 'skills' | 'tools' | 'mcp' | 'tasks' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +105,7 @@ export function InkApp(props: InkAppProps) {
 
       const result = await runChatLoop(allMessages, {
         journal: { store: props.sessionStore, sessionId: props.activeSession.session.id, workspace: props.workspace },
-        delegation: { workspace: props.workspace },
+        delegation: { workspace: props.workspace, permissions: { mode: props.toolContext.getPermissionMode } },
         hooks: LifecycleHooks.load(props.workspace),
         model,
 
@@ -263,7 +270,7 @@ export function InkApp(props: InkAppProps) {
 
       case 'permissions':
       case 'mode': {
-        const policy = new PermissionPolicy(props.workspace);
+        const policy = new PermissionPolicy(props.workspace, undefined, { mode: props.toolContext.getPermissionMode });
         const modes = ['default', 'acceptEdits', 'plan', 'dontAsk', 'bypassPermissions'] as const;
         if (!args) {
           setCommandOutput(`Permission mode: ${policy.getMode()}\nAvailable: ${modes.join(', ')}`);
@@ -273,8 +280,10 @@ export function InkApp(props: InkAppProps) {
           setCommandType('error');
         } else {
           try {
-            await policy.setWorkspaceMode(args as typeof modes[number]);
-            setCommandOutput(`Permission mode set to ${args}`);
+            const next = args as typeof modes[number];
+            if (props.setSessionMode) props.setSessionMode(next);
+            else await policy.setWorkspaceMode(next);
+            setCommandOutput(`Permission mode: ${policy.getMode()}`);
             setCommandType('help');
           } catch (err: any) {
             setCommandOutput(`Could not change permission mode: ${err.message}`);
@@ -352,6 +361,13 @@ export function InkApp(props: InkAppProps) {
   }, [models, props.skills, props.mcpTools, exit]);
 
   useInput((input, key) => {
+    if (key.shift && key.tab && !isThinking && props.setSessionMode) {
+      const cycle: PermissionMode[] = ['default', 'acceptEdits', 'plan'];
+      props.setSessionMode(cycle[(cycle.indexOf(permissionMode) + 1) % cycle.length]);
+      setCommandOutput(`Permission mode: ${permissionPolicy.getMode()}`);
+      setCommandType('help');
+      return;
+    }
     if (key.escape && isThinking) {
       activeAbortController.current?.abort(new Error('Stopped by user'));
       return;
@@ -367,6 +383,7 @@ export function InkApp(props: InkAppProps) {
         userId={userId}
         workspace={props.workspace}
         model={selectedModel}
+        permissionMode={permissionMode}
         skills={props.skills}
       />
 
@@ -382,6 +399,13 @@ export function InkApp(props: InkAppProps) {
       />
 
       <MessageInput
+        key={props.activeSession.session.id}
+        history={messages.flatMap((message) => {
+          if (message.role !== 'user') return [];
+          const text = typeof message.content === 'string' ? message.content
+            : message.content.flatMap((part) => part.type === 'text' ? [part.text] : []).join('');
+          return text ? [text] : [];
+        })}
         isWaiting={isWaitingInput}
         isThinking={isThinking}
         onSubmit={handleSubmit}
@@ -433,11 +457,13 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
     session: await sessionStore.latestOrCreate(options.workspace),
   };
 
+  const modes = new Map<string, PermissionMode>();
   const toolContext: ToolContext = {
     cwd: options.workspace,
     userId: options.userId,
     sessionId: activeSession.session.id,
     getSessionId: () => activeSession.session.id,
+    getPermissionMode: () => modes.get(activeSession.session.id),
   };
 
   const tools: Record<string, any> = await toAgentToolSet(toolContext, mcpManager, skills, sessionStore);
@@ -461,6 +487,7 @@ export async function runInkApp(options: { userId: string; workspace: string }) 
       cliConfig={cliConfig}
       skills={skills}
       toolContext={toolContext}
+      setSessionMode={(mode) => modes.set(activeSession.session.id, mode)}
       tools={tools}
       modelRouter={modelRouter}
       mcpManager={mcpManager}

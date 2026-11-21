@@ -1,3 +1,7 @@
+import ignore from 'ignore';
+import * as path from 'node:path';
+import { homedir } from 'node:os';
+export { getManagedPermissionPaths } from './managed-permission-settings.js';
 import { parseShellCommand } from './shell-ast.js';
 /** Shared permission policy contract used by the Gateway and local CLI. */
 export const IS_PUBLIC_KEY = 'isPublic';
@@ -20,13 +24,22 @@ export interface PermissionSettings {
   allow?: string[];
   deny?: string[];
   ask?: string[];
+  allowManagedPermissionRulesOnly?: boolean;
+  permissions?: { defaultMode?: PermissionMode; allow?: string[]; ask?: string[]; deny?: string[] };
   mcp?: {
     servers?: Record<string, { enabled?: boolean; permissions?: PermissionAction }>;
   };
   maxMcpOutputTokens?: number;
 }
 
+export interface PermissionRuleOrigin {
+  settingsRoot: string;
+  workspaceRoot?: string;
+  homeRoot?: string;
+}
+
 export interface NormalizedRule extends PermissionRule {
+  origin?: PermissionRuleOrigin;
   id?: string;
   regex: RegExp;
 }
@@ -44,7 +57,14 @@ export function isPermissionSettings(value: unknown): value is PermissionSetting
         server && typeof server === 'object' && !Array.isArray(server)
         && (server.enabled === undefined || typeof server.enabled === 'boolean')
         && (server.permissions === undefined || validActions.includes(server.permissions))))));
-  return (settings.mode === undefined || validModes.includes(settings.mode))
+  const permissions = settings.permissions;
+  const validPermissions = permissions === undefined || (!!permissions && typeof permissions === 'object'
+    && !Array.isArray(permissions)
+    && (permissions.defaultMode === undefined || validModes.includes(permissions.defaultMode))
+    && validPatterns(permissions.allow) && validPatterns(permissions.ask) && validPatterns(permissions.deny));
+  return validPermissions
+    && (settings.allowManagedPermissionRulesOnly === undefined || typeof settings.allowManagedPermissionRulesOnly === 'boolean')
+    && (settings.mode === undefined || validModes.includes(settings.mode))
     && validPatterns(settings.allow) && validPatterns(settings.deny) && validPatterns(settings.ask)
     && (settings.rules === undefined || (Array.isArray(settings.rules) && settings.rules.every((rule: any) =>
       rule && typeof rule === 'object' && validActions.includes(rule.action)
@@ -57,6 +77,13 @@ export function isPermissionSettings(value: unknown): value is PermissionSetting
       && settings.maxMcpOutputTokens >= 1_000 && settings.maxMcpOutputTokens <= 100_000));
 }
 
+/** Resolve a settings file's permission mode while retaining its rule lists. */
+export function parsePermissionSettings(value: unknown): PermissionSettings | null {
+  if (!isPermissionSettings(value)) return null;
+  const mode = value.mode ?? value.permissions?.defaultMode;
+  return mode === undefined ? value : { ...value, mode };
+}
+
 export function wildcardToRegex(pattern: string): RegExp {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
   const regex = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
@@ -67,15 +94,15 @@ export function matchRule(pattern: string, toolName: string): boolean {
   return wildcardToRegex(pattern).test(toolName);
 }
 
-export function normalizeRules(settings: PermissionSettings): NormalizedRule[] {
+export function normalizeRules(settings: PermissionSettings, origin?: PermissionRuleOrigin): NormalizedRule[] {
   const rules: NormalizedRule[] = [];
-  for (const rule of settings.rules ?? []) rules.push({ ...rule, regex: wildcardToRegex(rule.pattern) });
+  for (const rule of settings.rules ?? []) rules.push({ ...rule, regex: wildcardToRegex(rule.pattern), ...(origin && { origin }) });
   for (const [action, patterns] of [
     ['ask', settings.ask],
     ['allow', settings.allow],
     ['deny', settings.deny],
   ] as const) {
-    for (const pattern of patterns ?? []) rules.push({ action, pattern, regex: wildcardToRegex(pattern) });
+    for (const pattern of [...(patterns ?? []), ...(settings.permissions?.[action] ?? [])]) rules.push({ action, pattern, regex: wildcardToRegex(pattern), ...(origin && { origin }) });
   }
   return uniquePermissionRuleIds(rules);
 }
@@ -97,6 +124,7 @@ export interface PermissionDecision {
   action: PermissionAction;
   reason: string;
   ruleId?: string;
+  managedRulesOnly?: boolean;
   policyVersion: string;
   source: 'invalid' | 'deny-rule' | 'plan' | 'mcp-server' | 'session' | 'rule' | 'mode' | 'read-only' | 'default';
 }
@@ -148,19 +176,22 @@ export function evaluateToolDecision(
   const deny = matchingRules.find((rule) => rule.action === 'deny');
   if (deny) return matchingRuleDecision(deny, policyVersion);
 
+  const ask = matchingRules.find((rule) => rule.action === 'ask');
+  if (ask) {
+    if (mode === 'dontAsk') {
+      return decision('deny', ask.comment ?? `dontAsk converts ask rule ${ask.pattern} to deny.`, policyVersion, 'rule', ask.id ?? `rule:ask:${ask.pattern}`);
+    }
+    return matchingRuleDecision(ask, policyVersion);
+  }
+
   if (mode === 'plan') {
     return isReadOnlyTool(toolName, args)
       ? decision('allow', `Plan mode permits read-only tool ${toolName}.`, policyVersion, 'read-only', 'mode:plan')
       : decision('deny', `Plan mode blocks ${toolName} until planning ends.`, policyVersion, 'plan', 'mode:plan');
   }
 
-  const explicitRule = matchingRules.find((rule) => rule.action !== 'deny');
-  if (explicitRule) {
-    if (mode === 'dontAsk' && explicitRule.action === 'ask') {
-      return decision('deny', explicitRule.comment ?? `dontAsk converts ask rule ${explicitRule.pattern} to deny.`, policyVersion, 'rule', `rule:ask:${explicitRule.pattern}`);
-    }
-    return matchingRuleDecision(explicitRule, policyVersion);
-  }
+  const allow = matchingRules.find((rule) => rule.action === 'allow');
+  if (allow) return matchingRuleDecision(allow, policyVersion);
 
   if (mode === 'bypassPermissions') return decision('allow', 'bypassPermissions mode allows the tool.', policyVersion, 'mode', 'mode:bypassPermissions');
   if (mode === 'acceptEdits' && isFileEditTool(toolName)) return decision('allow', 'acceptEdits mode permits file edits.', policyVersion, 'mode', 'mode:acceptEdits');
@@ -215,6 +246,10 @@ export function evaluatePermissionDecision(
     return decision('deny', `MCP server ${serverName} is disabled or denied.`, policyVersion, 'mcp-server', `mcp:${serverName}`);
   }
 
+  if (matchingRules.some((rule) => rule.action === 'ask')) {
+    return evaluateToolDecision(toolName, rules, args, settings.mode ?? 'default', policyVersion);
+  }
+
   if (options.sessionGrant) {
     return decision('allow', `Session grant for ${toolName} with these exact arguments.`, policyVersion, 'session', `session:${toolName}`);
   }
@@ -233,8 +268,6 @@ export function evaluatePermissionDecision(
 
 function permissionRuleMatches(rule: NormalizedRule, toolName: string, args?: any): boolean {
   const parsed = parseToolPattern(rule.pattern);
-  if (!parsed) return rule.regex.test(toolName);
-
   const aliases: Record<string, string[]> = {
     bash: ['bash', 'local_bash', 'Bash'],
     local_bash: ['bash', 'local_bash', 'Bash'],
@@ -250,32 +283,64 @@ function permissionRuleMatches(rule: NormalizedRule, toolName: string, args?: an
     local_notebook_edit: ['local_notebook_edit', 'notebook_edit', 'NotebookEdit', 'Edit'],
     local_notebook_read: ['local_notebook_read', 'file_read', 'Read'],
     local_git: ['local_git', 'Git'],
+    lsp: ['lsp', 'local_lsp', 'LSP'],
+    local_lsp: ['lsp', 'local_lsp', 'LSP'],
   };
-  if (!(aliases[toolName] ?? [toolName]).includes(parsed.toolName)) return false;
+  const names = aliases[toolName] ?? [toolName];
+  if (!parsed) return names.some((name) => rule.regex.test(name));
+  if (!names.includes(parsed.toolName)) return false;
   if (parsed.content === undefined) return true;
 
-  const candidates: string[] = [];
-  if (['Bash', 'bash', 'local_bash', 'PowerShell', 'powershell', 'local_powershell'].includes(parsed.toolName)) {
-    if (typeof args?.command === 'string') candidates.push(args.command.trim());
-  } else if (['Edit', 'Write', 'Read', 'NotebookEdit', 'notebook_edit', 'local_notebook_edit', 'local_notebook_read', 'file_edit', 'file_write', 'file_read', 'local_file_edit', 'local_file_read'].includes(parsed.toolName)) {
-    if (typeof args?.path === 'string') candidates.push(args.path.replace(/\\/g, '/'));
-  } else if (parsed.toolName === 'Git' || parsed.toolName === 'local_git') {
-    if (typeof args?.action === 'string') candidates.push(args.action);
-  }
-  if (Array.isArray(args?.paths)) candidates.push(...args.paths.filter((value: unknown): value is string => typeof value === 'string'));
-
   const content = parsed.content;
+  const candidates = Array.isArray(args?.paths) ? args.paths.filter((value: unknown): value is string => typeof value === 'string') : [];
   if (['Bash', 'bash', 'local_bash', 'PowerShell', 'powershell', 'local_powershell'].includes(parsed.toolName)) {
     const caseInsensitive = ['PowerShell', 'powershell', 'local_powershell'].includes(parsed.toolName);
-    return candidates.some((candidate) => shellRuleMatches(content, candidate, caseInsensitive));
+    if (typeof args?.command === 'string') candidates.push(args.command.trim());
+    return candidates.some((candidate: string) => shellRuleMatches(content, candidate, caseInsensitive));
+  }
+  if (['Edit', 'Write', 'Read', 'NotebookEdit', 'notebook_edit', 'local_notebook_edit', 'local_notebook_read',
+    'file_edit', 'file_write', 'file_read', 'file_patch', 'local_file_edit', 'local_file_read', 'lsp', 'local_lsp', 'LSP'].includes(parsed.toolName)) {
+    if (typeof args?.path === 'string') candidates.push(args.path);
+    return candidates.some((candidate: string) => matchesFileRule(content, candidate, rule.origin));
+  }
+  if ((parsed.toolName === 'Git' || parsed.toolName === 'local_git') && typeof args?.action === 'string') {
+    candidates.push(args.action);
   }
 
   const prefix = content.endsWith(':*') ? content.slice(0, -2) : null;
-  return candidates.some((candidate) => {
+  return candidates.some((candidate: string) => {
     if (prefix !== null && (candidate === prefix || candidate.startsWith(`${prefix} `))) return true;
     if (wildcardToRegex(content).test(candidate)) return true;
     return !content.includes('*') && !content.includes('?') && candidate.startsWith(content);
   });
+}
+
+function matchesFileRule(pattern: string, candidate: string, origin?: PermissionRuleOrigin): boolean {
+  const workspace = origin?.workspaceRoot ?? process.cwd();
+  const home = origin?.homeRoot ?? homedir();
+  const target = candidate.startsWith('~/')
+    ? path.resolve(home, candidate.slice(2))
+    : path.resolve(workspace, candidate);
+  let root = workspace;
+  if (pattern.startsWith('//')) {
+    root = path.parse(target).root;
+    pattern = pattern.slice(1);
+    if (process.platform === 'win32' && /^\/[a-z]\//i.test(pattern)) {
+      if (root[0].toLowerCase() !== pattern[1].toLowerCase()) return false;
+      pattern = pattern.slice(2);
+    }
+  } else if (pattern.startsWith('~/')) {
+    root = home;
+    pattern = pattern.slice(1);
+  } else if (pattern.startsWith('/')) {
+    root = origin?.settingsRoot ?? workspace;
+  } else if (pattern.startsWith('./')) {
+    pattern = pattern.slice(2);
+  }
+  const local = path.relative(root, target);
+  if (!local || local === '..' || local.startsWith(`..${path.sep}`) || path.isAbsolute(local)) return false;
+  if (pattern.endsWith('/**')) pattern = pattern.slice(0, -3);
+  return ignore().add(pattern).ignores(local.split(path.sep).join('/'));
 }
 
 /** Mirrors the shell permission rule grammar: exact, legacy prefix, and escaped wildcard. */
@@ -332,9 +397,11 @@ function isFileEditTool(toolName: string): boolean {
 export function isReadOnlyTool(toolName: string, args?: any): boolean {
   if ([
     'echo', 'web.get', 'artifact.load', 'rag_search', 'getBugInfo', 'searchBugs',
-    'local_file_read', 'file_read', 'local_notebook_read', 'grep', 'glob', 'ls', 'cat', 'task_plan', 'activate_skill',
+    'local_file_read', 'file_read', 'local_notebook_read', 'grep', 'glob', 'ls', 'cat', 'task_plan', 'activate_skill', 'delegate_task', 'lsp', 'local_lsp', 'cron_list', 'list_team_members',
     'mcp__zentao:getBugInfo', 'mcp__zentao:searchBugs', 'mcp__zentao:getStoryInfo',
   ].includes(toolName)) return true;
+
+  if (toolName === 'project_memory') return args?.action === 'list';
 
   if (toolName === 'local_git' && typeof args?.action === 'string') {
     return ['status', 'diff', 'log', 'branch', 'show', 'worktree_list'].includes(args.action);
@@ -369,4 +436,23 @@ function isExternalPath(value: string): boolean {
   const normalized = value.replace(/\\/g, '/');
   return normalized.startsWith('/') || normalized.startsWith('~') || /^[a-z]:/i.test(normalized)
     || normalized.split('/').some((segment) => segment === '..');
+}
+
+export interface PermissionHookOutcome {
+  blocked: boolean;
+  reason: string;
+  permission?: 'allow' | 'deny';
+}
+
+export function permissionHookVerdict(event: string, specific: Record<string, unknown> | undefined): PermissionHookOutcome | undefined {
+  if (event !== 'PermissionRequest' || specific?.hookEventName !== event) return;
+  const decision = specific.decision;
+  if (!decision || typeof decision !== 'object') return;
+  const verdict = decision as Record<string, unknown>;
+  if (verdict.behavior === 'deny') {
+    return { blocked: true, reason: typeof verdict.message === 'string' ? verdict.message : 'Permission denied by hook', permission: 'deny' };
+  }
+  if (verdict.behavior === 'allow' && verdict.updatedInput === undefined && verdict.updatedPermissions === undefined) {
+    return { blocked: false, reason: '', permission: 'allow' };
+  }
 }

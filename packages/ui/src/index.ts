@@ -22,7 +22,7 @@ export {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from './components/tooltip'
+} from './components/ui/tooltip'
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,

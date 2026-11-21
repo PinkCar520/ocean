@@ -121,6 +121,7 @@
       "^@ocean/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts",
       "^@ocean/core$": "<rootDir>/../../../packages/shared/core/src/index.ts",
       "^(\\.{1,2}/.*)\\.js$": "$1",
+      "^@ocean/core/(permission-policy|session-permission-grants)$": "<rootDir>/../../../packages/shared/core/src/$1.ts",
       "^@ocean/core/(checkpoints|file-system|security|notebook-snapshots)$": "<rootDir>/../../../packages/shared/core/src/filesystem/$1.ts"
     },
     "collectCoverageFrom": [

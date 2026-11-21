@@ -44,6 +44,8 @@ export class SessionService {
         channel: true,
         status: true,
         activeSkillId: true,
+        pinned: true,
+        projectId: true,
         spaceId: true,
         workspacePath: true,
         workspaceSnapshot: true,
@@ -60,6 +62,8 @@ export class SessionService {
       channel: s.channel,
       status: s.status,
       activeSkillId: s.activeSkillId,
+      pinned: s.pinned,
+      projectId: s.projectId,
       spaceId: s.spaceId,
       workspacePath: s.workspacePath,
       workspaceSnapshot: s.workspaceSnapshot,
@@ -181,12 +185,32 @@ export class SessionService {
     return session;
   }
 
+  async getProjectChoices(id: string, userId: string) {
+    const session = await this.assertOwnership(id, userId);
+    return this.prisma.knowledgeProject.findMany({
+      where: { spaceId: session.spaceId, OR: [{ isPublic: true }, { userId }] },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async updateSession(
     id: string,
     userId: string,
-    data: { title?: string; status?: string; activeSkillId?: string },
+    data: { title?: string; status?: string; activeSkillId?: string; pinned?: boolean; projectId?: string | null },
   ) {
-    await this.assertOwnership(id, userId);
+    const session = await this.assertOwnership(id, userId);
+    if (data.projectId) {
+      const project = await this.prisma.knowledgeProject.findFirst({
+        where: {
+          id: data.projectId,
+          spaceId: session.spaceId,
+          OR: [{ isPublic: true }, { userId }],
+        },
+        select: { id: true },
+      });
+      if (!project) throw new NotFoundException('Project is unavailable in this session space');
+    }
     return this.prisma.session.update({
       where: { id },
       data: { ...data, updatedAt: new Date() },
@@ -282,7 +306,7 @@ export class SessionService {
   private async assertOwnership(sessionId: string, userId: string) {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
-      select: { userId: true },
+      select: { userId: true, spaceId: true },
     });
     if (!session) throw new NotFoundException(`Session ${sessionId} not found`);
     if (session.userId !== userId) {
@@ -290,5 +314,6 @@ export class SessionService {
         `Session ${sessionId} does not belong to current user`,
       );
     }
+    return session;
   }
 }

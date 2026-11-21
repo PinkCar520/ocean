@@ -48,11 +48,13 @@ export function ConversationFind({
   scrollRef,
   open,
   focusRequest,
+  belowHeader,
   close,
 }: {
   scrollRef: RefObject<HTMLDivElement | null>;
   open: boolean;
   focusRequest: number;
+  belowHeader: boolean;
   close: () => void;
 }) {
   const { t } = useTranslation();
@@ -125,7 +127,7 @@ export function ConversationFind({
   const dismiss = t('chat.find.close', 'Close find');
   const buttonClass = 'grid size-8 shrink-0 place-items-center rounded-md hover:bg-muted disabled:opacity-40';
   return (
-    <div role="search" aria-label={label} className="absolute right-4 top-3 z-30 flex max-w-[calc(100%-2rem)] items-center gap-1 rounded-xl border border-border bg-background p-1.5 text-foreground shadow-lg">
+    <div role="search" aria-label={label} className={`titlebar-no-drag pointer-events-auto absolute right-4 ${belowHeader ? 'top-3' : 'top-16'} z-30 flex max-w-[calc(100%-2rem)] items-center gap-1 rounded-xl border border-border bg-background p-1.5 text-foreground shadow-lg`}>
       <input
         ref={inputRef}
         type="text"

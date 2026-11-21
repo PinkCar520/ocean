@@ -35,6 +35,8 @@ function createTxMock(
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
     },
+    message: { findFirst: jest.fn(), create: jest.fn() },
+    session: { update: jest.fn() },
     outboxEvent: {
       findMany: jest.fn().mockResolvedValue([]),
     },
@@ -46,7 +48,7 @@ function createRunner(
   run: { id: string; userId: string; status: string; input?: string; spaceId?: string } | null,
   opts: {
     startedStep?: { id: string; seq: number; status: string } | null;
-    generateResult?: { text: string; toolCalls: ModelToolCall[] };
+    generateResult?: { text: string; reasoning?: string; toolCalls: ModelToolCall[] };
     generateError?: Error;
     historySteps?: Array<{
       kind: string;
@@ -69,6 +71,7 @@ function createRunner(
     $transaction: jest.fn(async (cb: (t: typeof tx) => Promise<unknown>) =>
       cb(tx),
     ),
+    agentRun: { findFirst: jest.fn() },
     runStep: { findMany: jest.fn().mockResolvedValue(historySteps) },
   };
   const gateway: ModelGateway & { generate: jest.Mock } = {
@@ -326,12 +329,50 @@ describe('RunRunner', () => {
     );
   });
 
+  it('persists the completed chat reply even without a connected stream', async () => {
+    const run = { id: 'run_1', userId: 'user_1', status: 'queued', input: 'help',
+      metadata: { sessionId: 'session', chatUserMessageId: 'message' } };
+    const { runner, tx } = createRunner(run);
+    tx.message.findFirst.mockResolvedValue({ id: 'message' });
+    tx.runStep.findMany.mockResolvedValue([{ output: { text: 'Final reply' } }]);
+    await expect(runner.execute(job)).resolves.toMatchObject({ status: 'succeeded' });
+    expect(tx.message.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'message', sessionId: 'session', role: 'user', session: { userId: 'user_1' } },
+    }));
+    expect(tx.message.create).toHaveBeenCalledWith({ data: {
+      sessionId: 'session', parentId: 'message', role: 'assistant', content: 'Final reply',
+      parts: [{ type: 'text', text: 'Final reply', completedRunId: 'run_1' }],
+    } });
+  });
+
+  it('pauses a chat Run for a durable question without enqueueing an executable tool', async () => {
+    const question = { id: 'intent', header: 'Intent', question: 'Which target?', type: 'single_select',
+      options: ['UI', 'Server'] };
+    const call = { id: 'question-1', name: 'ask_user', input: { inquiries: [question] } };
+    const run = { id: 'run_1', userId: 'user_1', status: 'queued', input: 'help',
+      metadata: { sessionId: 'session', chatUserMessageId: 'message' } };
+    const { runner, tx, gateway, outbox } = createRunner(run, {
+      generateResult: { text: '', toolCalls: [call] },
+    });
+    await expect(runner.execute(job)).resolves.toMatchObject({ status: 'succeeded' });
+    expect(gateway.generate).toHaveBeenCalledWith(expect.objectContaining({
+      tools: expect.arrayContaining([expect.objectContaining({ name: 'ask_user' })]),
+    }));
+    expect(tx.runStep.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ kind: 'tool_call', status: 'started',
+        checkpoint: { inquiry: true }, input: expect.objectContaining(call) }),
+    }));
+    expect(tx.agentRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'waiting_for_input' } }));
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+  });
+
   it('submits a tool.requested and pauses the run when the model requests a tool', async () => {
     const { runner, tx, outbox } = createRunner(
       { id: 'run_1', userId: 'user_1', status: 'queued', input: '查一下' },
       {
         generateResult: {
           text: '我来查：',
+          reasoning: 'provider continuation',
           toolCalls: [
             { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
             { id: 'tc_2', name: 'echo', input: { text: '再查一次' } },
@@ -376,8 +417,13 @@ describe('RunRunner', () => {
     );
     expect(stepUpdate?.[0].data.output).toEqual({
       text: '我来查：',
+      reasoning: 'provider continuation',
       toolCalls: [{ id: 'tc_1', name: 'echo', input: { text: '查一下' } }],
     });
+    const emitted = tx.runEvent.create.mock.calls
+      .map(call => call[0].data.payload)
+      .find(event => event.type === 'run.step_completed');
+    expect(emitted?.step.output).not.toHaveProperty('reasoning');
   });
 
   it('does not re-submit a tool already pending in the outbox (idempotent redelivery)', async () => {
@@ -416,6 +462,62 @@ describe('RunRunner', () => {
     );
   });
 
+  it('summarizes overflowing turns once and reuses the durable boundary', async () => {
+    const { runner, tx, gateway, prisma } = createRunner(null, {
+      generateResult: { text: 'Earlier decisions', toolCalls: [] },
+    });
+    jest.spyOn(runner as any, 'fencedTransaction').mockImplementation(async (persist: any) => persist(tx));
+    const oldTurn = [{ role: 'user', text: 'old '.repeat(20_000) }, { role: 'assistant', text: 'old answer' }];
+    const recentTurn = [{ role: 'user', text: 'recent question' }, { role: 'assistant', text: 'recent answer' }];
+    const rows = [...oldTurn, ...recentTurn];
+    const first = await runner['compactChatHistory']('run', {}, rows, 'deepseek-flash', 'current');
+    expect(first).toMatchObject({ rows: recentTurn, summary: 'Earlier decisions' });
+    const saved = tx.agentRun.update.mock.calls.at(-1)?.[0].data.metadata;
+    expect(saved.chatCompaction).toMatchObject({ boundary: 2, summary: 'Earlier decisions', fingerprint: expect.any(String) });
+    expect(await runner['compactChatHistory']('run', saved, rows, 'deepseek-flash', 'current')).toEqual(first);
+    expect(gateway.generate).toHaveBeenCalledTimes(1);
+    prisma.agentRun.findFirst.mockResolvedValue({ metadata: { ...saved, chatUserMessageId: 'question' } });
+    const followup = [...rows, { role: 'user', id: 'question', text: 'third question' },
+      { role: 'assistant', parentId: 'question', runId: 'run', text: 'third answer' }];
+    const next = await runner['compactChatHistory']('next', { sessionId: 'session' },
+      followup, 'deepseek-flash', 'current', 'owner');
+    expect(next.summary).toBe('Earlier decisions');
+    expect(next.rows).toEqual(followup.slice(2));
+    expect(gateway.generate).toHaveBeenCalledTimes(1);
+    const fork = [{ ...oldTurn[0], text: 'different history' }, ...followup.slice(1)];
+    const forked = await runner['compactChatHistory']('fork', { sessionId: 'session' },
+      fork, 'deepseek-flash', 'current', 'owner');
+    expect(forked.summary).toBeUndefined();
+
+  });
+
+  it('restores a prior Session Run with paired tool history and reasoning', async () => {
+    const { runner, prisma } = createRunner(null);
+    const call = { id: 'read', name: 'echo', input: {} };
+    const prior = { metadata: { modelId: 'deepseek-flash', chatUserMessageId: 'question' }, steps: [
+      { kind: 'model_call', output: { reasoning: 'provider continuation', toolCalls: [call] } },
+      { kind: 'tool_call', input: call, output: { content: 'file contents' } },
+      { kind: 'model_call', output: { text: 'answer', toolCalls: [] } },
+    ] };
+    prisma.agentRun.findFirst.mockResolvedValue(prior);
+    const rows = [{ id: 'question', role: 'user', text: 'read' },
+      { parentId: 'question', role: 'assistant', text: 'answer', runId: 'previous' }];
+
+    expect(await runner['restoreChatHistory'](rows, 'session', 'owner', 'deepseek-flash')).toEqual([
+      { role: 'user', text: 'read' },
+      { role: 'assistant', reasoning: 'provider continuation', toolCalls: [call] },
+      { role: 'tool', toolCallId: 'read', toolName: 'echo', result: { content: 'file contents' } },
+      { role: 'assistant', text: 'answer', toolCalls: [] },
+    ]);
+    expect(prisma.agentRun.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId: 'owner', metadata: { path: ['sessionId'], equals: 'session' } }),
+    }));
+    prior.steps.splice(1, 1);
+    expect(await runner['restoreChatHistory'](rows, 'session', 'owner', 'deepseek-flash')).toEqual([
+      { role: 'user', text: 'read' }, { role: 'assistant', text: 'answer' },
+    ]);
+  });
+
   it('rebuilds conversation context from succeeded steps when continuing the loop', async () => {
     const { runner, gateway } = createRunner(
       { id: 'run_1', userId: 'user_1', status: 'queued', input: '继续' },
@@ -428,6 +530,7 @@ describe('RunRunner', () => {
             input: { prompt: '查一下' },
             output: {
               text: '我来查：',
+              reasoning: 'provider continuation',
               toolCalls: [
                 { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
               ],
@@ -454,6 +557,7 @@ describe('RunRunner', () => {
           {
             role: 'assistant',
             text: '我来查：',
+            reasoning: 'provider continuation',
             toolCalls: [
               { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
             ],

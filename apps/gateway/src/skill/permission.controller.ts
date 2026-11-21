@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { isPermissionSettings } from '@ocean/core';
 import { PermissionService } from './permission.service';
 import { PermissionSettings, PermissionMode } from './permission.types';
 
@@ -97,11 +98,20 @@ export class PermissionController {
       throw new BadRequestException(`Invalid permission mode: ${patch.mode}`);
     }
 
-    // The mode picker sends a partial update. Preserve project/user rules instead
-    // of replacing the complete policy with an empty rules array.
-    const current = this.permissionService.loadSettings(workspacePath);
-    const settings: PermissionSettings = { ...current, ...patch };
+    // A workspace edit must never persist settings inherited from another source.
     const filePath = path.join(targetDir, 'settings.json');
+    let current: unknown = {};
+    try {
+      current = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw new BadRequestException('Workspace settings could not be read.');
+      }
+    }
+    if (!isPermissionSettings(current) || !isPermissionSettings(patch)) {
+      throw new BadRequestException('Invalid permission settings.');
+    }
+    const settings = { ...current, ...patch };
     fs.writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
     this.permissionService.invalidateCache();
 

@@ -1,4 +1,4 @@
-import { uniquePermissionRuleIds, evaluatePermissionDecision, permissionPolicyVersion, type PermissionDecision } from '@ocean/core';
+import { getManagedPermissionPaths, parsePermissionSettings, uniquePermissionRuleIds, evaluatePermissionDecision, permissionPolicyVersion, type PermissionDecision } from '@ocean/core';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash } from 'crypto';
 import * as fs from 'fs';
@@ -8,7 +8,6 @@ import {
   PermissionAction,
   PermissionMode,
   NormalizedRule,
-  isPermissionSettings,
   normalizeRules,
   evaluateTool,
 } from './permission.types';
@@ -56,11 +55,11 @@ export class PermissionService {
       : '__default__';
     const cached = this.cache.get(cacheKey);
     if (cached && now - cached.loadedAt < this.CACHE_TTL_MS
-      && cached.policyVersion === this.computePolicyVersion(workspacePath, cached.settings)) {
+      && cached.policyVersion === this.computePolicyVersion(workspacePath)) {
       return cached.settings;
     }
 
-    const layers: PermissionSettings[] = [];
+    const layers: Array<{ settings: PermissionSettings; sourceRoot: string }> = [];
 
     // User-level settings are the lowest-priority layer.
     const userHome = this.policyHome ?? process.env.HOME ?? process.env.USERPROFILE ?? '';
@@ -72,7 +71,7 @@ export class PermissionService {
         const userSettings = this.tryLoadJson(filePath);
         if (userSettings) {
           this.logger.debug(`Loaded user permission settings from ${filePath}`);
-          layers.push(userSettings);
+          layers.push({ settings: userSettings, sourceRoot: path.dirname(filePath) });
         }
       }
     }
@@ -86,7 +85,7 @@ export class PermissionService {
         const projectSettings = this.tryLoadJson(filePath);
         if (projectSettings) {
           this.logger.debug(`Loaded project permission settings from ${filePath}`);
-          layers.push(projectSettings);
+          layers.push({ settings: projectSettings, sourceRoot: workspacePath });
         }
       }
     }
@@ -100,21 +99,37 @@ export class PermissionService {
         const localSettings = this.tryLoadJson(filePath);
         if (localSettings) {
           this.logger.debug(`Loaded workspace-local permission settings from ${filePath}`);
-          layers.push(localSettings);
+          layers.push({ settings: localSettings, sourceRoot: workspacePath });
         }
       }
     }
 
+    const managedSource = getManagedPermissionPaths();
+    const managedLayers: typeof layers = [];
+    const managedRoot = workspacePath ?? process.cwd();
+    for (const file of managedSource.files) {
+      const value = this.tryLoadJson(file);
+      if (value) managedLayers.push({ settings: value, sourceRoot: managedRoot });
+      else if (managedSource.required) managedLayers.push({ settings: { rules: [{ action: 'deny', pattern: '*' }] }, sourceRoot: managedRoot });
+    }
+    if (managedSource.invalid) managedLayers.push({ settings: { rules: [{ action: 'deny', pattern: '*' }] }, sourceRoot: managedRoot });
+    const managed = Object.assign({}, ...managedLayers.map(layer => layer.settings)) as PermissionSettings;
+    layers.push(...managedLayers);
+
     // Merge layers (later overrides earlier)
     let merged: PermissionSettings = { ...DEFAULT_SETTINGS };
-    for (const layer of layers) {
+    for (const { settings: layer } of layers) {
       merged = this.mergeSettings(merged, layer);
     }
 
+    merged.allowManagedPermissionRulesOnly = managed.allowManagedPermissionRulesOnly === true;
+
     // Keep source priority: workspace-local, project, then user. A matching deny
     // is checked across the entire set before any allow/ask rule is considered.
-    const rules = uniquePermissionRuleIds(layers.slice().reverse().flatMap((layer) => normalizeRules(layer)));
-    this.cache.set(cacheKey, { settings: merged, rules, loadedAt: now, policyVersion: this.computePolicyVersion(workspacePath, merged) });
+    const rules = uniquePermissionRuleIds((managed.allowManagedPermissionRulesOnly ? managedLayers : layers).slice().reverse().flatMap(({ settings: layer, sourceRoot }) => normalizeRules(layer, {
+      settingsRoot: sourceRoot, workspaceRoot: workspacePath, homeRoot: userHome || undefined,
+    })));
+    this.cache.set(cacheKey, { settings: merged, rules, loadedAt: now, policyVersion: this.computePolicyVersion(workspacePath) });
 
     this.logger.log(
       `Permission settings loaded. Mode: ${merged.mode}, Rules: ${rules.length}`,
@@ -144,9 +159,10 @@ export class PermissionService {
   ): PermissionDecision {
     const settings = this.loadSettings(workspacePath);
     const cacheKey = workspacePath ? path.resolve(workspacePath) : '__default__';
-    return evaluatePermissionDecision(toolName, settings, this.rulesFor(workspacePath), args, mcpServer, {
+    const decision = evaluatePermissionDecision(toolName, settings, this.rulesFor(workspacePath), args, mcpServer, {
       policyVersion: this.cache.get(cacheKey)?.policyVersion,
     });
+    return settings.allowManagedPermissionRulesOnly ? { ...decision, managedRulesOnly: true } : decision;
   }
 
   getPolicyVersion(workspacePath?: string): string {
@@ -156,9 +172,11 @@ export class PermissionService {
   }
 
   /** Fingerprint the exact policy files so approvals pin what the user saw. */
-  private computePolicyVersion(workspacePath: string | undefined, settings: PermissionSettings): string {
+  private computePolicyVersion(workspacePath: string | undefined): string {
     const userHome = this.policyHome ?? process.env.HOME ?? process.env.USERPROFILE ?? '';
+    const managedSource = getManagedPermissionPaths();
     const files = [
+      ...managedSource.files,
       ...(userHome ? [path.join(userHome, '.claude', 'settings.json'), path.join(userHome, '.ocean', 'settings.json')] : []),
       ...(workspacePath ? [
         path.join(workspacePath, '.claude', 'settings.json'),
@@ -168,6 +186,7 @@ export class PermissionService {
       ] : []),
     ].sort();
     const hash = createHash('sha256');
+    if (managedSource.invalid) hash.update('invalid managed settings path');
     for (const file of files) {
       try {
         const info = fs.lstatSync(file);
@@ -261,8 +280,8 @@ export class PermissionService {
       }
       if (fs.statSync(filePath).size > 256 * 1024) throw new Error('settings file too large');
       const raw = fs.readFileSync(filePath, 'utf-8');
-      const value: unknown = JSON.parse(raw);
-      if (!isPermissionSettings(value)) throw new Error('settings schema is invalid');
+      const value = parsePermissionSettings(JSON.parse(raw));
+      if (!value) throw new Error('settings schema is invalid');
       return value;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;

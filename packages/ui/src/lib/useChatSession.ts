@@ -192,19 +192,6 @@ export function useChatSession({
     }
   }, [initialMessages]);
 
-  const totalUsage = useMemo(() => {
-    let inputTokens = 0;
-    let outputTokens = 0;
-    for (const msg of displayMessages) {
-      const u = (msg as any).usage;
-      if (u) {
-        inputTokens += u.inputTokens ?? u.promptTokens ?? u.prompt_tokens ?? 0;
-        outputTokens += u.outputTokens ?? u.completionTokens ?? u.completion_tokens ?? 0;
-      }
-    }
-    return { promptTokens: inputTokens, completionTokens: outputTokens, totalTokens: inputTokens + outputTokens };
-  }, [displayMessages]);
-
   const handleStop = () => {
     setIsStopped(true);
     stop();
@@ -272,7 +259,6 @@ export function useChatSession({
     isLoading,
     isStopped,
     setIsStopped,
-    totalUsage,
     handleStop,
     sessionIdRef,
     titleGeneratedRef,

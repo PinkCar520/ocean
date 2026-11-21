@@ -14,6 +14,10 @@ export interface ApprovalCardProps {
   status: UIApprovalCardProps['status'];
   onApprove?: () => void;
   onReject?: () => void;
+  submitting?: boolean;
+  responseError?: boolean;
+  approveLabel?: string;
+  className?: string;
 }
 
 export function ApprovalCard({
@@ -24,6 +28,10 @@ export function ApprovalCard({
   status,
   onApprove,
   onReject,
+  submitting,
+  responseError,
+  approveLabel,
+  className,
 }: ApprovalCardProps) {
   const { t } = useTranslation();
 
@@ -80,11 +88,21 @@ export function ApprovalCard({
   const config = statusConfig[status] ?? statusConfig.pending;
   const isPending = status === 'pending';
 
+  const path = typeof args?.path === 'string' && toolName.startsWith('local_file_') ? args.path : undefined;
+  const proposedEdits = path && toolName === 'local_file_patch' && Array.isArray(args?.edits)
+    ? args.edits
+    : path && toolName === 'local_file_edit' ? [args] : [];
+  const edits = proposedEdits.filter((edit): edit is { old_string: string; new_string: string } =>
+    !!edit && typeof edit === 'object' && typeof edit.old_string === 'string' && typeof edit.new_string === 'string');
+  const proposedText = path && toolName === 'local_file_write' && typeof args?.content === 'string'
+    ? args.content : undefined;
+
   return (
     <div className={cn(
       "bg-card border rounded-[20px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] mt-4 max-w-[520px] transition-all",
       config.border,
-      isPending && "shadow-[0_8px_30px_rgba(245,158,11,0.08)]"
+      isPending && "shadow-[0_8px_30px_rgba(245,158,11,0.08)]",
+      className
     )}>
       {/* Header */}
       <div className="px-6 pt-6 pb-5 border-b border-border/60">
@@ -110,6 +128,29 @@ export function ApprovalCard({
       <div className="px-6 py-5">
         <p className="text-[13px] text-muted-foreground leading-relaxed font-medium">{description}</p>
 
+        {path && (
+          <div className="mt-3 space-y-2">
+            <p className="break-all rounded-md bg-muted px-2 py-1 font-mono text-xs">{path}</p>
+            {(edits.length > 0 || proposedText !== undefined) && (
+              <details>
+                <summary className="cursor-pointer text-xs font-medium text-foreground">
+                  {t('chat.run_approval.preview')}
+                </summary>
+                <div className="mt-2 max-h-48 overflow-auto rounded-md border border-border bg-muted/30 text-xs">
+                  {proposedText !== undefined
+                    ? <pre className="whitespace-pre-wrap break-all p-2">{proposedText}</pre>
+                    : edits.map((edit, index) => (
+                      <div key={index} className="border-b border-border last:border-b-0">
+                        <pre className="whitespace-pre-wrap break-all bg-destructive/10 p-2 text-destructive">{edit.old_string.split('\n').map(line => `- ${line}`).join('\n')}</pre>
+                        <pre className="whitespace-pre-wrap break-all bg-primary/5 p-2 text-foreground">{edit.new_string.split('\n').map(line => `+ ${line}`).join('\n')}</pre>
+                      </div>
+                    ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+
         {/* Args */}
         {args && Object.keys(args).length > 0 && (
           <details className="mt-4 group/details">
@@ -132,20 +173,25 @@ export function ApprovalCard({
               {t('approval.confirm_message', 'Confirm this action?')}
             </span>
           </div>
+          {responseError && <p role="alert" className="mb-3 text-xs text-destructive">{t('chat.run_approval.error')}</p>}
           <div className="flex gap-3">
             <button
+              type="button"
+              disabled={submitting}
               onClick={onReject}
-              className="flex-1 py-3 rounded-[12px] bg-muted hover:bg-border text-muted-foreground text-[12px] font-bold transition-all border border-border flex items-center justify-center gap-2"
+              className="flex-1 disabled:cursor-not-allowed disabled:opacity-50 py-3 rounded-[12px] bg-muted hover:bg-border text-muted-foreground text-[12px] font-bold transition-all border border-border flex items-center justify-center gap-2"
             >
               <X className="w-3.5 h-3.5" />
               {t('approval.reject', 'Reject')}
             </button>
             <button
+              type="button"
+              disabled={submitting}
               onClick={onApprove}
-              className="flex-1 py-3 rounded-[12px] bg-gradient-to-br from-[#a33800] to-[#cc4900] hover:from-[#c24200] hover:to-[#e65200] text-white text-[12px] font-bold transition-all border border-transparent flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(204,73,0,0.3)]"
+              className="flex-1 disabled:cursor-not-allowed disabled:opacity-50 py-3 rounded-[12px] bg-gradient-to-br from-[#a33800] to-[#cc4900] hover:from-[#c24200] hover:to-[#e65200] text-white text-[12px] font-bold transition-all border border-transparent flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(204,73,0,0.3)]"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              {t('approval.approve', 'Approve')}
+              {approveLabel ?? t('approval.approve', 'Approve')}
             </button>
           </div>
         </div>

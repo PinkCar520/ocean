@@ -1,13 +1,13 @@
 import type { SessionStore } from '../utils/session-store.js';
 import { isDeepStrictEqual } from 'node:util';
 import { createDelegationTool, loadSubagents } from '../subagents/delegate.js';
+import { PermissionPolicy } from '../utils/permission-policy.js';
 import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
+import { loadProjectContext } from '../utils/project-context.js';
 import { compactContext, type Compaction, type TokenUsageSnapshot } from './compaction.js';
 import { streamText, type ModelMessage, type ToolResultPart, type ToolCallPart, stepCountIs, convertToModelMessages } from 'ai';
 import type { ModelConfig } from '../types.js';
 import type { LoadedSkill } from '../types.js';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 
 type ApprovalDecision = 'approved' | 'rejected' | 'expired';
 
@@ -18,7 +18,11 @@ function usageTokenTotal(usage: any): number | undefined {
   if (!Number.isFinite(input) && !Number.isFinite(output)) return undefined;
   return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
 }
-type ToolApprovalHandler = (toolName: string, args: any) => Promise<ApprovalDecision>;
+type ToolApprovalHandler = (
+  toolName: string,
+  args: any,
+  context?: { toolCallId?: string; signal?: AbortSignal },
+) => Promise<ApprovalDecision>;
 
 export function applyApprovalGate(
   tools: Record<string, any>,
@@ -60,7 +64,12 @@ export function applyApprovalGate(
             }
             const snapshot = structuredClone(args);
             const deadline = Date.now() + 5 * 60_000;
-            const decision = await approvalHandler(name, structuredClone(snapshot));
+            const context = toolOptions?.toolCallId || toolOptions?.abortSignal
+              ? { toolCallId: toolOptions?.toolCallId, signal: toolOptions?.abortSignal }
+              : undefined;
+            const decision = context
+              ? await approvalHandler(name, structuredClone(snapshot), context)
+              : await approvalHandler(name, structuredClone(snapshot));
             if (toolOptions?.abortSignal?.aborted || Date.now() >= deadline) return { error: 'Approval cancelled or expired.' };
             if (!isDeepStrictEqual(args, snapshot)) return { error: 'Tool arguments changed; a new approval is required.' };
             if (definition.beforeApproval) {
@@ -128,12 +137,8 @@ export function buildSystemPrompt(
     prompt += '</available_skills>\n';
   }
 
-  // Load .AIGUIDE.md if exists
-  const guidePath = path.join(workspacePath, '.AIGUIDE.md');
-  if (fs.existsSync(guidePath)) {
-    const guide = fs.readFileSync(guidePath, 'utf-8');
-    prompt += `\n\n## 团队开发规范（.AIGUIDE.md，必须严格遵守）\n${guide}`;
-  }
+  const projectContext = loadProjectContext(workspacePath);
+  if (projectContext) prompt += `\n\n${projectContext}`;
 
   return prompt;
 }
@@ -146,13 +151,24 @@ export function buildSystemPrompt(
  * 使用与 Web 相同的 POST /api/chat（AI SDK data stream），由 Gateway worker
  * 完成工具循环/审批/审计，CLI 只做流式转文本。
  */
-export async function runChatLoopViaGateway(options: {
+export type OceanPromptEvent =
+  | { type: 'session'; sessionId: string }
+  | { type: 'tool_call'; name: string; input: unknown }
+  | { type: 'tool_result'; name: string; result: unknown };
+
+export interface GatewayPromptOptions {
   gatewayUrl: string;
   apiKey: string;
   input: string;
+  sessionId?: string;
+  modelId?: string;
+  nonInteractive?: boolean;
   onText?: (text: string) => void;
+  onEvent?: (event: OceanPromptEvent) => void;
   signal?: AbortSignal;
-}): Promise<string> {
+}
+
+export async function runChatLoopViaGateway(options: GatewayPromptOptions): Promise<string> {
   const base = options.gatewayUrl.replace(/\/$/, '');
   const res = await fetch(`${base}/api/chat`, {
     method: 'POST',
@@ -164,6 +180,9 @@ export async function runChatLoopViaGateway(options: {
     body: JSON.stringify({
       messages: [{ role: 'user', content: options.input }],
       stream: true,
+      ...(options.nonInteractive && { nonInteractive: true }),
+      ...(options.modelId && { modelId: options.modelId }),
+      ...(options.sessionId && { sessionId: options.sessionId }),
     }),
     signal: options.signal,
   });
@@ -174,29 +193,65 @@ export async function runChatLoopViaGateway(options: {
   const decoder = new TextDecoder();
   let buffer = '';
   let fullText = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t) continue;
-      if (t.startsWith('0:')) {
-        let payload: string = t.slice(2);
-        try {
-          payload = JSON.parse(payload) as string;
-        } catch {
-          /* 保留原文 */
+  let sawEvents = false;
+  let finished = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done && !buffer) break;
+      buffer += done ? decoder.decode() + '\n' : decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t) continue;
+        if (t.startsWith('data:')) {
+          sawEvents = true;
+          const payload = t.slice(5).trim();
+          if (payload === '[DONE]') {
+            finished = true;
+            continue;
+          }
+          const chunk: {
+            type: string;
+            delta?: string;
+            errorText?: string;
+            finishReason?: string;
+            data?: OceanPromptEvent;
+          } = JSON.parse(payload);
+          if (chunk.type === 'text-delta' && typeof chunk.delta === 'string') {
+            fullText += chunk.delta;
+            options.onText?.(chunk.delta);
+          } else if (chunk.type === 'error') {
+            throw new Error(chunk.errorText ?? 'Gateway stream failed.');
+          } else if (chunk.type === 'finish') {
+            if (['error', 'interrupted'].includes(chunk.finishReason ?? '')) {
+              throw new Error(`Gateway run ended with status: ${chunk.finishReason}`);
+            }
+            finished = true;
+          } else if (chunk.type === 'data-ocean-tool' && chunk.data
+            && (chunk.data.type === 'tool_call' || chunk.data.type === 'tool_result')) {
+            options.onEvent?.(chunk.data);
+          }
+        } else if (t.startsWith('0:')) {
+          let payload: string = t.slice(2);
+          try {
+            payload = JSON.parse(payload) as string;
+          } catch {
+            /* 保留原文 */
+          }
+          fullText += payload;
+          options.onText?.(payload);
+        } else if (t.startsWith('e:')) {
+          throw new Error(`Gateway stream error: ${t.slice(2)}`);
         }
-        fullText += payload;
-        options.onText?.(payload);
-      } else if (t.startsWith('e:')) {
-        throw new Error(`Gateway stream error: ${t.slice(2)}`);
       }
     }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
+  if (sawEvents && !finished) throw new Error('Gateway stream disconnected before the run finished.');
   return fullText;
 }
 
@@ -213,7 +268,10 @@ export async function runChatLoop(
     signal?: AbortSignal;
     /** Maximum model/tool steps in one turn. */
     maxSteps?: number;
-    delegation?: { workspace: string };
+    delegation?: {
+      workspace: string;
+      permissions?: ConstructorParameters<typeof PermissionPolicy>[2];
+    };
     hooks?: LifecycleHooks;
     stopHookActive?: boolean;
     compaction?: { previous?: Compaction; usage?: TokenUsageSnapshot; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string };
@@ -251,11 +309,27 @@ export async function runChatLoop(
   messages = [...messages, ...activationMessages];
   if (options.delegation) {
     const definitions = loadSubagents(options.delegation.workspace);
-    if (definitions.length) options = { ...options, tools: { ...options.tools, delegate_task: createDelegationTool(definitions, {
-      model: options.model, tools: options.tools, systemPrompt: options.systemPrompt,
-      persistence: options.journal,
-      signal: options.signal, approvalHandler: options.approvalHandler, run: runChatLoop, history: messages,
-    }) } };
+    if (definitions.length) {
+      const permissions = new PermissionPolicy(options.delegation.workspace, undefined, options.delegation.permissions);
+      const delegate = createDelegationTool(definitions, {
+        model: options.model, tools: options.tools, systemPrompt: options.systemPrompt,
+        persistence: options.journal,
+        signal: options.signal, approvalHandler: options.approvalHandler, run: runChatLoop, history: messages,
+      });
+      options = {
+        ...options,
+        tools: {
+          ...options.tools,
+          delegate_task: {
+            ...delegate,
+            requiresApproval: (input: Record<string, unknown>) => permissions.evaluate('delegate_task', input) === 'ask',
+            beforeApproval: (input: Record<string, unknown>) => permissions.evaluate('delegate_task', input) === 'deny'
+              ? 'Permission denied for subagent delegation.'
+              : undefined,
+          },
+        },
+      };
+    }
   }
   const guardedTools = Object.fromEntries(Object.entries(options.tools).map(([name, definition]) => [name, {
     ...definition,
@@ -347,6 +421,8 @@ export async function runChatLoop(
       if (chunk.type === 'text-delta') {
         fullText += chunk.text;
         options.onText?.(chunk.text);
+      } else if (chunk.type === 'tool-call') {
+        options.onToolCall?.(chunk.toolName, chunk.input);
       }
     },
     onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults, usage }) => {

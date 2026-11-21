@@ -45,7 +45,11 @@ function createService() {
         return Promise.resolve({ id: 'new-message' });
       }),
     },
+    knowledgeProject: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'project-1' }),
+    },
     session: {
+      findUnique: jest.fn().mockResolvedValue({ userId: 'user-1', spaceId: 'work' }),
       update: jest.fn().mockResolvedValue({}),
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn((args: { data: Record<string, unknown> }) =>
@@ -259,5 +263,29 @@ describe('SessionService.createSession workspace binding', () => {
       ),
     ).rejects.toThrow('Invalid workspace path');
     expect(prisma.session.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('SessionService conversation metadata', () => {
+  it('persists pins and projects after checking the session and project scope', async () => {
+    const { service, prisma } = createService();
+    await service.updateSession('session-1', 'user-1', { pinned: true, projectId: 'project-1' });
+
+    expect(prisma.knowledgeProject.findFirst).toHaveBeenCalledWith({
+      where: { id: 'project-1', spaceId: 'work', OR: [{ isPublic: true }, { userId: 'user-1' }] },
+      select: { id: true },
+    });
+    expect(prisma.session.update).toHaveBeenCalledWith({
+      where: { id: 'session-1' },
+      data: { pinned: true, projectId: 'project-1', updatedAt: expect.any(Date) },
+    });
+  });
+
+  it('rejects updates by another user and projects outside the accessible space', async () => {
+    const { service, prisma } = createService();
+    prisma.knowledgeProject.findFirst.mockResolvedValue(null);
+    await expect(service.updateSession('session-1', 'user-2', { pinned: true })).rejects.toThrow('does not belong');
+    await expect(service.updateSession('session-1', 'user-1', { projectId: 'other-project' })).rejects.toThrow('unavailable');
+    expect(prisma.session.update).not.toHaveBeenCalled();
   });
 });

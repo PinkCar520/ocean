@@ -12,6 +12,9 @@ export {
   evaluatePermissionDecision,
   permissionPolicyVersion,
   isPermissionSettings,
+  parsePermissionSettings,
+  getManagedPermissionPaths,
+  permissionHookVerdict,
   isReadOnlyTool,
   matchRule,
   normalizeRules,
@@ -158,3 +161,6 @@ export { uniquePermissionRuleIds } from './permission-policy.js';
 export { parseShellCommand } from './shell-ast.js';
 
 export { countTextTokens, type TokenEncoding } from './tokenizer.js';
+
+export { EgressPolicy, type EgressVerdict } from './network/egress-policy.js';
+export { fetchWebText, searchWeb } from './network/web-fetch.js';

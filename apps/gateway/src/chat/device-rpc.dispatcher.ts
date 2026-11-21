@@ -38,7 +38,7 @@ export class DeviceRpcDispatcher implements OnModuleInit, OnModuleDestroy {
   private async dispatch(row: { id: string; payload: Prisma.JsonValue }): Promise<void> {
     const request = row.payload as { runId?: unknown; userId?: unknown; workId?: unknown; sessionId?: unknown; workspaceSnapshot?: unknown; method?: unknown; input?: unknown; expiresAt?: unknown } | null;
     if (!request || typeof request.runId !== 'string' || typeof request.userId !== 'string' || typeof request.workId !== 'string' || typeof request.sessionId !== 'string' ||
-      !['notebook_read', 'notebook_edit', 'file_read', 'file_write', 'file_edit', 'file_patch'].includes(String(request.method)) || !request.input || typeof request.input !== 'object' || Array.isArray(request.input) || typeof request.expiresAt !== 'string' || !Number.isFinite(Date.parse(request.expiresAt))) {
+      !['notebook_read', 'notebook_edit', 'file_read', 'file_write', 'file_edit', 'file_patch', 'lsp'].includes(String(request.method)) || !request.input || typeof request.input !== 'object' || Array.isArray(request.input) || typeof request.expiresAt !== 'string' || !Number.isFinite(Date.parse(request.expiresAt))) {
       await this.prisma.outboxEvent.updateMany({ where: { id: row.id, status: 'pending' }, data: { status: 'failed', lastError: 'Invalid device request.' } });
       return;
     }

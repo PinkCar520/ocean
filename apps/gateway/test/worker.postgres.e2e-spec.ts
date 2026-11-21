@@ -1,3 +1,5 @@
+import { RunScheduleService } from '../src/run/run-schedule.service';
+import { RunScheduleController } from '../src/run/run-schedule.controller';
 import { GatewayCheckpointService } from '../src/tool/checkpoint.service';
 import { SubagentRunsService } from '../src/run/subagent-runs.service';
 import { SubagentRunsController } from '../src/run/subagent-runs.controller';
@@ -39,6 +41,9 @@ import { ToolRegistry } from '../src/tool/tool.registry';
 import { RunRunner } from '../src/worker/run-runner';
 import { ToolExecutor } from '../src/worker/tool-executor';
 import { WorkerService } from '../src/worker/worker.service';
+import { ConfigService } from '@nestjs/config';
+import { AiSdkModelGateway } from '../src/ai/ai-sdk-model-gateway';
+import { startProviderContract } from './fixtures/provider-contract';
 import { SimModelGateway } from '../src/ai/sim-model-gateway';
 
 const integration = process.env.OCEAN_GATEWAY_E2E_PG_TEST === '1' ? describe : describe.skip;
@@ -50,6 +55,9 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
  let pool: Pool;
  let db: PrismaClient;
  let worker: WorkerService;
+ let schedules: RunScheduleService;
+ let providerContract: Awaited<ReturnType<typeof startProviderContract>>;
+ const providerModelId = 'ocean-provider-contract';
  let registry: ToolRegistry;
  const policyHome = mkdtempSync(resolve(tmpdir(), 'ocean-worker-policy-'));
  const userId = randomUUID();
@@ -81,24 +89,50 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   const hookFile = resolve(policyHome, 'hooks.json');
   writeFileSync(hookFile, JSON.stringify({ trustedSpaces: [spaceId], hooks: {} }), { mode: 0o600 });
   const hooks = GatewayHooks.load(hookFile);
-  const service = new RunService(db, outbox, new SpaceService(db), artifacts, metrics);
-  worker = new WorkerService(new RunRunner(db, new SimModelGateway(0), outbox, registry, metrics, hooks),
-   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks), outbox, db, new SubagentRunsService(db, outbox));
-  const module = await Test.createTestingModule({ controllers: [SubagentRunsController, RunController, ExternalApprovalController, MCPCredentialsController, MCPOAuthController], providers: [
+  const spaces = new SpaceService(db);
+  const service = new RunService(db, outbox, spaces, artifacts, metrics);
+  schedules = new RunScheduleService(db, spaces, service);
+  const subagents = new SubagentRunsService(db, outbox);
+  providerContract = await startProviderContract();
+  const provider = new AiSdkModelGateway(new ConfigService({
+   DEFAULT_AI_PROVIDER: 'local',
+   LOCAL_MODEL: providerModelId,
+   LOCAL_BASE_URL: providerContract.baseURL,
+   LOCAL_API_KEY: 'fixture',
+  }));
+  const sim = new SimModelGateway(0);
+  worker = new WorkerService(new RunRunner(db, {
+   generate: req => {
+    if (req.modelId === providerModelId) return provider.generate(req);
+    if (req.messages.some(message => message.role === 'user' && message.text === 'Gateway delegation fixture')) {
+     const result = req.messages.find(message => message.role === 'tool' && message.toolName === 'delegate_task');
+     if (result) return Promise.resolve({ text: 'Delegation result received', toolCalls: [] });
+     return Promise.resolve({
+      text: '', toolCalls: [{ id: 'delegation-fixture', name: 'delegate_task', input: { agent: 'reader', task: 'Inspect the fixture' } }],
+     });
+    }
+    return sim.generate(req);
+   },
+  }, outbox, registry, metrics, hooks),
+   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents), outbox, db, subagents);
+  const module = await Test.createTestingModule({ controllers: [RunScheduleController, SubagentRunsController, RunController, ExternalApprovalController, MCPCredentialsController, MCPOAuthController], providers: [
    { provide: MCPOAuthService, useValue: oauth },
    { provide: MCPCredentialsService, useValue: new MCPCredentialsService(resolve(policyHome, 'credentials')) },
-   { provide: SubagentRunsService, useValue: new SubagentRunsService(db, outbox) },
+   { provide: SubagentRunsService, useValue: subagents },
+   { provide: RunScheduleService, useValue: schedules },
    { provide: RunService, useValue: service }, { provide: ArtifactStore, useValue: artifacts },
    { provide: JwtService, useValue: jwt },
    { provide: UserService, useValue: new UserService(db) },
    { provide: ApiKeyService, useValue: new ApiKeyService(db) },
    { provide: APP_GUARD, useClass: SsoAuthGuard },
   ] }).compile();
-  app = module.createNestApplication(); await app.init();
+  app = module.createNestApplication();
+  await app.listen(0, '127.0.0.1');
  }, 15000);
  afterAll(async () => {
   worker?.stop();
   await app?.close();
+  await providerContract?.close();
   if (oauthServer) await new Promise<void>(resolve => oauthServer.close(() => resolve()));
   if (db) {
    await db.agentRun.deleteMany({ where: { userId } });
@@ -114,6 +148,33 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   await request(app.getHttpServer()).post('/api/runs').send({ space: { id: spaceId, type: 'work' }, input: 'hello' }).expect(401);
   expect(await db.agentRun.count({ where: { userId } })).toBe(0);
  });
+ it('creates one background Run when concurrent workers see the same due schedule', async () => {
+  const response = await request(app.getHttpServer()).post('/api/run-schedules').auth(auth(), { type: 'bearer' })
+   .send({ spaceId, cron: '* * * * *', recurring: false, prompt: 'scheduled worker fixture' }).expect(201);
+  const due = new Date(response.body.nextRunAt);
+  await Promise.all([schedules.dispatchDue(due), schedules.dispatchDue(due)]);
+  const schedule = await db.runSchedule.findUniqueOrThrow({ where: { id: response.body.id } });
+  expect(schedule).toMatchObject({ active: false, nextRunAt: null });
+  expect(typeof schedule.lastRunId).toBe('string');
+  const runs = await db.agentRun.findMany({ where: { userId, metadata: { path: ['scheduleId'], equals: schedule.id } } });
+  expect(runs).toHaveLength(1);
+  expect(runs[0]).toMatchObject({ id: schedule.lastRunId, status: 'queued', priority: 'background' });
+  await request(app.getHttpServer()).post(`/api/runs/${runs[0].id}/cancel`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
+ });
+
+ it('returns persisted model-driven delegation results to the parent model', async () => {
+  const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
+   .send({ space: { id: spaceId, type: 'work' }, input: 'Gateway delegation fixture', metadata: { nonInteractive: true } }).expect(201);
+  const runId = response.body.run.id;
+  worker.start();
+  try { await waitFor(runId, 'succeeded'); } finally { worker.stop(); }
+  const child = await db.agentRun.findFirstOrThrow({ where: { parentRunId: runId, parentToolCallId: 'delegation-fixture' } });
+  expect(child.status).toBe('succeeded');
+  const steps = await db.runStep.findMany({ where: { runId }, orderBy: { seq: 'asc' } });
+  expect(steps.some(step => step.kind === 'subagent' && step.status === 'succeeded')).toBe(true);
+  expect(steps.at(-1)?.output).toMatchObject({ text: 'Delegation result received' });
+ }, 15000);
+
  it('persists creation and runs a real model/tool continuation through the worker queue', async () => {
   const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
    .send({ space: { id: spaceId, type: 'work' }, input: '调用工具 echo' }).expect(201);
@@ -557,5 +618,50 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   const step = await db.runStep.findFirstOrThrow({ where: { runId: parentId, kind: 'subagent' } });
   expect(step.status).toBe('failed');
  });
+
+ it('streams a provider tool call through cancellation, retry, session approval and completion', async () => {
+  const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
+   .send({ space: { id: spaceId, type: 'work' }, input: 'Provider contract',
+    metadata: { modelId: providerModelId, sessionId: 'provider-contract' } }).expect(201);
+  const runId = response.body.run.id;
+  await request(app.getHttpServer()).post(`/api/runs/${runId}/cancel`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
+  expect(await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).toMatchObject({ status: 'cancelled' });
+  expect(await db.runStep.count({ where: { runId } })).toBe(0);
+  expect(providerContract.requests).toHaveLength(0);
+  await request(app.getHttpServer()).post(`/api/runs/${runId}/retry`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
+
+  const echo = registry.get('echo')!;
+  registry.register({ ...echo, requiresApproval: true });
+  try {
+   worker.start();
+   await waitFor(runId, 'waiting_for_approval');
+   expect(providerContract.requests).toHaveLength(1);
+   const approval = await db.runApproval.findFirstOrThrow({ where: { runId, status: 'pending' } });
+   expect(approval.argsHash).toBeTruthy();
+   expect(approval.policyVersion).toBeTruthy();
+   expect(await db.runStep.count({ where: { runId, kind: 'tool_call', status: 'succeeded' } })).toBe(0);
+   await request(app.getHttpServer()).post(`/api/runs/${runId}/approvals/${approval.id}/decide`)
+    .auth(auth(), { type: 'bearer' }).send({ decision: 'approved', scope: 'session' }).expect(201);
+   await waitFor(runId, 'succeeded');
+   expect(await db.runApproval.findUniqueOrThrow({ where: { id: approval.id } }))
+    .toMatchObject({ status: 'approved', scope: 'session' });
+   const steps = await db.runStep.findMany({ where: { runId }, orderBy: { seq: 'asc' } });
+   expect(steps.map(({ kind, status }) => [kind, status])).toEqual([
+    ['model_call', 'succeeded'], ['approval', 'succeeded'], ['tool_call', 'succeeded'], ['model_call', 'succeeded'],
+   ]);
+   expect(providerContract.requests).toHaveLength(2);
+   expect(providerContract.requests[0]).toMatchObject({ model: providerModelId, stream: true });
+   expect(providerContract.requests[0].tools).toEqual(expect.arrayContaining([
+    expect.objectContaining({ function: expect.objectContaining({ name: 'echo' }) }),
+   ]));
+   const toolMessage = providerContract.requests[1].messages.find(({ role }) => role === 'tool');
+   expect(toolMessage).toMatchObject({ tool_call_id: 'provider-echo' });
+   expect(JSON.parse(toolMessage!.content!)).toEqual({ text: 'provider-round-trip' });
+   expect(steps[3].output).toMatchObject({ text: 'OCEAN_PROVIDER_OK', usage: { inputTokens: 12, outputTokens: 5, totalTokens: 17 } });
+  } finally {
+   worker.stop();
+   registry.register(echo);
+  }
+ }, 30000);
 
 });

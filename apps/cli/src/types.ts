@@ -13,6 +13,10 @@ export interface ToolDefinition<TInput = any, TOutput = any> {
 }
 
 export interface ToolContext {
+  permissionMode?: import('@ocean/core/permission-policy').PermissionMode;
+  getPermissionMode?: () => import('@ocean/core/permission-policy').PermissionMode | undefined;
+  commandPermissionSettings?: { value: import('@ocean/core/permission-policy').PermissionSettings; root: string };
+  permissionSources?: ReadonlySet<'user' | 'project' | 'local'>;
   cwd: string;
   userId: string;
   sessionId: string;

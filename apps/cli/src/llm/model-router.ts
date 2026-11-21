@@ -1,3 +1,5 @@
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { wrapLanguageModel } from 'ai';
 import { chatImageMiddleware } from './chat-image-middleware.js';
@@ -82,10 +84,11 @@ export function createModelRouter(config: CliConfig): ModelRouter {
       }
     };
 
-    const prov = providerMap[selectedProviderStr] || providerMap.deepseek;
+    const prov = providerMap[selectedProviderStr];
+    if (!selectedId || !prov) throw new Error('No supported Ocean model is configured. Set a model or pass --model.');
 
     return {
-      id: selectedId!,
+      id: selectedId,
       provider: selectedProviderStr as ModelProvider,
       baseURL: prov.baseURL,
       apiKey: prov.apiKey,
@@ -96,12 +99,10 @@ export function createModelRouter(config: CliConfig): ModelRouter {
     const resolved = resolveModel(modelId);
     
     if (resolved.provider === 'anthropic') {
-      const { createAnthropic } = require('@ai-sdk/anthropic');
       return createAnthropic({ apiKey: resolved.apiKey })(resolved.id);
     }
     
     if (resolved.provider === 'gemini') {
-      const { createGoogleGenerativeAI } = require('@ai-sdk/google');
       return createGoogleGenerativeAI({ apiKey: resolved.apiKey })(resolved.id);
     }
 

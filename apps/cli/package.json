@@ -7,6 +7,13 @@
     "ocean": "./dist/index.js"
   },
   "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./sdk": {
+      "types": "./dist/sdk.d.ts",
+      "import": "./dist/sdk.js"
+    }
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "prebuild": "pnpm --filter @ocean/core build",
@@ -20,6 +27,8 @@
     "test:faults": "vitest run src/llm/chat.security.spec.ts src/utils/permission-policy.spec.ts src/utils/tool-journal.spec.ts src/utils/session-store.spec.ts src/utils/checkpoints.spec.ts src/tools/local/git.workflow.spec.ts src/mcp/client.spec.ts src/subagents/delegate.spec.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.106",
+    "@ai-sdk/google": "^4.0.122",
     "@ai-sdk/openai": "^4.0.121",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@ocean/contracts": "workspace:*",

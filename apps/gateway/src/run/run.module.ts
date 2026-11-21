@@ -1,3 +1,5 @@
+import { RunScheduleController } from './run-schedule.controller';
+import { RunScheduleService } from './run-schedule.service';
 import { SubagentRunsService } from './subagent-runs.service';
 import { SubagentRunsController } from './subagent-runs.controller';
 import { ApprovalMaintenanceService } from './approval-maintenance.service';
@@ -11,8 +13,8 @@ import { OutboxService } from './outbox.service';
 
 @Module({
   imports: [ToolModule], // ArtifactStore（artifact 读取端点依赖，Phase 4.8）
-  controllers: [SubagentRunsController, RunController, ExternalApprovalController],
-  providers: [SubagentRunsService, RunService, OutboxService, ApprovalMaintenanceService],
-  exports: [SubagentRunsService, RunService, OutboxService],
+  controllers: [RunScheduleController, SubagentRunsController, RunController, ExternalApprovalController],
+  providers: [RunScheduleService, SubagentRunsService, RunService, OutboxService, ApprovalMaintenanceService],
+  exports: [RunScheduleService, SubagentRunsService, RunService, OutboxService],
 })
 export class RunModule {}

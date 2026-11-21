@@ -2,6 +2,9 @@ import {
   Controller,
   Get,
   Post,
+  Param,
+  Query,
+  UnauthorizedException,
   Body,
   Req,
   Res,
@@ -42,6 +45,7 @@ interface StoredChatMessage {
   role: ChatMessage['role'];
   content: string;
   parentId?: string | null;
+  parts?: unknown;
 }
 
 interface ChatRequestContext {
@@ -94,6 +98,35 @@ export class ChatController {
     private readonly userService: UserService,
     private readonly spaceService: SpaceService,
   ) {}
+
+  @Get('sessions/:sessionId/pending-interaction')
+  async getPendingChatInteraction(
+    @Param('sessionId') sessionId: string,
+    @Query('leafId') leafId: string | undefined,
+    @Req() req: ChatRequestContext,
+  ) {
+    const userId = req.user?.dbId;
+    if (!userId) throw new UnauthorizedException();
+    const history = await this.sessionService.getMessages(sessionId, userId);
+    const branch = messagePath(history, leafId || history.at(-1)?.id);
+    return { interaction: await this.chatService.getPendingChatInteraction(sessionId, userId,
+      branch.filter(message => message.role === 'user').slice(-32).map(message => message.id)) };
+  }
+
+  @Get('sessions/:sessionId/usage')
+  async getSessionTokenUsage(
+    @Param('sessionId') sessionId: string,
+    @Query('modelId') modelId: string | undefined,
+    @Query('leafId') leafId: string | undefined,
+    @Req() req: ChatRequestContext,
+  ) {
+    const userId = req.user?.dbId;
+    if (!userId) throw new UnauthorizedException();
+    const history = await this.sessionService.getMessages(sessionId, userId);
+    const branch = messagePath(history, leafId || history.at(-1)?.id);
+    return this.chatService.getSessionTokenUsage(sessionId, userId, modelId,
+      branch.filter(message => message.role === 'user').map(message => message.id));
+  }
 
   /**
    * GET /api/chat/skills
@@ -167,6 +200,10 @@ export class ChatController {
       });
     }
     const body = parsedBody.data;
+    if (body.nonInteractive && !this.chatService.isRunMode()) {
+      throw new BadRequestException('Non-interactive execution requires Gateway Run mode.');
+    }
+
     const requestId = Math.random().toString(36).substring(7);
     const messages = (
       body.messages ||
@@ -261,6 +298,7 @@ export class ChatController {
       execute: async ({ writer }) => {
         if (this.chatService.isRunMode()) {
           let runMessages = messages;
+          let historyForRun: StoredChatMessage[] | undefined;
           let userMessageId: string | undefined;
           const lastUserMessage = Array.isArray(messages)
             ? [...messages].reverse().find((message) => message.role === 'user')
@@ -287,29 +325,43 @@ export class ChatController {
               parts: lastUserMessage.parts,
               attachments: lastUserMessage.experimental_attachments,
             });
+            historyForRun = priorMessages;
             runMessages = [
-              ...priorMessages.map(({ role, content }) => ({ role, content })),
               { role: 'user', content: userContent },
             ];
           }
 
-          const assistantText = await this.chatService.runChatStream(
-            runMessages,
-            ctx,
-            modelId,
-            sessionId,
-            (chunk: UIMessageChunk) => writer.write(chunk),
-            body.reasoningEffort,
-          );
-
-          if (sessionId && userMessageId && assistantText) {
-            await this.sessionService.addMessage(sessionId, {
-              role: 'assistant',
-              content: assistantText,
-              parentId: userMessageId,
-              parts: [{ type: 'text', text: assistantText }],
-            });
+          const abort = body.nonInteractive ? new AbortController() : undefined;
+          const onClose = () => {
+            if (!res.writableEnded) abort?.abort(new Error('Non-interactive client disconnected.'));
+          };
+          if (abort) {
+            res.once('close', onClose);
+            if (res.destroyed) onClose();
           }
+          try {
+            await this.chatService.runChatStream(
+              runMessages,
+              ctx,
+              modelId,
+              sessionId,
+              (chunk: UIMessageChunk) => writer.write(chunk),
+              body.reasoningEffort,
+              historyForRun && userMessageId ? {
+                userMessageId,
+                messages: historyForRun.map(({ id, parentId, role, content, parts }) => ({
+                  id, parentId,
+                  role, text: content.slice(0, 8_000),
+                  runId: Array.isArray(parts) ? parts.find(part => part?.type === 'text')?.completedRunId : undefined,
+                })),
+              } : undefined,
+              body.nonInteractive,
+              abort?.signal,
+            );
+          } finally {
+            if (abort) res.removeListener('close', onClose);
+          }
+
           return;
         }
 
@@ -430,7 +482,7 @@ export class ChatController {
    */
   @Public()
   @Post('audio/transcribe')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 24 * 1024 * 1024 } }))
   async transcribeAudio(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No audio file provided');
@@ -449,11 +501,11 @@ export class ChatController {
 
     try {
       const formData = new FormData();
-      // Whisper requires a filename with an extension. Use .webm as default for web audio chunks
+      const extension = /\.(wav|mp3|m4a|mp4|webm|ogg|flac)$/i.exec(file.originalname)?.[0] ?? '.webm';
       const blob = new Blob([new Uint8Array(file.buffer)], {
         type: file.mimetype || 'audio/webm',
       });
-      formData.append('file', blob, 'audio.webm');
+      formData.append('file', blob, `audio${extension.toLowerCase()}`);
       formData.append('model', 'whisper-1');
 
       const response = await fetch(`${openaiBaseUrl}/audio/transcriptions`, {
@@ -462,6 +514,7 @@ export class ChatController {
           Authorization: `Bearer ${openaiApiKey}`,
         },
         body: formData,
+        signal: AbortSignal.timeout(80_000),
       });
 
       if (!response.ok) {

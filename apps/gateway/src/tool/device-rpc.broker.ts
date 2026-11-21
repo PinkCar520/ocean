@@ -6,7 +6,7 @@ import { workspaceSnapshotSchema, type WorkspaceSnapshot } from '@ocean/contract
 import { TerminalToolError, type ToolContext } from './tool.types';
 
 export const DEVICE_RPC_TOPIC = 'device.rpc';
-type Method = 'notebook_read' | 'notebook_edit' | 'file_read' | 'file_write' | 'file_edit' | 'file_patch';
+type Method = 'notebook_read' | 'notebook_edit' | 'file_read' | 'file_write' | 'file_edit' | 'file_patch' | 'lsp';
 type Payload = { runId: string; toolCallId: string; userId: string; workId: string; sessionId: string; workspaceSnapshot: WorkspaceSnapshot; method: Method; input: Record<string, unknown>; expiresAt: string; result?: unknown };
 
 /** Persist a device request so a Gateway process can deliver it to its connected CLI. */

@@ -98,6 +98,8 @@ describe('ChatController contract boundaries', () => {
       _modelId,
       _sessionId,
       onChunk,
+      _reasoningEffort,
+      _context,
     ) => {
       onChunk({ type: 'start' });
       onChunk({ type: 'text-start', id: 'run-output' });
@@ -157,9 +159,11 @@ describe('ChatController contract boundaries', () => {
     );
 
     expect(chatService.runChatStream.mock.calls[0][0]).toEqual([
-      ...history.map(({ role, content }) => ({ role, content })),
       { role: 'user', content: 'follow-up' },
     ]);
+    expect(chatService.runChatStream.mock.calls[0][6]?.messages).toEqual(
+      history.map(({ id, parentId, role, content }) => ({ id, parentId, role, text: content })),
+    );
     expect(sessionService.addMessage).toHaveBeenNthCalledWith(1, 'session-1', {
       role: 'user',
       content: 'follow-up',
@@ -167,12 +171,7 @@ describe('ChatController contract boundaries', () => {
       parts: [{ type: 'text', text: 'follow-up' }],
       attachments: undefined,
     });
-    expect(sessionService.addMessage).toHaveBeenNthCalledWith(2, 'session-1', {
-      role: 'assistant',
-      content: 'follow-up answer',
-      parentId: 'user-2',
-      parts: [{ type: 'text', text: 'follow-up answer' }],
-    });
+    expect(sessionService.addMessage).toHaveBeenCalledTimes(1);
     const responseBody = Buffer.concat(responseChunks).toString('utf8');
     expect(responseBody).toContain('"type":"text-delta"');
     expect(responseBody).toContain('"delta":"follow-up answer"');

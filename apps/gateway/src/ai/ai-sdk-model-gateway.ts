@@ -1,7 +1,8 @@
 import { createToolAliases } from './tool-aliases';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { streamText } from 'ai';
+import { asSchema, streamText, type FlexibleSchema } from 'ai';
+import { countTextTokens } from '@ocean/core';
 import {
   createChatModel,
   createChatProviderOptions,
@@ -24,6 +25,7 @@ export function toUiMessage(message: ModelMessage) {
       return { role: 'user' as const, content: message.text };
     case 'assistant': {
       const parts: unknown[] = [];
+      if (message.reasoning) parts.push({ type: 'reasoning', text: message.reasoning });
       if (message.text) parts.push({ type: 'text', text: message.text });
       for (const tc of message.toolCalls ?? []) {
         parts.push({
@@ -84,10 +86,12 @@ export class AiSdkModelGateway implements ModelGateway {
       return message;
     });
 
+    const sdkMessages = mappedMessages.map(toUiMessage);
     const options: Record<string, unknown> = {
       model: createChatModel(this.config, modelId),
       abortSignal: req.signal,
-      messages: mappedMessages.map(toUiMessage),
+      maxOutputTokens: req.maxOutputTokens,
+      messages: sdkMessages,
     };
     const providerOptions = createChatProviderOptions(this.config, modelId, req.reasoningEffort);
     if (providerOptions) options.providerOptions = providerOptions;
@@ -113,6 +117,7 @@ export class AiSdkModelGateway implements ModelGateway {
         if (onDelta) await onDelta(delta);
       }
     } catch (error) {
+      if (providerOptions?.deepseek) throw error;
       let reasoning = '';
       try {
         reasoning = (await result.reasoningText) ?? '';
@@ -139,11 +144,31 @@ export class AiSdkModelGateway implements ModelGateway {
       if (!text) throw error;
     }
 
+    const reasoning = providerOptions?.deepseek ? await result.reasoningText : undefined;
     const reported = await result.totalUsage;
     const usage = reported ? Object.fromEntries(Object.entries({
       inputTokens: reported.inputTokens, outputTokens: reported.outputTokens, totalTokens: reported.totalTokens,
       cacheReadTokens: reported.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: reported.inputTokenDetails?.cacheWriteTokens,
     }).filter(([, value]) => Number.isSafeInteger(value) && Number(value) >= 0)) : undefined;
-    return { text, toolCalls, ...(usage ? { usage } : {}) };
+    let contextBreakdown: ModelGenerateResult['contextBreakdown'];
+    if (providerOptions?.deepseek) {
+      try {
+        const definitions = await Promise.all((tools ?? []).map(async (tool) => ({
+          name: aliases.forward.get(tool.name),
+          description: tool.description,
+          parameters: await asSchema(tool.inputSchema as FlexibleSchema<unknown>).jsonSchema,
+        })));
+        contextBreakdown = {
+          systemTokens: 0, // This Run path supplies only user, assistant and tool messages.
+          toolTokens: definitions.length ? countTextTokens(JSON.stringify(definitions)) : 0,
+          messageTokens: countTextTokens(JSON.stringify(sdkMessages, function (key, value) {
+            return key === 'data' && this?.type === 'data' ? undefined : value;
+          })),
+        };
+      } catch {
+        // An unavailable estimate must not affect the completed model call.
+      }
+    }
+    return { text, toolCalls, ...(contextBreakdown && { contextBreakdown }), ...(reasoning ? { reasoning } : {}), ...(usage ? { usage } : {}) };
   }
 }

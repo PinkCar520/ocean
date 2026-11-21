@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { useSidebarPreview } from '../lib/useSidebarPreview';
+import { SidebarToggleIcon } from './chat/SidebarToggleIcon';
 import {
   Plus,
   FolderOpen,
@@ -8,6 +11,9 @@ import {
   Sparkles,
   MoreHorizontal,
   Star,
+  Pin,
+  PinOff,
+  ChevronDown,
   Pencil,
   Trash2,
   Check,
@@ -19,8 +25,6 @@ import {
   ChevronUp,
   History,
   Search,
-  PanelLeft,
-  PanelRight,
   Puzzle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -58,13 +62,15 @@ interface SidebarProps {
   onLoadConversation?: (id: string) => void;
   onRenameConversation?: (id: string, title: string) => void;
   onDeleteConversation?: (id: string) => void;
-  onFavoriteConversation?: (id: string, favorited: boolean) => void;
+  onPinConversation?: (id: string, pinned: boolean) => void;
   user?: any;
   onLogout?: () => void;
   token?: string | null;
 }
 
 
+
+const chatDragType = 'application/x-ocean-conversation';
 
 // ── Single conversation row ──
 function ChatRow({
@@ -73,14 +79,14 @@ function ChatRow({
   onLoad,
   onRename,
   onDelete,
-  onFavorite,
+  onPin,
 }: {
   chat: ConversationSummary;
   isActive: boolean;
   onLoad: () => void;
   onRename: (title: string) => void;
   onDelete: () => void;
-  onFavorite: () => void;
+  onPin: () => void;
 }) {
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
@@ -117,8 +123,8 @@ function ChatRow({
     return (
       <div className="px-2">
         <div className="w-full px-3 py-1.5 rounded-[12px] bg-card ring-2 ring-primary/30 shadow-sm flex items-center gap-2">
-          {chat.favorited && (
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+          {chat.pinned && (
+            <Pin className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
           )}
           <input
             ref={renameRef}
@@ -146,6 +152,11 @@ function ChatRow({
     >
       <button
         onClick={onLoad}
+        draggable={!chat.pinned}
+        onDragStart={event => {
+          event.dataTransfer.setData(chatDragType, chat.id);
+          event.dataTransfer.effectAllowed = 'move';
+        }}
         title={chat.title}
         className={cn(
           'w-full text-left px-2.5 py-1.5 text-[13px] font-medium rounded-[8px] transition-all flex items-center gap-2 min-w-0',
@@ -154,8 +165,8 @@ function ChatRow({
             : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
         )}
       >
-        {chat.favorited && (
-          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+        {chat.pinned && (
+          <Pin className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
         )}
         <span className="truncate flex-1">{chat.title}</span>
       </button>
@@ -178,9 +189,9 @@ function ChatRow({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-44 border-border shadow-[0_5px_10px_rgba(0,0,0,0.01)]">
-              <DropdownMenuItem onClick={onFavorite} className="gap-3 py-1.5 cursor-pointer">
-                <Star className={cn('w-4 h-4 transition-colors', chat.favorited ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground')} />
-                <span>{chat.favorited ? t('sidebar.unfavorite') : t('sidebar.favorite')}</span>
+              <DropdownMenuItem onClick={onPin} className="gap-3 py-1.5 cursor-pointer">
+                {chat.pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                <span>{t(chat.pinned ? 'sidebar.unpin' : 'sidebar.pin')}</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => setIsRenaming(true)} className="gap-3 py-1.5 cursor-pointer">
@@ -477,6 +488,7 @@ export function Sidebar({
   isOpen,
   onClose,
   isCollapsed,
+  isFullscreen = false,
   onToggle,
   activeMainTab,
   onMainTabChange,
@@ -489,7 +501,7 @@ export function Sidebar({
   onLoadConversation,
   onRenameConversation,
   onDeleteConversation,
-  onFavoriteConversation,
+  onPinConversation,
   initialProjects,
   user,
   onLogout,
@@ -499,48 +511,13 @@ export function Sidebar({
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const { projects, fetchProjects: fetchProjectsData } = useProjects(initialProjects);
   const { activeProject, setActiveProjectId } = useWorkspace();
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
+  const sidebarPreview = useSidebarPreview(isDesktop && isCollapsed);
+  const visuallyCollapsed = isCollapsed && !sidebarPreview.open;
 
   useEffect(() => {
     setIsElectron(!!(window as any).electron);
-    let mounted = true;
-    const ipc = (window as any).electron?.ipcRenderer;
-    
-    const checkFullscreen = async () => {
-      if (ipc) {
-        try {
-          const isFull = await ipc.invoke('is-fullscreen');
-          if (mounted) setIsFullscreen(isFull);
-        } catch (e) {
-          // ignore error if handler not ready
-        }
-      } else {
-        // Fallback for web mode
-        setIsFullscreen(window.innerHeight === window.screen.height);
-      }
-    };
-    
-    checkFullscreen();
-
-    if (ipc) {
-      const callback = (_e: any, isFull: boolean) => {
-        if (mounted) setIsFullscreen(isFull);
-      };
-      ipc.on('fullscreen-change', callback);
-      return () => {
-        mounted = false;
-        ipc.removeListener('fullscreen-change', callback);
-      };
-    } else {
-      const handleResize = () => setIsFullscreen(window.innerHeight === window.screen.height);
-      window.addEventListener('resize', handleResize);
-      return () => {
-        mounted = false;
-        window.removeEventListener('resize', handleResize);
-      };
-    }
   }, []);
 
   // 桌面端视口检测（避免 SSR 时读取 window.innerWidth 导致 hydration mismatch）
@@ -572,6 +549,37 @@ export function Sidebar({
   // 移除内部强制排序，严格遵循 App.tsx 传入的原始数组顺序（Index 排序）
   const recentChats = conversations.slice(0, 12);
 
+  const pinnedChats = (conversations as ConversationSummary[]).filter(chat => chat.pinned);
+  const [pinnedExpanded, setPinnedExpanded] = useState(true);
+  const [visiblePinTipKey, setVisiblePinTipKey] = useState<string | null>(null);
+  const tipShownRef = useRef<string | null>(null);
+  const pinTipKey = `ocean-pin-tip:${user?.id ?? user?.workId ?? 'local'}`;
+
+  useEffect(() => {
+    if (!pinnedChats.length || isCollapsed || tipShownRef.current === pinTipKey) return;
+    tipShownRef.current = pinTipKey;
+    try {
+      if (localStorage.getItem(pinTipKey)) return;
+      localStorage.setItem(pinTipKey, '1');
+    } catch {
+      // The ref prevents repeat prompts if storage is unavailable.
+    }
+    setPinnedExpanded(true);
+    setVisiblePinTipKey(pinTipKey);
+  }, [pinnedChats.length, isCollapsed, pinTipKey]);
+
+  const renderChat = (chat: ConversationSummary) => (
+    <ChatRow
+      key={chat.id}
+      chat={chat}
+      isActive={chat.id === currentChatId}
+      onLoad={() => onLoadConversation?.(chat.id)}
+      onRename={title => onRenameConversation?.(chat.id, title)}
+      onDelete={() => onDeleteConversation?.(chat.id)}
+      onPin={() => onPinConversation?.(chat.id, !chat.pinned)}
+    />
+  );
+
   // 按日期分组：Today / Yesterday / Last 7 days / Older
   type GroupKey = 'today' | 'yesterday' | 'last7' | 'older';
   const groupOrder: GroupKey[] = ['today', 'yesterday', 'last7', 'older'];
@@ -589,7 +597,8 @@ export function Sidebar({
       older: [],
     };
 
-    conversations.forEach((chat: any) => {
+    conversations.forEach((chat: ConversationSummary) => {
+      if (chat.pinned) return;
       const updatedAt = new Date(chat.updatedAt).getTime();
       if (updatedAt >= todayStart) groups.today.push(chat);
       else if (updatedAt >= yesterdayStart) groups.yesterday.push(chat);
@@ -628,37 +637,48 @@ export function Sidebar({
         <div className="hidden md:flex fixed top-0 left-[130px] right-0 h-14 z-[9998] titlebar-drag" />
       )}
 
-      {/* Fixed Toggle Button (Desktop Only) */}
+      {/* Keep the fixed toggle above the conversation header when the sidebar is collapsed. */}
       <div
         className={cn(
-          "hidden md:flex fixed z-[9999] titlebar-no-drag transition-all duration-300",
-          isFullscreen ? "left-[20px] top-4" : "left-[90px] top-[4px]"
+          "hidden md:flex fixed z-[10000] titlebar-no-drag transition-all duration-300",
+          !isElectron && "left-3 top-[4px]",
+          isElectron && "top-0 h-14 items-center border-b border-transparent pointer-events-none",
+          isElectron && (isFullscreen ? "left-[20px]" : "left-[90px]"),
         )}
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
-        <button
-          className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer titlebar-no-drag"
-          style={{ WebkitAppRegion: 'no-drag' } as any}
-          onClick={onToggle}
-          title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
-        >
-          {isCollapsed ? (
-            <PanelRight className="w-4 h-4" />
-          ) : (
-            <PanelLeft className="w-4 h-4" />
-          )}
-        </button>
+        <Tooltip disableHoverableContent>
+          <TooltipTrigger asChild>
+            <button
+              className="w-8 h-7 inline-flex items-center justify-center rounded-md hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer titlebar-no-drag pointer-events-auto"
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+              onPointerEnter={sidebarPreview.begin}
+              onPointerLeave={sidebarPreview.leave}
+              onClick={() => {
+                sidebarPreview.reset();
+                onToggle();
+              }}
+              aria-label={t(isCollapsed ? 'sidebar.expandLeft' : 'sidebar.collapseLeft')}
+            >
+              <SidebarToggleIcon side="left" expanded={!visuallyCollapsed} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent variant="inverse" side="bottom" className="z-[10000]">{t(isCollapsed ? 'sidebar.expandLeft' : 'sidebar.collapseLeft')}</TooltipContent>
+        </Tooltip>
       </div>
 
       <aside
+        onPointerEnter={sidebarPreview.keep}
+        onPointerLeave={sidebarPreview.leave}
         className={cn(
           "fixed left-0 top-0 h-screen bg-muted flex flex-col shrink-0 z-50 transition-all duration-300 ease-in-out overflow-hidden border-r border-border/60",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-          isCollapsed ? "md:border-r-0" : ""
+          visuallyCollapsed && "md:border-r-0",
+          sidebarPreview.open && "shadow-xl"
         )}
         style={{
           width: isDesktop
-            ? (isCollapsed ? '0px' : '256px')
+            ? (visuallyCollapsed ? '0px' : '256px')
             : undefined
         }}
       >
@@ -721,12 +741,12 @@ export function Sidebar({
                       <item.icon className="w-4 h-4" />
                       <span className="flex-1 text-left">{item.label}</span>
                     </button>
-                    {item.id === 'projects' && !isCollapsed && (
+                    {item.id === 'projects' && !visuallyCollapsed && (
                       <ProjectQuickAddDropdown onCreated={() => { fetchProjectsData(); onMainTabChange('projects'); }} />
                     )}
                   </div>
                   {/* 渲染项目子列表 */}
-                  {item.id === 'projects' && !isCollapsed && projects.length > 0 && (
+                  {item.id === 'projects' && !visuallyCollapsed && projects.length > 0 && (
                     <div className="mt-1 mb-2 space-y-0.5">
                       {projects.map((proj: any) => (
                         <ProjectRow
@@ -752,7 +772,7 @@ export function Sidebar({
           <div className={cn("border-t border-border/60", isCollapsed ? "mx-3 mt-3" : "mx-3 mt-3")} />
 
           {/* 4. Recent Activity & All Chats */}
-          <div className={cn("flex-1 mt-5 overflow-y-auto no-scrollbar relative", isCollapsed ? "px-2 hidden" : "px-3")}>
+          <div className={cn("flex-1 mt-5 overflow-y-auto no-scrollbar relative", visuallyCollapsed ? "px-2 hidden" : "px-3")}>
             <div className="absolute top-0 left-6 right-6 h-px bg-border -mt-2 opacity-70" />
 
             <button
@@ -765,6 +785,47 @@ export function Sidebar({
               <History className="w-4 h-4" />
               <span>{t('sidebar.all_chats')}</span>
             </button>
+
+            {conversations.length > 0 && (
+              <section
+                className="mb-3 rounded-lg"
+                onDragOver={event => {
+                  if (!event.dataTransfer.types.includes(chatDragType)) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={event => {
+                  if (!event.dataTransfer.types.includes(chatDragType)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const id = event.dataTransfer.getData(chatDragType);
+                  if ((conversations as ConversationSummary[]).some(chat => chat.id === id && !chat.pinned)) {
+                    setPinnedExpanded(true);
+                    onPinConversation?.(id, true);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  aria-expanded={pinnedExpanded}
+                  onClick={() => setPinnedExpanded(expanded => !expanded)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-muted-foreground hover:bg-foreground/5"
+                >
+                  {t('sidebar.pinned')}
+                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', !pinnedExpanded && '-rotate-90')} />
+                </button>
+                {visiblePinTipKey === pinTipKey && pinnedChats.length > 0 && (
+                  <div role="status" className="my-1 flex items-start gap-2 rounded-lg bg-primary/10 px-2.5 py-2 text-xs text-foreground">
+                    <Pin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    <span className="flex-1">{t('sidebar.pinTip')}</span>
+                    <button type="button" aria-label={t('sidebar.dismissPinTip')} onClick={() => setVisiblePinTipKey(null)}>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+                {pinnedExpanded && <div className="space-y-0.5">{pinnedChats.map(renderChat)}</div>}
+              </section>
+            )}
 
             {/* Grouped conversation list */}
             <div className="space-y-3 mt-3">
@@ -780,17 +841,7 @@ export function Sidebar({
                         {groupLabels[groupKey]}
                       </h4>
                       <div className="space-y-0.5">
-                        {chats.map(chat => (
-                          <ChatRow
-                            key={chat.id}
-                            chat={chat}
-                            isActive={chat.id === currentChatId}
-                            onLoad={() => onLoadConversation?.(chat.id)}
-                            onRename={(title) => onRenameConversation?.(chat.id, title)}
-                            onDelete={() => onDeleteConversation?.(chat.id)}
-                            onFavorite={() => onFavoriteConversation?.(chat.id, !chat.favorited)}
-                          />
-                        ))}
+                        {chats.map(renderChat)}
                       </div>
                     </div>
                   );

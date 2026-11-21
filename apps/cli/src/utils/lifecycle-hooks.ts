@@ -1,43 +1,51 @@
+import { permissionHookVerdict, type PermissionHookOutcome } from '@ocean/core/permission-policy';
 import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-export type HookEvent = 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'Stop' | 'ToolUseFailure';
+import { pluginContributions } from '../plugins/registry.js';
+export type HookEvent = 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'Stop' | 'ToolUseFailure' | 'PermissionRequest';
 type HookConfig = Partial<Record<HookEvent, Array<{ matcher?: string; hooks: Array<{ type: 'command' | 'prompt'; command?: string; prompt?: string; timeout?: number }> }>>>;
 
 export class LifecycleHooks {
   constructor(private readonly config: HookConfig, private readonly cwd: string, private readonly options: {
     evaluatePrompt?: (prompt: string, input: Record<string, unknown>, signal: AbortSignal) => Promise<Record<string, unknown>>;
   } = {}) {}
-  /** Only explicitly installed personal configuration is executable; never load repository hooks. */
   static load(cwd: string, home = homedir()): LifecycleHooks {
+    const hooks: HookConfig = {};
+    const merge = (source: HookConfig) => {
+      for (const event of Object.keys(source) as HookEvent[]) hooks[event] = [...(hooks[event] ?? []), ...(source[event] ?? [])];
+    };
+    for (const file of pluginContributions('hooks', home)) {
+      const info = lstatSync(file);
+      if (!info.isFile() || info.size > 256 * 1024 || (info.mode & 0o022)) throw new Error('Unsafe plugin hooks configuration');
+      merge(JSON.parse(readFileSync(file, 'utf8')).hooks ?? {});
+    }
+
     const file = join(home, '.ocean', 'hooks.json');
     try {
       const stats = lstatSync(file);
       if (!stats.isFile() || stats.isSymbolicLink() || stats.size > 256 * 1024 || (stats.mode & 0o022)) throw new Error('Unsafe personal hooks configuration');
       const config = JSON.parse(readFileSync(file, 'utf8'));
-      const hooks: HookConfig = config.hooks ?? {};
+      merge(config.hooks ?? {});
       const projectFile = join(cwd, '.ocean', 'hooks.json');
       try {
         const info = lstatSync(projectFile);
         if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024) throw new Error('Unsafe project hooks');
         const raw = readFileSync(projectFile, 'utf8');
         const digest = createHash('sha256').update(raw).digest('hex');
-        // Personal configuration must authorize this exact workspace and file content.
-        if (config.trustedProjects?.[realpathSync(cwd)] === digest) {
-          const project: HookConfig = JSON.parse(raw).hooks ?? {};
-          for (const event of Object.keys(project) as HookEvent[]) hooks[event] = [...(hooks[event] ?? []), ...(project[event] ?? [])];
-        }
-      } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-      return new LifecycleHooks(hooks, cwd);
+        if (config.trustedProjects?.[realpathSync(cwd)] === digest) merge(JSON.parse(raw).hooks ?? {});
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new LifecycleHooks({}, cwd);
-      throw error;
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
+    return new LifecycleHooks(hooks, cwd);
   }
-  async run(event: HookEvent, input: Record<string, unknown>, signal?: AbortSignal): Promise<{ blocked: boolean; reason: string }> {
+  async run(event: HookEvent, input: Record<string, unknown>, signal?: AbortSignal): Promise<PermissionHookOutcome> {
     signal?.throwIfAborted();
     for (const group of this.config[event] ?? []) {
       if (group.matcher && group.matcher !== '*' && !new RegExp(group.matcher).test(String(input.tool_name ?? ''))) continue;
@@ -61,6 +69,8 @@ export class LifecycleHooks {
             const specific = output.hookSpecificOutput as Record<string, unknown> | undefined;
             if (specific?.hookEventName && specific.hookEventName !== event) throw new Error('Hook event mismatch');
             if (output.decision === 'block' || output.continue === false || ['deny', 'ask'].includes(String(specific?.permissionDecision))) return { blocked: true, reason: String(output.reason ?? output.stopReason ?? specific?.permissionDecisionReason ?? 'Blocked by hook') };
+            const verdict = permissionHookVerdict(event, specific);
+            if (verdict) return verdict;
           } finally { clearTimeout(timer); combined.removeEventListener('abort', abort); }
           continue;
         }
@@ -96,6 +106,8 @@ export class LifecycleHooks {
         if (output.decision === 'block' || output.continue === false || specific?.permissionDecision === 'deny' || specific?.permissionDecision === 'ask') {
           return { blocked: true, reason: output.reason || output.stopReason || specific?.permissionDecisionReason || 'Blocked by hook' };
         }
+        const verdict = permissionHookVerdict(event, specific);
+        if (verdict) return verdict;
       }
     }
     return { blocked: false, reason: '' };

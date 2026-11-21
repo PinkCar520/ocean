@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -49,6 +50,12 @@ export class SessionController {
     return { success: true, data: session };
   }
 
+  @Get(':id/project-choices')
+  async getProjectChoices(@Param('id') id: string, @Req() req: any) {
+    const data = await this.sessionService.getProjectChoices(id, req.user?.dbId);
+    return { success: true, data };
+  }
+
   /**
    * GET /api/sessions/:id/messages
    * 查询会话的完整消息列表（Server-First 刷新恢复的核心接口）
@@ -82,9 +89,15 @@ export class SessionController {
     @Req() req: any,
   ) {
     const userId = req.user?.dbId;
+    if ((body.pinned !== undefined && typeof body.pinned !== 'boolean') ||
+        (body.projectId !== undefined && body.projectId !== null && (typeof body.projectId !== 'string' || !body.projectId.trim()))) {
+      throw new BadRequestException('Invalid session pin or project');
+    }
     const session = await this.sessionService.updateSession(id, userId, {
       title: body.title,
       status: body.status,
+      pinned: body.pinned,
+      projectId: body.projectId,
     });
     return { success: true, data: session };
   }

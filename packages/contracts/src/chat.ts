@@ -35,6 +35,7 @@ export const chatRequestSchema = z
     sessionId: z.string().min(1).nullable().optional(),
     parentId: z.string().min(1).nullable().optional(),
     workspacePath: z.string().min(1).optional(),
+    nonInteractive: z.boolean().optional(),
     skillId: z.string().min(1).optional(),
     skillIds: z.array(z.string().min(1)).optional(),
     activeSkills: z.array(z.string().min(1)).optional(),

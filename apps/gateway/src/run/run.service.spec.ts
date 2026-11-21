@@ -205,6 +205,50 @@ describe('RunService', () => {
     jest.clearAllMocks();
   });
 
+  it('separates branch context from cumulative measured model and summary usage', async () => {
+    prisma.$queryRaw.mockResolvedValueOnce([
+      { modelId: 'deepseek-flash', userMessageId: 'other-branch', summary: false, usage: { inputTokens: 30, outputTokens: 4 } },
+      { modelId: 'deepseek-flash', userMessageId: 'current', summary: false, usage: { inputTokens: 20, outputTokens: 3, cacheReadTokens: 12 } },
+      { modelId: 'deepseek-flash', userMessageId: 'current', summary: true, usage: { inputTokens: 10, outputTokens: 2 } },
+      { modelId: 'deepseek-flash', userMessageId: 'previous', summary: false, usage: null },
+    ]);
+    expect(await service.getSessionTokenUsage('session', 'owner', 'deepseek-flash', ['current', 'previous'])).toEqual({
+      context: { promptTokens: 20, estimatedTokens: 23, contextWindow: 1_000_000 },
+      totals: { inputTokens: 60, outputTokens: 9, cacheReadTokens: 12, cacheTrackedInputTokens: 20, unknownCalls: 1, measuredCalls: 3 },
+    });
+  });
+
+  it('validates inquiry ownership and answers, then resumes exactly once', async () => {
+    const step = { id: 'step', status: 'started', input: {
+      id: 'call', name: 'ask_user', input: { inquiries: [
+        { id: 'q', header: 'Choice', question: 'Which options?', type: 'multi_select', options: ['A', 'B'] },
+      ] },
+    } };
+    const tx = {
+      agentRun: { findFirst: jest.fn().mockResolvedValue({ status: 'waiting_for_input', priority: 'interactive' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      runStep: { findFirst: jest.fn().mockResolvedValue(step),
+        update: jest.fn(async ({ data }) => { step.status = data.status; }) },
+      runEvent: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+    };
+    const outbox = { enqueueRunRequested: jest.fn() };
+    const service = new RunService({ $transaction: async (callback: any) => callback(tx) } as never,
+      outbox as never, {} as never, {} as never, {} as never);
+    const response = { status: 'answered', answers: { 'Which options?': ['B'] } };
+    tx.agentRun.findFirst.mockResolvedValueOnce(null);
+    await expect(service.answerInquiry('run', 'stranger', 'call', response)).rejects.toThrow('Run not found');
+    await expect(service.answerInquiry('run', 'owner', 'call', {
+      status: 'answered', answers: { 'Which options?': ['invalid'] },
+    })).rejects.toThrow('Answers must match');
+    expect(outbox.enqueueRunRequested).not.toHaveBeenCalled();
+    await expect(service.answerInquiry('run', 'owner', 'call', response)).resolves.toEqual({ accepted: true });
+    await expect(service.answerInquiry('run', 'owner', 'call', response)).resolves.toEqual({ accepted: true });
+    expect(tx.runStep.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: 'succeeded', output: response }),
+    }));
+    expect(outbox.enqueueRunRequested).toHaveBeenCalledTimes(1);
+  });
+
   it('persists a queued run and its first validated event', async () => {
     const snapshot = await service.create('user_1', {
       space: { id: 'space_1', type: 'work' },
@@ -621,7 +665,7 @@ describe('RunService retry/resume (Phase 3 尾项：resume/retry 产品 API)', (
     runEvent,
     outboxEvent: { findFirst: jest.fn().mockResolvedValue(null) },
     runApproval: { findUnique: jest.fn(), update: jest.fn() },
-    runStep: { findUnique: jest.fn(), update: jest.fn() },
+    runStep: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn(), update: jest.fn() },
     $transaction: jest.fn(async (operation: (t: any) => unknown) =>
       operation(prisma),
     ),

@@ -121,6 +121,7 @@ export async function runDaemon(options: DaemonOptions) {
         case 'file_read':
         case 'file_write':
         case 'file_edit':
+        case 'lsp':
         case 'file_patch':
           result = await notebookRpc(data.method, data.params || {}, effectiveUserId, data.id);
           uiHint = ['notebook_edit', 'file_write', 'file_edit', 'file_patch'].includes(data.method) ? 'diff' : 'code';

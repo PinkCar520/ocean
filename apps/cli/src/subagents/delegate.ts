@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { pluginContributions } from '../plugins/registry.js';
 import type { SessionStore, StoredSession } from '../utils/session-store.js';
 import { z } from 'zod';
 import { readdirSync, readFileSync, lstatSync } from 'node:fs';
@@ -11,24 +12,25 @@ const READ_ONLY = new Set(['file_read', 'grep', 'glob']);
 
 export function loadSubagents(workspace: string, home = homedir()): SubagentDefinition[] {
   const definitions = new Map<string, SubagentDefinition>();
-  for (const root of [home, workspace]) {
-    for (const relative of ['.claude/agents', '.ocean/agents']) {
-      const dir = join(root, relative);
-      let entries;
-      try { if (!lstatSync(dir).isDirectory() || lstatSync(dir).isSymbolicLink()) continue; entries = readdirSync(dir, { withFileTypes: true }); }
-      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
-      for (const entry of entries) {
-        if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-        const file = join(dir, entry.name);
-        if (lstatSync(file).size > 64 * 1024) continue;
-        const match = readFileSync(file, 'utf8').replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-        if (!match) continue;
-        const fields = Object.fromEntries(match[1].split('\n').map((line) => line.match(/^([\w-]+):\s*(.*?)\s*$/)).filter(Boolean).map((line) => [line![1], line![2].replace(/^["']|["']$/g, '')]));
-        if (!/^[\w-]{1,64}$/.test(fields.name ?? '') || !fields.description) continue;
-        const maxSteps = Number(fields.maxTurns ?? 8);
-        if (!Number.isSafeInteger(maxSteps) || maxSteps < 1 || maxSteps > 16) continue;
-        definitions.set(fields.name, { name: fields.name, description: fields.description, prompt: match[2], tools: (fields.tools ?? 'file_read,grep,glob').split(/[, ]+/).filter(Boolean), maxSteps });
-      }
+  const paths = [
+    ...pluginContributions('agents', home),
+    ...[home, workspace].flatMap((root) => ['.claude/agents', '.ocean/agents'].map((relative) => join(root, relative))),
+  ];
+  for (const dir of paths) {
+    let entries;
+    try { if (!lstatSync(dir).isDirectory() || lstatSync(dir).isSymbolicLink()) continue; entries = readdirSync(dir, { withFileTypes: true }); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const file = join(dir, entry.name);
+      if (lstatSync(file).size > 64 * 1024) continue;
+      const match = readFileSync(file, 'utf8').replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+      if (!match) continue;
+      const fields = Object.fromEntries(match[1].split('\n').map((line) => line.match(/^([\w-]+):\s*(.*?)\s*$/)).filter(Boolean).map((line) => [line![1], line![2].replace(/^["']|["']$/g, '')]));
+      if (!/^[\w-]{1,64}$/.test(fields.name ?? '') || !fields.description) continue;
+      const maxSteps = Number(fields.maxTurns ?? 8);
+      if (!Number.isSafeInteger(maxSteps) || maxSteps < 1 || maxSteps > 16) continue;
+      definitions.set(fields.name, { name: fields.name, description: fields.description, prompt: match[2], tools: (fields.tools ?? 'file_read,grep,glob').split(/[, ]+/).filter(Boolean), maxSteps });
     }
   }
   return [...definitions.values()];

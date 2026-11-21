@@ -12,6 +12,7 @@ import type { z } from 'zod';
 export interface ToolContext {
   runId: string;
   userId: string;
+  spaceId?: string;
   toolCallId?: string;
 }
 
@@ -29,6 +30,8 @@ export interface Tool {
    * 先创建 pending 审批并将 Run 置 waiting_for_approval；审批通过后才执行。
    */
   requiresApproval?: boolean;
+  permissionServer?: (input: Record<string, unknown>) => string | undefined;
+  permissionName?: (input: Record<string, unknown>) => string;
   /** Trusted execution metadata; unknown writes default to non-idempotent. */
   effect?: 'read' | 'idempotent-write' | 'non-idempotent-write';
   /** 执行工具。ctx 提供 Run 上下文（Phase 4 第 8 项起，工具可据此写产物等）。 */

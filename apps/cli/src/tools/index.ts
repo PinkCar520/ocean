@@ -4,6 +4,7 @@ import { GitTool } from './local/git.js';
 import * as path from 'node:path';
 import { createCheckpointTool } from './checkpoint.js';
 import { jsonSchema } from 'ai';
+import { z } from 'zod';
 import type { McpClientManager } from '../mcp/client.js';
 import { createBashTool, createFileReadTool, createFileWriteTool, createFileEditTool, createFilePatchTool, createGrepTool, createGlobTool } from './core-tools.js';
 import type { LoadedSkill, ToolContext } from '../types.js';
@@ -14,6 +15,9 @@ import { createPowerShellTool } from './powershell.js';
 import { PermissionPolicy, defaultSessionPermissionGrants } from '../utils/permission-policy.js';
 import { NotebookSnapshots } from '../utils/notebook-snapshots.js';
 import { createNotebookEditTool } from './notebook-edit.js';
+import { createLspTool } from './lsp.js';
+import { createMemoryTool } from './memory.js';
+import { createWebTools } from './web.js';
 
 /**
  * Get all available tools for the AI
@@ -34,11 +38,14 @@ export function getTools(context: ToolContext, skills: LoadedSkill[] = [], planS
     file_edit: createFileEditTool(),
     file_patch: createFilePatchTool(),
     notebook_edit: createNotebookEditTool(notebookSnapshots),
+    lsp: createLspTool(),
+    project_memory: createMemoryTool(),
     grep: createGrepTool(),
     glob: createGlobTool(),
     local_git: createGitAgentTool(context.cwd, planStorage),
     task_plan: taskPlan,
   };
+  for (const tool of createWebTools()) tools[tool.name] = tool;
   if (skills.length > 0) tools.activate_skill = createSkillActivationTool(skills);
   return tools;
 }
@@ -53,6 +60,9 @@ export async function toAgentToolSet(
   const localToolSet = getTools(context, skills, planStorage);
   const permissionPolicy = new PermissionPolicy(context.cwd, undefined, {
     grants: defaultSessionPermissionGrants,
+    mode: context.getPermissionMode ?? context.permissionMode,
+    settings: context.commandPermissionSettings,
+    sources: context.permissionSources,
     sessionId: () => context.getSessionId?.() ?? context.sessionId,
   });
   const executionContext = async () => {
@@ -101,6 +111,50 @@ export async function toAgentToolSet(
 
   if (!mcpManager) return tools;
 
+  const resourceServers = mcpManager.listResourceServers?.() ?? [];
+  if (resourceServers.length > 0) {
+    const server = z.string().min(1).max(64).refine((id) => resourceServers.includes(id), 'Unknown MCP resource server');
+    const resourceTools = {
+      mcp_list_resources: {
+        description: `List resources from a connected MCP server. Resource servers: ${resourceServers.join(', ')}`,
+        schema: z.object({ server, cursor: z.string().max(4096).optional() }),
+      },
+      mcp_read_resource: {
+        description: 'Read a resource URI exposed by a connected MCP server.',
+        schema: z.object({ server, uri: z.string().min(1).max(4096) }),
+      },
+    };
+    for (const [name, resource] of Object.entries(resourceTools)) {
+      const check = (input: { server: string }) => permissionPolicy.evaluate(name, input, input.server);
+      const blocked = async (input: { server: string }) => {
+        if (await taskPlan.isPlanMode()) return 'Plan mode is active. MCP resources require an authorized execution session.';
+        return check(input) === 'deny' ? `Permission denied for MCP server ${input.server}.` : undefined;
+      };
+      tools[name] = {
+        description: resource.description,
+        inputSchema: resource.schema,
+        requiresApproval: (input: { server: string }) => check(input) === 'ask',
+        beforeApproval: blocked,
+        execute: async (raw: unknown, options: { abortSignal?: AbortSignal }) => {
+          const parsed = resource.schema.safeParse(raw);
+          if (!parsed.success) return { error: 'Invalid MCP resource arguments.' };
+          const denial = await blocked(parsed.data);
+          if (denial) return { error: denial };
+          try {
+            const value = name === 'mcp_read_resource'
+              ? await mcpManager.readResource(parsed.data.server, (parsed.data as { uri: string }).uri, options?.abortSignal)
+              : await mcpManager.listResources(parsed.data.server, (parsed.data as { cursor?: string }).cursor, options?.abortSignal);
+            const serialized = JSON.stringify(value);
+            return serialized.length <= 80_000 ? value : { truncated: true, preview: serialized.slice(0, 80_000) };
+          } catch (error) {
+            options?.abortSignal?.throwIfAborted();
+            return { error: error instanceof Error ? error.message : String(error) };
+          }
+        },
+      };
+    }
+  }
+
   const mcpDefinitions = await mcpManager.getAllTools();
   for (const definition of mcpDefinitions) {
     tools[definition.name] = {
@@ -145,7 +199,8 @@ export async function toAgentToolSet(
 }
 
 function isAllowedDuringPlan(name: string, input: any): boolean {
-  if (['file_read', 'grep', 'glob', 'activate_skill'].includes(name)) return true;
+  if (['file_read', 'grep', 'glob', 'activate_skill', 'lsp'].includes(name)) return true;
+  if (name === 'project_memory') return input?.action === 'list';
   if (name !== 'local_git') return false;
   return ['status', 'log', 'diff', 'branch', 'worktree_list'].includes(input?.action);
 }

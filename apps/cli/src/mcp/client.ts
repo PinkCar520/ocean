@@ -93,12 +93,12 @@ export class McpClientManager {
             })),
           }));
         }
-        console.log(`[MCP] Loaded config from: ${p}`);
+        console.error(`[MCP] Loaded config from: ${p}`);
         return;
       }
     }
 
-    console.log('[MCP] No config file found, using defaults');
+    console.error('[MCP] No config file found, using defaults');
     this.config = { mcpServers: [] };
   }
 
@@ -114,7 +114,7 @@ export class McpClientManager {
     const servers = this.config!.mcpServers.filter((server) => server.enabled === true);
     const disabledCount = this.config!.mcpServers.length - servers.length;
     if (disabledCount > 0) {
-      console.log(`[MCP] Skipped ${disabledCount} server(s) without explicit enabled: true trust.`);
+      console.error(`[MCP] Skipped ${disabledCount} server(s) without explicit enabled: true trust.`);
     }
 
     for (const server of servers) {
@@ -165,7 +165,7 @@ export class McpClientManager {
     }
     this.diagnostics.set(server.id, { serverId: server.id, state: 'connected' });
     const tools = await client.listTools({}, { timeout: 10_000 });
-    console.log(`[MCP] Connected to ${server.name}: ${tools.tools.length} tools`);
+    console.error(`[MCP] Connected to ${server.name}: ${tools.tools.length} tools`);
   }
 
   /**
@@ -226,6 +226,29 @@ export class McpClientManager {
     } catch (error) {
       throw new Error(`MCP execution outcome unknown; do not automatically retry ${toolName}: remote connection failed`);
     }
+  }
+
+  listResourceServers(): string[] {
+    return [...this.clients.entries()]
+      .filter(([, client]) => client.getServerCapabilities()?.resources)
+      .map(([id]) => id);
+  }
+
+  async listResources(serverId: string, cursor?: string, signal?: AbortSignal) {
+    const client = this.resourceClient(serverId);
+    return client.listResources(cursor ? { cursor } : {}, { signal, timeout: 10_000 });
+  }
+
+  async readResource(serverId: string, uri: string, signal?: AbortSignal) {
+    return this.resourceClient(serverId).readResource({ uri }, { signal, timeout: 10_000 });
+  }
+
+  private resourceClient(serverId: string): Client {
+    const client = this.clients.get(serverId);
+    if (!client?.getServerCapabilities()?.resources) {
+      throw new Error(`MCP server does not expose resources: ${serverId}`);
+    }
+    return client;
   }
 
   /**

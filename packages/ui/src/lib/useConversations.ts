@@ -21,7 +21,8 @@ export interface ConversationSummary {
   messageCount: number;
   updatedAt: string;
   createdAt: string;
-  favorited?: boolean;
+  pinned?: boolean;
+  projectId?: string | null;
 }
 
 interface UseConversationsArgs {
@@ -100,7 +101,7 @@ export function useConversations({
 
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, isServerBootstrapped]);
+  }, [token, isServerBootstrapped, spaceId]);
 
   const justCreatedSessionIdRef = useRef<string | null>(null);
   const hasConsumedServerMessagesRef = useRef(
@@ -110,14 +111,20 @@ export function useConversations({
   // ── 刷新会话列表 ──────────────────────────────────────────────
   const refreshConversations = useCallback(async () => {
     try {
-      const data = await api.get<any>('/api/sessions');
+      const scope = spaceId ?? 'work';
+      const data = await api.get<{ success: boolean; data: ConversationSummary[] }>(
+        `/api/sessions?spaceId=${encodeURIComponent(scope)}`,
+      );
       if (data.success && Array.isArray(data.data)) {
-        setConversations(data.data);
+        setConversations(previous => [
+          ...data.data,
+          ...previous.filter(chat => (chat.spaceId === 'code' ? 'work' : chat.spaceId ?? 'work') !== scope),
+        ]);
       }
     } catch (err) {
       console.error('[useConversations] Failed to refresh conversations:', err);
     }
-  }, []);
+  }, [spaceId]);
 
   // ── 路由变化：拉取当前会话消息（刷新恢复的关键）────────────────
   useEffect(() => {
@@ -223,7 +230,7 @@ export function useConversations({
   /**
    * 重命名会话（PATCH，乐观更新）
    */
-  const handleRenameChat = useCallback(async (id: string, newTitle: string) => {
+  const handleRenameChat = useCallback(async (id: string, newTitle: string, reportFailure = false) => {
     // 乐观更新
     setConversations(prev => prev.map(c => c.id === id ? { ...c, title: newTitle } : c));
     try {
@@ -232,8 +239,24 @@ export function useConversations({
     } catch (err) {
       console.error('[useConversations] Rename failed, refreshing:', err);
       await refreshConversations();
+      if (reportFailure) throw err;
     }
   }, [refreshConversations, sessionActions]);
+
+  const updateConversationMetadata = useCallback(async (
+    id: string,
+    metadata: Pick<ConversationSummary, 'pinned' | 'projectId'>,
+  ) => {
+    await api.patch(`/api/sessions/${encodeURIComponent(id)}`, metadata);
+    setConversations(previous => previous.map(chat => chat.id === id ? { ...chat, ...metadata } : chat));
+  }, []);
+
+  const deleteConversation = useCallback(async (id: string) => {
+    if (sessionActions) await sessionActions.delete(id);
+    else await api.delete(`/api/sessions/${encodeURIComponent(id)}`);
+    setConversations(previous => previous.filter(chat => chat.id !== id));
+    if (sessionId === id) navigate(homePath);
+  }, [homePath, navigate, sessionActions, sessionId]);
 
   /**
    * 删除会话（DELETE，乐观更新）
@@ -287,6 +310,8 @@ export function useConversations({
     handleNewChat,
     loadConversation,
     handleRenameChat,
+    updateConversationMetadata,
+    deleteConversation,
     handleDeleteConversations,
     onStreamFinished,
     refreshConversations,

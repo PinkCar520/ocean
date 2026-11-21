@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => {
   preload: {},
   renderer: {
     root: resolve('src/renderer'),
+    define: { __OCEAN_WEB_URL__: JSON.stringify(env.VITE_OCEAN_WEB_URL || 'http://localhost:8081') },
     build: {
       rollupOptions: {
         input: resolve('src/renderer/index.html')

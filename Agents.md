@@ -99,3 +99,16 @@ These execution requirements apply to implementation tasks.
 For explicitly read-only audits, research, debugging investigations, or planning requests, do not modify files. Deliver the requested evidence-based findings instead.
 
 **The goal is verified progress, not maximum tool activity or minimum reasoning at the expense of correctness.**
+
+## Ocean 产品设计开发规范
+
+涉及产品行为、UI、交互或前端实现时，修改代码前先阅读
+[Ocean 产品设计开发规范约定](docs/product-design-development-standards.md)
+中与任务相关的章节。
+
+沿用规范中的术语、权限语义、组件尺寸、字号、设计 token 和交互时序。
+优先复用 `packages/ui` 的现有组件。任务明确要求调整某条约定时，
+按任务执行，并在交付中说明差异。
+
+按受影响的端、窗口模式和用户状态执行验收。
+分别报告类型检查、实际界面验证和仍待验证的场景。

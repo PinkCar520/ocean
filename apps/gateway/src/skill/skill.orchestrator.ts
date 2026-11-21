@@ -446,9 +446,10 @@ export class SkillOrchestrator {
             m.name.toLowerCase().includes('coder'),
         )?.id || models[0].id;
 
+      const providerOptions = this.modelRegistry.getProviderOptions(fastModelId);
       const { text } = await generateText({
         model: this.modelRegistry.getModel(fastModelId),
-        providerOptions: this.modelRegistry.getProviderOptions(fastModelId),
+        providerOptions,
         system: `You are a Ghost-Text generator for a professional AI workspace.
 Your ONLY goal is to continue or refine the user's input text to make it a better prompt.
 
@@ -464,7 +465,7 @@ EXAMPLES:
 - User: "ocean是什么项目？" -> Completion: "，请从技术架构和法律AI产品的定位进行深度解析。"
 - User: "写一段代码" -> Completion: "实现一个基于 React 的高度自适应文本框。"`,
         messages: [{ role: 'user', content: prefix }],
-        temperature: 0.1,
+        ...(providerOptions?.deepseek?.thinking?.type === 'enabled' ? {} : { temperature: 0.1 }),
       });
 
       return text.trim();

@@ -1,3 +1,4 @@
+import { RUN_INQUIRY_TOOL, runInquiryResponseSchema, runInquirySchema } from './run-inquiry';
 import {
   BadRequestException,
   ForbiddenException,
@@ -49,6 +50,16 @@ export class RunService {
     private readonly metrics: MetricsService,
   ) {}
 
+  async list(userId: string, spaceId?: string, priority?: CreateRunRequest['priority']): Promise<AgentRun[]> {
+    if (spaceId) await this.spaceService.requireAccessibleSpace(userId, spaceId);
+    const runs = await this.prisma.agentRun.findMany({
+      where: { userId, spaceId, priority },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 100,
+    });
+    return runs.map((run) => this.toContract(run));
+  }
+
   async create(
     userId: string,
     request: CreateRunRequest,
@@ -72,52 +83,60 @@ export class RunService {
       request.space.id,
     );
 
-    return this.prisma.$transaction(async (transaction) => {
-      const run = await transaction.agentRun.create({
-        data: {
-          userId,
-          spaceId: spaceRef.id,
-          spaceType: spaceRef.type,
-          input: request.input,
-          status: 'queued',
-          priority: request.priority ?? 'interactive',
-          idempotencyKey: request.idempotencyKey,
-          metadata: request.metadata as Prisma.InputJsonValue | undefined,
-        },
-      });
-      const event = runEventSchema.parse({
-        id: crypto.randomUUID(),
-        runId: run.id,
-        sequence: 0,
-        occurredAt: run.createdAt.toISOString(),
-        type: 'run.created',
+    return this.prisma.$transaction(tx => this.createInTransaction(tx, userId, request, spaceRef));
+  }
+
+  /** The caller has resolved Space access and owns the enclosing transaction. */
+  async createInTransaction(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+    request: CreateRunRequest,
+    spaceRef: { id: string; type: string },
+  ): Promise<RunSnapshot> {
+    const run = await transaction.agentRun.create({
+      data: {
+        userId,
+        spaceId: spaceRef.id,
+        spaceType: spaceRef.type,
+        input: request.input,
         status: 'queued',
-      });
-      await transaction.runEvent.create({
-        data: {
-          id: event.id,
-          runId: run.id,
-          sequence: event.sequence,
-          type: event.type,
-          payload: event as Prisma.InputJsonValue,
-          occurredAt: new Date(event.occurredAt),
-        },
-      });
-      this.metrics.inc('run.created', { spaceId: run.spaceId });
-      this.metrics.inc('run.created', { spaceId: run.spaceId });
-      await this.outbox.enqueueRunRequested(
-        transaction,
-        {
-          version: 1,
-          runId: run.id,
-          userId,
-        },
-        priorityRankOf(run.priority),
-      );
-      return runSnapshotSchema.parse({
-        run: this.toContract(run),
-        events: [event],
-      });
+        priority: request.priority ?? 'interactive',
+        idempotencyKey: request.idempotencyKey,
+        metadata: request.metadata as Prisma.InputJsonValue | undefined,
+      },
+    });
+    const event = runEventSchema.parse({
+      id: crypto.randomUUID(),
+      runId: run.id,
+      sequence: 0,
+      occurredAt: run.createdAt.toISOString(),
+      type: 'run.created',
+      status: 'queued',
+    });
+    await transaction.runEvent.create({
+      data: {
+        id: event.id,
+        runId: run.id,
+        sequence: event.sequence,
+        type: event.type,
+        payload: event as Prisma.InputJsonValue,
+        occurredAt: new Date(event.occurredAt),
+      },
+    });
+    this.metrics.inc('run.created', { spaceId: run.spaceId });
+    this.metrics.inc('run.created', { spaceId: run.spaceId });
+    await this.outbox.enqueueRunRequested(
+      transaction,
+      {
+        version: 1,
+        runId: run.id,
+        userId,
+      },
+      priorityRankOf(run.priority),
+    );
+    return runSnapshotSchema.parse({
+      run: this.toContract(run),
+      events: [event],
     });
   }
 
@@ -153,6 +172,87 @@ export class RunService {
     return this.requeueRun(id, userId, RESUMABLE_STATUSES, 'resume');
   }
 
+  async getPendingChatInteraction(sessionId: string, userId: string, userMessageIds: string[]) {
+    if (!userMessageIds.length) return null;
+    const run = await this.prisma.agentRun.findFirst({
+      where: {
+        userId, parentRunId: null, status: { in: ['waiting_for_approval', 'waiting_for_input'] },
+        AND: [
+          { metadata: { path: ['sessionId'], equals: sessionId } },
+          { OR: userMessageIds.map(id => ({ metadata: { path: ['chatUserMessageId'], equals: id } })) },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, status: true },
+    });
+    if (!run) return null;
+    if (run.status === 'waiting_for_input') {
+      const step = await this.prisma.runStep.findFirst({
+        where: { runId: run.id, kind: 'tool_call', status: 'started', checkpoint: { path: ['inquiry'], equals: true } },
+        select: { input: true },
+      });
+      const call = toolCallSchema.safeParse(step?.input);
+      if (!call.success || call.data.name !== RUN_INQUIRY_TOOL) return null;
+      const inquiry = runInquirySchema.safeParse(call.data.input);
+      return inquiry.success ? {
+        kind: 'inquiry', data: { runId: run.id, toolCallId: call.data.id, ...inquiry.data },
+      } : null;
+    }
+    const approval = await this.prisma.runApproval.findFirst({
+      where: { runId: run.id, userId, status: 'pending', OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      orderBy: { createdAt: 'desc' }, select: { id: true, toolName: true, args: true },
+    });
+    return approval ? { kind: 'approval', data: { runId: run.id, ...approval } } : null;
+  }
+
+  async answerInquiry(runId: string, userId: string, toolCallId: string, body: unknown) {
+    const response = runInquiryResponseSchema.safeParse(body);
+    if (!response.success) throw new BadRequestException('Invalid inquiry response');
+    return this.prisma.$transaction(async tx => {
+      const run = await tx.agentRun.findFirst({ where: { id: runId, userId } });
+      if (!run) throw new NotFoundException('Run not found');
+      const step = await tx.runStep.findFirst({
+        where: { runId, kind: 'tool_call', checkpoint: { path: ['inquiry'], equals: true },
+          input: { path: ['id'], equals: toolCallId } },
+      });
+      const call = toolCallSchema.safeParse(step?.input);
+      if (!step || !call.success || call.data.name !== RUN_INQUIRY_TOOL) throw new NotFoundException('Inquiry not found');
+      if (step.status === 'succeeded') return { accepted: true };
+      if (run.status !== 'waiting_for_input' || step.status !== 'started') {
+        throw new BadRequestException('Inquiry is no longer pending');
+      }
+      const inquiry = runInquirySchema.parse(call.data.input);
+      if (response.data.status === 'answered') {
+        const answers = response.data.answers;
+        if (Object.keys(answers).length !== inquiry.inquiries.length ||
+            inquiry.inquiries.some(question => {
+              const answer = answers[question.question];
+              return !Object.hasOwn(answers, question.question) || typeof answer !== 'string' && (!Array.isArray(answer) || question.type !== 'multi_select' ||
+                answer.some(option => !question.options?.includes(option)) || new Set(answer).size !== answer.length);
+            })) throw new BadRequestException('Answers must match the pending questions');
+      }
+      const transitioned = await tx.agentRun.updateMany({
+        where: { id: runId, userId, status: 'waiting_for_input' }, data: { status: 'queued' },
+      });
+      if (!transitioned.count) {
+        const current = await tx.runStep.findUnique({ where: { id: step.id } });
+        if (current?.status === 'succeeded') return { accepted: true };
+        throw new BadRequestException('Inquiry is no longer pending');
+      }
+      await tx.runStep.update({ where: { id: step.id }, data: {
+        status: 'succeeded', output: response.data as Prisma.InputJsonValue, completedAt: new Date(),
+      } });
+      const event = runEventSchema.parse({
+        id: crypto.randomUUID(), runId, sequence: await this.nextRunSequence(tx, runId),
+        occurredAt: new Date().toISOString(), type: 'run.status_changed', status: 'queued',
+      });
+      await tx.runEvent.create({ data: { id: event.id, runId, sequence: event.sequence,
+        type: event.type, payload: event as Prisma.InputJsonValue, occurredAt: new Date(event.occurredAt) } });
+      await this.outbox.enqueueRunRequested(tx, { version: 1, runId, userId }, priorityRankOf(run.priority));
+      return { accepted: true };
+    });
+  }
+
   private async requeueRun(
     id: string,
     userId: string,
@@ -168,6 +268,12 @@ export class RunService {
     }
 
     return this.prisma.$transaction(async (transaction) => {
+      if (snapshot.run.status === 'waiting_for_input') {
+        const inquiry = await transaction.runStep.findFirst({
+          where: { runId: id, kind: 'tool_call', status: 'started', checkpoint: { path: ['inquiry'], equals: true } },
+        });
+        if (inquiry) throw new BadRequestException('Answer or dismiss the pending inquiry before resuming.');
+      }
       const run = await transaction.agentRun.update({
         where: { id },
         data: { status: 'queued' },
@@ -382,6 +488,60 @@ export class RunService {
     return events.map((event) => runEventSchema.parse(event.payload));
   }
 
+  async getSessionTokenUsage(sessionId: string, userId: string, modelId: string | undefined, branchUserIds: string[]) {
+    const records = await this.prisma.$queryRaw<Array<{
+      modelId: string | null; userMessageId: string | null; summary: boolean; usage: Prisma.JsonValue; breakdown?: Prisma.JsonValue;
+    }>>`
+      WITH runs AS (
+        SELECT id, metadata, "createdAt" FROM agent_runs
+        WHERE "userId" = ${userId} AND metadata->>'sessionId' = ${sessionId}
+      ), calls AS (
+        SELECT r.metadata->>'modelId' AS "modelId", r.metadata->>'chatUserMessageId' AS "userMessageId",
+          false AS summary, s.output->'usage' AS usage, s.output->'contextBreakdown' AS breakdown, COALESCE(s."completedAt", s."startedAt") AS at, s.id
+        FROM runs r JOIN run_steps s ON s."runId" = r.id
+        WHERE s.kind = 'model_call' AND s.status IN ('succeeded', 'failed', 'interrupted')
+        UNION ALL
+        SELECT metadata->>'modelId', metadata->>'chatUserMessageId', true,
+          metadata->'chatCompaction'->'usage', NULL::jsonb, "createdAt", id
+        FROM runs WHERE metadata->'chatCompaction' ? 'usage'
+      )
+      SELECT "modelId", "userMessageId", summary, usage, breakdown FROM calls ORDER BY at DESC, id DESC
+    `;
+    const branch = new Set(branchUserIds);
+    const totals = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheTrackedInputTokens: 0, unknownCalls: 0, measuredCalls: 0 };
+    let context: { promptTokens: number; estimatedTokens: number; contextWindow: number | null; breakdown?: { systemTokens: number; toolTokens: number; messageTokens: number } } | null = null;
+    let foundCurrentCall = false;
+    const valid = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+    for (const record of records) {
+      const usage = record.usage && typeof record.usage === 'object' && !Array.isArray(record.usage) ? record.usage : {};
+      const { inputTokens, outputTokens, cacheReadTokens } = usage;
+      if (valid(inputTokens)) totals.inputTokens += inputTokens;
+      if (valid(outputTokens)) totals.outputTokens += outputTokens;
+      if (valid(inputTokens) && valid(cacheReadTokens) && cacheReadTokens <= inputTokens) {
+        totals.cacheReadTokens += cacheReadTokens;
+        totals.cacheTrackedInputTokens += inputTokens;
+      }
+      if (valid(inputTokens) && valid(outputTokens)) totals.measuredCalls++;
+      else totals.unknownCalls++;
+      if (!foundCurrentCall && !record.summary && modelId && record.modelId === modelId &&
+          record.userMessageId && branch.has(record.userMessageId)) {
+        foundCurrentCall = true;
+        if (valid(inputTokens)) {
+          const contextWindow = ['deepseek-flash', 'deepseek-v4-flash', 'deepseek-v4-pro'].includes(modelId) ? 1_000_000 : null;
+          context = { promptTokens: inputTokens, estimatedTokens: inputTokens + (valid(outputTokens) ? outputTokens : 0), contextWindow };
+          const breakdown = record.breakdown;
+          if (breakdown && typeof breakdown === 'object' && !Array.isArray(breakdown)) {
+            const { systemTokens, toolTokens, messageTokens } = breakdown;
+            if (valid(systemTokens) && valid(toolTokens) && valid(messageTokens)) {
+              context.breakdown = { systemTokens, toolTokens, messageTokens };
+            }
+          }
+        }
+      }
+    }
+    return { context, totals };
+  }
+
   /** 步骤详情（RunStep 落库后供前端/CLI 展示与恢复定位）。 */
   async listSteps(id: string, userId: string): Promise<unknown[]> {
     const run = await this.prisma.agentRun.findUnique({
@@ -392,9 +552,15 @@ export class RunService {
     if (run.userId !== userId)
       throw new ForbiddenException(`Run ${id} does not belong to current user`);
 
-    return this.prisma.runStep.findMany({
+    const steps = await this.prisma.runStep.findMany({
       where: { runId: id },
       orderBy: { seq: 'asc' },
+    });
+    return steps.map((step) => {
+      const output = step.output;
+      if (step.kind !== 'model_call' || !output || typeof output !== 'object' || Array.isArray(output)) return step;
+      const { reasoning: _reasoning, ...publicOutput } = output;
+      return { ...step, output: publicOutput };
     });
   }
 

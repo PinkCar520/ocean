@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
@@ -9,6 +9,18 @@ import { DeviceRpcDispatcher } from '../chat/device-rpc.dispatcher';
 const integration = process.env.OCEAN_DEVICE_RPC_PG_TEST === '1' ? describe : describe.skip;
 integration('device RPC against PostgreSQL', () => {
   const schema = `ocean_verify_${randomBytes(8).toString('hex')}`;
+  const rootId = randomUUID();
+  const workspaceSnapshot = {
+    schemaVersion: 1,
+    workspaceId: randomUUID(),
+    workspaceRevision: 1,
+    name: 'Device RPC integration',
+    hostId: randomUUID(),
+    platform: 'darwin',
+    roots: [{ id: rootId, label: 'Root', path: '/workspace', role: 'primary', access: 'read_write' }],
+    cwd: { rootId, relativePath: '.' },
+    worktree: { enabled: false },
+  };
   let admin: Pool;
   let pool: Pool;
   let prisma: PrismaClient;
@@ -21,7 +33,7 @@ integration('device RPC against PostgreSQL', () => {
     await admin.query(`CREATE SCHEMA "${schema}"`);
     await admin.query(`
       CREATE TABLE "${schema}"."users" ("id" TEXT PRIMARY KEY, "workId" TEXT NOT NULL UNIQUE);
-      CREATE TABLE "${schema}"."sessions" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "spaceId" TEXT NOT NULL);
+      CREATE TABLE "${schema}"."sessions" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "spaceId" TEXT NOT NULL, "workspaceSnapshot" JSONB);
       CREATE TABLE "${schema}"."agent_runs" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "spaceId" TEXT NOT NULL, "status" TEXT NOT NULL, "metadata" JSONB);
       CREATE TABLE "${schema}"."outbox_events" (
         "id" TEXT PRIMARY KEY, "topic" TEXT NOT NULL, "aggregateType" TEXT NOT NULL, "aggregateId" TEXT NOT NULL,
@@ -30,9 +42,12 @@ integration('device RPC against PostgreSQL', () => {
         "attempts" INTEGER NOT NULL DEFAULT 0, "lastError" TEXT, "processedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       INSERT INTO "${schema}"."users" VALUES ('u', 'alice');
-      INSERT INTO "${schema}"."sessions" VALUES ('s', 'u', 'work');
       INSERT INTO "${schema}"."agent_runs" VALUES ('r', 'u', 'work', 'running', '{"sessionId":"s"}');
     `);
+    await admin.query(
+      `INSERT INTO "${schema}"."sessions" ("id", "userId", "spaceId", "workspaceSnapshot") VALUES ('s', 'u', 'work', $1)`,
+      [JSON.stringify(workspaceSnapshot)],
+    );
     pool = new Pool({ connectionString: url.toString() });
     prisma = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
   }, 15_000);
@@ -48,7 +63,7 @@ integration('device RPC against PostgreSQL', () => {
 
   it('atomically dispatches one persisted request across competing gateways and reuses the result', async () => {
     const broker = new DeviceRpcBroker(prisma);
-    const rpc = { getOnlineUsers: () => ['alice'], sendToCli: jest.fn().mockResolvedValue({ kind: 'notebook', parts: [{ type: 'text', text: 'cell' }] }) };
+    const rpc = { getOnlineHosts: () => [workspaceSnapshot.hostId], sendToHost: jest.fn().mockResolvedValue({ kind: 'notebook', parts: [{ type: 'text', text: 'cell' }] }) };
     const first = new DeviceRpcDispatcher(prisma, rpc as never);
     const second = new DeviceRpcDispatcher(prisma, rpc as never);
     const context = { runId: 'r', userId: 'u', toolCallId: 'call' };
@@ -60,8 +75,11 @@ integration('device RPC against PostgreSQL', () => {
     }
     await Promise.all([first.poll(), second.poll()]);
     expect(await request).toMatchObject({ kind: 'notebook' });
-    expect(rpc.sendToCli).toHaveBeenCalledTimes(1);
+    expect(rpc.sendToHost).toHaveBeenCalledTimes(1);
+    expect(rpc.sendToHost).toHaveBeenCalledWith(workspaceSnapshot.hostId, 'notebook_read', {
+      path: 'note.ipynb', sessionId: 's', workspaceSnapshot,
+    });
     expect(await broker.request('notebook_read', { path: 'note.ipynb' }, context)).toMatchObject({ kind: 'notebook' });
-    expect(rpc.sendToCli).toHaveBeenCalledTimes(1);
+    expect(rpc.sendToHost).toHaveBeenCalledTimes(1);
   }, 15_000);
 });

@@ -13,7 +13,7 @@ describe('ToolRuntime (Agent Runtime 拆分)', () => {
         searchBugs: jest.fn(),
         resolveBug: jest.fn(),
       },
-      rpcGateway: { sendToCli: jest.fn() },
+      rpcGateway: { sendWorkspaceTool: jest.fn(), sendToCli: jest.fn() },
       ragService: { searchSimilarity: jest.fn().mockResolvedValue([]) },
       tracingService: {
         traceCall: jest.fn(
@@ -108,16 +108,16 @@ describe('ToolRuntime (Agent Runtime 拆分)', () => {
     const withoutSession = await runtime.buildTools({ userId: 'u1', source: 'web', userMessage: 'read notebook' });
     await expect(withoutSession.local_notebook_read.execute({ path: 'n.ipynb' })).resolves.toMatchObject({ error: expect.stringContaining('session') });
     await expect(withoutSession.local_notebook_edit.execute({ path: 'n.ipynb' })).resolves.toMatchObject({ error: expect.stringContaining('session') });
-    expect(deps.rpcGateway.sendToCli).not.toHaveBeenCalled();
+    expect(deps.rpcGateway.sendWorkspaceTool).not.toHaveBeenCalled();
 
     const withSession = await runtime.buildTools({ userId: 'u1', source: 'web', userMessage: 'read notebook' }, 'sess_1');
     const notebook = { kind: 'notebook', parts: [{ type: 'text', text: 'source' }, { type: 'image', mediaType: 'image/png', base64: 'aGVsbG8=' }] };
-    deps.rpcGateway.sendToCli.mockResolvedValueOnce(notebook);
+    deps.rpcGateway.sendWorkspaceTool.mockResolvedValueOnce(notebook);
     const read = await withSession.local_notebook_read.execute({ path: 'n.ipynb' });
-    expect(deps.rpcGateway.sendToCli).toHaveBeenCalledWith('u1', 'notebook_read', { path: 'n.ipynb', sessionId: 'sess_1' });
+    expect(deps.rpcGateway.sendWorkspaceTool).toHaveBeenCalledWith('u1', 'sess_1', 'notebook_read', { path: 'n.ipynb' });
     expect(withSession.local_notebook_read.toModelOutput({ output: read })).toMatchObject({ type: 'content', value: [{ type: 'text', text: 'source' }, { type: 'file', mediaType: 'image/png', data: { type: 'data', data: 'aGVsbG8=' } }] });
     await withSession.local_notebook_edit.execute({ path: 'n.ipynb', cell_id: 'c1', mode: 'replace', new_source: 'x' });
-    expect(deps.rpcGateway.sendToCli).toHaveBeenCalledWith('u1', 'notebook_edit', { path: 'n.ipynb', cell_id: 'c1', mode: 'replace', new_source: 'x', sessionId: 'sess_1' });
+    expect(deps.rpcGateway.sendWorkspaceTool).toHaveBeenCalledWith('u1', 'sess_1', 'notebook_edit', { path: 'n.ipynb', cell_id: 'c1', mode: 'replace', new_source: 'x' });
     expect(deps.policyEvaluator.shouldWrap).toHaveBeenCalledWith('local_notebook_edit', false);
   });
 

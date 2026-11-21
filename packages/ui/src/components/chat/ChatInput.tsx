@@ -1,8 +1,9 @@
+import { TokenUsageIndicators, type SessionTokenUsage } from './TokenUsageIndicators';
 import type { ReasoningEffort } from '@ocean/contracts';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Plus, FileText, X as CloseIcon, Search,
-  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, FolderPlus, Folder, Laptop, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines
+  ChevronDown, Paperclip, ArrowUp, Square, Globe, Database, Check, Sparkles, FolderPlus, Folder, Laptop, Wand2, Plug, BookOpen, Wrench, Briefcase, Archive, Settings2, Bug, Puzzle, Mic, AudioLines, LoaderCircle
 } from 'lucide-react';
 import { Command } from 'cmdk';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -77,6 +78,7 @@ interface ChatInputProps {
   onMainTabChange?: (id: string) => void;
   /** 权限模式初值（SSR 读 cookie，避免刷新丢状态/闪烁） */
   initialPermissionMode?: string;
+  tokenUsage?: SessionTokenUsage | null;
   workspacePath?: string;
   workspacePaths?: string[];
   onWorkspacePathChange?: (
@@ -118,6 +120,7 @@ export const ChatInput = React.memo(({
   isEmpty = false,
   onMainTabChange,
   initialPermissionMode = 'acceptEdits',
+  tokenUsage,
   workspacePath,
   workspacePaths = [],
   onWorkspacePathChange,
@@ -150,7 +153,6 @@ export const ChatInput = React.memo(({
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [isWorkspacePickerOpen]);
 
-  const preRecordTextRef = React.useRef(localInput);
 
   const [isPermissionOpen, setIsPermissionOpen] = useState(false);
   const [permissionMode, setPermissionMode] = useState<string>(initialPermissionMode);
@@ -174,22 +176,13 @@ export const ChatInput = React.memo(({
       globalToast(t('approval_center.save_failed'));
     }
   };
-  const { isRecording, isSupported, audioVolumes, toggle, stop } = useVoiceInput({
-    onResult: (text, isFinal) => {
-      const prefix = preRecordTextRef.current ? preRecordTextRef.current + ' ' : '';
-      setLocalInput(prefix + text);
-      if (isFinal) {
-        preRecordTextRef.current = prefix + text;
-      }
-    }
+  const { isRecording, isTranscribing, isSupported, audioVolumes, toggle, stop, cancel } = useVoiceInput({
+    onResult: (text) => {
+      setLocalInput(localInput ? `${localInput} ${text}` : text);
+    },
+    onError: () => globalToast(t('chat.voice_transcription_failed', 'Voice input could not be transcribed.')),
   });
 
-  const handleVoiceToggle = () => {
-    if (!isRecording) {
-      preRecordTextRef.current = localInput;
-    }
-    toggle();
-  };
 
   const { projects, fetchProjects } = useProjects();
   const { installedSkills } = useInstalledSkills();
@@ -636,19 +629,14 @@ export const ChatInput = React.memo(({
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-4">
                   <button
-                    onClick={() => {
-                      stop();
-                      setLocalInput(preRecordTextRef.current);
-                    }}
+                    onClick={cancel}
                     className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-red-500 transition-colors"
                     title="取消"
                   >
                     <CloseIcon className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => {
-                      stop();
-                    }}
+                    onClick={stop}
                     className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
                     title="完成"
                   >
@@ -656,6 +644,16 @@ export const ChatInput = React.memo(({
                   </button>
                 </div>
               </motion.div>
+            ) : isTranscribing ? (
+              <div className="flex w-full items-center justify-between px-2 text-sm text-muted-foreground" role="status">
+                <span className="flex items-center gap-2">
+                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  {t('chat.voice_transcribing', 'Transcribing voice…')}
+                </span>
+                <button type="button" onClick={cancel} aria-label={t('chat.voice_cancel', 'Cancel voice input')} className="rounded-full p-2 hover:bg-muted">
+                  <CloseIcon className="size-4" />
+                </button>
+              </div>
             ) : (
               <>
             <div className="flex items-center gap-0.5 sm:gap-1.5">
@@ -866,7 +864,7 @@ export const ChatInput = React.memo(({
                     alert(t('chat.voice_unsupported'));
                     return;
                   }
-                  handleVoiceToggle();
+                  toggle();
                 }}
                 className={cn(
                   "w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-300 relative text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -945,6 +943,7 @@ export const ChatInput = React.memo(({
             )}
           </div>
         </div>
+        {tokenUsage !== undefined && <TokenUsageIndicators usage={tokenUsage} t={t} />}
       </div>
 
       <ProjectCreateModal

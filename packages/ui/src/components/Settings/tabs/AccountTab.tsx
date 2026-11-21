@@ -126,7 +126,7 @@ export function AccountTab({ onSignOut }: { onSignOut: () => void | Promise<void
                               <TooltipTrigger asChild>
                                 <span tabIndex={0} className="min-w-0 truncate font-medium">{label}</span>
                               </TooltipTrigger>
-                              <TooltipContent className="z-[110] max-w-[min(24rem,90vw)] break-words bg-black text-white shadow-md">
+                              <TooltipContent variant="inverse" className="z-[110] max-w-[min(24rem,90vw)] break-words">
                                 {label}
                               </TooltipContent>
                             </Tooltip>

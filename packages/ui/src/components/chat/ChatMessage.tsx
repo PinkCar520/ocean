@@ -4,8 +4,7 @@ import {
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { ChatMarkdown } from './ChatMarkdown';
 import { cn } from '../../lib/utils';
 import { 
   parseReasoningToSteps, 
@@ -16,7 +15,6 @@ import { ThinkingList } from '../ThinkingList';
 import { ToolAccordion } from './ToolAccordion';
 import { CapsuleAnchor } from '../CapsuleAnchor';
 import { TypingCursor } from './ChatHelpers';
-import { MarkdownComponents } from './MarkdownConfig';
 import { ToolInvocationRenderer } from './ToolInvocationRenderer';
 import { 
   Tooltip, 
@@ -120,10 +118,9 @@ export const ChatMessage = React.memo(({
     ? { initial: false, animate: { opacity: 1 } }
     : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
-  const memoizedComponents = React.useMemo(() => MarkdownComponents(onExtract) as any, [onExtract]);
 
   return (
-      <motion.div {...messageAnimation} key={m.id || idx} className={cn("flex flex-col group", isUser ? "items-end" : "items-start w-full")}>
+      <motion.div {...messageAnimation} data-conversation-turn={isUser ? idx : undefined} key={m.id || idx} className={cn("flex flex-col group group/message", isUser ? "items-end" : "items-start w-full")}>
         <div className={cn("flex w-full gap-4", isUser ? "justify-end" : "justify-start")}>
           {isStreaming && !hasReplyText && (
             <div aria-hidden="true" className="w-8 h-8 flex items-center justify-center text-primary shrink-0 mt-1">
@@ -277,9 +274,7 @@ export const ChatMessage = React.memo(({
                                 ? "prose prose-slate prose-sm [&>p]:my-0 leading-snug text-[14px] font-medium" 
                                 : "prose prose-slate prose-sm [&>p:first-child]:mt-0 [&>p:first-child]:mb-1"
                             )}>
-                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={memoizedComponents}>
-                                {part.text}
-                              </ReactMarkdown>
+                              <ChatMarkdown text={part.text} onExtract={onExtract} />
                             </div>
                           );
                         }
@@ -350,7 +345,7 @@ export const ChatMessage = React.memo(({
                   </div>
                 )}
                 <div data-conversation-text>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={memoizedComponents}>{m.content}</ReactMarkdown>
+                  <ChatMarkdown text={m.content} onExtract={onExtract} />
                 </div>
                 {isStreaming && <TypingCursor />}
                 {isStreaming && !m.reasoning && (
@@ -365,20 +360,26 @@ export const ChatMessage = React.memo(({
       </div>
       <div className={cn(
         "flex items-center gap-3 mt-2 transition-opacity duration-300 w-full",
-        isUser ? "px-5 flex-row-reverse" : "px-12 flex-row",
-        (isAssistant && isLoading && isLast) ? "opacity-0 pointer-events-none" : "opacity-100"
+        isUser ? "px-5 flex-row-reverse" : "pr-12 flex-row",
+        isAssistant && isLoading && isLast && "invisible",
+        !isLast && "pointer-events-none opacity-0 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100"
       )}>
-        {/* Date/Time */}
-        {m.createdAt && (
-          <span className={cn(
-            "text-[10px] text-muted-foreground/40 font-mono tracking-tighter shrink-0",
-            isUser ? "ml-1" : "mr-1"
-          )}>
+        {isUser && m.createdAt && (
+          <span className="ml-1 shrink-0 font-mono text-[10px] tracking-tighter text-muted-foreground/40">
             {formatDateTime(m.createdAt)}
           </span>
         )}
 
         <div className="flex items-center gap-1 transition-opacity">
+          {isAssistant && (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button onClick={() => copyToClipboard(m)} className="-ml-1.5 p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Regenerate (Assistant) */}
           {isAssistant && (
             <Tooltip delayDuration={0}>
@@ -416,6 +417,11 @@ export const ChatMessage = React.memo(({
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{t('common.bad_response', 'Bad response')}</TooltipContent>
               </Tooltip>
+              {m.createdAt && (
+                <span className="invisible ml-1 shrink-0 font-mono text-[10px] tracking-tighter text-muted-foreground/40 group-hover/message:visible">
+                  {formatDateTime(m.createdAt)}
+                </span>
+              )}
             </div>
           )}
 
@@ -457,23 +463,11 @@ export const ChatMessage = React.memo(({
             </Tooltip>
           )}
         </div>
-        {/* Copy (Assistant, far right) */}
-        {isAssistant && (
-          <div className="flex items-center gap-1 ml-auto">
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button onClick={() => copyToClipboard(m)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors" aria-label={t('common.copy')}>{copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}</button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-[10px] px-2 py-1 bg-[#4A443F] border-none text-white shadow-none">{copiedId === m.id ? t('common.copied') : t('common.copy')}</TooltipContent>
-            </Tooltip>
-
-            {isStopped && isLast && (
-              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 ml-2">
-                <Square className="w-2.5 h-2.5 fill-current" />
-                {t('chat.stopped', '已停止')}
-              </span>
-            )}
-          </div>
+        {isAssistant && isStopped && isLast && (
+          <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 ml-auto">
+            <Square className="w-2.5 h-2.5 fill-current" />
+            {t('chat.stopped', '已停止')}
+          </span>
         )}
       </div>
     </motion.div>

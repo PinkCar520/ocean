@@ -127,6 +127,39 @@ describe('ChatService.runChatStream (Run 驱动聊天转译)', () => {
     ]);
   });
 
+  it('streams a pending file approval and clears it when the Run resumes', async () => {
+    const run = runServiceMock() as any;
+    const service = new ChatService(configOf('true'), run);
+    const chunks: unknown[] = [];
+    const pending = service.runChatStream([{ role: 'user', content: 'edit' }],
+      { userId: 'u1' }, 'model-x', 'session', chunk => chunks.push(chunk));
+    const runId = 'run_1';
+    const toolCall = { id: 'patch', name: 'local_file_patch', input: { path: 'demo.tsx' } };
+    const events = [
+      { type: 'run.output_delta', delta: 'Found file' },
+      { type: 'tool.requested', toolCall },
+      { type: 'run.status_changed', status: 'waiting_for_approval' },
+      { type: 'approval.requested', approval: { id: 'approval', toolCallId: 'patch', status: 'pending' } },
+      { type: 'run.status_changed', status: 'queued' },
+      { type: 'run.output_delta', delta: 'Edited' },
+      { type: 'run.status_changed', status: 'succeeded' },
+    ];
+    run._eventsByRun.get(runId).push(...events.map((event, index) => ({ ...event, sequence: index + 1 })));
+    await expect(pending).resolves.toBe('Found fileEdited');
+    expect(chunks).toEqual([
+      { type: 'start' },
+      { type: 'text-start', id: 'run-output' },
+      { type: 'text-delta', id: 'run-output', delta: 'Found file' },
+      { type: 'text-end', id: 'run-output' },
+      { type: 'data-run-approval', transient: true, data: { id: 'approval', runId, toolName: toolCall.name, args: toolCall.input } },
+      { type: 'data-run-approval', transient: true, data: null },
+      { type: 'text-start', id: 'run-output' },
+      { type: 'text-delta', id: 'run-output', delta: 'Edited' },
+      { type: 'text-end', id: 'run-output' },
+      { type: 'finish', finishReason: 'stop' },
+    ]);
+  });
+
   it('ctx.spaceId 透传：Run 归属当前 Space（Phase 6 6b）', async () => {
     const run = runServiceMock() as any;
     const service = new ChatService(configOf('true'), run);

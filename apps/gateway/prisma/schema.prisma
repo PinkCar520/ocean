@@ -25,6 +25,7 @@ model User {
   preferences        UserPreference?
   credentials        UserCredential[]
   sessions           Session[]
+  receivedChatShares ConversationShare[]
   workspaces         Workspace[]
   workspaceHosts     WorkspaceHost[]
   skillInstallations SkillInstallation[]
@@ -33,6 +34,7 @@ model User {
   skills             Skill[]
   skillVersions      SkillVersion[]
   agentRuns          AgentRun[]
+  runSchedules       RunSchedule[]
   runApprovals       RunApproval[]
   memberships        Membership[]
   identities         Identity[]
@@ -73,6 +75,7 @@ model Space {
   workProjects       WorkProject[]
   workTasks          WorkTask[]
   agentRuns          AgentRun[]
+  runSchedules       RunSchedule[]
   grantsFrom         ContextGrant[]      @relation("GrantFrom")
   grantsTo           ContextGrant[]      @relation("GrantTo")
   auditLogs          AuditLog[]
@@ -174,6 +177,26 @@ model AgentRun {
   @@index([userId, status])
   @@index([spaceId, createdAt])
   @@map("agent_runs")
+}
+
+model RunSchedule {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId     String
+  space       Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  prompt      String    @db.Text
+  cron        String
+  recurring   Boolean   @default(true)
+  active      Boolean   @default(true)
+  nextRunAt   DateTime?
+  lastRunId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([active, nextRunAt])
+  @@index([userId, createdAt])
+  @@map("run_schedules")
 }
 
 // RunStep：Run 的步骤化执行记录（模型调用/工具调用/审批/产物），
@@ -411,7 +434,14 @@ model Session {
   workspaceId String?
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  favorited Boolean @default(false)
+  pinned    Boolean @default(false)
+  projectId String?
+  project KnowledgeProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   messages         Message[]
+  shares           ConversationShare[]
+  publicShare      PublicConversationShare?
   tasks            Task[] // 编排任务列表
 
   expiresAt DateTime?
@@ -420,7 +450,35 @@ model Session {
 
   @@index([spaceId])
   @@index([workspaceId])
+  @@index([projectId])
   @@map("sessions")
+}
+
+model ConversationShare {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  title       String
+  messages    Json
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+
+  @@unique([sessionId, recipientId])
+  @@index([recipientId])
+  @@map("conversation_shares")
+}
+
+model PublicConversationShare {
+  id        String   @id @default(uuid())
+  sessionId String   @unique
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  title     String
+  messages  Json
+  createdAt DateTime @default(now())
+
+  @@map("public_conversation_shares")
 }
 
 // 编排任务（Orchestration Task）
@@ -504,6 +562,7 @@ model KnowledgeProject {
   color       String?
 
   documents Document[]
+  sessions Session[]
 
   userId   String? @map("userId")
   isPublic Boolean @default(true) @map("isPublic")

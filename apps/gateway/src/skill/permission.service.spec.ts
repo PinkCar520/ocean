@@ -222,7 +222,7 @@ describe('Permission Logic (Claude Code Style)', () => {
       fs.writeFileSync(filePath, JSON.stringify(value));
     }
 
-    it('merges user/project/local settings by source priority and keeps deny global', () => {
+    it('uses source priority for mode and checks deny and ask across sources', () => {
       const workspace = path.join(root, 'workspace');
       save(path.join(process.env.HOME!, '.ocean', 'settings.json'), {
         mode: 'bypassPermissions', allow: ['local_git'],
@@ -242,7 +242,7 @@ describe('Permission Logic (Claude Code Style)', () => {
       expect(service.getMode(workspace)).toBe('acceptEdits');
       expect(service.evaluateTool('local_file_edit', workspace)).toBe('ask');
       expect(service.evaluateTool('local_bash', workspace, { command: 'pwd' })).toBe('ask');
-      expect(service.evaluateTool('local_plan', workspace)).toBe('allow');
+      expect(service.evaluateTool('local_plan', workspace)).toBe('ask');
       expect(service.evaluateTool('local_git', workspace, { action: 'status' })).toBe('deny');
     });
 

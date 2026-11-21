@@ -31,6 +31,13 @@ async function oceanServerFetch(path: string) {
   });
 }
 
+export async function getSharedOriginalSession(shareId: string): Promise<string | null> {
+  const response = await oceanServerFetch(`/api/conversation-shares/${encodeURIComponent(shareId)}/original`);
+  if (!response.ok) return null;
+  const { data } = await response.json() as { data: string | null };
+  return data;
+}
+
 export const getOceanServerUser = cache(async (): Promise<Record<string, unknown> | null> => {
   const cookieStore = await cookies();
   if (!cookieStore.has('ocean_session')) return null;

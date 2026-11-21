@@ -1,0 +1,2222 @@
+{
+  "baseline": "Claude Code 2.1.88 restored source",
+  "sourceRoot": "restored-src/src",
+  "sourceFiles": 1902,
+  "status": "Source inventory. A listed module, command or tool is an audit item, not evidence of a completed capability.",
+  "taskPlan": "delivery-plan.md",
+  "knownGaps": "manifest.json",
+  "modules": [
+    {
+      "path": "QueryEngine.ts",
+      "task": "04",
+      "files": 1
+    },
+    {
+      "path": "Task.ts",
+      "task": "07",
+      "files": 1
+    },
+    {
+      "path": "Tool.ts",
+      "task": "04",
+      "files": 1
+    },
+    {
+      "path": "assistant",
+      "task": "07",
+      "files": 1
+    },
+    {
+      "path": "bootstrap",
+      "task": "02",
+      "files": 1
+    },
+    {
+      "path": "bridge",
+      "task": "07",
+      "files": 31
+    },
+    {
+      "path": "buddy",
+      "task": "08",
+      "files": 6
+    },
+    {
+      "path": "cli",
+      "task": "03",
+      "files": 19
+    },
+    {
+      "path": "commands",
+      "task": "08",
+      "files": 207
+    },
+    {
+      "path": "commands.ts",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "components",
+      "task": "08",
+      "files": 389
+    },
+    {
+      "path": "constants",
+      "task": "08",
+      "files": 21
+    },
+    {
+      "path": "context",
+      "task": "05",
+      "files": 9
+    },
+    {
+      "path": "context.ts",
+      "task": "05",
+      "files": 1
+    },
+    {
+      "path": "coordinator",
+      "task": "07",
+      "files": 1
+    },
+    {
+      "path": "cost-tracker.ts",
+      "task": "05",
+      "files": 1
+    },
+    {
+      "path": "costHook.ts",
+      "task": "05",
+      "files": 1
+    },
+    {
+      "path": "dialogLaunchers.tsx",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "entrypoints",
+      "task": "03",
+      "files": 8
+    },
+    {
+      "path": "history.ts",
+      "task": "05",
+      "files": 1
+    },
+    {
+      "path": "hooks",
+      "task": "06",
+      "files": 104
+    },
+    {
+      "path": "ink",
+      "task": "08",
+      "files": 96
+    },
+    {
+      "path": "ink.ts",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "interactiveHelpers.tsx",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "keybindings",
+      "task": "08",
+      "files": 14
+    },
+    {
+      "path": "main.tsx",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "memdir",
+      "task": "05",
+      "files": 8
+    },
+    {
+      "path": "migrations",
+      "task": "05",
+      "files": 11
+    },
+    {
+      "path": "moreright",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "native-ts",
+      "task": "04",
+      "files": 4
+    },
+    {
+      "path": "outputStyles",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "plugins",
+      "task": "06",
+      "files": 2
+    },
+    {
+      "path": "projectOnboardingState.ts",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "query",
+      "task": "04",
+      "files": 4
+    },
+    {
+      "path": "query.ts",
+      "task": "04",
+      "files": 1
+    },
+    {
+      "path": "remote",
+      "task": "07",
+      "files": 4
+    },
+    {
+      "path": "replLauncher.tsx",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "schemas",
+      "task": "02",
+      "files": 1
+    },
+    {
+      "path": "screens",
+      "task": "08",
+      "files": 3
+    },
+    {
+      "path": "server",
+      "task": "07",
+      "files": 3
+    },
+    {
+      "path": "services/AgentSummary",
+      "task": "07",
+      "files": 1
+    },
+    {
+      "path": "services/MagicDocs",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "services/PromptSuggestion",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "services/SessionMemory",
+      "task": "05",
+      "files": 3
+    },
+    {
+      "path": "services/analytics",
+      "task": "09",
+      "files": 9
+    },
+    {
+      "path": "services/api",
+      "task": "04",
+      "files": 20
+    },
+    {
+      "path": "services/autoDream",
+      "task": "05",
+      "files": 4
+    },
+    {
+      "path": "services/awaySummary.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/claudeAiLimits.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/claudeAiLimitsHook.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/compact",
+      "task": "05",
+      "files": 11
+    },
+    {
+      "path": "services/diagnosticTracking.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/extractMemories",
+      "task": "05",
+      "files": 2
+    },
+    {
+      "path": "services/internalLogging.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/lsp",
+      "task": "04",
+      "files": 7
+    },
+    {
+      "path": "services/mcp",
+      "task": "06",
+      "files": 23
+    },
+    {
+      "path": "services/mcpServerApproval.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/mockRateLimits.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/notifier.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/oauth",
+      "task": "06",
+      "files": 5
+    },
+    {
+      "path": "services/plugins",
+      "task": "06",
+      "files": 3
+    },
+    {
+      "path": "services/policyLimits",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "services/preventSleep.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/rateLimitMessages.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/rateLimitMocking.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/remoteManagedSettings",
+      "task": "06",
+      "files": 5
+    },
+    {
+      "path": "services/settingsSync",
+      "task": "06",
+      "files": 2
+    },
+    {
+      "path": "services/teamMemorySync",
+      "task": "05",
+      "files": 5
+    },
+    {
+      "path": "services/tips",
+      "task": "09",
+      "files": 3
+    },
+    {
+      "path": "services/tokenEstimation.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/toolUseSummary",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/tools",
+      "task": "04",
+      "files": 4
+    },
+    {
+      "path": "services/vcr.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "services/voice.ts",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "services/voiceKeyterms.ts",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "services/voiceStreamSTT.ts",
+      "task": "08",
+      "files": 1
+    },
+    {
+      "path": "setup.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "skills",
+      "task": "06",
+      "files": 20
+    },
+    {
+      "path": "state",
+      "task": "05",
+      "files": 6
+    },
+    {
+      "path": "tasks",
+      "task": "07",
+      "files": 12
+    },
+    {
+      "path": "tasks.ts",
+      "task": "07",
+      "files": 1
+    },
+    {
+      "path": "tools",
+      "task": "04",
+      "files": 184
+    },
+    {
+      "path": "tools.ts",
+      "task": "04",
+      "files": 1
+    },
+    {
+      "path": "types",
+      "task": "09",
+      "files": 11
+    },
+    {
+      "path": "upstreamproxy",
+      "task": "03",
+      "files": 2
+    },
+    {
+      "path": "utils/CircularBuffer.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/Cursor.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/QueryGuard.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/Shell.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ShellCommand.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/abortController.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/activityManager.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/advisor.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/agentContext.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/agentId.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/agentSwarmsEnabled.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/agenticSessionSearch.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/analyzeContext.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ansiToPng.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ansiToSvg.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/api.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/apiPreconnect.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/appleTerminalBackup.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/argumentSubstitution.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/array.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/asciicast.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/attachments.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/attribution.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/auth.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/authFileDescriptor.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/authPortable.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/autoModeDenials.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/autoRunIssue.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/autoUpdater.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/aws.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/awsAuthStatusManager.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/background",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/backgroundHousekeeping.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/bash",
+      "task": "09",
+      "files": 23
+    },
+    {
+      "path": "utils/betas.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/billing.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/binaryCheck.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/browser.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/bufferedWriter.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/bundledMode.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/caCerts.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/caCertsConfig.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cachePaths.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/classifierApprovals.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/classifierApprovalsHook.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/claudeCodeHints.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/claudeDesktop.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/claudeInChrome",
+      "task": "09",
+      "files": 7
+    },
+    {
+      "path": "utils/claudemd.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cleanup.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cleanupRegistry.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cliArgs.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cliHighlight.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/codeIndexing.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/collapseBackgroundBashNotifications.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/collapseHookSummaries.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/collapseReadSearch.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/collapseTeammateShutdowns.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/combinedAbortSignal.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/commandLifecycle.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/commitAttribution.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/completionCache.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/computerUse",
+      "task": "09",
+      "files": 15
+    },
+    {
+      "path": "utils/concurrentSessions.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/config.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/configConstants.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/contentArray.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/context.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/contextAnalysis.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/contextSuggestions.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/controlMessageCompat.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/conversationRecovery.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cron.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cronJitterConfig.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cronScheduler.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cronTasks.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cronTasksLock.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/crossProjectResume.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/crypto.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/cwd.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/debug.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/debugFilter.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/deepLink",
+      "task": "09",
+      "files": 6
+    },
+    {
+      "path": "utils/desktopDeepLink.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/detectRepository.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/diagLogs.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/diff.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/directMemberMessage.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/displayTags.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/doctorContextWarnings.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/doctorDiagnostic.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/dxt",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/earlyInput.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/editor.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/effort.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/embeddedTools.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/env.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/envDynamic.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/envUtils.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/envValidation.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/errorLogSink.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/errors.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/exampleCommands.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/execFileNoThrow.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/execFileNoThrowPortable.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/execSyncWrapper.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/exportRenderer.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/extraUsage.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fastMode.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/file.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fileHistory.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fileOperationAnalytics.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/filePersistence",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/fileRead.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fileReadCache.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fileStateCache.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/findExecutable.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fingerprint.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/forkedAgent.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/format.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/formatBriefTimestamp.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fpsTracker.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/frontmatterParser.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fsOperations.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/fullscreen.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/generatedFiles.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/generators.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/genericProcessUtils.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/getWorktreePaths.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/getWorktreePathsPortable.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ghPrStatus.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/git",
+      "task": "09",
+      "files": 3
+    },
+    {
+      "path": "utils/git.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/gitDiff.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/gitSettings.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/github",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/githubRepoPathMapping.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/glob.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/gracefulShutdown.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/groupToolUses.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/handlePromptSubmit.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/hash.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/headlessProfiler.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/heapDumpService.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/heatmap.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/highlightMatch.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/hooks",
+      "task": "09",
+      "files": 17
+    },
+    {
+      "path": "utils/hooks.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/horizontalScroll.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/http.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/hyperlink.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/iTermBackup.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ide.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/idePathConversion.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/idleTimeout.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/imagePaste.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/imageResizer.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/imageStore.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/imageValidation.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/immediateCommand.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/inProcessTeammateHelpers.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ink.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/intl.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/jetbrains.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/json.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/jsonRead.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/keyboardShortcuts.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/lazySchema.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/listSessionsImpl.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/localInstaller.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/lockfile.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/log.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/logoV2Utils.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/mailbox.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/managedEnv.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/managedEnvConstants.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/markdown.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/markdownConfigLoader.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/mcp",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/mcpInstructionsDelta.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/mcpOutputStorage.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/mcpValidation.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/mcpWebSocketTransport.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/memoize.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/memory",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/memoryFileDetection.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/messagePredicates.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/messageQueueManager.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/messages",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/messages.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/model",
+      "task": "09",
+      "files": 16
+    },
+    {
+      "path": "utils/modelCost.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/modifiers.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/mtls.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/nativeInstaller",
+      "task": "09",
+      "files": 5
+    },
+    {
+      "path": "utils/notebook.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/objectGroupBy.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/pasteStore.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/path.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/pdf.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/pdfUtils.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/peerAddress.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/permissions",
+      "task": "02",
+      "files": 24
+    },
+    {
+      "path": "utils/planModeV2.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/plans.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/platform.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/plugins",
+      "task": "09",
+      "files": 44
+    },
+    {
+      "path": "utils/powershell",
+      "task": "09",
+      "files": 3
+    },
+    {
+      "path": "utils/preflightChecks.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/privacyLevel.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/process.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/processUserInput",
+      "task": "09",
+      "files": 4
+    },
+    {
+      "path": "utils/profilerBase.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/promptCategory.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/promptEditor.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/promptShellExecution.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/proxy.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/queryContext.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/queryHelpers.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/queryProfiler.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/queueProcessor.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/readEditContext.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/readFileInRange.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/releaseNotes.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/renderOptions.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ripgrep.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sandbox",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/sanitization.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/screenshotClipboard.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sdkEventQueue.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/secureStorage",
+      "task": "09",
+      "files": 6
+    },
+    {
+      "path": "utils/semanticBoolean.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/semanticNumber.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/semver.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sequential.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionActivity.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionEnvVars.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionEnvironment.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionFileAccessHooks.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionIngressAuth.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionRestore.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionStart.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionState.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionStorage.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionStoragePortable.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionTitle.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sessionUrl.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/set.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/settings",
+      "task": "02",
+      "files": 19
+    },
+    {
+      "path": "utils/shell",
+      "task": "09",
+      "files": 10
+    },
+    {
+      "path": "utils/shellConfig.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sideQuery.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sideQuestion.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/signal.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sinks.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/skills",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/slashCommandParsing.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sleep.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/sliceAnsi.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/slowOperations.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/standaloneAgent.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/startupProfiler.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/staticRender.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/stats.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/statsCache.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/status.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/statusNoticeDefinitions.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/statusNoticeHelpers.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/stream.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/streamJsonStdoutGuard.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/streamlinedTransform.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/stringUtils.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/subprocessEnv.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/suggestions",
+      "task": "09",
+      "files": 5
+    },
+    {
+      "path": "utils/swarm",
+      "task": "07",
+      "files": 22
+    },
+    {
+      "path": "utils/systemDirectories.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/systemPrompt.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/systemPromptType.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/systemTheme.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/taggedId.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/task",
+      "task": "09",
+      "files": 5
+    },
+    {
+      "path": "utils/tasks.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/teamDiscovery.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/teamMemoryOps.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/teammate.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/teammateContext.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/teammateMailbox.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/telemetry",
+      "task": "09",
+      "files": 9
+    },
+    {
+      "path": "utils/telemetryAttributes.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/teleport",
+      "task": "09",
+      "files": 4
+    },
+    {
+      "path": "utils/teleport.tsx",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/tempfile.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/terminal.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/terminalPanel.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/textHighlighting.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/theme.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/thinking.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/timeouts.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/tmuxSocket.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/todo",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/tokenBudget.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/tokens.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/toolErrors.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/toolPool.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/toolResultStorage.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/toolSchemaCache.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/toolSearch.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/transcriptSearch.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/treeify.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/truncate.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/ultraplan",
+      "task": "09",
+      "files": 2
+    },
+    {
+      "path": "utils/unaryLogging.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/undercover.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/user.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/userAgent.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/userPromptKeywords.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/uuid.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/warningHandler.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/which.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/windowsPaths.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/withResolvers.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/words.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/workloadContext.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/worktree.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/worktreeModeEnabled.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/xdg.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/xml.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/yaml.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "utils/zodToJsonSchema.ts",
+      "task": "09",
+      "files": 1
+    },
+    {
+      "path": "vim",
+      "task": "08",
+      "files": 5
+    },
+    {
+      "path": "voice",
+      "task": "08",
+      "files": 1
+    }
+  ],
+  "commandDirectories": [
+    "add-dir",
+    "agents",
+    "ant-trace",
+    "autofix-pr",
+    "backfill-sessions",
+    "branch",
+    "break-cache",
+    "bridge",
+    "btw",
+    "bughunter",
+    "chrome",
+    "clear",
+    "color",
+    "compact",
+    "config",
+    "context",
+    "copy",
+    "cost",
+    "ctx_viz",
+    "debug-tool-call",
+    "desktop",
+    "diff",
+    "doctor",
+    "effort",
+    "env",
+    "exit",
+    "export",
+    "extra-usage",
+    "fast",
+    "feedback",
+    "files",
+    "good-claude",
+    "heapdump",
+    "help",
+    "hooks",
+    "ide",
+    "install-github-app",
+    "install-slack-app",
+    "issue",
+    "keybindings",
+    "login",
+    "logout",
+    "mcp",
+    "memory",
+    "mobile",
+    "mock-limits",
+    "model",
+    "oauth-refresh",
+    "onboarding",
+    "output-style",
+    "passes",
+    "perf-issue",
+    "permissions",
+    "plan",
+    "plugin",
+    "pr_comments",
+    "privacy-settings",
+    "rate-limit-options",
+    "release-notes",
+    "reload-plugins",
+    "remote-env",
+    "remote-setup",
+    "rename",
+    "reset-limits",
+    "resume",
+    "review",
+    "rewind",
+    "sandbox-toggle",
+    "session",
+    "share",
+    "skills",
+    "stats",
+    "status",
+    "stickers",
+    "summary",
+    "tag",
+    "tasks",
+    "teleport",
+    "terminalSetup",
+    "theme",
+    "thinkback",
+    "thinkback-play",
+    "upgrade",
+    "usage",
+    "vim",
+    "voice"
+  ],
+  "toolDirectories": [
+    "AgentTool",
+    "AskUserQuestionTool",
+    "BashTool",
+    "BriefTool",
+    "ConfigTool",
+    "EnterPlanModeTool",
+    "EnterWorktreeTool",
+    "ExitPlanModeTool",
+    "ExitWorktreeTool",
+    "FileEditTool",
+    "FileReadTool",
+    "FileWriteTool",
+    "GlobTool",
+    "GrepTool",
+    "LSPTool",
+    "ListMcpResourcesTool",
+    "MCPTool",
+    "McpAuthTool",
+    "NotebookEditTool",
+    "PowerShellTool",
+    "REPLTool",
+    "ReadMcpResourceTool",
+    "RemoteTriggerTool",
+    "ScheduleCronTool",
+    "SendMessageTool",
+    "SkillTool",
+    "SleepTool",
+    "SyntheticOutputTool",
+    "TaskCreateTool",
+    "TaskGetTool",
+    "TaskListTool",
+    "TaskOutputTool",
+    "TaskStopTool",
+    "TaskUpdateTool",
+    "TeamCreateTool",
+    "TeamDeleteTool",
+    "TodoWriteTool",
+    "ToolSearchTool",
+    "WebFetchTool",
+    "WebSearchTool",
+    "shared",
+    "testing"
+  ]
+}

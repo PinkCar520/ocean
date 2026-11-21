@@ -6,10 +6,11 @@ interface StatusBarProps {
   userId: string;
   workspace: string;
   model: string;
+  permissionMode?: string;
   skills: LoadedSkill[];
 }
 
-export function StatusBar({ userId, workspace, model, skills }: StatusBarProps) {
+export function StatusBar({ userId, workspace, model, skills, permissionMode }: StatusBarProps) {
   const providerColor = model.includes('qwen') || model.includes('deepseek')
     ? 'magenta'
     : model.includes('Gemma')
@@ -31,7 +32,7 @@ export function StatusBar({ userId, workspace, model, skills }: StatusBarProps) 
           {model}
         </Text>
         <Text>
-          {`  Skills: ${skills.length}`}
+          {`  Skills: ${skills.length}${permissionMode ? "  Mode: " + permissionMode : ""}`}
         </Text>
       </Box>
       <Box>

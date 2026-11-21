@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
 import chalk from 'chalk';
 import { useOceanInput } from '../hooks/useOceanInput.js';
@@ -7,6 +7,7 @@ interface MessageInputProps {
   isWaiting: boolean;
   isThinking: boolean;
   onSubmit: (input: string) => void;
+  history?: string[];
 }
 
 const COMMANDS = [
@@ -27,10 +28,12 @@ const COMMANDS = [
   { name: '/exit', desc: 'Quit the application' },
 ];
 
-export function MessageInput({ isWaiting, isThinking, onSubmit }: MessageInputProps) {
+export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: MessageInputProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [startIndex, setStartIndex] = useState(0);
   const MAX_VISIBLE = 5;
+  const position = useRef<number | undefined>(undefined);
+  const draft = useRef('');
 
   // Real filtered suggestions logic
   const getMatches = (val: string) => {
@@ -38,10 +41,6 @@ export function MessageInput({ isWaiting, isThinking, onSubmit }: MessageInputPr
     const search = val.toLowerCase();
     return COMMANDS.filter(cmd => cmd.name.toLowerCase().startsWith(search));
   };
-
-  const matches = useMemo(() => getMatches(''), [/* empty initial */]);
-  // Use a ref-like helper to get current matches during interaction
-  const currentMatches = getMatches;
 
   const updateScroll = (newIndex: number, totalMatches: number) => {
     setSelectedIndex(newIndex);
@@ -57,7 +56,7 @@ export function MessageInput({ isWaiting, isThinking, onSubmit }: MessageInputPr
   // 1. Core State & Logic using our Hook
   const { value, cursorOffset, setValue, setCursorOffset } = useOceanInput({
     onEnter: (val) => {
-      const ms = currentMatches(val);
+      const ms = getMatches(val);
       if (ms.length > 0) {
         const selected = ms[selectedIndex] || ms[0];
         const completed = selected.name + ' ';
@@ -66,12 +65,15 @@ export function MessageInput({ isWaiting, isThinking, onSubmit }: MessageInputPr
         return true; // Keep value - this was a completion, not a submission
       }
 
-      if (val.trim() && isWaiting) {
+      if (!isWaiting) return true;
+      if (val.trim()) {
+        position.current = undefined;
+        draft.current = '';
         onSubmit(val);
       }
     },
     onTab: (val) => {
-      const ms = currentMatches(val);
+      const ms = getMatches(val);
       if (ms.length > 0) {
         const selected = ms[selectedIndex] || ms[0];
         return selected.name + ' ';
@@ -79,18 +81,32 @@ export function MessageInput({ isWaiting, isThinking, onSubmit }: MessageInputPr
       return val;
     },
     onUp: () => {
-      const ms = currentMatches(value);
+      const ms = getMatches(value);
       if (ms.length > 0) {
         const nextIndex = (selectedIndex > 0 ? selectedIndex - 1 : ms.length - 1);
         updateScroll(nextIndex, ms.length);
+        return;
       }
+      if (!history.length || !isWaiting) return;
+      if (position.current === undefined) draft.current = value;
+      position.current = Math.max(0, (position.current ?? history.length) - 1);
+      const previous = history[position.current];
+      setValue(previous);
+      setCursorOffset(previous.length);
     },
     onDown: () => {
-      const ms = currentMatches(value);
+      const ms = getMatches(value);
       if (ms.length > 0) {
         const nextIndex = (selectedIndex < ms.length - 1 ? selectedIndex + 1 : 0);
         updateScroll(nextIndex, ms.length);
+        return;
       }
+      if (position.current === undefined || !isWaiting) return;
+      const nextIndex = position.current + 1;
+      position.current = nextIndex >= history.length ? undefined : nextIndex;
+      const next = position.current === undefined ? draft.current : history[position.current];
+      setValue(next);
+      setCursorOffset(next.length);
     }
   });
 

@@ -66,7 +66,7 @@ export function createGatewayApprovalHandler(options: {
         }),
       });
       if (!res.ok) {
-        console.log(
+        console.error(
           chalk.red(`\n✗ [审批] 工具 ${toolName} 需要批准，但审批通道不可用（HTTP ${res.status}）。已拒绝执行。`),
         );
         return 'rejected';
@@ -74,16 +74,16 @@ export function createGatewayApprovalHandler(options: {
       const created = (await res.json()) as { id: string };
       approvalId = created.id;
     } catch {
-      console.log(
+      console.error(
         chalk.red(`\n✗ [审批] 工具 ${toolName} 需要批准，但无法连接 Gateway。已拒绝执行。`),
       );
       return 'rejected';
     }
 
-    console.log(
+    console.error(
       chalk.yellow(`\n⚠️ [审批] 工具 ${toolName} 需要批准。${hintText}。`),
     );
-    console.log(chalk.gray('  等待中…（Ctrl+C 取消）'));
+    console.error(chalk.gray('  等待中…（Ctrl+C 取消）'));
 
     // 轮询审批结果（最长 24h，与 Gateway 端 expiresAt 一致）
     const deadline = Date.now() + 24 * 60 * 60 * 1000;
@@ -97,22 +97,22 @@ export function createGatewayApprovalHandler(options: {
         const st = (await res.json()) as { status: string };
         if (st.status === 'superseded' || currentVersion() !== policyVersion) return 'rejected';
         if (st.status === 'approved') {
-          console.log(chalk.green(`✓ [审批] ${toolName} 已批准，继续执行。`));
+          console.error(chalk.green(`✓ [审批] ${toolName} 已批准，继续执行。`));
           return 'approved';
         }
         if (st.status === 'rejected') {
-          console.log(chalk.red(`✗ [审批] ${toolName} 已拒绝。`));
+          console.error(chalk.red(`✗ [审批] ${toolName} 已拒绝。`));
           return 'rejected';
         }
         if (st.status === 'expired') {
-          console.log(chalk.red(`✗ [审批] ${toolName} 审批超时。`));
+          console.error(chalk.red(`✗ [审批] ${toolName} 审批超时。`));
           return 'expired';
         }
       } catch {
         /* Gateway 瞬时不可用，继续轮询 */
       }
     }
-    console.log(chalk.red(`✗ [审批] ${toolName} 等待审批超时。`));
+    console.error(chalk.red(`✗ [审批] ${toolName} 等待审批超时。`));
     return 'expired';
   };
 }

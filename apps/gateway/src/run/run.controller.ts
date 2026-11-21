@@ -15,6 +15,7 @@ import type { Response } from 'express';
 import {
   approvalDecisionSchema,
   createRunRequestSchema,
+  runPrioritySchema,
   toolCallSchema,
 } from '@ocean/contracts';
 
@@ -95,6 +96,17 @@ export class RunController {
     }
   }
 
+  @Get()
+  list(
+    @Req() request: any,
+    @Query('spaceId') spaceId?: string,
+    @Query('priority') priority?: string,
+  ) {
+    const parsed = runPrioritySchema.optional().safeParse(priority);
+    if (!parsed.success) throw new BadRequestException('Invalid run priority.');
+    return this.runService.list(this.userId(request), spaceId, parsed.data);
+  }
+
   @Post()
   create(@Body() body: unknown, @Req() request: any) {
     const parsed = createRunRequestSchema.safeParse(body);
@@ -107,9 +119,19 @@ export class RunController {
     return this.runService.create(this.userId(request), parsed.data);
   }
 
+  @Get(':id/status')
+  async status(@Param('id') id: string, @Req() request: any) {
+    return { status: await this.runService.getStatus(id, this.userId(request)) };
+  }
+
   @Get(':id')
   get(@Param('id') id: string, @Req() request: any) {
     return this.runService.get(id, this.userId(request));
+  }
+
+  @Post(':id/inquiries/:toolCallId/answer')
+  answerInquiry(@Param('id') id: string, @Param('toolCallId') toolCallId: string, @Body() body: unknown, @Req() request: any) {
+    return this.runService.answerInquiry(id, this.userId(request), toolCallId, body);
   }
 
   @Post(':id/cancel')
@@ -217,6 +239,7 @@ export class RunController {
       }
     }
 
+    const initialStatus = await this.runService.getStatus(id, userId);
     response.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     response.setHeader('Cache-Control', 'no-cache');
     response.setHeader('Connection', 'keep-alive');
@@ -228,13 +251,15 @@ export class RunController {
     const handles: { timer?: NodeJS.Timeout; heartbeat?: NodeJS.Timeout } = {};
     let closed = false;
 
-    const close = () => {
+    const close = (emitDone = true) => {
       if (closed) return;
       closed = true;
       if (handles.timer) clearInterval(handles.timer);
       if (handles.heartbeat) clearInterval(handles.heartbeat);
-      response.write(`event: done\ndata: {}\n\n`);
-      response.end();
+      if (!response.destroyed && !response.writableEnded) {
+        if (emitDone) response.write(`event: done\ndata: {}\n\n`);
+        response.end();
+      }
     };
 
     const send = (events: Array<{ sequence: number }>) => {
@@ -246,19 +271,26 @@ export class RunController {
       }
     };
 
-    const poll = async () => {
+    let polling = false;
+    const poll = async (knownStatus?: string) => {
+      if (polling || closed) return;
+      polling = true;
       try {
         const next = await this.runService.listEvents(id, userId, lastSeq);
+        if (closed) return;
         if (next.length > 0) send(next);
-        const status = await this.runService.getStatus(id, userId);
+        const status = knownStatus ?? await this.runService.getStatus(id, userId);
         if (TERMINAL_STATUSES.has(status)) close();
       } catch {
-        close();
+        close(false);
+      } finally {
+        polling = false;
       }
     };
 
+    response.on('close', () => close(false));
     try {
-      await poll(); // 首次回放 + 终态检测（若 after 已是最后事件，直接 done）
+      await poll(initialStatus); // 首次回放 + 终态检测（若 after 已是最后事件，直接 done）
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       response.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
@@ -269,12 +301,11 @@ export class RunController {
     // 首轮回放已到终态（close 已触发）→ 不再创建轮询/心跳 timer
     if (closed) return;
 
-    handles.timer = setInterval(poll, 2000);
+    handles.timer = setInterval(() => void poll(), 2000);
     handles.heartbeat = setInterval(() => {
       if (!closed) response.write(`: ping\n\n`);
     }, 15000);
 
-    response.on('close', close);
   }
 
   private userId(request: any): string {

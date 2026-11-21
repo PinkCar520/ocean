@@ -1,3 +1,4 @@
+import type { PermissionMode } from '@ocean/core/permission-policy';
 import { LifecycleHooks } from './utils/lifecycle-hooks.js';
 /**
  * Ocean REPL - Entry point for interactive mode
@@ -10,8 +11,10 @@ import {
   buildSystemPrompt,
   runChatLoop,
   runChatLoopViaGateway,
+  type OceanPromptEvent,
 } from './llm/chat.js';
 import { resolveApiKey } from './utils/auth.js';
+import { gatewayPrintSession } from './llm/gateway-session.js';
 import { toAgentToolSet } from './tools/index.js';
 import { createGatewayApprovalHandler } from './approval/gateway-approval.js';
 import { discoverSkills } from './skills/loader.js';
@@ -24,14 +27,25 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import chalk from 'chalk';
 import readline from 'node:readline';
+import { z } from 'zod';
 import ora from 'ora';
 
 interface ReplOptions {
   userId: string;
   workspace: string;
   singleQuery?: string;
+  print?: 'text' | 'json' | 'stream-json';
+  resume?: string;
+  continueSession?: boolean;
+  persistSession?: boolean;
+  permissionMode?: PermissionMode;
+  commandPermissionSettings?: ToolContext['commandPermissionSettings'];
+  permissionSources?: ToolContext['permissionSources'];
+  toolNames?: ReadonlySet<string>;
+  modelId?: string;
   /** 通过 Gateway Run API 执行（第 3 条：CLI 接入统一 Run API） */
   gateway?: boolean;
+  remoteWorkspaceId?: string;
 }
 
 /**
@@ -42,8 +56,11 @@ interface ReplOptions {
 export async function runRepl(options: ReplOptions) {
   // Single query mode - use simple text approach
   if (options.singleQuery) {
-    await runSingleQuery(options);
-    process.exit(0);
+    if (!options.print) {
+      await runSingleQuery(options, (text) => process.stdout.write(text));
+      process.exit(0);
+    }
+    await printSingleQuery(options, options.print);
     return;
   }
 
@@ -71,10 +88,85 @@ export async function runRepl(options: ReplOptions) {
   }
 }
 
+async function printSingleQuery(options: ReplOptions, format: NonNullable<ReplOptions['print']>, requestId?: string) {
+  const writeEvent = (event: object) => process.stdout.write(`${JSON.stringify({ ...event, ...(requestId && { requestId }) })}\n`);
+  let answer = '';
+  let activeSessionId: string | undefined;
+  const controller = new AbortController();
+  const abort = () => controller.abort(new Error('Execution interrupted.'));
+  process.once('SIGINT', abort);
+  try {
+    const sessionId = await runSingleQuery(options, (text) => {
+      if (format === 'text') process.stdout.write(text);
+      else if (format === 'stream-json') writeEvent({ type: 'text_delta', delta: text });
+      else answer += text;
+    }, controller.signal, (event) => {
+      if (event.type === 'session') activeSessionId = event.sessionId;
+      if (format === 'stream-json') writeEvent(event);
+    });
+    controller.signal.throwIfAborted();
+    if (format === 'text') process.stdout.write('\n');
+    else {
+      const result = { type: 'result', status: 'succeeded', sessionId };
+      writeEvent(format === 'json' ? { ...result, text: answer } : result);
+    }
+    return sessionId;
+  } catch (error) {
+    if (format !== 'text') {
+      writeEvent({ type: 'result', status: 'failed', sessionId: activeSessionId, error: error instanceof Error ? error.message : String(error) });
+    }
+    throw error;
+  } finally {
+    process.removeListener('SIGINT', abort);
+  }
+}
+
+const printInputSchema = z.object({
+  type: z.literal('user'),
+  text: z.string().trim().min(1).max(512 * 1024),
+  id: z.string().min(1).max(200).optional(),
+}).strict();
+
+export async function runPrintStream(options: ReplOptions, replay: boolean) {
+  if (options.persistSession === false) {
+    throw new Error('Structured multi-turn input requires session persistence.');
+  }
+  let sessionId = options.resume;
+  let continueSession = options.continueSession;
+  const submit = async (text: string, id?: string) => {
+    if (replay) process.stdout.write(`${JSON.stringify({ type: 'user', text, requestId: id })}\n`);
+    sessionId = await printSingleQuery({
+      ...options,
+      singleQuery: text,
+      print: 'stream-json',
+      resume: sessionId,
+      continueSession,
+    }, 'stream-json', id);
+    continueSession = false;
+  };
+  const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  try {
+    if (options.singleQuery?.trim()) await submit(options.singleQuery);
+    for await (const line of input) {
+      if (!line.trim()) continue;
+      if (Buffer.byteLength(line) > 1024 * 1024) throw new Error('Structured input message is too large.');
+      const message = printInputSchema.parse(JSON.parse(line));
+      await submit(message.text, message.id);
+    }
+  } finally {
+    input.close();
+  }
+}
+
 /**
  * Run a single query without Ink UI (for scripting/CI)
  */
-async function runSingleQuery(options: ReplOptions) {
+async function runSingleQuery(
+  options: ReplOptions,
+  onText: (text: string) => void,
+  signal?: AbortSignal,
+  onEvent?: (event: OceanPromptEvent) => void,
+) {
   const query = options.singleQuery;
   if (!query) return;
 
@@ -84,29 +176,47 @@ async function runSingleQuery(options: ReplOptions) {
       process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000';
     const apiKey = await resolveApiKey();
     if (!apiKey) {
+      if (options.print) throw new Error('--gateway requires authentication. Run ocean login first.');
       console.log(chalk.yellow('[Ocean] --gateway 需要 API Key，请先运行 ocean login'));
       return;
     }
-    console.log(chalk.cyan(`[Ocean] Query: ${query}`));
-    console.log(chalk.cyan(`[Ocean] User: ${options.userId}`));
-    console.log(chalk.cyan(`[Ocean] Gateway: ${gatewayUrl} (Run API)\n`));
+    if (!options.print) {
+      console.log(chalk.cyan(`[Ocean] Query: ${query}`));
+      console.log(chalk.cyan(`[Ocean] User: ${options.userId}`));
+      console.log(chalk.cyan(`[Ocean] Gateway: ${gatewayUrl} (Run API)\n`));
+    }
     try {
+      const sessionId = options.print && options.persistSession !== false
+        ? options.resume ?? await gatewayPrintSession({
+          gatewayUrl, apiKey, continueSession: options.continueSession, workspaceId: options.remoteWorkspaceId, signal,
+        })
+        : undefined;
+      if (sessionId) onEvent?.({ type: 'session', sessionId });
       await runChatLoopViaGateway({
         gatewayUrl,
         apiKey,
         input: query,
-        onText: (text) => process.stdout.write(text),
+        sessionId,
+        modelId: options.modelId,
+        nonInteractive: Boolean(options.print),
+        onText,
+        onEvent,
+        signal,
       });
-      process.stdout.write('\n');
+      if (!options.print) process.stdout.write('\n');
+      return sessionId;
     } catch (err: any) {
+      if (options.print) throw err;
       console.log(chalk.red(`[Ocean] Gateway error: ${err.message}`));
     }
     return;
   }
 
-  console.log(chalk.cyan(`[Ocean] Query: ${query}`));
-  console.log(chalk.cyan(`[Ocean] User: ${options.userId}`));
-  console.log(chalk.cyan(`[Ocean] Workspace: ${options.workspace}\n`));
+  if (!options.print) {
+    console.log(chalk.cyan(`[Ocean] Query: ${query}`));
+    console.log(chalk.cyan(`[Ocean] User: ${options.userId}`));
+    console.log(chalk.cyan(`[Ocean] Workspace: ${options.workspace}\n`));
+  }
 
   // Load config
   const cliConfig: CliConfig = {
@@ -136,6 +246,18 @@ async function runSingleQuery(options: ReplOptions) {
   // Load skills
   const skills: LoadedSkill[] = discoverSkills(options.workspace);
 
+  const sessionStore = options.print && options.persistSession !== false ? new SessionStore() : undefined;
+  let session = sessionStore && (
+    options.continueSession
+      ? await sessionStore.latestOrCreate(options.workspace)
+      : options.resume
+        ? await sessionStore.load(options.resume, options.workspace)
+        : await sessionStore.create(options.workspace)
+  );
+  const sessionId = session?.id;
+  if (sessionId) onEvent?.({ type: 'session', sessionId });
+  const messages: ModelMessage[] = [...(session?.messages ?? []), { role: 'user', content: query }];
+
   // MCP tools
   const mcpManager = new McpClientManager(cliConfig);
   try {
@@ -149,16 +271,21 @@ async function runSingleQuery(options: ReplOptions) {
   const toolContext: ToolContext = {
     cwd: options.workspace,
     userId: options.userId,
-    sessionId: Math.random().toString(36).substring(2, 15),
+    sessionId: sessionId ?? Math.random().toString(36).substring(2, 15),
+    permissionMode: options.permissionMode,
+    commandPermissionSettings: options.commandPermissionSettings,
+    permissionSources: options.permissionSources,
   };
-  const tools: Record<string, any> = await toAgentToolSet(toolContext, mcpManager, skills);
+  const availableTools = await toAgentToolSet(toolContext, mcpManager, skills, sessionStore);
+  const tools = options.toolNames
+    ? Object.fromEntries(Object.entries(availableTools).filter(([name]) => options.toolNames!.has(name)))
+    : availableTools;
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
-  const messages: ModelMessage[] = [{ role: 'user', content: query }];
 
   // 审批门：CLI 负责执行，审批弹在对话窗口（Web 审批面板）——有 API Key 时启用
-  const apiKey = await resolveApiKey();
-  const approvalHandler = apiKey
+  const apiKey = options.print ? null : await resolveApiKey();
+  const gatewayApproval = apiKey
     ? createGatewayApprovalHandler({
         gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
         apiKey,
@@ -167,32 +294,72 @@ async function runSingleQuery(options: ReplOptions) {
       })
     : undefined;
 
-  const spinner = ora(chalk.cyan('Thinking...')).start();
+  const spinner = options.print ? undefined : ora(chalk.cyan('Thinking...')).start();
 
   try {
-    const model = modelRouter.getModel();
+    const model = modelRouter.getModel(options.modelId);
+    const hooks = LifecycleHooks.load(options.workspace);
+    const approvalHandler: Parameters<typeof runChatLoop>[1]['approvalHandler'] = options.print
+      ? async (toolName, input, context) => {
+        const result = await hooks.run('PermissionRequest', {
+          tool_name: toolName,
+          tool_input: input,
+          tool_use_id: context?.toolCallId,
+        }, context?.signal);
+        return result.permission === 'allow' ? 'approved' : 'rejected';
+      }
+      : gatewayApproval;
     let streamedText = '';
+    if (sessionStore && sessionId) session = await sessionStore.save(sessionId, options.workspace, messages);
 
     const result = await runChatLoop(messages, {
-      delegation: { workspace: options.workspace },
-      hooks: LifecycleHooks.load(options.workspace),
+      ...(options.toolNames && !options.toolNames.has('delegate_task') ? {} : {
+        delegation: {
+          workspace: options.workspace,
+          permissions: {
+            mode: options.permissionMode,
+            settings: options.commandPermissionSettings,
+            sources: options.permissionSources,
+          },
+        },
+      }),
+      hooks,
       model,
       systemPrompt,
       tools,
       approvalHandler,
+      signal,
+      ...(sessionStore && sessionId && {
+        journal: { store: sessionStore, sessionId, workspace: options.workspace },
+        compaction: {
+          previous: session?.compaction,
+          usage: session?.usage,
+          persist: async (snapshot) => {
+            session = await sessionStore.saveCompaction(sessionId, options.workspace, snapshot);
+          },
+        },
+      }),
+      onToolCall: onEvent && ((name, input) => onEvent({ type: 'tool_call', name, input })),
+      onToolResult: onEvent && ((name, result) => onEvent({ type: 'tool_result', name, result })),
       onText: (text: string) => {
-        if (streamedText.length === 0) spinner.stop();
-        process.stdout.write(text);
+        if (streamedText.length === 0) spinner?.stop();
+        onText(text);
         streamedText += text;
       },
     });
 
-    if (streamedText.length > 0) process.stdout.write('\n');
+    if (sessionStore && sessionId) {
+      await sessionStore.save(sessionId, options.workspace, [...messages, ...result.responseMessages]);
+      if (result.usage) await sessionStore.saveUsage(sessionId, options.workspace, result.usage);
+    }
+    if (!options.print && streamedText.length > 0) process.stdout.write('\n');
+    return sessionId;
   } catch (err: any) {
-    spinner.stop();
+    if (options.print) throw err;
     console.error(chalk.red(`\n✗ Error: ${err.message}`));
     if (process.env.DEBUG) console.error(err.stack);
   } finally {
+    spinner?.stop();
     await mcpManager.disconnectAll();
   }
 }

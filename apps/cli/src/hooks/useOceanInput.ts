@@ -46,7 +46,6 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
       if (currentOffset > 0) {
         // Use codePointAt for proper Unicode handling
         const prevChar = currentValue.slice(0, currentOffset);
-        const charLength = [...prevChar].length >= 1 ? 1 : 0;
         const deleteFrom = [...prevChar].slice(-1).join('').length;
         const newValue = currentValue.slice(0, currentOffset - deleteFrom) + currentValue.slice(currentOffset);
         setValue(newValue);
@@ -77,7 +76,7 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
       const before = currentValue.slice(0, currentOffset);
       const chars = [...before];
       if (chars.length > 0) {
-        const newOffset = currentOffset - [...chars.slice(-1).join('')].length;
+        const newOffset = currentOffset - chars.at(-1)!.length;
         setCursorOffset(newOffset);
         cursorRef.current = newOffset;
       }
@@ -97,6 +96,23 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
       return;
     }
 
+    if (key.ctrl && (input === 'a' || input === 'e')) {
+      const offset = input === 'a' ? 0 : valueRef.current.length;
+      setCursorOffset(offset);
+      cursorRef.current = offset;
+      return;
+    }
+
+    if (key.return && key.shift) {
+      const offset = cursorRef.current;
+      const next = valueRef.current.slice(0, offset) + '\n' + valueRef.current.slice(offset);
+      setValue(next);
+      valueRef.current = next;
+      setCursorOffset(offset + 1);
+      cursorRef.current = offset + 1;
+      return;
+    }
+
     // 4. Handle Enter
     if (key.return) {
       const keepValue = onEnter ? onEnter(valueRef.current) : false;
@@ -110,6 +126,7 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
     }
 
     // 5. Handle Tab (Completion)
+    if (key.tab && key.shift) return;
     if (key.tab) {
       if (onTab) {
         const completed = onTab(valueRef.current);

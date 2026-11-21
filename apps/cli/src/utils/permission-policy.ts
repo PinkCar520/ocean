@@ -5,7 +5,8 @@ import * as path from 'node:path';
 import {
   evaluateTool,
   evaluatePermissionDecision,
-  isPermissionSettings,
+  parsePermissionSettings,
+  getManagedPermissionPaths,
   normalizeRules,
   uniquePermissionRuleIds,
   type PermissionAction,
@@ -29,6 +30,7 @@ interface ResolvedPolicy {
   invalid: boolean;
   loadedAt: number;
   revision: number;
+  sessionMode?: PermissionMode;
   policyVersion: string;
 }
 
@@ -42,6 +44,9 @@ export class PermissionPolicy {
     private readonly homePath: string = os.homedir(),
     private readonly options: {
       grants?: SessionPermissionGrants;
+      mode?: PermissionMode | (() => PermissionMode | undefined);
+      settings?: { value: PermissionSettings; root: string };
+      sources?: ReadonlySet<'user' | 'project' | 'local'>;
       sessionId?: string | (() => string | undefined);
     } = {},
   ) {}
@@ -64,7 +69,8 @@ export class PermissionPolicy {
     const sessionId = typeof this.options.sessionId === 'function'
       ? this.options.sessionId()
       : this.options.sessionId;
-    const sessionGrant = this.options.grants?.allows(sessionId, toolName, args) ?? false;
+    const sessionGrant = !policy.settings.allowManagedPermissionRulesOnly
+      && (this.options.grants?.allows(sessionId, toolName, args) ?? false);
     return evaluatePermissionDecision(toolName, policy.settings, policy.rules, args, mcpServer, {
       sessionGrant,
       policyVersion: policy.policyVersion,
@@ -75,6 +81,9 @@ export class PermissionPolicy {
   grantSession(toolName: string, args: Record<string, unknown> = {}, ttlMs?: number): void {
     const sessionId = typeof this.options.sessionId === 'function' ? this.options.sessionId() : this.options.sessionId;
     if (!this.options.grants || !sessionId) throw new Error('Session permission grants are not configured for this policy.');
+    if (this.load().settings.allowManagedPermissionRulesOnly) {
+      throw new Error('Managed settings only allow managed permission rules.');
+    }
     this.options.grants.grant(sessionId, toolName, args, ttlMs);
   }
 
@@ -122,8 +131,9 @@ export class PermissionPolicy {
 
   private load(): ResolvedPolicy {
     const now = Date.now();
+    const sessionMode = typeof this.options.mode === 'function' ? this.options.mode() : this.options.mode;
     const revision = PermissionPolicy.revisions.get(path.resolve(this.workspacePath)) ?? 0;
-    if (this.cached && this.cached.revision === revision && now - this.cached.loadedAt < CACHE_TTL_MS) return this.cached;
+    if (this.cached && this.cached.revision === revision && this.cached.sessionMode === sessionMode && now - this.cached.loadedAt < CACHE_TTL_MS) return this.cached;
 
     let workspaceRoot: string;
     let homeRoot: string;
@@ -134,27 +144,41 @@ export class PermissionPolicy {
       return this.cacheInvalid(now);
     }
     const paths = [
-      { root: homeRoot, file: path.join(homeRoot, '.claude', 'settings.json') },
-      { root: homeRoot, file: path.join(homeRoot, '.ocean', 'settings.json') },
-      { root: workspaceRoot, file: path.join(workspaceRoot, '.claude', 'settings.json') },
-      { root: workspaceRoot, file: path.join(workspaceRoot, '.ocean', 'settings.json') },
-      { root: workspaceRoot, file: path.join(workspaceRoot, '.claude', 'settings.local.json') },
-      { root: workspaceRoot, file: path.join(workspaceRoot, '.ocean', 'settings.local.json') },
-    ];
-    const layers: PermissionSettings[] = [];
+      { source: 'user' as const, root: homeRoot, file: path.join(homeRoot, '.claude', 'settings.json') },
+      { source: 'user' as const, root: homeRoot, file: path.join(homeRoot, '.ocean', 'settings.json') },
+      { source: 'project' as const, root: workspaceRoot, file: path.join(workspaceRoot, '.claude', 'settings.json') },
+      { source: 'project' as const, root: workspaceRoot, file: path.join(workspaceRoot, '.ocean', 'settings.json') },
+      { source: 'local' as const, root: workspaceRoot, file: path.join(workspaceRoot, '.claude', 'settings.local.json') },
+      { source: 'local' as const, root: workspaceRoot, file: path.join(workspaceRoot, '.ocean', 'settings.local.json') },
+    ].filter(({ source }) => !this.options.sources || this.options.sources.has(source));
+    const managedSource = getManagedPermissionPaths();
+    if (managedSource.invalid) return this.cacheInvalid(now);
+    const managedPaths = managedSource.files.map((file) => ({ root: path.parse(file).root, file }));
+    const managedLayers: Array<{ settings: PermissionSettings; sourceRoot: string }> = [];
+    for (const { root, file } of managedPaths) {
+      const value = this.readSettings(root, file);
+      if (value === 'invalid' || (managedSource.required && !value)) return this.cacheInvalid(now);
+      if (value) managedLayers.push({ settings: value, sourceRoot: workspaceRoot });
+    }
+    const managed = Object.assign({}, ...managedLayers.map(layer => layer.settings)) as PermissionSettings;
+
+    const layers: typeof managedLayers = [];
     let invalid = false;
 
-    for (const { root, file } of paths) {
+    for (const { source, root, file } of paths) {
       const value = this.readSettings(root, file);
       if (value === 'invalid') {
         invalid = true;
         break;
       }
-      if (value) layers.push(value);
+      if (value) layers.push({ settings: value, sourceRoot: source === 'user' ? path.dirname(file) : root });
     }
 
+    const commandSettings = this.options.settings;
+    if (commandSettings) layers.push({ settings: commandSettings.value, sourceRoot: commandSettings.root });
+    layers.push(...managedLayers);
     let settings: PermissionSettings = { ...DEFAULT_SETTINGS };
-    for (const layer of layers) {
+    for (const { settings: layer } of layers) {
       settings = {
         ...settings,
         ...layer,
@@ -163,6 +187,8 @@ export class PermissionPolicy {
         },
       };
     }
+    settings.mode = managed.mode ?? sessionMode ?? settings.mode;
+    settings.allowManagedPermissionRulesOnly = managed.allowManagedPermissionRulesOnly === true;
     if (invalid) {
       settings = {
         mode: 'default',
@@ -172,19 +198,21 @@ export class PermissionPolicy {
 
     this.cached = {
       settings,
-      rules: uniquePermissionRuleIds(layers.slice().reverse().flatMap((layer) => normalizeRules(layer))),
+      rules: uniquePermissionRuleIds((managed.allowManagedPermissionRulesOnly ? managedLayers : layers).slice().reverse().flatMap(({ settings: layer, sourceRoot }) => normalizeRules(layer, { settingsRoot: sourceRoot, workspaceRoot, homeRoot }))),
       invalid,
       loadedAt: now,
       revision,
-      policyVersion: invalid ? 'invalid' : this.computePolicyVersion(paths, settings),
+      sessionMode,
+      policyVersion: invalid ? 'invalid' : this.computePolicyVersion([...paths, ...managedPaths], sessionMode),
     };
     return this.cached;
   }
 
   /** Hash the exact files loaded so policy changes invalidate old approvals. */
-  private computePolicyVersion(paths: Array<{ root: string; file: string }>, settings: PermissionSettings): string {
-    if (settings.version) return settings.version;
+  private computePolicyVersion(paths: Array<{ root: string; file: string }>, sessionMode?: PermissionMode): string {
     const hash = createHash('sha256');
+    if (sessionMode) hash.update(`session-mode\0${sessionMode}\0`);
+    if (this.options.settings) hash.update(JSON.stringify(this.options.settings));
     for (const { file } of [...paths].sort((a, b) => a.file.localeCompare(b.file))) {
       try {
         const info = fs.lstatSync(file);
@@ -227,7 +255,7 @@ export class PermissionPolicy {
         if (isLast ? !stat.isFile() || stat.size > MAX_SETTINGS_BYTES : !stat.isDirectory()) return 'invalid';
       }
       const parsed: unknown = JSON.parse(fs.readFileSync(current, 'utf8'));
-      return isPermissionSettings(parsed) ? parsed : 'invalid';
+      return parsePermissionSettings(parsed) ?? 'invalid';
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       return 'invalid';

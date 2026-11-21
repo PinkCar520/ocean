@@ -1,7 +1,8 @@
-import { policyForRun, permitsSubagentTool } from '../run/subagent-policy';
+import { SubagentRunsService } from '../run/subagent-runs.service';
+import { DELEGATE_TASK_TOOL, delegateTaskSchema, policyForRun, permitsSubagentTool } from '../run/subagent-policy';
 import { canonicalPermissionInput, isReadOnlyTool, type PermissionDecision } from '@ocean/core';
 import { PermissionService } from '../skill/permission.service';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -53,6 +54,7 @@ export class ToolExecutor {
     private readonly audit: AuditService,
     private readonly permissions: PermissionService = new PermissionService(),
     private readonly hooks: GatewayHooks = GatewayHooks.load(),
+    @Optional() private readonly subagents?: SubagentRunsService,
   ) {}
 
   private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
@@ -173,11 +175,20 @@ export class ToolExecutor {
       // 审批门（Phase 4.5）：需要审批的工具先创建审批，Run → waiting_for_approval
       // （不置 running）；审批通过后由 RunService 重新投递 tool.requested，
       // 本执行器从检查点（已 approved 的审批记录）续跑执行。
-      const decision = this.permissions.evaluateToolDecision(toolCall.name, undefined, toolCall.input);
+      const server = tool.permissionServer?.(toolCall.input);
+      const permissionName = tool.permissionName?.(toolCall.input) ?? toolCall.name;
+      if (!permitsSubagentTool(policyForRun(runCheck.parentRunId, runCheck.metadata), permissionName)) {
+        throw new TerminalToolError('Subagent permission scope denied the requested tool.');
+      }
+      const decision = server === undefined
+        ? this.permissions.evaluateToolDecision(permissionName, undefined, toolCall.input)
+        : this.permissions.evaluateToolDecision(permissionName, undefined, toolCall.input, server);
+      const metadata = runCheck.metadata as { sessionId?: unknown; nonInteractive?: unknown } | null;
+      const nonInteractive = metadata?.nonInteractive === true;
+      let permissionDenial: string | undefined;
       if (decision.action === 'deny') {
-        throw new TerminalToolError(
-          `Permission Denied: ${toolCall.name} (${decision.reason}${decision.ruleId ? `; ${decision.ruleId}` : ''}; policy ${decision.policyVersion})`,
-        );
+        permissionDenial = `Permission Denied: ${toolCall.name} (${decision.reason}${decision.ruleId ? `; ${decision.ruleId}` : ''}; policy ${decision.policyVersion})`;
+        if (!nonInteractive) throw new TerminalToolError(permissionDenial);
       }
 
       const hookInput = {
@@ -188,24 +199,67 @@ export class ToolExecutor {
         user_id: userId,
         space_id: runCheck.spaceId,
       };
-      const preHook = await this.hooks.run('PreToolUse', hookInput, { spaceId: runCheck.spaceId });
-      if (preHook.blocked) throw new TerminalToolError(`Hook blocked tool ${toolCall.name}: ${preHook.reason}`);
+      if (!permissionDenial) {
+        const preHook = await this.hooks.run('PreToolUse', hookInput, { spaceId: runCheck.spaceId });
+        if (preHook.blocked) throw new TerminalToolError(`Hook blocked tool ${toolCall.name}: ${preHook.reason}`);
+      }
 
       const requiresApproval = tool.requiresApproval || decision.action === 'ask';
-      const metadata = runCheck.metadata as { sessionId?: unknown } | null;
-      const sessionId = typeof metadata?.sessionId === 'string' && metadata.sessionId ? metadata.sessionId : undefined;
+      const sessionId = !decision.managedRulesOnly && typeof metadata?.sessionId === 'string'
+        ? metadata.sessionId || undefined
+        : undefined;
       const argsHash = createHash('sha256').update(canonicalPermissionInput(toolCall.input)).digest('hex');
       let sessionGranted = false;
-      if (requiresApproval) {
-        sessionGranted = sessionId ? await this.hasSessionGrant(userId, sessionId, toolCall, argsHash, decision.policyVersion) : false;
-        if (!sessionGranted) {
-          const gate = await this.ensureApproval(runId, userId, toolCall, decision, argsHash, sessionId);
-          if (!gate.executable) {
-            // pending → 等待人工决策（消息确认，不重试，决策后重新投递）；
-            // rejected/expired → Run 已 cancelled（终态，消息确认）。
-            return { jobId: job.id, runId, status: 'succeeded' };
+      let hookGranted = false;
+      if (!permissionDenial && requiresApproval) {
+        sessionGranted = Boolean(sessionId && decision.source !== 'rule'
+          && await this.hasSessionGrant(userId, sessionId, toolCall, argsHash, decision.policyVersion));
+        if (!sessionGranted && nonInteractive) {
+          const verdict = await this.hooks.run('PermissionRequest', hookInput, { spaceId: runCheck.spaceId });
+          hookGranted = verdict.permission === 'allow';
+          if (hookGranted && this.permissions.getPolicyVersion() !== decision.policyVersion) {
+            permissionDenial = 'Permission settings changed while the hook was deciding.';
+            hookGranted = false;
           }
+          if (!hookGranted && !permissionDenial) {
+            permissionDenial = verdict.reason || `Tool ${toolCall.name} requires approval, which is unavailable in non-interactive mode.`;
+          }
+        } else if (!sessionGranted) {
+          const gate = await this.ensureApproval(runId, userId, toolCall, decision, argsHash, sessionId);
+          if (!gate.executable) return { jobId: job.id, runId, status: 'succeeded' };
         }
+      }
+
+      if (permissionDenial) {
+        const modelStep = await this.prisma.runStep.findFirst({
+          where: { runId, kind: 'model_call' },
+          select: { id: true },
+        });
+        if (!modelStep) throw new TerminalToolError(permissionDenial);
+      }
+
+      if (toolCall.name === DELEGATE_TASK_TOOL && !permissionDenial) {
+        if (!this.subagents) throw new TerminalToolError('Subagent execution is unavailable.');
+        const args = delegateTaskSchema.parse(toolCall.input);
+        const subagents = this.subagents;
+        await this.fencedTransaction(async (tx) => {
+          const modelStep = await tx.runStep.findFirst({
+            where: { runId, kind: 'model_call', status: 'succeeded' },
+            orderBy: { seq: 'desc' },
+            select: { output: true },
+          });
+          const calls = (modelStep?.output as Prisma.JsonObject | null | undefined)?.toolCalls;
+          if (!Array.isArray(calls) || !calls.some(call =>
+            call && typeof call === 'object' && !Array.isArray(call)
+            && call.id === toolCall.id && call.name === DELEGATE_TASK_TOOL
+            && canonicalPermissionInput(call.input) === canonicalPermissionInput(toolCall.input))) {
+            throw new TerminalToolError('Delegation must come from the current model turn.');
+          }
+          await subagents.createInTransaction(tx, runId, userId, {
+            toolCallId: toolCall.id, agent: args.agent, prompt: args.task,
+          }, true);
+        });
+        return { jobId: job.id, runId, status: 'succeeded' };
       }
 
       // 3) 接管：置 running（幂等处理崩溃遗留）
@@ -239,37 +293,40 @@ export class ToolExecutor {
       const step = await this.ensureStepStarted(runId, toolCall);
       if (!step) return { jobId: job.id, runId, status: 'succeeded' };
 
-      // 5) 执行工具（先审计：谁/哪个 Space/因何授权/什么输入）
-      await this.audit.record({
-        actorUserId: userId,
-        action: 'tool.execute',
-        spaceId: runCheck.spaceId,
-        runId,
-        toolName: toolCall.name,
-        inputJson: toolCall.input,
-        authorization: sessionGranted ? `session:${decision.policyVersion}` : requiresApproval ? 'approval' : `policy:${decision.source}:${decision.policyVersion}`,
-      });
-      invocationStarted = true;
-      let output: any;
-      try {
-        output = await tool.execute(toolCall.input, { runId, userId, toolCallId: toolCall.id });
-      } catch (error) {
-        await this.hooks.run('ToolUseFailure', { ...hookInput, error: error instanceof Error ? error.message : String(error) }, { spaceId: runCheck.spaceId });
-        throw error;
-      }
-      const postHook = await this.hooks.run('PostToolUse', { ...hookInput, tool_response: output }, { spaceId: runCheck.spaceId });
+      let output: Prisma.InputJsonValue;
       let hookFeedback: string | undefined;
-      if (postHook.blocked) {
-        const modelStep = await this.prisma.runStep.findFirst({ where: { runId, kind: 'model_call' }, select: { id: true } });
-        // Standalone tool calls have no model continuation to consume the gate.
-        if (!modelStep) throw new TerminalToolError(`Hook blocked tool result ${toolCall.name}: ${postHook.reason}`);
-        hookFeedback = postHook.reason || 'Review the tool result before continuing.';
+      if (permissionDenial) {
+        output = { error: permissionDenial };
+      } else {
+        // 5) 执行工具（先审计：谁/哪个 Space/因何授权/什么输入）
+        await this.audit.record({
+          actorUserId: userId,
+          action: 'tool.execute',
+          spaceId: runCheck.spaceId,
+          runId,
+          toolName: toolCall.name,
+          inputJson: toolCall.input,
+          authorization: sessionGranted ? `session:${decision.policyVersion}` : hookGranted ? 'hook:PermissionRequest' : requiresApproval ? 'approval' : `policy:${decision.source}:${decision.policyVersion}`,
+        });
+        invocationStarted = true;
+        try {
+          output = await tool.execute(toolCall.input, { runId, userId, spaceId: runCheck.spaceId, toolCallId: toolCall.id }) as Prisma.InputJsonValue;
+        } catch (error) {
+          await this.hooks.run('ToolUseFailure', { ...hookInput, error: error instanceof Error ? error.message : String(error) }, { spaceId: runCheck.spaceId });
+          throw error;
+        }
+        const postHook = await this.hooks.run('PostToolUse', { ...hookInput, tool_response: output }, { spaceId: runCheck.spaceId });
+        if (postHook.blocked) {
+          const modelStep = await this.prisma.runStep.findFirst({ where: { runId, kind: 'model_call' }, select: { id: true } });
+          // Standalone tool calls have no model continuation to consume the gate.
+          if (!modelStep) throw new TerminalToolError(`Hook blocked tool result ${toolCall.name}: ${postHook.reason}`);
+          hookFeedback = postHook.reason || 'Review the tool result before continuing.';
+        }
       }
 
       // 6) 完成：step succeeded + step_completed + tool.completed；
       //    Agent Loop 驱动的 Run（存在 model_call 步骤）→ Run queued + 重投
       //    run.requested 回喂模型续跑；纯工具 Run → Run succeeded（现状）。
-      const outputJson = output as Prisma.InputJsonValue;
       await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, userId, status: 'running' }, data: { status: 'running' } });
         if (!active.count) return;
@@ -277,7 +334,7 @@ export class ToolExecutor {
           where: { id: step.id },
           data: {
             status: 'succeeded',
-            output: outputJson,
+            output,
             ...(hookFeedback ? { checkpoint: { hookFeedback } } : {}),
             completedAt: new Date(),
           },

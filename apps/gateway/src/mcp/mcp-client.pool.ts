@@ -97,6 +97,26 @@ export class MCPClientPool implements OnModuleDestroy {
 
   /** Lazily initialize the tenant's config and return only its tools. */
   async getAITools(scope: MCPToolScope): Promise<Record<string, any>> {
+    return (await this.managerFor(scope)).getAITools();
+  }
+
+  async listServerTools(scope: MCPToolScope, server: string, cursor?: string) {
+    return (await this.managerFor(scope)).listServerTools(server, cursor);
+  }
+
+  async callServerTool(scope: MCPToolScope, server: string, name: string, args: Record<string, unknown>) {
+    return (await this.managerFor(scope)).callServerTool(server, name, args);
+  }
+
+  async listServerResources(scope: MCPToolScope, server: string, cursor?: string) {
+    return (await this.managerFor(scope)).listServerResources(server, cursor);
+  }
+
+  async readServerResource(scope: MCPToolScope, server: string, uri: string) {
+    return (await this.managerFor(scope)).readServerResource(server, uri);
+  }
+
+  private async managerFor(scope: MCPToolScope): Promise<MCPClientManager> {
     const key = mcpScopeKey(scope);
     const userHome = mcpUserHome(scope);
     // Read before cache reuse so atomic replacement/removal revokes old credentials.
@@ -156,7 +176,7 @@ export class MCPClientPool implements OnModuleDestroy {
     }
     entry.lastUsed = Date.now();
     await entry.ready;
-    return entry.manager.getAITools();
+    return entry.manager;
   }
 
   /** Drop all tenant managers; the next request reloads config fresh. */

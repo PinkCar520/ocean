@@ -1,10 +1,11 @@
+import { permissionHookVerdict } from '@ocean/core';
 import type { ModelGateway } from '../ai/model-gateway';
 import { Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export type GatewayHookEvent = 'PreToolUse' | 'PostToolUse' | 'ToolUseFailure' | 'UserPromptSubmit' | 'Stop';
+export type GatewayHookEvent = 'PreToolUse' | 'PostToolUse' | 'ToolUseFailure' | 'UserPromptSubmit' | 'Stop' | 'PermissionRequest';
 
 interface HookCommand {
   type: 'command' | 'prompt' | 'http';
@@ -31,6 +32,7 @@ interface GatewayHookConfig {
 export interface HookRunResult {
   blocked: boolean;
   reason: string;
+  permission?: 'allow' | 'deny';
 }
 
 const MAX_CONFIG_BYTES = 256 * 1024;
@@ -110,6 +112,8 @@ export class GatewayHooks {
         if (output.decision === 'block' || output.continue === false || specific?.permissionDecision === 'deny' || specific?.permissionDecision === 'ask') {
           return { blocked: true, reason: output.reason || output.stopReason || specific?.permissionDecisionReason || 'Blocked by hook' };
         }
+        const verdict = permissionHookVerdict(event, specific);
+        if (verdict) return verdict;
       }
     }
     return { blocked: false, reason: '' };

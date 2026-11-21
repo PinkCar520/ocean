@@ -1,6 +1,7 @@
 import { executeTool } from './base.js';
 import * as path from 'node:path';
 import { createFileReadTool, createFileWriteTool, createFileEditTool, createFilePatchTool } from './core-tools.js';
+import { createLspTool } from './lsp.js';
 import { createNotebookEditTool } from './notebook-edit.js';
 import { NotebookSnapshots } from '../utils/notebook-snapshots.js';
 import { PermissionPolicy } from '../utils/permission-policy.js';
@@ -19,12 +20,13 @@ export function createNotebookRpc(workspace?: string, hostId?: string) {
   const write = createFileWriteTool();
   const fileEdit = createFileEditTool();
   const patch = createFilePatchTool();
-  return async (method: 'notebook_read' | 'notebook_edit' | 'file_read' | 'file_write' | 'file_edit' | 'file_patch', params: Record<string, unknown>, userId: string, toolCallId?: string) => {
+  const lsp = createLspTool();
+  return async (method: 'notebook_read' | 'notebook_edit' | 'file_read' | 'file_write' | 'file_edit' | 'file_patch' | 'lsp', params: Record<string, unknown>, userId: string, toolCallId?: string) => {
     if (typeof params.sessionId !== 'string' || !params.sessionId) throw new Error('Device RPC requires a session.');
     if (typeof params.path !== 'string') throw new Error('File path is required.');
     if ((method === 'notebook_read' || method === 'notebook_edit') && path.extname(params.path).toLowerCase() !== '.ipynb') throw new Error('Notebook path must end in .ipynb.');
     const { sessionId, ...input } = params;
-    const isRead = method === 'file_read' || method === 'notebook_read';
+    const isRead = method === 'file_read' || method === 'notebook_read' || method === 'lsp';
     let activeWorkspace: string;
     if (hostId) {
       const parsed = workspaceSnapshotSchema.safeParse(params.workspaceSnapshot);
@@ -52,11 +54,11 @@ export function createNotebookRpc(workspace?: string, hostId?: string) {
       activeWorkspace = workspace;
       delete input.workspaceSnapshot;
     }
-    const { action, source } = new PermissionPolicy(activeWorkspace).evaluateDecision(isRead ? 'file_read' : method, input);
+    const { action, source } = new PermissionPolicy(activeWorkspace).evaluateDecision(method === 'notebook_read' ? 'file_read' : method, input);
     if (source === 'invalid') throw new Error('Local permission settings are invalid or unsafe; check the workspace and user settings.');
     if (action === 'deny' || (isRead && action !== 'allow')) throw new Error('Local permission policy denied this device operation.');
     const context = { cwd: activeWorkspace, userId, sessionId, toolCallId };
-    const registry = { file_read: read, notebook_read: read, file_write: write, file_edit: fileEdit, file_patch: patch, notebook_edit: edit };
+    const registry = { file_read: read, notebook_read: read, file_write: write, file_edit: fileEdit, file_patch: patch, notebook_edit: edit, lsp };
     const result = await executeTool(registry[method], input, context);
     if (result.errorCode === 'validation') throw new Error(`Invalid ${method.replace('_', ' ')}: ${result.error}`);
     if (result.error) throw new Error(result.error);

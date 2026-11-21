@@ -1,7 +1,19 @@
 import { z } from 'zod';
+import { DELEGATE_TASK_TOOL, delegateTaskSchema } from '../run/subagent-policy';
+import { fetchWebText, searchWeb } from '@ocean/core';
 import { ArtifactStore } from '../artifact/artifact.store';
 import { EgressPolicy } from '../sandbox/egress-policy';
 import { TerminalToolError, Tool } from './tool.types';
+
+const delegateTool: Tool = {
+  name: DELEGATE_TASK_TOOL,
+  description: 'Delegate a focused task to an Ocean subagent and wait for its persisted result.',
+  inputSchema: delegateTaskSchema,
+  effect: 'idempotent-write',
+  async execute() {
+    throw new TerminalToolError('Delegation is available through the Worker execution path.');
+  },
+};
 
 /** echo：无外部副作用，返回传入文本（普通验证/模型回显用）。 */
 const echoTool: Tool = {
@@ -73,17 +85,27 @@ function createWebGetTool(egress: EgressPolicy): Tool {
     }),
     async execute(input: Record<string, unknown>) {
       const url = typeof input.url === 'string' ? input.url : '';
-      const verdict = egress.checkUrl(url);
-      if (!verdict.allowed) {
-        throw new TerminalToolError(
-          `egress_denied: ${verdict.host || '(invalid url)'} not in allowlist (reason: ${verdict.reason})`,
-        );
+      try {
+        const result = await fetchWebText(url, egress);
+        return { ...result, body: result.body.slice(0, 4000), truncated: result.truncated || result.body.length > 4000 };
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('egress_denied:')) throw new TerminalToolError(error.message);
+        throw error;
       }
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(10_000),
-      });
-      const body = await response.text();
-      return { status: response.status, url, body: body.slice(0, 4000) };
+    },
+  };
+}
+
+function createWebSearchTool(egress: EgressPolicy, endpoint: string): Tool {
+  const schema = z.object({ query: z.string().trim().min(1).max(2000), limit: z.number().int().min(1).max(10).default(5) });
+  return {
+    name: 'web_search',
+    description: 'Search the Web using the configured Ocean search service.',
+    inputSchema: schema,
+    effect: 'read',
+    async execute(input) {
+      const args = schema.parse(input);
+      return searchWeb(endpoint, args.query, args.limit, egress);
     },
   };
 }
@@ -164,8 +186,11 @@ export function createBuiltinTools(
     echoTool,
     counterTool,
     notifySendTool,
+    delegateTool,
     createWebGetTool(egress),
   ];
   if (artifactStore) tools.push(...createArtifactTools(artifactStore));
+  const endpoint = process.env.OCEAN_WEB_SEARCH_URL;
+  if (endpoint) tools.push(createWebSearchTool(egress, endpoint));
   return tools;
 }

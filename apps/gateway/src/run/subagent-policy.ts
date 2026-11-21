@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { wildcardToRegex } from '@ocean/core';
 export interface SubagentPolicy {
   toolScopes: string[][];
@@ -32,3 +33,9 @@ export function childPolicy(agent: string, parentRunId: string | null, parentMet
   };
   return policyForRun('child', { subagentPolicy: value })!;
 }
+
+export const DELEGATE_TASK_TOOL = 'delegate_task';
+export const delegateTaskSchema = z.object({
+  agent: z.string().min(1).max(128),
+  task: z.string().trim().min(1).max(16_000),
+}).strict();

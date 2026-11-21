@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Post,
   Req,
@@ -18,5 +19,17 @@ export class SubagentRunsController {
   ) {
     if (!request.user?.dbId) throw new UnauthorizedException();
     return this.subagents.create(parentId, request.user.dbId, input);
+  }
+
+  @Get(':runId/team')
+  team(@Req() request: any, @Param('runId') runId: string) {
+    if (!request.user?.dbId) throw new UnauthorizedException();
+    return this.subagents.team(runId, request.user.dbId);
+  }
+
+  @Post(':runId/team/messages')
+  message(@Req() request: any, @Param('runId') runId: string, @Body() input: { recipientId: string; message: string; messageId?: string }) {
+    if (!request.user?.dbId) throw new UnauthorizedException();
+    return this.subagents.sendTeamMessage(runId, request.user.dbId, input);
   }
 }

@@ -45,6 +45,7 @@
   "dependencies": {
     "@ocean/contracts": "workspace:*",
     "bash-parser": "^0.5.0",
+    "ignore": "7.0.5",
     "tiktoken": "^1.0.22"
   },
   "scripts": {
@@ -56,6 +57,12 @@
   },
   "typesVersions": {
     "*": {
+      "permission-policy": [
+        "dist/permission-policy.d.ts"
+      ],
+      "session-permission-grants": [
+        "dist/session-permission-grants.d.ts"
+      ],
       "checkpoints": [
         "dist/filesystem/checkpoints.d.ts"
       ],

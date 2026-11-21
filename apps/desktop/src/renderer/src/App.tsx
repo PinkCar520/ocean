@@ -35,6 +35,8 @@ import { WorkProjection } from '@ocean/ui/components/WorkProjection';
 
 import { WorkspaceProvider, useWorkspace } from '@ocean/ui/contexts/WorkspaceContext';
 
+declare const __OCEAN_WEB_URL__: string
+
 type WorkspaceHostInfo = Pick<WorkspaceConfiguration, 'hostId' | 'platform'>;
 
 type WorkspaceHostHealth = 'signed-out' | 'starting' | 'online' | 'reconnecting' | 'unauthorized' | 'unavailable';
@@ -110,11 +112,34 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Used for UserMenu Popover
   const [isMainSettingsOpen, setIsMainSettingsOpen] = useState(false); // Used for Settings Dialog Modal
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('ocean_sidebar_collapsed');
     return saved === 'true';
   });
+  useEffect(() => {
+    const ipc = (window as any).electron?.ipcRenderer;
+    if (!ipc) return;
+
+    let active = true;
+    const onFullscreenChange = (_event: unknown, fullscreen: boolean) => {
+      active = false;
+      setIsFullscreen(fullscreen);
+    };
+    ipc.on('fullscreen-change', onFullscreenChange);
+    void ipc.invoke('is-fullscreen').then((fullscreen: boolean) => {
+      if (active) setIsFullscreen(fullscreen);
+    }).catch(() => {
+      // The main process can still report subsequent fullscreen changes.
+    });
+
+    return () => {
+      active = false;
+      ipc.removeListener('fullscreen-change', onFullscreenChange);
+    };
+  }, []);
+
   const [models, setModels] = useState<any[]>([]);
   const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem('ocean_selected_model') || '');
   const [workspaceHostInfo, setWorkspaceHostInfo] = useState<WorkspaceHostInfo | null>(null);
@@ -272,6 +297,8 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
     handleNewChat,
     loadConversation,
     handleRenameChat,
+    updateConversationMetadata,
+    deleteConversation,
     handleDeleteConversations,
     onStreamFinished,
     refreshConversations,
@@ -485,6 +512,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         isCollapsed={isSidebarCollapsed}
+        isFullscreen={isFullscreen}
         onToggle={toggleSidebar}
         activeMainTab={activeTab}
         onMainTabChange={(id: string) => { setActiveTab(id); }}
@@ -495,7 +523,7 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
         onLoadConversation={loadConversationAndActivate}
         onRenameConversation={handleRenameChat}
         onDeleteConversation={handleDeleteChat}
-        onFavoriteConversation={() => {}} // Favorite 功能可后续实现
+        onPinConversation={(id, pinned) => { void updateConversationMetadata(id, { pinned }).catch(console.error); }}
         user={user}
         onLogout={handleLogout}
         token={token}
@@ -559,7 +587,13 @@ function AppInternal({ token, setToken, user, setUser, sessionIdFromUrl }: any) 
                 onSpaceTabChange={handleSpaceTabChange}
                 createSession={createSession}
                 onStreamFinished={onStreamFinished}
-                onRenameConversation={handleRenameChat}
+                onRenameConversation={(id, title) => handleRenameChat(id, title, true)}
+                conversation={conversations.find(chat => chat.id === sessionIdFromUrl)}
+                onUpdateConversation={updateConversationMetadata}
+                onDeleteConversation={deleteConversation}
+                getConversationLink={(id) => new URL(`/app/chat/${encodeURIComponent(id)}`, __OCEAN_WEB_URL__).href}
+                reserveDesktopWindowControls={isSidebarCollapsed}
+                alignSidebarToggleWithHeader
                 isLoadingHistory={isLoadingMessages}
                 onMainTabChange={(id: string) => setActiveTab(id)}
                 t={t}

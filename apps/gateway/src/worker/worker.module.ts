@@ -1,3 +1,6 @@
+import { MCPModule } from '../mcp/mcp.module';
+import { WorkerAgentTools } from './worker-agent-tools';
+import { RunScheduleDispatcher } from './run-schedule-dispatcher';
 import { MODEL_GATEWAY, type ModelGateway } from '../ai/model-gateway';
 import { PermissionModule } from '../skill/permission.module';
 import { Module } from '@nestjs/common';
@@ -35,9 +38,12 @@ import { GatewayHooks } from './gateway-hooks';
     AuditModule, // ToolExecutor 审计
     AiModule,
     ToolModule,
+    MCPModule,
     PermissionModule,
   ],
   providers: [
+    WorkerAgentTools,
+    RunScheduleDispatcher,
     WorkerService,
     RunRunner,
     ToolExecutor,

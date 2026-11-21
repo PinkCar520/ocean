@@ -1,17 +1,23 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useSidebarPreview } from '../lib/useSidebarPreview';
+import { SidebarToggleIcon } from './chat/SidebarToggleIcon';
 import type { ReasoningEffort, WorkspaceSnapshot } from '@ocean/contracts';
 import { ThinkingList } from './ThinkingList';
 import { DiffViewer } from './DiffViewer';
 import { TypingCursor, BrailleSpinner } from './chat/ChatHelpers';
-import { parseReasoningToSteps, getFriendlyToolName, beautifyModelName, type ThinkingStep } from '../lib/chat-utils';
+import { parseReasoningToSteps, getFriendlyToolName, type ThinkingStep } from '../lib/chat-utils';
 import { useChatSession } from '../lib/useChatSession';
 import { useChatInput } from '../lib/useChatInput';
 import { ChatInput } from './chat/ChatInput';
 import { InquiryWizardCard } from './InquiryWizardCard';
 import { ToolInvocationRenderer, ToolInvocationBadge } from './chat/ToolInvocationRenderer';
 import { ChatMessage } from './chat/ChatMessage';
+import { ConversationThumbnails } from './chat/ConversationThumbnails';
 import { ConversationFind } from './chat/ConversationFind';
+import { ConversationHeader } from './chat/ConversationHeader';
+import type { ConversationSummary } from '../lib/useConversations';
 import { IntegrationsPanel } from './chat/IntegrationsPanel';
+import { type SessionTokenUsage } from './chat/TokenUsageIndicators';
 import { ActiveContextPanel, type WorkspaceHostHealth } from './chat/ActiveContext';
 import { ArtifactViewer } from './ArtifactViewer';
 import { EmptyState } from './chat/EmptyState';
@@ -23,8 +29,8 @@ import { useChat } from '@ai-sdk/react';
 import {
   ArrowDown, Sparkles, Copy, RotateCcw, Check,
   Plus, FileText, X as CloseIcon, Image as ImageIcon,
-  ChevronDown, Paperclip, ArrowRight, ArrowUp, Terminal, Cpu, Database, BadgeCheck, Globe, Square,
-  ThumbsUp, ThumbsDown, AlertCircle, Pencil, PanelRight, PanelRightClose
+  ChevronDown, Paperclip, ArrowRight, ArrowUp, Terminal, Cpu, Database, Globe, Square,
+  ThumbsUp, ThumbsDown, AlertCircle, Pencil
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from '../lib/useReducedMotion';
@@ -38,7 +44,7 @@ import { CapsuleAnchor } from './CapsuleAnchor';
 import { BugCard } from './BugCard';
 import { PipelineCard } from './PipelineCard';
 import { TaskPlan } from './TaskPlan';
-import { ApprovalModal } from './ApprovalModal';
+import { ApprovalCard } from './ApprovalCard';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -67,7 +73,14 @@ interface ChatSessionProps {
     workspaceSnapshot?: WorkspaceSnapshot,
   ) => Promise<string | null>; // 服务端创建新会话
   onStreamFinished: (sessionId: string) => Promise<void>; // 流完成后刷新侧边栏
-  onRenameConversation?: (id: string, title: string) => void;
+  onRenameConversation?: (id: string, title: string) => Promise<void>;
+  conversation?: ConversationSummary;
+  onDeleteConversation?: (id: string) => Promise<void>;
+  onUpdateConversation?: (id: string, metadata: Pick<ConversationSummary, 'pinned' | 'projectId'>) => Promise<void>;
+  getConversationLink?: (id: string) => string;
+  reserveDesktopWindowControls?: boolean;
+  alignSidebarToggleWithHeader?: boolean;
+  reserveLeftSidebarToggle?: boolean;
   isLoadingHistory?: boolean;
   onMainTabChange?: (id: string) => void;
   /** Phase 6 6b：当前 Space（新建会话归属） */
@@ -108,6 +121,13 @@ export function ChatSession({
   createSession,
   onStreamFinished,
   onRenameConversation,
+  conversation,
+  onDeleteConversation,
+  onUpdateConversation,
+  getConversationLink,
+  reserveDesktopWindowControls,
+  alignSidebarToggleWithHeader,
+  reserveLeftSidebarToggle,
   isLoadingHistory,
   onMainTabChange,
   spaceId,
@@ -190,12 +210,42 @@ export function ChatSession({
   // ── Hooks ──
   const {
     messages, fullTree, sendMessage, status, setMessages, stop, error,
-    isLoading, isStopped, setIsStopped, totalUsage, handleStop,
-    sessionIdRef, titleGeneratedRef, data, switchBranch, setCurrentLeafId
+    isLoading, isStopped, setIsStopped, handleStop,
+    sessionIdRef, titleGeneratedRef, data, switchBranch, currentLeafId, setCurrentLeafId
   } = useChatSession({
     sessionId, initialMessages, token, selectedModelId, reasoningEffort,
     isSearchMode, isKnowledgeMode, onStreamFinished, spaceId
   });
+
+  const usageQuery = new URLSearchParams({ modelId: selectedModelId });
+  if (currentLeafId) usageQuery.set('leafId', currentLeafId);
+  const usagePath = sessionId
+    ? `/api/chat/sessions/${encodeURIComponent(sessionId)}/usage?${usageQuery}`
+    : null;
+  const [usageSnapshot, setUsageSnapshot] = useState<{ path: string; usage: SessionTokenUsage }>();
+  useEffect(() => {
+    if (!usagePath || !token) return;
+    let active = true;
+    let pending = false;
+    const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const usage = await api.get<SessionTokenUsage>(usagePath);
+        if (active) setUsageSnapshot({ path: usagePath, usage });
+      } catch {
+        if (active) setUsageSnapshot(undefined);
+      } finally {
+        pending = false;
+      }
+    };
+    void refresh();
+    const timer = isLoading ? setInterval(refresh, 2500) : undefined;
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [usagePath, token, isLoading]);
 
   // ── 实时解析并合并 Active Context 元数据 ──
   const activeContext = useMemo(() => {
@@ -247,7 +297,73 @@ export function ChatSession({
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [pendingApproval, setPendingApproval] = useState<any>(null);
+  type RunApproval = { id: string; runId: string; toolName: string; args: Record<string, unknown> };
+  type RunInquiry = { runId: string; toolCallId: string } &
+    Pick<React.ComponentProps<typeof InquiryWizardCard>, 'description' | 'inquiries'>;
+  type Interaction = { kind: 'approval'; data: RunApproval } | { kind: 'inquiry'; data: RunInquiry };
+  const interactionPath = sessionId ? `/api/chat/sessions/${encodeURIComponent(sessionId)}/pending-interaction` +
+    (currentLeafId ? `?leafId=${encodeURIComponent(currentLeafId)}` : '') : null;
+  const [restoredInteraction, setRestoredInteraction] = useState<{ path: string; interaction: Interaction | null }>();
+  useEffect(() => {
+    if (!interactionPath || !token || isLoading) return;
+    let active = true;
+    let recoveringRunId: string | undefined;
+    const fetchInteraction = async () => {
+      try {
+        const result = await api.get<{ interaction: Interaction | null }>(interactionPath);
+        if (!active) return;
+        setRestoredInteraction({ path: interactionPath, interaction: result.interaction });
+        if (result.interaction) recoveringRunId = result.interaction.data.runId;
+        if (!recoveringRunId) return;
+        if (!result.interaction) {
+          const run = await api.get<{ status: string }>(`/api/runs/${encodeURIComponent(recoveringRunId)}/status`);
+          if (!active) return;
+          if (['succeeded', 'failed', 'cancelled'].includes(run.status)) {
+            if (sessionId) await onStreamFinished(sessionId);
+            return;
+          }
+        }
+        if (active) timer = setTimeout(fetchInteraction, 2500);
+      } catch {
+        if (active && recoveringRunId) timer = setTimeout(fetchInteraction, 5000);
+      }
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void fetchInteraction();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [interactionPath, token, isLoading, sessionId, onStreamFinished]);
+  const restored = !isLoading && restoredInteraction?.path === interactionPath ? restoredInteraction.interaction : null;
+  const pendingApproval = useMemo(() => {
+    if (!isLoading) return restored?.kind === 'approval' ? restored.data : null;
+    const event = [...data].reverse().find((part): part is { type: 'data-run-approval'; data: RunApproval | null } =>
+      !!part && typeof part === 'object' && 'type' in part && part.type === 'data-run-approval');
+    return event?.data ?? null;
+  }, [data, isLoading, restored]);
+  const pendingInquiry = useMemo(() => {
+    if (!isLoading) return restored?.kind === 'inquiry' ? restored.data : null;
+    const event = [...data].reverse().find((part): part is { type: 'data-run-inquiry'; data: RunInquiry | null } =>
+      !!part && typeof part === 'object' && 'type' in part && part.type === 'data-run-inquiry');
+    return event?.data ?? null;
+  }, [data, isLoading, restored]);
+  const [inquiryResponse, setInquiryResponse] = useState<{ id: string; state: 'sending' | 'sent' | 'error' }>();
+  const inquiryState = inquiryResponse?.id === pendingInquiry?.toolCallId ? inquiryResponse?.state : undefined;
+  const submitInquiry = async (answers?: Record<string, string | string[]>) => {
+    if (!pendingInquiry || inquiryState === 'sending' || inquiryState === 'sent') return;
+    const { runId, toolCallId: id } = pendingInquiry;
+    setInquiryResponse({ id, state: 'sending' });
+    try {
+      await api.post(`/api/runs/${encodeURIComponent(runId)}/inquiries/${encodeURIComponent(id)}/answer`,
+        answers ? { status: 'answered', answers } : { status: 'dismissed' });
+      setInquiryResponse({ id, state: 'sent' });
+    } catch {
+      setInquiryResponse({ id, state: 'error' });
+    }
+  };
+  const [approvalResponse, setApprovalResponse] = useState<{ id: string; state: 'sending' | 'sent' | 'error' }>();
+  const approvalState = approvalResponse?.id === pendingApproval?.id ? approvalResponse?.state : undefined;
   const [activeCapsule, setActiveCapsule] = useState<{
     toolCallId?: string;
     uiKit?: any;
@@ -457,21 +573,24 @@ export function ChatSession({
   }, [editText, fullTree, sendMessage, cancelEdit]);
 
   const handleApprovalResponse = useCallback(async (status: 'approved' | 'denied') => {
-    if (!pendingApproval) return;
+    if (!pendingApproval || approvalState === 'sending' || approvalState === 'sent') return;
+    const { id, runId } = pendingApproval;
+    setApprovalResponse({ id, state: 'sending' });
     try {
-      await api.post(`/api/chat/approvals/${pendingApproval.id}/respond`, { status });
-      setPendingApproval(null);
-    } catch (err: any) {
-      console.error('Approval response failed:', err.message);
+      await api.post(`/api/runs/${encodeURIComponent(runId)}/approvals/${encodeURIComponent(id)}/decide`, {
+        decision: status === 'approved' ? 'approved' : 'rejected',
+        scope: 'once',
+      });
+      setApprovalResponse({ id, state: 'sent' });
+    } catch {
+      setApprovalResponse({ id, state: 'error' });
     }
-  }, [pendingApproval]);
+  }, [pendingApproval, approvalState]);
 
   const onExtractArtifact = useCallback((artifact: any) => {
     setActiveCapsule({ artifact: { ...artifact, type: 'code' } });
   }, []);
 
-  const activeModel = useMemo(() => models.find(m => m.id === selectedModelId) || models[0] || { name: 'Loading...', icon: Sparkles, color: 'text-slate-400' }, [models, selectedModelId]);
-  const activeDisplayName = useMemo(() => beautifyModelName(activeModel.name), [activeModel]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
   const handleDragLeave = useCallback(() => { setIsDragging(false); }, []);
@@ -496,22 +615,62 @@ export function ChatSession({
     })
     : null;
 
+  const rightSidebarPreview = useSidebarPreview(!isRightSidebarOpen && !previewAttachment && !activeCapsule);
+  const showHeader = Boolean(sessionId || messages.length > 0 || status === 'submitted');
+  const lastVisibleMessageId = messages.at(-1)?.id;
+  const visibleMessages = useMemo(() => {
+    const unique = new Map(messages.map((message, index) => [message.id || (message as { createdAt?: string | Date }).createdAt || index, message]));
+    return Array.from(unique.values()).filter(message => message.role === 'user' || message.role === 'assistant');
+  }, [messages]);
+  const shareLeafId = !isLoading && !isLoadingHistory && initialMessages.some(message => message.id === lastVisibleMessageId)
+    ? lastVisibleMessageId : undefined;
   return (
     <div
-      className="flex-1 flex overflow-hidden h-full relative"
+      className={cn("flex-1 flex overflow-hidden h-full relative", showHeader && "pt-14")}
       onDragOver={handleDragOver}
     >
+      {showHeader && (
+        <header className={cn(
+          'pointer-events-none absolute inset-x-0 top-0 z-[9999] flex h-14 items-center justify-between gap-3 border-b border-border bg-background pl-4 pr-12',
+          reserveLeftSidebarToggle && 'md:pl-14',
+          reserveDesktopWindowControls && 'md:pl-32',
+        )}>
+          <ConversationHeader
+            key={sessionId}
+            sessionId={sessionId}
+            conversation={conversation}
+            shareLeafId={shareLeafId}
+            shareOwner={user}
+            link={getConversationLink}
+            rename={onRenameConversation}
+            remove={onDeleteConversation}
+            update={onUpdateConversation}
+          />
+        </header>
+      )}
       {/* Right Sidebar Toggle Button — 始终吸附于整个视图最右侧顶部 */}
       {(!previewAttachment && !activeCapsule) && (
-        <div className="absolute top-[4px] right-3 z-[9999] titlebar-no-drag">
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsRightSidebarOpen(prev => !prev); }}
-            className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer titlebar-no-drag pointer-events-auto"
-            style={{ WebkitAppRegion: 'no-drag' } as any}
-            title={isRightSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
-          >
-            {isRightSidebarOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRight className="w-4 h-4" />}
-          </button>
+        <div className={cn("absolute right-3 z-[9999] titlebar-no-drag", (showHeader || alignSidebarToggleWithHeader) ? "top-0 flex h-14 items-center border-b border-transparent" : "top-[4px]")}>
+          <Tooltip disableHoverableContent>
+            <TooltipTrigger asChild>
+              <button
+                onPointerEnter={rightSidebarPreview.begin}
+                onPointerLeave={rightSidebarPreview.leave}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  rightSidebarPreview.reset();
+                  setIsRightSidebarOpen(previous => !previous);
+                }}
+                className="w-8 h-7 inline-flex items-center justify-center rounded-md hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer titlebar-no-drag pointer-events-auto"
+                style={{ WebkitAppRegion: 'no-drag' } as any}
+                aria-label={t(isRightSidebarOpen ? 'sidebar.collapseRight' : 'sidebar.expandRight')}
+              >
+                <SidebarToggleIcon side="right" expanded={isRightSidebarOpen || rightSidebarPreview.open} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent variant="inverse" side="bottom" className="z-[10000]">{t(isRightSidebarOpen ? 'sidebar.collapseRight' : 'sidebar.expandRight')}</TooltipContent>
+          </Tooltip>
         </div>
       )}
       <div className={cn(
@@ -536,6 +695,7 @@ export function ChatSession({
           scrollRef={scrollRef}
           open={findOpen}
           focusRequest={findFocusRequest}
+          belowHeader={showHeader}
           close={closeFind}
         />
         <div
@@ -557,7 +717,7 @@ export function ChatSession({
             </button>
           )}
 
-          <div className="max-w-[800px] mx-auto space-y-8">
+          <div data-conversation-content className="max-w-[800px] mx-auto space-y-8">
 
             <AnimatePresence mode="popLayout" initial={false}>
               {isLoadingHistory ? (
@@ -583,15 +743,13 @@ export function ChatSession({
                 />
               ) : (
                 <div key="chat-messages" className="flex flex-col w-full">
-                  {Array.from(new Map(messages.map((m: any) => [m.id || m.createdAt || Math.random(), m])).values())
-                    .filter((m: any) => m.role === 'user' || m.role === 'assistant')
-                    .map((m: any, idx: number, arr: any[]) => (
+                  {visibleMessages.map((m, idx, arr) => (
                       <ChatMessage
                         key={m.id || idx}
                         message={m}
                         idx={idx}
                         isLast={idx === arr.length - 1}
-                        isLoading={isLoading}
+                        isLoading={isLoading && !pendingApproval && !pendingInquiry}
                         reducedMotion={reducedMotion}
                         t={t}
                         getLocalizedName={getLocalizedName}
@@ -649,7 +807,7 @@ export function ChatSession({
                   )}
 
                   {/* 当正在提交但 messages 列表还没更新出 assistant 回复时的"先行占位" */}
-                  {(isLoading || isLocalThinking) && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
+                  {!pendingApproval && !pendingInquiry && (isLoading || isLocalThinking) && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
                     <motion.div {...(reducedMotion ? { initial: false, animate: { opacity: 1 } } : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } })} className="flex w-full gap-4 items-start mb-8">
                       <div aria-hidden="true" className="w-8 h-8 flex items-center justify-center text-primary shrink-0 mt-1">
                         <Sparkles className="w-4 h-4" />
@@ -682,7 +840,18 @@ export function ChatSession({
           </div>
         </div>
 
-        {activeInquiryPart && (
+        {!isLoadingHistory && visibleMessages.length > 0 && (
+          <ConversationThumbnails
+            key={sessionId}
+            scrollRef={scrollRef}
+            messages={visibleMessages}
+            reducedMotion={reducedMotion}
+            label={t('chat.thumbnails.label')}
+            emptyPrompt={t('chat.thumbnails.emptyPrompt')}
+          />
+        )}
+
+        {!pendingInquiry && !pendingApproval && activeInquiryPart && (
           <div className="w-full px-4 md:px-8 z-10">
             <div className="max-w-[800px] mx-auto relative flex flex-col justify-end pb-1">
               <InquiryWizardCard
@@ -730,7 +899,47 @@ export function ChatSession({
           </div>
         )}
 
+        {pendingInquiry && !pendingApproval && (
+          <section aria-label={t('chat.run_inquiry.title')}
+            className="titlebar-no-drag pointer-events-auto z-10 max-h-[45dvh] shrink-0 overflow-auto px-4 md:px-8">
+            <div className="mx-auto max-w-[800px] pb-2">
+              <fieldset disabled={inquiryState === 'sending' || inquiryState === 'sent'} className="min-w-0">
+                <InquiryWizardCard key={pendingInquiry.toolCallId}
+                  skillName={t('chat.run_inquiry.title')}
+                  description={pendingInquiry.description}
+                  inquiries={pendingInquiry.inquiries}
+                  onComplete={answers => void submitInquiry(answers)}
+                  onCancel={() => void submitInquiry()}
+                />
+              </fieldset>
+              {inquiryState === 'error' && <p role="alert" className="mt-2 text-xs text-destructive">{t('chat.run_inquiry.error')}</p>}
+            </div>
+          </section>
+        )}
+
+        {pendingApproval && (
+          <section aria-label={t('chat.run_approval.title')}
+            className="titlebar-no-drag pointer-events-auto z-10 max-h-[40dvh] shrink-0 overflow-y-auto px-4 md:px-8">
+            <div className="mx-auto max-w-[800px] pb-2">
+              <ApprovalCard
+                requestId={pendingApproval.id}
+                toolName={pendingApproval.toolName}
+                description={t('chat.run_approval.description')}
+                args={pendingApproval.args}
+                status="pending"
+                approveLabel={t('chat.run_approval.approve')}
+                submitting={approvalState === 'sending' || approvalState === 'sent'}
+                responseError={approvalState === 'error'}
+                onApprove={() => void handleApprovalResponse('approved')}
+                onReject={() => void handleApprovalResponse('denied')}
+                className="mt-0 max-w-none shadow-none"
+              />
+            </div>
+          </section>
+        )}
+
         <ChatInput
+          tokenUsage={usagePath ? usageSnapshot?.path === usagePath ? usageSnapshot.usage : null : undefined}
           isEmpty={messages.length === 0 && !isLoadingHistory}
           localInput={localInput}
           setLocalInput={setLocalInput}
@@ -770,21 +979,19 @@ export function ChatSession({
         />
       </div>
 
-      {/* Approval Modal */}
-      <ApprovalModal
-        request={pendingApproval ? { id: pendingApproval.id, toolName: pendingApproval.toolName, args: pendingApproval.args } : null}
-        onRespond={handleApprovalResponse}
-        onClose={() => setPendingApproval(null)}
-      />
-
       {/* Sidebar Right (Capsule Panel + Preview + Meta) */}
-      <aside className={cn(
-        "absolute lg:relative right-0 top-0 bottom-0 z-40 border-l border-border bg-background lg:bg-background/80 backdrop-blur-md flex-col h-full overflow-hidden transition-all duration-300",
+      <aside onPointerEnter={rightSidebarPreview.keep} onPointerLeave={rightSidebarPreview.leave} className={cn(
+        "absolute right-0 top-0 bottom-0 z-40 border-l border-border bg-background lg:bg-background/80 backdrop-blur-md flex-col h-full overflow-hidden transition-all duration-300",
         (previewAttachment || activeCapsule)
-          ? "translate-x-0 flex w-full lg:w-[560px] lg:mr-0 opacity-100"
+          ? "lg:relative translate-x-0 flex w-full lg:w-[560px] opacity-100"
           : isRightSidebarOpen
-            ? "translate-x-full lg:translate-x-0 hidden lg:flex w-80 lg:w-80 lg:mr-0 opacity-100"
-            : "translate-x-full lg:translate-x-0 hidden lg:flex w-80 lg:w-80 lg:-mr-80 opacity-0 pointer-events-none"
+            ? "lg:relative hidden lg:flex w-80 opacity-100"
+            : cn(
+                "flex w-80 max-w-full",
+                rightSidebarPreview.open
+                  ? "translate-x-0 opacity-100 shadow-xl"
+                  : "translate-x-full opacity-0 pointer-events-none invisible",
+              )
       )}>
         {activeCapsule ? (
           /* ── Capsule Panel ── */
@@ -868,11 +1075,7 @@ export function ChatSession({
               }}
             />
             <div className="border-t border-border/60 bg-muted/30">
-              <IntegrationsPanel
-                t={t}
-                activeDisplayName={activeDisplayName}
-                totalUsage={totalUsage}
-              />
+              <IntegrationsPanel t={t} />
             </div>
           </div>
         )}

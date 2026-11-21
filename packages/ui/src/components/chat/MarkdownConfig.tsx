@@ -66,11 +66,10 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
   return (
     <div className={cn(
       "relative group font-mono selection:bg-primary/30 not-prose",
-      minimal ? "h-full w-full" : "my-6 rounded-[16px] overflow-hidden border border-border/50 shadow-sm"
+      minimal ? "h-full w-full" : "my-6 rounded-[16px] overflow-hidden border border-border/50 bg-neutral-100"
     )}>
-      {/* Absolute Header - Card Style */}
       {!minimal && (
-        <div data-conversation-ignore className="flex items-center justify-between px-4 py-2.5 bg-neutral-200 border-b border-neutral-300">
+        <div data-conversation-ignore className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-3">
             <div className="p-1 rounded bg-neutral-300/50 text-slate-600">
               <Code2 className="w-3.5 h-3.5" />
@@ -104,7 +103,7 @@ export const CodeBlock = React.memo(({ language, value, onExtract, minimal = fal
       {/* Shiki Render Output */}
       <div className={cn(
         "shiki-container",
-        minimal ? "bg-[#1E1E1E]" : "min-h-[60px] bg-neutral-100"
+        minimal ? "bg-[#1E1E1E]" : "min-h-[60px]"
       )}>
         {shikiHtml ? (
           <div 

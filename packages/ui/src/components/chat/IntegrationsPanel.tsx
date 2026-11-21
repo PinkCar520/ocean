@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, Database, BadgeCheck, GitBranch, RefreshCw } from 'lucide-react';
+import { Cpu, Database, GitBranch, RefreshCw } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { cn } from '../../lib/utils';
 
@@ -9,19 +9,11 @@ const ICON_MAP = {
   database: Database,
 };
 
-export function IntegrationsPanel({
-  t,
-  activeDisplayName,
-  totalUsage
-}: {
-  t: any;
-  activeDisplayName: string;
-  totalUsage: any;
-}) {
+export function IntegrationsPanel({ t }: { t: any }) {
   const { mcpMetrics, refresh, isLoading } = useWorkspace();
 
   return (
-    <div className="p-6 flex flex-col gap-8 overflow-y-auto flex-1">
+    <div className="p-6 flex flex-col overflow-y-auto flex-1">
       {/* ── Layer 3: Capabilities (Active MCPs) ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -65,31 +57,6 @@ export function IntegrationsPanel({
               <p className="text-xs text-muted-foreground font-medium">无活跃集成</p>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Meta Stats Section */}
-      <div>
-        <h4 className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest mb-4">{t('chat.meta.title')}</h4>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{t('chat.meta.model')}</span>
-            <span className="text-xs font-bold text-foreground flex items-center gap-1">
-              {activeDisplayName} <BadgeCheck className="w-3 h-3 text-primary" />
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{t('chat.meta.tokens')}</span>
-            <span className="text-xs font-mono font-bold text-foreground">
-              {totalUsage.totalTokens > 0 ? totalUsage.totalTokens.toLocaleString() : '—'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{t('chat.meta.review_mode')}</span>
-            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] font-bold">
-              {t('chat.meta.strict')}
-            </span>
-          </div>
         </div>
       </div>
     </div>

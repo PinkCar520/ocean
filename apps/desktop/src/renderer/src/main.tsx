@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import '@ocean/ui/lib/i18n'
-import { TooltipProvider } from '@ocean/ui/components/tooltip'
+import { TooltipProvider } from '@ocean/ui/components/ui/tooltip'
 import App from './App'
 import './index.css'
 

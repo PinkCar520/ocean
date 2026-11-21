@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { lspInputSchema } from '@ocean/contracts';
 import { DeviceRpcBroker } from './device-rpc.broker';
 import { TerminalToolError, type Tool } from './tool.types';
 
@@ -71,5 +72,16 @@ export function createDeviceTools(broker: DeviceRpcBroker): Tool[] {
         return broker.request(method, parsed.data, ctx);
       },
     })),
+    {
+      name: 'local_lsp',
+      description: 'Use a configured local language server for code navigation in the connected workspace.',
+      inputSchema: lspInputSchema,
+      effect: 'read',
+      async execute(input, ctx) {
+        const parsed = lspInputSchema.safeParse(input);
+        if (!parsed.success) throw new TerminalToolError(`Invalid language server request: ${parsed.error.message}`);
+        return broker.request('lsp', parsed.data, ctx);
+      },
+    },
   ];
 }

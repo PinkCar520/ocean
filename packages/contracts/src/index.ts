@@ -4,3 +4,4 @@ export * from './run.js';
 export * from './space.js';
 export * from './ui.js';
 export * from './workspace.js';
+export * from './lsp.js';

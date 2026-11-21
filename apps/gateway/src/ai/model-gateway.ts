@@ -19,7 +19,7 @@ export interface ModelToolCall {
 /** 与实现无关的对话消息（网关内部转换为 provider 原生格式）。 */
 export type ModelMessage =
   | { role: 'user'; text: string }
-  | { role: 'assistant'; text?: string; toolCalls?: ModelToolCall[] }
+  | { role: 'assistant'; text?: string; reasoning?: string; toolCalls?: ModelToolCall[] }
   | { role: 'tool'; toolCallId: string; toolName: string; result: unknown };
 
 /** 暴露给模型的工具定义（inputSchema 为 zod schema，由 ToolRegistry 工具提供）。 */
@@ -34,14 +34,17 @@ export interface ModelGenerateRequest {
   messages: ModelMessage[];
   modelId?: string;
   reasoningEffort?: ReasoningEffort;
+  maxOutputTokens?: number;
   tools?: ModelToolSpec[];
   /** 文本增量回调（实现侧流式产出时逐段回调，供 RunRunner 攒批落 run.output_delta）。 */
   onDelta?: (text: string) => void | Promise<void>;
 }
 
 export interface ModelGenerateResult {
+  contextBreakdown?: { systemTokens: number; toolTokens: number; messageTokens: number };
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
   text: string;
+  reasoning?: string;
   toolCalls: ModelToolCall[];
 }
 

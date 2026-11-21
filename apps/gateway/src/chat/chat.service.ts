@@ -1,3 +1,4 @@
+import { RUN_INQUIRY_TOOL, runInquirySchema } from '../run/run-inquiry';
 import type { ReasoningEffort } from '@ocean/contracts';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -8,7 +9,7 @@ const RUN_POLL_MS = 150;
 const RUN_TIMEOUT_MS = 5 * 60 * 1000;
 const TERMINAL_RUN_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 
-/** 把 messages 序列化为 Run 的单 prompt（v1：模型只见组装后的文本，多轮上下文靠文本拼接）。 */
+/** 把 messages 序列化为 Run 的单 prompt（已保存会话的分支历史由 Worker 单独恢复）。 */
 function buildRunPrompt(
   messages: any[],
   ctx: {
@@ -58,6 +59,14 @@ export class ChatService {
     private runService: RunService,
   ) {}
 
+  getPendingChatInteraction(sessionId: string, userId: string, userMessageIds: string[]) {
+    return this.runService.getPendingChatInteraction(sessionId, userId, userMessageIds);
+  }
+
+  getSessionTokenUsage(sessionId: string, userId: string, modelId: string | undefined, branchUserIds: string[]) {
+    return this.runService.getSessionTokenUsage(sessionId, userId, modelId, branchUserIds);
+  }
+
   /** 是否启用 Run 驱动聊天（默认开启，CHAT_USE_RUN=false 显式回退旧直驱；Run 引擎稳定后移除旧链路）。 */
   isRunMode(): boolean {
     return this.configService.get('CHAT_USE_RUN', 'true') !== 'false';
@@ -81,7 +90,11 @@ export class ChatService {
     sessionId: string | undefined,
     onChunk: (chunk: UIMessageChunk) => void,
     reasoningEffort?: ReasoningEffort,
+    history?: { userMessageId: string; messages: { id: string; parentId?: string | null; role: string; text: string; runId?: string }[] },
+    nonInteractive?: boolean,
+    signal?: AbortSignal,
   ): Promise<string> {
+    signal?.throwIfAborted();
     const input = buildRunPrompt(messages, ctx, modelId);
     // Phase 6 6b：Run 归属当前 Space（由 controller 按会话归属/body 解析，默认 work）。
     // Run 链路以 DB 用户标识（dbId）为归属：membership/space 校验存的是 dbId，
@@ -92,13 +105,16 @@ export class ChatService {
       space: { id: spaceId, type: 'work' },
       input,
       priority: 'interactive',
-      metadata: { sessionId, modelId, ...(reasoningEffort && { reasoningEffort }) },
+      metadata: { sessionId, modelId, ...(nonInteractive && { nonInteractive: true }), ...(history && { chatHistory: history.messages, chatUserMessageId: history.userMessageId }), ...(reasoningEffort && { reasoningEffort }) },
     });
     const runId = snapshot.run.id;
     let after = snapshot.events.at(-1)?.sequence ?? -1;
     const deadline = Date.now() + RUN_TIMEOUT_MS;
     let output = '';
     let textStarted = false;
+    const toolCalls = new Map<string, { name: string; input: unknown }>();
+    let approvalPending = false;
+    let inquiryPending = false;
     onChunk({ type: 'start' });
 
     const endText = () => {
@@ -109,9 +125,22 @@ export class ChatService {
     };
 
     while (Date.now() < deadline) {
+      if (signal?.aborted) {
+        await this.runService.cancel(runId, userId);
+        signal.throwIfAborted();
+      }
       const events = await this.runService.listEvents(runId, userId, after);
       for (const event of events) {
         after = Math.max(after, event.sequence);
+        if (event.type === 'run.status_changed' && approvalPending && event.status !== 'waiting_for_approval') {
+          approvalPending = false;
+          onChunk({ type: 'data-run-approval', transient: true, data: null });
+        }
+        if (inquiryPending && (event.type === 'run.failed' ||
+            (event.type === 'run.status_changed' && event.status !== 'waiting_for_input'))) {
+          inquiryPending = false;
+          onChunk({ type: 'data-run-inquiry', transient: true, data: null });
+        }
         if (event.type === 'run.output_delta') {
           output += event.delta;
           if (!textStarted) {
@@ -123,6 +152,35 @@ export class ChatService {
             id: 'run-output',
             delta: event.delta,
           });
+        } else if (event.type === 'tool.requested') {
+          toolCalls.set(event.toolCall.id, event.toolCall);
+          if (nonInteractive) onChunk({ type: 'data-ocean-tool', data: {
+            type: 'tool_call', name: event.toolCall.name, input: event.toolCall.input,
+          } });
+          if (event.toolCall.name === RUN_INQUIRY_TOOL) {
+            const inquiry = runInquirySchema.safeParse(event.toolCall.input);
+            if (inquiry.success) {
+              endText();
+              inquiryPending = true;
+              onChunk({ type: 'data-run-inquiry', transient: true,
+                data: { runId, toolCallId: event.toolCall.id, ...inquiry.data } });
+            }
+          }
+        } else if (event.type === 'tool.completed' && nonInteractive) {
+          const call = toolCalls.get(event.toolCallId);
+          if (call) onChunk({ type: 'data-ocean-tool', data: {
+            type: 'tool_result', name: call.name, result: event.result,
+          } });
+        } else if (event.type === 'approval.requested') {
+          const call = toolCalls.get(event.approval.toolCallId);
+          if (call && event.approval.status === 'pending') {
+            endText();
+            approvalPending = true;
+            onChunk({
+              type: 'data-run-approval', transient: true,
+              data: { id: event.approval.id, runId, toolName: call.name, args: call.input },
+            });
+          }
         } else if (event.type === 'artifact.created') {
           onChunk({
             type: 'data-artifact',
@@ -135,6 +193,7 @@ export class ChatService {
             },
           });
         } else if (event.type === 'run.failed') {
+          if (approvalPending) onChunk({ type: 'data-run-approval', transient: true, data: null });
           endText();
           onChunk({ type: 'error', errorText: event.message });
           onChunk({ type: 'finish', finishReason: 'error' });
@@ -164,7 +223,10 @@ export class ChatService {
       }
       if (events.length === 0) await sleep(RUN_POLL_MS);
     }
+    if (nonInteractive) await this.runService.cancel(runId, userId);
     endText();
+    if (approvalPending) onChunk({ type: 'data-run-approval', transient: true, data: null });
+    if (inquiryPending) onChunk({ type: 'data-run-inquiry', transient: true, data: null });
     onChunk({
       type: 'error',
       errorText: `Run timed out. Check /api/runs/${runId} for details.`,

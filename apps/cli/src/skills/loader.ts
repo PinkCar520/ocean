@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pluginContributions } from '../plugins/registry.js';
 import type { SkillManifest, LoadedSkill } from '../types.js';
 
 /**
@@ -184,6 +185,9 @@ export function getSkillByName(skills: LoadedSkill[], name: string): LoadedSkill
 /** User defaults, legacy project directory, then project-specific overrides. */
 export function discoverSkills(workspace: string, home = homedir()): LoadedSkill[] {
   const byName = new Map<string, LoadedSkill>();
+  for (const directory of pluginContributions('skills', home)) {
+    for (const skill of loadSkillsFromDir(directory)) byName.set(skill.manifest.name, skill);
+  }
   for (const base of [home, workspace]) {
     for (const directory of ['agents/skills', '.claude/skills', '.ocean/skills']) {
       for (const skill of loadSkillsFromDir(path.join(fs.realpathSync(base), directory))) byName.set(skill.manifest.name, skill);

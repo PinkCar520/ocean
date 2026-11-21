@@ -64,6 +64,7 @@ interface AppProps {
   initialKnowledgeDocuments?: any[];
   initialKnowledgeStats?: any;
   initialPermissionMode?: string;
+  readOnlyConversation?: React.ReactNode;
 }
 
 function AppContent({
@@ -81,6 +82,7 @@ function AppContent({
   initialKnowledgeDocuments,
   initialKnowledgeStats,
   initialPermissionMode = 'acceptEdits',
+  readOnlyConversation,
 }: AppProps) {
 
   // ── Global Authentication & Identity State ──
@@ -107,6 +109,7 @@ function AppContent({
           initialKnowledgeDocuments={initialKnowledgeDocuments}
           initialKnowledgeStats={initialKnowledgeStats}
           initialPermissionMode={initialPermissionMode}
+          readOnlyConversation={readOnlyConversation}
         />
       </WorkspaceProvider>
     </TooltipProvider>
@@ -130,6 +133,7 @@ function AppInternal({
   initialKnowledgeDocuments,
   initialKnowledgeStats,
   initialPermissionMode,
+  readOnlyConversation,
 }: any) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
@@ -321,6 +325,8 @@ function AppInternal({
     handleNewChat,
     loadConversation,
     handleRenameChat,
+    updateConversationMetadata,
+    deleteConversation,
     handleDeleteConversations,
     onStreamFinished,
     refreshConversations,
@@ -463,7 +469,7 @@ function AppInternal({
         onLoadConversation={loadConversationAndActivate}
         onRenameConversation={handleRenameChat}
         onDeleteConversation={handleDeleteChat}
-        onFavoriteConversation={() => { }} // Favorite 功能可后续实现
+        onPinConversation={(id: string, pinned: boolean) => { void updateConversationMetadata(id, { pinned }).catch(console.error); }}
         initialProjects={initialProjects}
         user={user}
         onLogout={handleLogout}
@@ -489,8 +495,9 @@ function AppInternal({
         <div className="flex-1 flex overflow-hidden">
           {activeTab === 'chat' || !activeTab ? (
             <div className="flex-1 flex flex-col relative overflow-hidden">
-              <ChatSession
+              {readOnlyConversation ?? <ChatSession
                 navigation={navigation}
+                reserveLeftSidebarToggle={isSidebarCollapsed}
                 sessionId={activeSessionId ?? null}
                 initialMessages={currentMessages}
                 models={models}
@@ -503,11 +510,15 @@ function AppInternal({
                 onSpaceTabChange={(id) => handleSpaceViewChange(id as SpaceView)}
                 createSession={createSession}
                 onStreamFinished={onStreamFinished}
-                onRenameConversation={handleRenameChat}
+                onRenameConversation={(id, title) => handleRenameChat(id, title, true)}
+                conversation={conversations.find(chat => chat.id === activeSessionId)}
+                onUpdateConversation={updateConversationMetadata}
+                onDeleteConversation={deleteConversation}
+                getConversationLink={(id) => new URL(`/app/chat/${encodeURIComponent(id)}`, window.location.origin).href}
                 isLoadingHistory={isLoadingMessages}
                 t={t}
                 initialPermissionMode={initialPermissionMode}
-              />
+              />}
             </div>
           ) : activeTab === 'all_chats' ? (
             <AllChatsManager
@@ -607,6 +618,7 @@ function App({
   initialKnowledgeDocuments,
   initialKnowledgeStats,
   initialPermissionMode,
+  readOnlyConversation,
 }: AppProps) {
   return (
     <AppContent
@@ -624,6 +636,7 @@ function App({
       initialKnowledgeDocuments={initialKnowledgeDocuments}
       initialKnowledgeStats={initialKnowledgeStats}
       initialPermissionMode={initialPermissionMode}
+      readOnlyConversation={readOnlyConversation}
     />
   );
 }

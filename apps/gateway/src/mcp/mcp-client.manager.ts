@@ -1,3 +1,4 @@
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
 import {
   Injectable,
   Logger,
@@ -369,6 +370,54 @@ export class MCPClientManager implements OnModuleInit, OnModuleDestroy {
   // ──────────────────────────────────────────────
   // MCP Resources 能力
   // ──────────────────────────────────────────────
+
+  async listServerTools(serverId: string, cursor?: string) {
+    const client = this.clients.get(serverId)?.client;
+    if (!client?.getServerCapabilities()?.tools) throw new Error('MCP server does not expose tools.');
+    return client.listTools(cursor ? { cursor } : {}, { timeout: 10_000 });
+  }
+
+  async callServerTool(serverId: string, name: string, args: Record<string, unknown>) {
+    const managed = this.clients.get(serverId);
+    if (!managed?.client.getServerCapabilities()?.tools) throw new Error('MCP server does not expose tools.');
+    const visited = new Set<string>();
+    let cursor: string | undefined;
+    for (let page = 0; page < 8; page++) {
+      const result = await this.listServerTools(serverId, cursor);
+      const definition = result.tools.find((tool) => tool.name === name);
+      if (definition) {
+        const validator = new AjvJsonSchemaValidator().getValidator(definition.inputSchema);
+        const check = validator(args);
+        if (!check.valid) throw new Error(`Invalid MCP tool arguments: ${check.errorMessage}`);
+        try {
+          return await managed.client.callTool({ name, arguments: args }, undefined, { timeout: 60_000 });
+        } catch {
+          throw new Error('MCP execution outcome unknown; automatic replay prohibited.');
+        }
+      }
+      if (!result.nextCursor || visited.has(result.nextCursor)) break;
+      visited.add(result.nextCursor);
+      cursor = result.nextCursor;
+    }
+    throw new Error('MCP tool not found on this server.');
+  }
+
+  async listServerResources(serverId: string, cursor?: string) {
+    const client = this.resourceClient(serverId);
+    return client.listResources(cursor ? { cursor } : {}, { timeout: 10_000 });
+  }
+
+  async readServerResource(serverId: string, uri: string) {
+    return this.resourceClient(serverId).readResource({ uri }, { timeout: 10_000 });
+  }
+
+  private resourceClient(serverId: string): Client {
+    const client = this.clients.get(serverId)?.client;
+    if (!client?.getServerCapabilities()?.resources) {
+      throw new Error(`MCP server does not expose resources: ${serverId}`);
+    }
+    return client;
+  }
 
   async listResources(): Promise<MCPResource[]> {
     const allResources: MCPResource[] = [];
