@@ -26,6 +26,7 @@ export async function runOceanCoreLocal(options: {
   tools: Record<string, any>;
   authorization: ToolAuthorization;
   completion: AgentCompletionPort<ModelMessage>;
+  prepareContext?: (messages: readonly ModelMessage[], signal?: AbortSignal) => Promise<readonly ModelMessage[]>;
   runtimeDirectory?: string;
   maxSteps?: number;
   signal?: AbortSignal;
@@ -40,6 +41,7 @@ export async function runOceanCoreLocal(options: {
       tools: options.tools,
     }),
     transcript: new SessionTranscriptPort(options.sessionStore, options.workspace),
+    prepareContext: options.prepareContext,
     authorization: options.authorization,
     resolveTool,
     toMessage: decision => ({ role: 'assistant', content: decision.kind === 'complete' ? decision.text : '' }),
