@@ -36,6 +36,14 @@ export class AgentRuntime {
     return this.snapshot(runId);
   }
 
+  async verifyCompletion(runId: string, checks: readonly string[]): Promise<RuntimeSnapshot> {
+    const current = await this.snapshot(runId);
+    if (current.state !== 'calling_model' && current.state !== 'persisting_results')
+      throw new Error('Completion verification requires a finishing runtime state');
+    await this.store.append(runId, current.revision, [{ type: 'run.completion_verified', runId, at: stamp(), checks }]);
+    return this.snapshot(runId);
+  }
+
   /** An operator/host must independently verify the external outcome before reconciliation.
    * Reconciliation never invokes the tool again.
    */
