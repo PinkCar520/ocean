@@ -19,6 +19,7 @@ import { WorkerService } from './worker.service';
 import { ToolOutcomeReconciler, type ToolOutcomeQueryAdapter } from './tool-outcome-reconciler';
 import { PrismaClient } from '@prisma/client';
 import { GatewayHooks } from './gateway-hooks';
+import { GatewayCoreLifecycle } from './core-lifecycle';
 
 /**
  * WorkerModule —— 独立 Worker 进程的根模块。
@@ -47,6 +48,7 @@ import { GatewayHooks } from './gateway-hooks';
     WorkerAgentTools,
     RunScheduleDispatcher,
     WorkerService,
+    GatewayCoreLifecycle,
     RunRunner,
     ToolExecutor,
     {
