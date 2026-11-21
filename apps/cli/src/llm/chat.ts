@@ -570,6 +570,8 @@ export async function runChatLoop(
   for (let attempt = 0; attempt <= MAX_STREAM_RETRIES; attempt++) {
     let streamError: Error | undefined;
     let sawToolActivity = false;
+    // Do not retry a failed request after any prior attempt executed a tool.
+    // The marker intentionally survives across attempts.
     fullText = '';
     toolCalls.length = 0;
     toolResults.length = 0;
