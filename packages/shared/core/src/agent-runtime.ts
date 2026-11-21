@@ -72,7 +72,8 @@ export class AgentRuntime {
     const current = await this.snapshot(runId);
     if (current.state !== 'executing_tools') throw new Error('Runtime is not executing tools');
     if (Object.hasOwn(current.pendingTools, id)) throw new Error('Tool invocation already claimed; replay prohibited');
-    const invocation: ToolInvocation = { id, runId, toolName, input, inputDigest: digest(input), host };
+    const capturedInput = structuredClone(input);
+    const invocation: ToolInvocation = { id, runId, toolName, input: capturedInput, inputDigest: digest(capturedInput), host };
     await this.store.append(runId, current.revision, [
       { type: 'tool.prepared', runId, at: stamp(), invocation },
     ]);
