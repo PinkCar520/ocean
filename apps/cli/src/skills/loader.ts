@@ -1,4 +1,5 @@
 import { homedir } from 'node:os';
+import { resolveSkills, type SkillDescriptor } from '@ocean/core';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pluginContributions } from '../plugins/registry.js';
@@ -184,14 +185,18 @@ export function getSkillByName(skills: LoadedSkill[], name: string): LoadedSkill
 
 /** User defaults, legacy project directory, then project-specific overrides. */
 export function discoverSkills(workspace: string, home = homedir()): LoadedSkill[] {
-  const byName = new Map<string, LoadedSkill>();
+  const entries: Array<{ descriptor: SkillDescriptor; skill: LoadedSkill }> = [];
+  const add = (skill: LoadedSkill, source: SkillDescriptor['source']) => {
+    entries.push({ descriptor: { id: skill.sourcePath, name: skill.manifest.name, source }, skill });
+  };
   for (const directory of pluginContributions('skills', home)) {
-    for (const skill of loadSkillsFromDir(directory)) byName.set(skill.manifest.name, skill);
+    for (const skill of loadSkillsFromDir(directory)) add(skill, 'plugin');
   }
-  for (const base of [home, workspace]) {
+  for (const [base, source] of [[home, 'user'], [workspace, 'project']] as const) {
     for (const directory of ['agents/skills', '.claude/skills', '.ocean/skills']) {
-      for (const skill of loadSkillsFromDir(path.join(fs.realpathSync(base), directory))) byName.set(skill.manifest.name, skill);
+      for (const skill of loadSkillsFromDir(path.join(fs.realpathSync(base), directory))) add(skill, source);
     }
   }
-  return [...byName.values()];
+  const resolved = resolveSkills(entries.map(entry => entry.descriptor));
+  return resolved.map(descriptor => entries.find(entry => entry.descriptor.id === descriptor.id)!.skill);
 }
