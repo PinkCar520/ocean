@@ -32,6 +32,7 @@ import { PermissionPolicy, defaultSessionPermissionGrants } from './utils/permis
 import { runInkApp } from './ui/app.js';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import chalk from 'chalk';
 import readline from 'node:readline';
 import { z } from 'zod';
@@ -638,7 +639,7 @@ async function runSingleQuery(
       );
       let stopFeedback: string | undefined;
       await runOceanCoreLocal({
-        sessionStore, sessionId, runId: crypto.randomUUID(), workspace: options.workspace,
+        sessionStore, sessionId, runId: randomUUID(), workspace: options.workspace,
         model, tools, systemPrompt, authorization, streaming: true, signal,
         maxSteps: options.maxTurns,
         completion: {
