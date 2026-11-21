@@ -25,7 +25,7 @@ export interface ToolAuthorization {
  */
 export class ToolRuntime {
   private readonly agent: AgentRuntime;
-  constructor(store: RuntimeEventStore, host: RuntimeHost, private readonly authorization: ToolAuthorization) {
+  constructor(private readonly store: RuntimeEventStore, host: RuntimeHost, private readonly authorization: ToolAuthorization) {
     const guardedHost: RuntimeHost = {
       execute: async invocation => {
         const result = await host.execute(invocation);
@@ -37,16 +37,26 @@ export class ToolRuntime {
     };
     this.agent = new AgentRuntime(store, guardedHost);
   }
+  private async rejected(runId: string, invocationId: string, toolName: string, reason: 'policy' | 'approval' | 'input'): Promise<void> {
+    const snapshot = await this.agent.snapshot(runId);
+    await this.store.append(runId, snapshot.revision, [{ type: 'tool.rejected', runId, at: new Date().toISOString(), invocationId, toolName, reason }]);
+  }
+
   async invoke(runId: string, invocationId: string, descriptor: ToolDescriptor, rawInput: unknown): Promise<unknown> {
     const input = await descriptor.validate(rawInput);
     const context: ToolPolicyContext = { runId, invocationId, toolName: descriptor.name, input };
     const inputFingerprint = JSON.stringify(input);
     const policyVersion = await this.authorization.policyVersion?.();
     const decision = await this.authorization.evaluate(context);
-    if (decision === 'deny') throw new Error('Tool invocation denied by policy');
+    if (decision === 'deny') {
+      await this.rejected(runId, invocationId, descriptor.name, 'policy');
+      throw new Error('Tool invocation denied by policy');
+    }
     if (decision === 'ask') {
-      if (!this.authorization.approve || !await this.authorization.approve(context))
+      if (!this.authorization.approve || !await this.authorization.approve(context)) {
+        await this.rejected(runId, invocationId, descriptor.name, 'approval');
         throw new Error('Tool invocation approval required');
+      }
       // The policy is authoritative even after approval; a changed policy
       // cannot silently inherit a stale approval.
       if (policyVersion !== await this.authorization.policyVersion?.())
