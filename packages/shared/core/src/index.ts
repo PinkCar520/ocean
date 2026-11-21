@@ -166,3 +166,6 @@ export { countTextTokens, type TokenEncoding } from './tokenizer.js';
 export { EgressPolicy, type EgressVerdict } from './network/egress-policy.js';
 export { fetchWebText, searchWeb } from './network/web-fetch.js';
 export { collectMcpTools, mcpToolPages } from './network/mcp-pagination.js';
+
+export { RUNTIME_STATES, canTransition, replayRuntime } from './runtime-contract.js';
+export type { RuntimeState, RuntimeEvent, RuntimeSnapshot, RuntimeEventStore, RuntimeHost, ToolInvocation } from './runtime-contract.js';
