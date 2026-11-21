@@ -8,8 +8,8 @@ describe('portable runtime contract', () => {
   ({ type: 'run.transitioned', runId, at: '2026-01-01T00:00:00Z', from, to });
 
  it('replays a completed model-only run without a UI host', () => {
-  const events = [created, transition('created', 'preparing_context'), transition('preparing_context', 'calling_model'), transition('calling_model', 'completed')];
-  expect(replayRuntime(runId, events)).toMatchObject({ state: 'completed', revision: 4 });
+  const events = [created, transition('created', 'preparing_context'), transition('preparing_context', 'calling_model'), { type: 'run.completion_verified', runId, at: '2026-01-01T00:00:00Z', checks: ['model output validated'] } as RuntimeEvent, transition('calling_model', 'completed')];
+  expect(replayRuntime(runId, events)).toMatchObject({ state: 'completed', revision: 5 });
  });
  it('rejects invalid terminal transitions', () => {
   expect(canTransition('completed', 'calling_model')).toBe(false);
@@ -110,6 +110,7 @@ describe('explicit tool outcome reconciliation', () => {
   expect((await runtime.reconcileTool('r', 'x', 'succeeded', { verified: true })).pendingTools.x).toBe('succeeded');
   await expect(runtime.reconcileTool('r', 'x', 'succeeded', {})).rejects.toThrow('Only unknown');
   await runtime.transition('r', 'persisting_results');
+  await runtime.verifyCompletion('r', ['host checked tool result']);
   expect((await runtime.transition('r', 'completed')).state).toBe('completed');
   expect(calls).toBe(1);
  });
@@ -239,5 +240,19 @@ describe('tool result normalization', () => {
   expect(result).toEqual({ truncated: true, error: 'Tool output exceeded 1 MiB limit' });
   const events = await store.read('r');
   expect(JSON.stringify(events).length).toBeLessThan(4096);
+ });
+});
+
+describe('completion evidence', () => {
+ it('rejects model-only completion without independent checks', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const runtime = new AgentRuntime(store, { execute: async () => null });
+  await runtime.create('r');
+  await runtime.transition('r', 'preparing_context');
+  await runtime.transition('r', 'calling_model');
+  await expect(runtime.transition('r', 'completed')).rejects.toThrow('independent verification');
+  await expect(runtime.verifyCompletion('r', [])).rejects.toThrow('Invalid completion verification');
+  await runtime.verifyCompletion('r', ['host validated acceptance']);
+  expect((await runtime.transition('r', 'completed')).state).toBe('completed');
  });
 });
