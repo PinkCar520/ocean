@@ -344,3 +344,25 @@ describe('tool schema rejection audit', () => {
   expect((await store.read('r')).some(e => e.type === 'tool.rejected' && e.reason === 'input')).toBe(true);
  });
 });
+
+describe('distributed tool preparation and settlement', () => {
+ it('persists a queued claim before external dispatch and settles it after the host reports', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const agent = new AgentRuntime(store, { execute: async () => { throw new Error('must not execute inline'); } });
+  await agent.create('run', 'session');
+  for (const state of ['preparing_context', 'calling_model', 'validating_tools', 'executing_tools'] as const)
+   await agent.transition('run', state);
+  const { createHash } = await import('node:crypto');
+  const input = { action: 'write' };
+  const invocation = {
+   id: 'call', runId: 'run', toolName: 'remote', input,
+   inputDigest: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
+   host: 'remote' as const,
+  };
+  expect((await agent.prepareTool('run', invocation)).pendingTools.call).toBe('prepared');
+  await expect(agent.prepareTool('run', invocation)).rejects.toThrow('replay prohibited');
+  expect((await agent.settlePreparedTool('run', 'call', 'succeeded', { ok: true })).pendingTools.call).toBe('succeeded');
+  await expect(agent.settlePreparedTool('run', 'call', 'succeeded', {})).rejects.toThrow('without preparation');
+  expect((await store.read('run')).map(e => e.type).slice(-2)).toEqual(['tool.prepared', 'tool.settled']);
+ });
+});
