@@ -50,10 +50,14 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
   const pendingTools: Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'> = {};
   let state: RuntimeState = 'created';
   let revision = 0;
+  let created = false;
   for (const event of events) {
     if (event.runId !== runId) throw new Error('Runtime event belongs to another run');
     if (event.type === 'run.created') {
-      if (revision !== 0) throw new Error('Duplicate run creation');
+      if (created || revision !== 0) throw new Error('Duplicate run creation');
+      created = true;
+    } else if (!created) {
+      throw new Error('Runtime event stream missing creation');
     } else if (event.type === 'run.transitioned') {
       if (event.from !== state || !canTransition(state, event.to)) throw new Error('Invalid runtime transition');
       if (event.to === 'completed' && Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
@@ -69,5 +73,6 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     }
     revision++;
   }
+  if (!created) throw new Error('Runtime event stream missing creation');
   return { runId, state, revision, pendingTools };
 }
