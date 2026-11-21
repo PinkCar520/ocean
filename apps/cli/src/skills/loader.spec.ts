@@ -85,4 +85,18 @@ updated`);
     });
   });
 
+  it('does not load executable YAML tags or malformed duplicate metadata', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const skillsDir = path.join(root, 'skills');
+    for (const [name, frontmatter] of [
+      ['tag', 'name: bad\ndescription: !!js/function "function () {}"'],
+      ['duplicate', 'name: bad\nname: second\ndescription: Duplicate'],
+    ]) {
+      const dir = path.join(skillsDir, name);
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, 'SKILL.md'), `---\n${frontmatter}\n---\nBody`);
+    }
+    expect(loadSkillsFromDir(skillsDir)).toHaveLength(0);
+  });
+
 });
