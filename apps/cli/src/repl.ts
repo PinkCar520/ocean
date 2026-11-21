@@ -868,39 +868,109 @@ async function runReadlineRepl(options: ReplOptions) {
       try {
         const model = modelRouter.getModel();
         let streamedText = '';
-        const result = await runChatLoop(messages, {
-      delegation: { workspace: options.workspace },
-      hooks: LifecycleHooks.load(options.workspace),
-      model, systemPrompt, tools, approvalHandler,
-      approvalOptions: {
-        getPolicyVersion: () => approvalPolicy.getPolicyVersion(),
-        sessionId: () => activeSession.session.id,
-        workspace: options.workspace,
-      },
-        compaction: {
-          previous: activeSession.session.compaction,
-          usage: activeSession.session.usage,
-          persist: async (snapshot) => {
-            activeSession.session = await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
-          },
-        },
-
-          onText: (text: string) => {
-            if (!streamedText) spinner.stop();
-            process.stdout.write(text);
-            streamedText += text;
-          },
-        });
-        if (streamedText) process.stdout.write('\n');
-        messages.push(...result.responseMessages);
-        activeSession.session = await sessionStore.save(
-          activeSession.session.id,
-          options.workspace,
-          messages,
-        );
-        if (result.usage) {
-          activeSession.session = await sessionStore.saveUsage(activeSession.session.id, options.workspace, result.usage);
+        if (process.env.OCEAN_AGENT_CORE === 'legacy') {
+          const result = await runChatLoop(messages, {
+            delegation: { workspace: options.workspace },
+            hooks: LifecycleHooks.load(options.workspace),
+            model, systemPrompt, tools, approvalHandler,
+            approvalOptions: {
+              getPolicyVersion: () => approvalPolicy.getPolicyVersion(),
+              sessionId: () => activeSession.session.id,
+              workspace: options.workspace,
+            },
+            compaction: {
+              previous: activeSession.session.compaction,
+              usage: activeSession.session.usage,
+              persist: async (snapshot) => {
+                activeSession.session = await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
+              },
+            },
+            onText: (text: string) => {
+              if (!streamedText) spinner.stop();
+              process.stdout.write(text);
+              streamedText += text;
+            },
+          });
+          messages.push(...result.responseMessages);
+          activeSession.session = await sessionStore.save(activeSession.session.id, options.workspace, messages);
+          if (result.usage) {
+            activeSession.session = await sessionStore.saveUsage(activeSession.session.id, options.workspace, result.usage);
+          }
+        } else {
+          const hooks = LifecycleHooks.load(options.workspace);
+          const handler = approvalHandler ? normalizeApprovalHandler(approvalHandler) : undefined;
+          const authorization = createCliToolAuthorization(
+            approvalPolicy,
+            handler ? async context => {
+              const decision = await handler({
+                toolName: context.toolName,
+                toolCallId: context.invocationId,
+                args: context.input as Record<string, unknown>,
+                sessionId: activeSession.session.id,
+                workspace: options.workspace,
+                policyVersion: approvalPolicy.getPolicyVersion(),
+              });
+              if (decision.persistUpdates) await decision.persistUpdates();
+              return decision.kind === 'approved' && !decision.interrupt && !decision.updatedInput;
+            } : undefined,
+            tools,
+          );
+          let stopFeedback: string | undefined;
+          await runOceanCoreLocal({
+            sessionStore,
+            sessionId: activeSession.session.id,
+            runId: randomUUID(),
+            workspace: options.workspace,
+            model, tools, systemPrompt, authorization, streaming: true,
+            completion: {
+              verify: async (_, text) => {
+                if (!text.trim()) return [];
+                const stop = await hooks.run('Stop', { last_assistant_message: text });
+                if (stop.blocked) {
+                  stopFeedback = stop.reason || 'Continue working before stopping.';
+                  return [];
+                }
+                return ['Stop hook accepted'];
+              },
+              onIncomplete: async () => stopFeedback
+                ? { role: 'user', content: `Stop hook feedback: ${stopFeedback}` }
+                : undefined,
+            },
+            prepareContext: async request => compactContext([...request], {
+              model, systemPrompt, scope: activeSession.session.id,
+              previous: activeSession.session.compaction,
+              usage: activeSession.session.usage,
+              persist: async snapshot => {
+                activeSession.session = await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
+              },
+            }),
+            beforeToolUse: async (name, input, callId) => {
+              const verdict = await hooks.run('PreToolUse', {
+                tool_name: name, tool_input: input, tool_use_id: callId,
+              });
+              return verdict.blocked ? verdict.reason || 'PreToolUse hook blocked execution.' : undefined;
+            },
+            afterToolUse: async (name, input, callId, output) => {
+              const verdict = await hooks.run('PostToolUse', {
+                tool_name: name, tool_input: input, tool_use_id: callId, tool_response: output,
+              });
+              return verdict.blocked ? { result: output, hookFeedback: verdict.reason } : output;
+            },
+            onToolFailure: async (name, input, callId, error) => {
+              await hooks.run('ToolUseFailure', {
+                tool_name: name, tool_input: input, tool_use_id: callId, error: String(error),
+              });
+            },
+            onText: text => {
+              if (!streamedText) spinner.stop();
+              process.stdout.write(text);
+              streamedText += text;
+            },
+          });
+          activeSession.session = await sessionStore.load(activeSession.session.id, options.workspace) ?? activeSession.session;
+          messages.splice(0, messages.length, ...activeSession.session.messages);
         }
+        if (streamedText) process.stdout.write('\\n');
       } catch (err: any) {
         spinner.stop();
         console.error(chalk.red(`\n✗ Error: ${err.message}`));
