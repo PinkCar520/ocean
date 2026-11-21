@@ -267,3 +267,15 @@ describe('skill activation replay', () => {
   expect((await restarted.snapshot('r')).activeSkills).toEqual(['review']);
  });
 });
+
+describe('event store mutation isolation', () => {
+ it('does not allow callers to rewrite persisted tool identity', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const created: RuntimeEvent = { type: 'run.created', runId: 'r', at: '2026-01-01T00:00:00Z' };
+  await store.append('r', 0, [created]);
+  created.at = 'tampered';
+  const read = await store.read('r');
+  (read[0] as { at: string }).at = 'also-tampered';
+  expect((await store.read('r'))[0].at).toBe('2026-01-01T00:00:00Z');
+ });
+});
