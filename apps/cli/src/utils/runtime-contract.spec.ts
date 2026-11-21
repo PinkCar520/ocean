@@ -133,3 +133,43 @@ describe('session and run isolation', () => {
   expect(await store.read('r')).toEqual([]);
  });
 });
+
+import { ToolRuntime } from '@ocean/core';
+
+describe('shared tool authorization pipeline', () => {
+ const make = async (policy: () => Promise<'allow' | 'deny' | 'ask'>, approve?: () => Promise<boolean>) => {
+  const store = new MemoryRuntimeEventStore();
+  let calls = 0;
+  const agent = new AgentRuntime(store, { execute: async () => { calls++; return 'ok'; } });
+  await agent.create('r');
+  for (const state of ['preparing_context', 'calling_model', 'validating_tools', 'executing_tools'] as const) await agent.transition('r', state);
+  const runtime = new ToolRuntime(store, { execute: async () => { calls++; return 'ok'; } }, { evaluate: policy, approve });
+  return { runtime, store, calls: () => calls };
+ };
+ const descriptor = { name: 'shell', host: 'local' as const, validate: (input: unknown) => {
+  if (!input || typeof input !== 'object') throw new Error('Invalid input');
+  return input;
+ } };
+ it('denies tool calls without preparing a journal entry', async () => {
+  const { runtime, store, calls } = await make(async () => 'deny');
+  await expect(runtime.invoke('r', 'x', descriptor, {})).rejects.toThrow('denied');
+  expect(calls()).toBe(0);
+  expect((await store.read('r')).filter(e => e.type === 'tool.prepared')).toHaveLength(0);
+ });
+ it('does not execute without explicit approval', async () => {
+  const { runtime, calls } = await make(async () => 'ask', async () => false);
+  await expect(runtime.invoke('r', 'x', descriptor, {})).rejects.toThrow('approval required');
+  expect(calls()).toBe(0);
+ });
+ it('rechecks policy after approval', async () => {
+  let checks = 0;
+  const { runtime, calls } = await make(async () => (++checks === 1 ? 'ask' : 'deny'), async () => true);
+  await expect(runtime.invoke('r', 'x', descriptor, {})).rejects.toThrow('denied after approval');
+  expect(calls()).toBe(0);
+ });
+ it('executes an allowed invocation through the shared host', async () => {
+  const { runtime, calls } = await make(async () => 'allow');
+  await expect(runtime.invoke('r', 'x', descriptor, { cmd: 'pwd' })).resolves.toBe('ok');
+  expect(calls()).toBe(1);
+ });
+});
