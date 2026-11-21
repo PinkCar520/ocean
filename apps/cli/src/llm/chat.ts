@@ -572,6 +572,7 @@ export async function runChatLoop(
   const MAX_STREAM_RETRIES = 1;
   let finalResult: any;
   let text = '';
+  let requestMessages = context;
 
   for (let attempt = 0; attempt <= MAX_STREAM_RETRIES; attempt++) {
     let streamError: Error | undefined;
@@ -585,7 +586,7 @@ export async function runChatLoop(
 
     const result = streamText({
       model: options.model,
-      messages: context,
+      messages: requestMessages,
       system: effectiveSystemPrompt,
       tools,
       toolChoice: 'auto',
@@ -643,6 +644,23 @@ export async function runChatLoop(
       options.signal?.throwIfAborted();
       // A model retry must never replay a tool side effect. The journal
       // protects stable toolCallIds, but a fresh stream can generate new IDs.
+      if (attempt < MAX_STREAM_RETRIES && isPromptTooLongError(error) &&
+          !toolExecutionObserved && !sawToolActivity &&
+          toolCalls.length === 0 && toolResults.length === 0 && compaction) {
+        const initialBudget = compaction.budget ?? Math.min(24000,
+          (compaction.contextWindow ?? 32768) - (compaction.outputReserve ?? 4096) -
+          (compaction.toolReserve ?? 4096));
+        const reducedBudget = Math.max(512, Math.floor(initialBudget * 0.7));
+        requestMessages = await compactContext(messages, {
+          model: options.model, systemPrompt: effectiveSystemPrompt, signal: options.signal,
+          budget: reducedBudget, contextWindow: compaction.contextWindow,
+          outputReserve: compaction.outputReserve, toolReserve: compaction.toolReserve,
+          scope: `${compaction.scope ?? 'default'}:prompt-recovery`,
+          previous: initialSnapshot, persist: compaction.persist,
+          onMetrics: compaction.onMetrics,
+        });
+        continue;
+      }
       if (attempt < MAX_STREAM_RETRIES && !isPromptTooLongError(error) &&
           !toolExecutionObserved && !sawToolActivity && toolCalls.length === 0 &&
           toolResults.length === 0 && isRetryableStreamError(error)) {
