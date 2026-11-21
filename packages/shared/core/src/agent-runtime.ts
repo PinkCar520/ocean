@@ -19,8 +19,8 @@ const digest = (input: unknown) => createHash('sha256').update(JSON.stringify(in
 export class AgentRuntime {
   constructor(private readonly store: RuntimeEventStore, private readonly host: RuntimeHost) {}
 
-  async create(runId: string): Promise<RuntimeSnapshot> {
-    await this.store.append(runId, 0, [{ type: 'run.created', runId, at: stamp() }]);
+  async create(runId: string, sessionId?: string): Promise<RuntimeSnapshot> {
+    await this.store.append(runId, 0, [{ type: 'run.created', runId, sessionId, schemaVersion: 1, at: stamp() }]);
     return this.snapshot(runId);
   }
 
