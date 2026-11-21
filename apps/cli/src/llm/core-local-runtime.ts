@@ -39,7 +39,20 @@ export async function runOceanCoreLocal(options: {
   signal?: AbortSignal;
   resume?: boolean;
 }) {
-  const { host, resolveTool } = createCliToolHost(options.tools);
+  const { host: rawHost, resolveTool } = createCliToolHost(options.tools);
+  // The Core write-ahead event precedes this host call. The existing CLI
+  // journal provides a second durable side-effect fence before dispatch.
+  // Stable call IDs are never replayed, even if the model/provider retries.
+  const host: import('@ocean/core').RuntimeHost = {
+    execute: invocation => options.sessionStore.executeToolCall(
+      options.sessionId,
+      options.workspace,
+      invocation.id,
+      invocation.toolName,
+      invocation.input,
+      () => rawHost.execute(invocation),
+    ),
+  };
   const engine = new AgentExecutionEngine<ModelMessage>({
     events: new FileRuntimeEventStore(options.runtimeDirectory ?? join(homedir(), '.ocean', 'runtime')),
     host,
