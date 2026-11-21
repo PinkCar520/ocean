@@ -357,7 +357,7 @@ describe('CLI Agent loop transcript', () => {
 
   it('recovers once from prompt overflow using a smaller context budget', async () => {
     const messages = Array.from({ length: 12 }, (_, i) => ({
-      role: 'user' as const, content: `history ${i}: ${'x'.repeat(3500)}`,
+      role: 'user' as const, content: `history ${i}: ${'x'.repeat(5500)}`,
     }));
     const persist = vi.fn();
     generateTextMock.mockResolvedValue({
