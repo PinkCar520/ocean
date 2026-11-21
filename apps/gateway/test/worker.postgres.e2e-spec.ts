@@ -457,6 +457,12 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    expect(await db.runStep.count({ where: { runId, kind: 'tool_call' } })).toBe(1);
    const exited = once(child, 'exit'); child.kill('SIGKILL');
    expect((await exited)[1]).toBe('SIGKILL');
+   // Exercise fresh-process startup recovery after the former owner is dead.
+   // The pre-existing contender may have exhausted its poll cycle before lease expiry.
+   if (contender && contender.exitCode === null && contender.signalCode === null) {
+    const contenderExit = once(contender, 'exit'); contender.kill('SIGKILL'); await contenderExit;
+   }
+   contender = launch();
    await waitFor(runId, 'failed');
    expect(readFileSync(effectFile, 'utf8')).toBe('effect\n');
    expect(await db.runStep.findUniqueOrThrow({ where: { id: started.id } })).toMatchObject({ status: 'unknown', output: null });
