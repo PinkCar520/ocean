@@ -169,3 +169,4 @@ export { collectMcpTools, mcpToolPages } from './network/mcp-pagination.js';
 
 export { RUNTIME_STATES, canTransition, replayRuntime } from './runtime-contract.js';
 export type { RuntimeState, RuntimeEvent, RuntimeSnapshot, RuntimeEventStore, RuntimeHost, ToolInvocation } from './runtime-contract.js';
+export { MemoryRuntimeEventStore } from './runtime-memory-store.js';
