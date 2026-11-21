@@ -36,6 +36,14 @@ export class AgentRuntime {
     return this.snapshot(runId);
   }
 
+  async activateSkill(runId: string, skillId: string, source: 'plugin' | 'user' | 'project'): Promise<RuntimeSnapshot> {
+    const current = await this.snapshot(runId);
+    await this.store.append(runId, current.revision, [{
+      type: 'skill.activated', runId, at: stamp(), skillId, source,
+    }]);
+    return this.snapshot(runId);
+  }
+
   async verifyCompletion(runId: string, checks: readonly string[]): Promise<RuntimeSnapshot> {
     const current = await this.snapshot(runId);
     if (current.state !== 'calling_model' && current.state !== 'persisting_results')
