@@ -59,3 +59,38 @@ describe('portable Agent execution engine', () => {
   expect((await events.snapshot('run')).state).toBe('failed');
  });
 });
+
+describe('agent run recovery boundary', () => {
+ it('resumes an interrupted model-only run without recreating its identity', async () => {
+  const { engine, events } = fixture([{ kind: 'complete', text: 'recovered' }]);
+  await events.append('run', 0, [{ type: 'run.created', runId: 'run', sessionId: 'session', at: '2026-01-01T00:00:00Z' }]);
+  await events.append('run', 1, [{ type: 'run.transitioned', runId: 'run', at: '2026-01-01T00:00:00Z', from: 'created', to: 'preparing_context' }]);
+  await events.append('run', 2, [{ type: 'run.transitioned', runId: 'run', at: '2026-01-01T00:00:00Z', from: 'preparing_context', to: 'interrupted' }]);
+  const result = await engine.resume('session', 'run');
+  expect(result.snapshot.state).toBe('completed');
+  expect((await events.read('run')).filter(e => e.type === 'run.created')).toHaveLength(1);
+ });
+ it('refuses to resume a run with unreconciled tool side effects', async () => {
+  const { engine, events } = fixture([]);
+  const at = '2026-01-01T00:00:00Z', runId = 'run';
+  const transitions = [
+   ['created', 'preparing_context'], ['preparing_context', 'calling_model'],
+   ['calling_model', 'validating_tools'], ['validating_tools', 'executing_tools'],
+  ] as const;
+  await events.append(runId, 0, [{ type: 'run.created', runId, sessionId: 'session', at }]);
+  for (const [from, to] of transitions) {
+   const revision = (await events.read(runId)).length;
+   await events.append(runId, revision, [{ type: 'run.transitioned', runId, at, from, to }]);
+  }
+  const { createHash } = await import('node:crypto');
+  const input = {};
+  const revision = (await events.read(runId)).length;
+  await events.append(runId, revision, [{
+   type: 'tool.prepared', runId, at, invocation: {
+    id: 'x', runId, toolName: 'shell', input, inputDigest: createHash('sha256').update(JSON.stringify(input)).digest('hex'), host: 'local',
+   },
+  }]);
+  await events.append(runId, revision + 1, [{ type: 'run.transitioned', runId, at, from: 'executing_tools', to: 'interrupted' }]);
+  await expect(engine.resume('session', runId)).rejects.toThrow('Tool journal reconciliation required');
+ });
+});
