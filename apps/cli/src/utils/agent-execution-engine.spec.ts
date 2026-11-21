@@ -60,6 +60,25 @@ describe('portable Agent execution engine', () => {
  });
 });
 
+describe('resume transition regression', () => {
+ it('recovers an interrupted model-only run after one preparing_context transition', async () => {
+  const { engine, events } = fixture([{ kind: 'complete', text: 'recovered' }]);
+  const at = '2026-01-01T00:00:00Z';
+  await events.append('run', 0, [
+   { type: 'run.created', runId: 'run', sessionId: 'session', at },
+   { type: 'run.transitioned', runId: 'run', at, from: 'created', to: 'preparing_context' },
+   { type: 'run.transitioned', runId: 'run', at, from: 'preparing_context', to: 'interrupted' },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.verifyTranscript = async () => true;
+  const result = await engine.resume('session', 'run');
+  expect(result.snapshot.state).toBe('completed');
+  expect((await events.read('run')).filter(e =>
+   e.type === 'run.transitioned' && e.from === 'interrupted' && e.to === 'preparing_context'
+  )).toHaveLength(1);
+ });
+});
+
 describe('agent run recovery boundary', () => {
  it('resumes an interrupted model-only run without recreating its identity', async () => {
   const { engine, events } = fixture([{ kind: 'complete', text: 'recovered' }]);
