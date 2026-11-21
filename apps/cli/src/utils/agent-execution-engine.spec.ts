@@ -224,3 +224,13 @@ describe('verified recovery with reconciled side effects', () => {
   expect(calls()).toBe(0);
  });
 });
+
+describe('final transcript persistence crash', () => {
+ it('keeps the run interrupted when final answer persistence fails', async () => {
+  const { engine, events } = fixture([{ kind: 'complete', text: 'answer' }]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.transcript.append = async () => { throw new Error('disk unavailable'); };
+  await expect(engine.run('session', 'run')).rejects.toThrow('disk unavailable');
+  expect((await events.snapshot('run')).state).toBe('interrupted');
+ });
+});
