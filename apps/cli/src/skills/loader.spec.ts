@@ -51,4 +51,52 @@ updated`);
     expect(skills).toHaveLength(1);
     expect(skills[0]).toMatchObject({ manifest: { name: 'review' }, content: 'Check the diff.' });
   });
+  it('rejects ambiguous same-priority skill names instead of silently overriding', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const home = path.join(root, 'home');
+    const workspace = path.join(root, 'workspace');
+    await mkdir(home, { recursive: true });
+    for (const directory of ['.claude/skills/review', '.ocean/skills/review']) {
+      const target = path.join(workspace, directory);
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, 'SKILL.md'), '---\nname: review\ndescription: Review\n---\nInstructions');
+    }
+    expect(() => discoverSkills(workspace, home)).toThrow('Conflicting skill definitions');
+  });
+
+  it('parses quoted and multiline YAML and rejects invalid typed manifests', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const skillsDir = path.join(root, 'skills');
+    const valid = path.join(skillsDir, 'valid');
+    const invalid = path.join(skillsDir, 'invalid');
+    await mkdir(valid, { recursive: true });
+    await mkdir(invalid, { recursive: true });
+    await writeFile(path.join(valid, 'SKILL.md'), [
+      '---', 'name: "review"', 'description: >', '  Review code', '  carefully',
+      'allowed-tools:', '  - "file_read"', '  - "grep"', '---', 'Do the review.',
+    ].join('\n'));
+    await writeFile(path.join(invalid, 'SKILL.md'), [
+      '---', 'name: invalid', 'description: 42', 'allowed-tools: [file_read]', '---', 'Do not load.',
+    ].join('\n'));
+    const skills = loadSkillsFromDir(skillsDir);
+    expect(skills).toHaveLength(1);
+    expect(skills[0].manifest).toMatchObject({
+      name: 'review', description: 'Review code carefully', 'allowed-tools': ['file_read', 'grep'],
+    });
+  });
+
+  it('does not load executable YAML tags or malformed duplicate metadata', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const skillsDir = path.join(root, 'skills');
+    for (const [name, frontmatter] of [
+      ['tag', 'name: bad\ndescription: !!js/function "function () {}"'],
+      ['duplicate', 'name: bad\nname: second\ndescription: Duplicate'],
+    ]) {
+      const dir = path.join(skillsDir, name);
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, 'SKILL.md'), `---\n${frontmatter}\n---\nBody`);
+    }
+    expect(loadSkillsFromDir(skillsDir)).toHaveLength(0);
+  });
+
 });

@@ -1,4 +1,4 @@
-import { countTextTokens, type TokenEncoding } from '@ocean/core';
+import { countTextTokens, validateCompaction, type TokenEncoding } from '@ocean/core';
 import { generateText, type ModelMessage } from 'ai';
 import { createHash } from 'node:crypto';
 import { microcompactMessages } from './microcompact.js';
@@ -266,6 +266,16 @@ export async function compactContext(messages: ModelMessage[], options: {
       lastError = new Error('Compacted context still exceeds budget');
       continue;
     }
+    // Shared Core owns compaction acceptance semantics; the CLI only
+    // provides token accounting and persisted transcript boundaries.
+    validateCompaction({
+      beforeTokens: originalTokens + systemTokens,
+      afterTokens: contextTokens(compacted) + systemTokens,
+      budgetTokens: budget,
+      summaryValid: true,
+      toolPairsClosed: hasClosedToolPairs(compacted),
+      preservesRequiredContext: compacted.length > 0 && compacted[0]?.role === 'user',
+    });
     await options.persist(snapshot);
     failures.delete(scope);
     emitMetrics({ strategy: 'summary', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(compacted) + systemTokens, budget });

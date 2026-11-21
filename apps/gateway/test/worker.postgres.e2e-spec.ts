@@ -42,6 +42,7 @@ import { UserService } from '../src/auth/user.service';
 import { ApiKeyService } from '../src/auth/api-key.service';
 import { RunController } from '../src/run/run.controller';
 import { RunService } from '../src/run/run.service';
+import { PrismaRuntimeEventStore } from '../src/run/runtime-event-store';
 import { OutboxService } from '../src/run/outbox.service';
 import { SpaceService } from '../src/space/space.service';
 import { ArtifactStore } from '../src/artifact/artifact.store';
@@ -336,6 +337,18 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   worker.stop();
  }, 15000);
 
+ it('persists portable Agent Core events in PostgreSQL without sharing legacy event sequences', async () => {
+  const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
+   .send({ space: { id: spaceId, type: 'work' }, input: 'runtime core event isolation' }).expect(201);
+  const runId = response.body.run?.id ?? response.body.id;
+  const store = new PrismaRuntimeEventStore(db);
+  const at = new Date().toISOString();
+  await expect(store.append(runId, 0, [{ type: 'run.created', runId, at, sessionId: 'session-core', schemaVersion: 1 }])).resolves.toBe(1);
+  await expect(store.append(runId, 1, [{ type: 'run.transitioned', runId, at, from: 'created', to: 'preparing_context' }])).resolves.toBe(2);
+  expect((await store.read(runId)).map(event => event.type)).toEqual(['run.created', 'run.transitioned']);
+  await expect(store.append(runId, 1, [{ type: 'run.transitioned', runId, at, from: 'created', to: 'preparing_context' }])).rejects.toThrow('revision conflict');
+ }, 15000);
+
  it('recovers a persisted stale running Run during Worker startup', async () => {
   const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
    .send({ space: { id: spaceId, type: 'work' }, input: 'recover abandoned execution' }).expect(201);
@@ -347,6 +360,13 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   await db.outboxEvent.deleteMany({ where: { aggregateId: runId } });
   await worker.onModuleInit();
   await waitFor(runId, 'succeeded');
+  // Run completion and outbox acknowledgement are distinct persisted writes.
+  // Wait for the delivery acknowledgement instead of racing the Worker.
+  const acknowledgementDeadline = Date.now() + 5000;
+  while (await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } }) !== 1) {
+   if (Date.now() > acknowledgementDeadline) throw new Error('Recovered outbox delivery was not acknowledged');
+   await new Promise(resolve => setTimeout(resolve, 50));
+  }
   worker.stop();
   expect(await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).toMatchObject({ executionToken: null });
   expect(await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } })).toBe(1);

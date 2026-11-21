@@ -296,6 +296,9 @@ importers:
       ai:
         specifier: ^7.0.176
         version: 7.0.176(zod@4.4.3)
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.2.0
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -348,6 +351,9 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/inquirer':
         specifier: ^9.0.0
         version: 9.0.10

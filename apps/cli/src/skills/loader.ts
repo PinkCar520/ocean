@@ -1,85 +1,56 @@
 import { homedir } from 'node:os';
+import * as yaml from 'js-yaml';
+import { z } from 'zod';
+import { resolveSkills, type SkillDescriptor } from '@ocean/core';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pluginContributions } from '../plugins/registry.js';
 import type { SkillManifest, LoadedSkill } from '../types.js';
 
-/**
- * Parse YAML frontmatter from SKILL.md
- */
+const skillSchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+  'allowed-tools': z.union([z.array(z.string()), z.string()]).optional(),
+  'requires-approval': z.union([z.array(z.string()), z.string()]).optional(),
+  compatibility: z.string().optional(),
+  locales: z.record(z.string(), z.object({
+    displayName: z.string(),
+    description: z.string(),
+  })).optional(),
+}).passthrough();
+
+function normalizeTools(value: string | string[] | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  const list = typeof value === 'string'
+    ? value.replace(/^\[|\]$/g, '').split(/[,\s]+/)
+    : value;
+  return [...new Set(list.map(item => item.trim()).filter(Boolean))];
+}
+
+/** Standard YAML parser with typed frontmatter validation. */
 function parseFrontmatter(content: string): { manifest: SkillManifest | null; body: string } {
   content = content.replace(/\r\n/g, '\n');
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!match) {
-    return { manifest: null, body: content };
+  if (!match) return { manifest: null, body: content };
+  const [, source, body] = match;
+  try {
+    const raw = yaml.load(source, { schema: yaml.JSON_SCHEMA });
+    const parsed = skillSchema.safeParse(raw);
+    if (!parsed.success) return { manifest: null, body };
+    return {
+      manifest: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        'allowed-tools': normalizeTools(parsed.data['allowed-tools']),
+        'requires-approval': normalizeTools(parsed.data['requires-approval']),
+        compatibility: parsed.data.compatibility,
+        locales: parsed.data.locales,
+      },
+      body: body.trim(),
+    };
+  } catch {
+    return { manifest: null, body };
   }
-
-  const [, yamlStr, body] = match;
-  
-  // Simple YAML parser (for production, use a proper YAML library)
-  const manifest = parseSimpleYaml(yamlStr) as SkillManifest;
-  
-  return { manifest, body: body.trim() };
-}
-
-/**
- * Simple YAML parser for flat/nested structures
- */
-function parseSimpleYaml(yaml: string): Record<string, any> {
-  const result: Record<string, any> = {};
-  const lines = yaml.split('\n');
-  let currentKey: string | null = null;
-  let currentArray: string[] | null = null;
-  let currentObj: Record<string, any> | null = null;
-  let currentObjKey: string | null = null;
-
-  for (const line of lines) {
-    // Skip empty lines and comments
-    if (!line.trim() || line.trim().startsWith('#')) continue;
-
-    // Check for array item
-    if (line.trim().startsWith('- ')) {
-      if (currentKey && currentArray) {
-        currentArray.push(line.trim().slice(2).replace(/^["']|["']$/g, ''));
-      }
-      continue;
-    }
-
-    // Check for key: value
-    const kvMatch = line.match(/^(\s*)([\w-]+):\s*(.*)$/);
-    if (kvMatch) {
-      const [, indent, key, value] = kvMatch;
-      
-      if (!indent) {
-        // Top-level key
-        currentKey = key;
-        currentArray = null;
-        currentObj = null;
-        currentObjKey = null;
-
-        if (value) {
-          // Inline value
-          result[key] = value.replace(/^["']|["']$/g, '').replace(/\s*#.*$/, '');
-        } else {
-          // Will be array or object
-          currentArray = [];
-          result[key] = currentArray;
-        }
-      } else if (currentKey) {
-        // Nested key
-        if (!currentObj) {
-          currentObj = {};
-          currentObjKey = key;
-          result[currentKey] = currentObj;
-        }
-        if (currentObj) {
-          currentObj[key] = value.replace(/^["']|["']$/g, '').replace(/\s*#.*$/, '');
-        }
-      }
-    }
-  }
-
-  return result;
 }
 
 /**
@@ -108,10 +79,6 @@ function loadSkill(skillPath: string): LoadedSkill | null {
     return null;
   }
 
-  for (const key of ['allowed-tools', 'requires-approval'] as const) {
-    const value = manifest[key];
-    if (typeof value === 'string') manifest[key] = (value as string).replace(/^\[|\]$/g, '').split(/[, ]+/).filter(Boolean);
-  }
   return {
     manifest,
     get content() {
@@ -184,14 +151,18 @@ export function getSkillByName(skills: LoadedSkill[], name: string): LoadedSkill
 
 /** User defaults, legacy project directory, then project-specific overrides. */
 export function discoverSkills(workspace: string, home = homedir()): LoadedSkill[] {
-  const byName = new Map<string, LoadedSkill>();
+  const entries: Array<{ descriptor: SkillDescriptor; skill: LoadedSkill }> = [];
+  const add = (skill: LoadedSkill, source: SkillDescriptor['source']) => {
+    entries.push({ descriptor: { id: skill.sourcePath, name: skill.manifest.name, source }, skill });
+  };
   for (const directory of pluginContributions('skills', home)) {
-    for (const skill of loadSkillsFromDir(directory)) byName.set(skill.manifest.name, skill);
+    for (const skill of loadSkillsFromDir(directory)) add(skill, 'plugin');
   }
-  for (const base of [home, workspace]) {
+  for (const [base, source] of [[home, 'user'], [workspace, 'project']] as const) {
     for (const directory of ['agents/skills', '.claude/skills', '.ocean/skills']) {
-      for (const skill of loadSkillsFromDir(path.join(fs.realpathSync(base), directory))) byName.set(skill.manifest.name, skill);
+      for (const skill of loadSkillsFromDir(path.join(fs.realpathSync(base), directory))) add(skill, source);
     }
   }
-  return [...byName.values()];
+  const resolved = resolveSkills(entries.map(entry => entry.descriptor));
+  return resolved.map(descriptor => entries.find(entry => entry.descriptor.id === descriptor.id)!.skill);
 }

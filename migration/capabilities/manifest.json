@@ -23,7 +23,7 @@
     "unverified"
   ],
   "nextCapabilityId": "CAP-GATEWAY-E2E",
-  "updatedAt": "2026-11-21T08:36:21+08:00",
+  "updatedAt": "2026-11-22T03:05:49+08:00",
   "capabilities": [
     {
       "id": "CAP-PERMISSION-DECISION",
@@ -57,7 +57,10 @@
         "packages/shared/core/src/shell-ast.ts",
         "migration/capabilities/subagents-checkpoints-tokenizer.md",
         "packages/shared/core/package.json",
-        "apps/gateway/package.json"
+        "apps/gateway/package.json",
+        "apps/cli/src/tools/core-tool-authorization.ts",
+        "apps/gateway/src/tool/core-tool-authorization.ts",
+        "packages/shared/core/src/tool-runtime.ts"
       ],
       "contractTests": [
         "apps/cli/src/utils/permission-policy.spec.ts",
@@ -66,7 +69,7 @@
         "apps/gateway/src/worker/tool-executor.spec.ts",
         "apps/cli/src/approval/gateway-approval.spec.ts"
       ],
-      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Real Bash parser AST replaces whitespace/operator heuristics. Only literal single-command safe forms are auto-read-only; expansions/redirects/compound syntax and traversal fail closed. Duplicate rule IDs are unique across layers and suffix-like literal pattern collisions. 2026-11-21: Gateway Jest resolves the CLI permission and session-grant subpaths through the shared core package. Permission parity and tool runtime targeted regression passed (2 suites / 16 tests).",
+      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Real Bash parser AST replaces whitespace/operator heuristics. Only literal single-command safe forms are auto-read-only; expansions/redirects/compound syntax and traversal fail closed. Duplicate rule IDs are unique across layers and suffix-like literal pattern collisions. 2026-11-21: Gateway Jest resolves the CLI permission and session-grant subpaths through the shared core package. Permission parity and tool runtime targeted regression passed (2 suites / 16 tests). 2026-11-22: Ocean Core v2 PR #17 quality workflow 44938703238 passed (typecheck, unit, HTTP E2E, fault recovery, isolated PostgreSQL). Shared runtime adapters are additive; existing CLI/Gateway primary Agent Loops are not yet unified, so status remains partial.",
       "gaps": [
         "Complex Bash ASTs/expansions remain conservatively non-read-only rather than fully semantically classified.",
         "Lexical path classification does not replace runtime workspace/symlink validation.",
@@ -161,7 +164,11 @@
         "apps/gateway/src/worker/tool-executor.spec.ts",
         "apps/gateway/src/worker/tool-idempotency.postgres.integration.spec.ts",
         "apps/cli/src/utils/session-store.ts",
-        "apps/gateway/test/worker.postgres.e2e-spec.ts"
+        "apps/gateway/test/worker.postgres.e2e-spec.ts",
+        "packages/shared/core/src/runtime-contract.ts",
+        "packages/shared/core/src/agent-runtime.ts",
+        "packages/shared/core/src/tool-runtime.ts",
+        "apps/cli/src/utils/runtime-contract.spec.ts"
       ],
       "contractTests": [
         "apps/gateway/src/worker/tool-executor.spec.ts",
@@ -170,7 +177,7 @@
         "apps/cli/src/utils/session-store.spec.ts",
         "apps/gateway/test/worker.postgres.e2e-spec.ts"
       ],
-      "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Two independent Worker processes compete for the same non-idempotent tool; after the owner is SIGKILLed following a filesystem side effect, the survivor acquires the expired lease and marks the original step unknown without replaying the effect. 2026-11-21: Isolated PostgreSQL 14 with pgvector 0.8.2 applied all 32 migrations, including approval binding and tool idempotency. The three explicitly enabled PostgreSQL suites (ownership, tool idempotency, device RPC) passed all 7 tests.",
+      "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Two independent Worker processes compete for the same non-idempotent tool; after the owner is SIGKILLed following a filesystem side effect, the survivor acquires the expired lease and marks the original step unknown without replaying the effect. 2026-11-21: Isolated PostgreSQL 14 with pgvector 0.8.2 applied all 32 migrations, including approval binding and tool idempotency. The three explicitly enabled PostgreSQL suites (ownership, tool idempotency, device RPC) passed all 7 tests. 2026-11-22: Ocean Core v2 PR #17 quality workflow 44938703238 passed (typecheck, unit, HTTP E2E, fault recovery, isolated PostgreSQL). Shared runtime adapters are additive; existing CLI/Gateway primary Agent Loops are not yet unified, so status remains partial.",
       "gaps": [
         "Legacy RunStep rows are not backfilled; they remain covered only by the JSON fallback scan.",
         "No reconciliation job queries outcome-unknown steps against external providers."
@@ -191,13 +198,17 @@
         "apps/cli/src/utils/file-system.ts",
         "apps/cli/src/utils/tool-journal.spec.ts",
         "apps/cli/src/utils/session-store.spec.ts",
-        "apps/cli/src/subagents/delegate.ts"
+        "apps/cli/src/subagents/delegate.ts",
+        "apps/cli/src/utils/runtime-event-store.ts",
+        "apps/cli/src/utils/runtime-event-store.spec.ts",
+        "apps/cli/src/utils/agent-transcript-port.ts",
+        "apps/cli/src/utils/agent-transcript-port.spec.ts"
       ],
       "contractTests": [
         "apps/cli/src/utils/tool-journal.spec.ts",
         "apps/cli/src/utils/session-store.spec.ts"
       ],
-      "testResult": "2026-11-16: CLI 28 files / 174 tests passed. New actual SIGKILL after fsynced effect refuses replay after restart. Journal retention is configurable with validated OCEAN_TOOL_JOURNAL_RETENTION_MS. Query-only reconciliation validates exact provider-result identity, preserves unknown responses and stores proven terminal results without executing a tool. Final targeted CLI binding/journal regression 17 tests passed.",
+      "testResult": "2026-11-16: CLI 28 files / 174 tests passed. New actual SIGKILL after fsynced effect refuses replay after restart. Journal retention is configurable with validated OCEAN_TOOL_JOURNAL_RETENTION_MS. Query-only reconciliation validates exact provider-result identity, preserves unknown responses and stores proven terminal results without executing a tool. Final targeted CLI binding/journal regression 17 tests passed. 2026-11-22: Ocean Core v2 PR #17 quality workflow 44938703238 passed (typecheck, unit, HTTP E2E, fault recovery, isolated PostgreSQL). Shared runtime adapters are additive; existing CLI/Gateway primary Agent Loops are not yet unified, so status remains partial.",
       "gaps": [
         "No builtin external-provider reconciliation adapter is supplied; callers must implement a trusted query-only adapter.",
         "Prepared/executing crash journals still require active-owner reconciliation; automatic reconciliation is limited to unknown records.",
@@ -315,7 +326,9 @@
         "apps/gateway/src/ai/ai-sdk-model-gateway.ts",
         "apps/gateway/src/worker/run-runner.ts",
         "apps/gateway/test/live-provider.live-spec.ts",
-        "migration/capabilities/subagents-checkpoints-tokenizer.md"
+        "migration/capabilities/subagents-checkpoints-tokenizer.md",
+        "packages/shared/core/src/context-engine.ts",
+        "apps/cli/src/utils/runtime-contract.spec.ts"
       ],
       "contractTests": [
         "apps/cli/src/llm/compaction.spec.ts",
@@ -324,7 +337,7 @@
         "apps/gateway/src/ai/ai-sdk-model-gateway.spec.ts",
         "apps/gateway/test/live-provider.live-spec.ts"
       ],
-      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. WASM BPE tokenizer supports o200k_base/cl100k_base and replaces bytes/3. ModelGateway preserves provider input/output/total/cache-read/cache-write counters and RunRunner persists model-step usage. Real configured DeepSeek/deepseek-flash provider acceptance passed with positive input/output/total assertions; cache-field mapping is separately contract-tested.",
+      "testResult": "2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. WASM BPE tokenizer supports o200k_base/cl100k_base and replaces bytes/3. ModelGateway preserves provider input/output/total/cache-read/cache-write counters and RunRunner persists model-step usage. Real configured DeepSeek/deepseek-flash provider acceptance passed with positive input/output/total assertions; cache-field mapping is separately contract-tested. 2026-11-22: Ocean Core v2 PR #17 quality workflow 44938703238 passed (typecheck, unit, HTTP E2E, fault recovery, isolated PostgreSQL). Shared runtime adapters are additive; existing CLI/Gateway primary Agent Loops are not yet unified, so status remains partial.",
       "gaps": [
         "Selected BPE encoding counts serialized input exactly but may differ from proprietary provider tokenizers and hidden chat templates.",
         "Real provider acceptance verifies input/output/total; cache hit/write behavior has not been induced in a live request."
@@ -429,14 +442,20 @@
         "apps/gateway/test/live-provider.live-spec.ts",
         "migration/capabilities/acceptance-operations.md",
         "apps/gateway/test/fixtures/provider-contract.ts",
-        "apps/gateway/src/tool/device-rpc.postgres.integration.spec.ts"
+        "apps/gateway/src/tool/device-rpc.postgres.integration.spec.ts",
+        "apps/gateway/src/tool/core-tool-host.ts",
+        "apps/gateway/src/tool/core-tool-host.spec.ts",
+        "apps/gateway/prisma/schema.prisma",
+        "apps/gateway/prisma/migrations/20261122000000_runtime_core_events/migration.sql",
+        "apps/gateway/src/run/runtime-event-store.ts",
+        "apps/gateway/src/run/runtime-event-store.spec.ts"
       ],
       "contractTests": [
         "apps/gateway/test/app.e2e-spec.ts",
         "apps/gateway/test/worker.postgres.e2e-spec.ts",
         "apps/gateway/src/tool/device-rpc.postgres.integration.spec.ts"
       ],
-      "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Real Worker tests cover actual settings-file change with unchanged declared version, immediate cache invalidation, superseded single-call approval and refusal to reuse an obsolete-policy session grant. 2026-11-16 follow-up: 19 E2E tests passed; real PostToolUse feedback reaches the continuation model while retaining the tool result and exactly one tool step. 2026-11-16: real UserService and ApiKeyService now query PostgreSQL in the HTTP/Worker suite. Valid persisted API keys authenticate, update lastUsedAt and bind Run user identity; revoked/expired keys reject. E2E 23 passed. Live provider acceptance executed twice (default and deepseek override), both selected DeepSeek (the default is deepseek) and failed with Insufficient Balance; no live pass is claimed. 2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Real configured provider acceptance passed on 2026-11-17 with actual input/output/total usage; earlier balance failures remain historical failures. 2026-11-21: isolated PostgreSQL 14 with pgvector 0.8.2 applied all 32 migrations. All three explicitly enabled PostgreSQL integrations passed (7 tests). CLI 29 files / 179 tests, Gateway 57 suites / 357 tests, and E2E 2 suites / 27 tests passed with zero skips. CLI/Gateway typechecks, Prisma validate and git diff --check passed. Authenticated HTTP creates a Run, cancels it before dispatch, and retries it through the persisted Outbox and production Worker. The production AiSdkModelGateway streams a tool call over local HTTP, waits for persisted session approval, sends the real tool result back to the provider and records final text and token usage. The temporary cluster was stopped and removed. 2026-11-21 follow-up: a source snapshot without restored-src compiled CLI/Gateway and ran the complete isolated PostgreSQL HTTP/Worker suite (33 passed). The structured CLI interrupt closed an active provider HTTP stream and the next prompt completed in the same session.",
+      "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Real Worker tests cover actual settings-file change with unchanged declared version, immediate cache invalidation, superseded single-call approval and refusal to reuse an obsolete-policy session grant. 2026-11-16 follow-up: 19 E2E tests passed; real PostToolUse feedback reaches the continuation model while retaining the tool result and exactly one tool step. 2026-11-16: real UserService and ApiKeyService now query PostgreSQL in the HTTP/Worker suite. Valid persisted API keys authenticate, update lastUsedAt and bind Run user identity; revoked/expired keys reject. E2E 23 passed. Live provider acceptance executed twice (default and deepseek override), both selected DeepSeek (the default is deepseek) and failed with Insufficient Balance; no live pass is claimed. 2026-11-17: all 22 migrations applied to isolated pgvector PG16; Gateway 49 suites / 303 tests, E2E 2 suites / 24 tests, CLI 28 files / 176 tests passed, zero skipped; CLI/Gateway tsc, Prisma validate, diff check passed. Real configured provider acceptance passed on 2026-11-17 with actual input/output/total usage; earlier balance failures remain historical failures. 2026-11-21: isolated PostgreSQL 14 with pgvector 0.8.2 applied all 32 migrations. All three explicitly enabled PostgreSQL integrations passed (7 tests). CLI 29 files / 179 tests, Gateway 57 suites / 357 tests, and E2E 2 suites / 27 tests passed with zero skips. CLI/Gateway typechecks, Prisma validate and git diff --check passed. Authenticated HTTP creates a Run, cancels it before dispatch, and retries it through the persisted Outbox and production Worker. The production AiSdkModelGateway streams a tool call over local HTTP, waits for persisted session approval, sends the real tool result back to the provider and records final text and token usage. The temporary cluster was stopped and removed. 2026-11-21 follow-up: a source snapshot without restored-src compiled CLI/Gateway and ran the complete isolated PostgreSQL HTTP/Worker suite (33 passed). The structured CLI interrupt closed an active provider HTTP stream and the next prompt completed in the same session. 2026-11-22: Ocean Core v2 PR #17 quality workflow 44938703238 passed (typecheck, unit, HTTP E2E, fault recovery, isolated PostgreSQL). Shared runtime adapters are additive; existing CLI/Gateway primary Agent Loops are not yet unified, so status remains partial. 2026-11-22: PR #17 workflow 44939251686 passed after adding isolated PostgreSQL Core event stream, schema validation, and real DB replay/CAS test. Legacy Gateway Worker remains on its existing RunService; capability stays partial.",
       "gaps": [
         "The streaming tool and approval scenario uses the production AiSdkModelGateway against a local HTTP chat-completions fixture. External provider acceptance through the HTTP/Worker lifecycle has not been run.",
         "Active cancellation is verified against an isolated HTTP provider fixture, including closing the provider stream and continuing the same CLI session. The production external-provider path remains pending."
