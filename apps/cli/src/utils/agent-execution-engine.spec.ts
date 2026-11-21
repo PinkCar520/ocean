@@ -123,3 +123,16 @@ describe('context adapter isolation', () => {
   expect(transcript[0].content).toBe('run a tool');
  });
 });
+
+describe('skill lifecycle event integration', () => {
+ it('records activated skills during tool-driven agent execution', async () => {
+  const { engine } = fixture([
+   { kind: 'tools', calls: [{ id: 'call', name: 'shell', input: {} }] },
+   { kind: 'complete', text: 'done' },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.activatedSkill = () => ({ id: 'review', source: 'project' });
+  const result = await engine.run('session', 'run');
+  expect(result.snapshot.activeSkills).toEqual(['review']);
+ });
+});
