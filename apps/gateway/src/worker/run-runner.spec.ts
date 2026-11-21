@@ -492,6 +492,20 @@ describe('RunRunner', () => {
 
   });
 
+  it('rejects a cached history summary when the Session prefix fingerprint no longer matches', async () => {
+    const { runner, gateway } = createRunner(null, {
+      generateResult: { text: 'new summary', toolCalls: [] },
+    });
+    const history = [{ role: 'user', text: 'new original message' },
+      { role: 'assistant', text: 'response' }];
+    const stale = { boundary: 1, summary: 'stale summary', fingerprint: '0'.repeat(64) };
+    const output = await runner['compactChatHistory']('run', { chatCompaction: stale }, history,
+      'deepseek-flash', 'current');
+    expect(output.summary).not.toBe('stale summary');
+    expect(output.rows).toEqual(history);
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
   it('restores a prior Session Run with paired tool history and reasoning', async () => {
     const { runner, prisma } = createRunner(null);
     const call = { id: 'read', name: 'echo', input: {} };
