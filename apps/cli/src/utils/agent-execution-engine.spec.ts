@@ -249,3 +249,38 @@ describe('model-only recovery integrity', () => {
   await expect(engine.resume('session', runId)).rejects.toThrow('Transcript verification required');
  });
 });
+
+describe('bounded host Stop hook continuation', () => {
+ it('runs another model step when the completion verifier provides feedback', async () => {
+  const { engine, transcript, events } = fixture([
+   { kind: 'complete', text: 'premature' },
+   { kind: 'complete', text: 'verified' },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  let checks = 0;
+  ports.completion = {
+   verify: async () => ++checks === 1 ? [] : ['host approved completion'],
+   onIncomplete: async () => ({ role: 'user', content: 'Continue the task.' }),
+  };
+  const result = await engine.run('session', 'run', 3);
+  expect(result.snapshot.state).toBe('completed');
+  expect(checks).toBe(2);
+  expect(transcript.map(message => message.content)).toEqual([
+   'run a tool', 'premature', 'Continue the task.', 'verified',
+  ]);
+  expect((await events.read('run')).some(event => event.type === 'run.completion_verified')).toBe(true);
+ });
+ it('fails within the step limit when a Stop hook repeatedly rejects completion', async () => {
+  const { engine, events } = fixture([
+   { kind: 'complete', text: 'first' },
+   { kind: 'complete', text: 'second' },
+  ]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.completion = {
+   verify: async () => [],
+   onIncomplete: async () => ({ role: 'user', content: 'Continue' }),
+  };
+  await expect(engine.run('session', 'run', 2)).rejects.toThrow('maximum steps');
+  expect((await events.snapshot('run')).state).toBe('failed');
+ });
+});
