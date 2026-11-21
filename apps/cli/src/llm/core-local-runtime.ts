@@ -38,6 +38,9 @@ export async function runOceanCoreLocal(options: {
   onText?: (delta: string) => void;
   onToolCall?: (name: string, input: unknown) => void;
   onToolResult?: (name: string, result: unknown) => void;
+  beforeToolUse?: (name: string, input: unknown, callId: string) => Promise<string | undefined>;
+  afterToolUse?: (name: string, input: unknown, callId: string, output: unknown) => Promise<unknown>;
+  onToolFailure?: (name: string, input: unknown, callId: string, error: unknown) => Promise<void>;
   signal?: AbortSignal;
   resume?: boolean;
 }) {
@@ -52,7 +55,19 @@ export async function runOceanCoreLocal(options: {
       invocation.id,
       invocation.toolName,
       invocation.input,
-      () => rawHost.execute(invocation),
+      async () => {
+        try {
+          const blocked = await options.beforeToolUse?.(invocation.toolName, invocation.input, invocation.id);
+          if (blocked) return { error: blocked };
+          const output = await rawHost.execute(invocation);
+          return options.afterToolUse
+            ? await options.afterToolUse(invocation.toolName, invocation.input, invocation.id, output)
+            : output;
+        } catch (error) {
+          await options.onToolFailure?.(invocation.toolName, invocation.input, invocation.id, error);
+          throw error;
+        }
+      },
     ),
   };
   const engine = new AgentExecutionEngine<ModelMessage>({
