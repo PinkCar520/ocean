@@ -39,7 +39,7 @@ describe('microcompact', () => {
       { role: 'assistant', content: [{ type: 'tool-call', toolCallId: '1', toolName: 'payment', input: {} }] },
       { role: 'tool', content: [{ type: 'tool-result', toolCallId: '1', toolName: 'payment', output: { type: 'text', value: 'x'.repeat(2000) } }] },
       { role: 'assistant', content: [{ type: 'tool-call', toolCallId: '2', toolName: 'bash', input: {} }] },
-      { role: 'tool', content: [{ type: 'tool-result', toolCallId: '2', toolName: 'bash', isError: true, output: { type: 'text', value: 'x'.repeat(2000) } }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: '2', toolName: 'bash', output: { type: 'error-text', value: 'x'.repeat(2000) } }] },
       { role: 'assistant', content: [{ type: 'tool-call', toolCallId: '3', toolName: 'bash', input: {} }] },
     ];
     expect(microcompactMessages(messages, { keepRecent: 0 })).toBe(messages);
