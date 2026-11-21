@@ -347,6 +347,13 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   await db.outboxEvent.deleteMany({ where: { aggregateId: runId } });
   await worker.onModuleInit();
   await waitFor(runId, 'succeeded');
+  // Run completion and outbox acknowledgement are distinct persisted writes.
+  // Wait for the delivery acknowledgement instead of racing the Worker.
+  const acknowledgementDeadline = Date.now() + 5000;
+  while (await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } }) !== 1) {
+   if (Date.now() > acknowledgementDeadline) throw new Error('Recovered outbox delivery was not acknowledged');
+   await new Promise(resolve => setTimeout(resolve, 50));
+  }
   worker.stop();
   expect(await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).toMatchObject({ executionToken: null });
   expect(await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } })).toBe(1);
