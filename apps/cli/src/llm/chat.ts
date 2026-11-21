@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { PermissionHookOutcome } from '@ocean/core/permission-policy';
 import type { SessionStore } from '../utils/session-store.js';
+import { recoveryStatePrompt } from './recovery-state.js';
 import { isDeepStrictEqual } from 'node:util';
 import { createDelegationTool, loadSubagents } from '../subagents/delegate.js';
 import { PermissionPolicy } from '../utils/permission-policy.js';
@@ -460,10 +461,17 @@ export async function runChatLoop(
     workspace: options.journal?.workspace ?? options.approvalOptions?.workspace,
   });
 
+  // Recover structured execution metadata from durable session storage before
+  // deciding what historical messages to compact. This state is not a summary
+  // and does not rely on model recall.
+  const persistedState = options.journal
+    ? recoveryStatePrompt(await options.journal.store.load(options.journal.sessionId, options.journal.workspace))
+    : '';
+  const effectiveSystemPrompt = options.systemPrompt + persistedState;
   const compactionOptions = options.compaction;
   let initialSnapshot = compactionOptions?.previous;
   const context = compactionOptions ? await compactContext(messages, {
-    model: options.model, systemPrompt: options.systemPrompt, signal: options.signal,
+    model: options.model, systemPrompt: effectiveSystemPrompt, signal: options.signal,
     scope: options.journal?.sessionId,
     ...compactionOptions,
     persist: async (snapshot) => { initialSnapshot = snapshot; await compactionOptions.persist(snapshot); },
@@ -492,7 +500,7 @@ export async function runChatLoop(
     const scopeBase = compaction.scope ?? options.journal?.sessionId ?? 'default';
     const compacted = await compactContext(complete, {
       model: options.model,
-      systemPrompt: options.systemPrompt,
+      systemPrompt: effectiveSystemPrompt,
       signal: options.signal,
       budget: compaction.budget,
       contextWindow: compaction.contextWindow,
@@ -543,7 +551,7 @@ export async function runChatLoop(
     const result = streamText({
       model: options.model,
       messages: context,
-      system: options.systemPrompt + activeSkillInstructions(messages),
+      system: effectiveSystemPrompt + activeSkillInstructions(messages),
       tools,
       toolChoice: 'auto',
       maxOutputTokens: maxTokens,
