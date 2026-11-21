@@ -329,3 +329,13 @@ it('reports microcompact token savings without changing durable history', async 
   expect(metric.afterTokens).toBeLessThan(metric.beforeTokens);
   expect(JSON.stringify(messages)).toBe(before);
 });
+
+it('never lets a telemetry observer abort a safe request', async () => {
+  const messages: ModelMessage[] = [{ role: 'user', content: 'small' }];
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 5000,
+    onMetrics: () => { throw new Error('telemetry unavailable'); },
+    persist: vi.fn(),
+  });
+  expect(result).toBe(messages);
+});
