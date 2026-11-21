@@ -104,3 +104,22 @@ describe('agent cancellation', () => {
   expect((await events.snapshot('run')).state).toBe('cancelled');
  });
 });
+
+describe('context adapter isolation', () => {
+ it('uses compacted context for model requests without changing persisted history', async () => {
+  const { engine, transcript } = fixture([{ kind: 'complete', text: 'done' }]);
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  let sawPrepared = false;
+  ports.prepareContext = async original => {
+   expect(original).toHaveLength(1);
+   return [{ role: 'user', content: 'compacted context' }];
+  };
+  ports.model = { next: async prepared => {
+   sawPrepared = prepared[0].content === 'compacted context';
+   return { kind: 'complete', text: 'done' };
+  } };
+  await engine.run('session', 'run');
+  expect(sawPrepared).toBe(true);
+  expect(transcript[0].content).toBe('run a tool');
+ });
+});
