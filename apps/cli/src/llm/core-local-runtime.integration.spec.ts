@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { SessionStore } from '../utils/session-store.js';
 import { FileRuntimeEventStore } from '../utils/runtime-event-store.js';
+import { replayRuntime } from '@ocean/core';
 
 const next = vi.hoisted(() => vi.fn());
 vi.mock('./core-model-adapter.js', () => ({
@@ -77,7 +78,7 @@ describe('CLI Core interrupted-run recovery', () => {
   append.mockRestore();
   expect(execute).toHaveBeenCalledOnce();
   const runtimeEvents = new FileRuntimeEventStore(join(root, 'events'));
-  expect((await runtimeEvents.snapshot('recovery-run')).state).toBe('interrupted');
+  expect(replayRuntime('recovery-run', await runtimeEvents.read('recovery-run')).state).toBe('interrupted');
   const recovered = await runOceanCoreLocal({ ...options, resume: true });
   expect(recovered.snapshot.state).toBe('completed');
   expect(execute).toHaveBeenCalledOnce();
