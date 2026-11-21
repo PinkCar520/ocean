@@ -456,7 +456,7 @@ describe('ToolExecutor (Phase 4.4 幂等工具调用 + 失败分类)', () => {
 
   it('persists bounded shared Core output instead of unbounded remote tool data', async () => {
     const { executor, tx, toolExecute } = createExecutor();
-    toolExecute.mockResolvedValueOnce({ body: 'x'.repeat(1024 * 1024 + 128) });
+    toolExecute.mockImplementationOnce(async () => ({ ok: true, echo: { body: 'x'.repeat(1024 * 1024 + 128) } }));
     const result = await executor.execute(toolJob());
     expect(result.status).toBe('succeeded');
     expect(toolExecute).toHaveBeenCalledTimes(1);
