@@ -51,3 +51,64 @@ describe('CLI shared Agent Core execution and side effects', () => {
   expect(events.some(e => e.type === 'tool.settled' && e.invocationId === 'echo-1')).toBe(true);
  });
 });
+
+describe('CLI Core interrupted-run recovery', () => {
+ it('recovers a completed side effect after transcript persistence failure without re-executing it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-local-recovery-')); roots.push(root);
+  const sessions = new SessionStore(join(root, 'sessions'));
+  const session = await sessions.create(root);
+  await sessions.save(session.id, root, [{ role: 'user', content: 'perform exactly once' }]);
+  next.mockResolvedValueOnce({
+   kind: 'tools', calls: [{ id: 'once-1', name: 'echo', input: { message: 'once' } }],
+  }).mockResolvedValueOnce({ kind: 'complete', text: 'recovered' });
+  const execute = vi.fn(async (input: { message: string }) => ({ text: input.message }));
+  const originalAppend = sessions.appendMessages.bind(sessions);
+  const append = vi.spyOn(sessions, 'appendMessages').mockImplementationOnce(async () => {
+   throw new Error('simulated crash after durable tool journal and Core result');
+  });
+  const options = {
+   sessionStore: sessions, sessionId: session.id, runId: 'recovery-run',
+   workspace: root, runtimeDirectory: join(root, 'events'),
+   model: {} as any, systemPrompt: 'test',
+   tools: { echo: { inputSchema: z.object({ message: z.string() }), execute } },
+   authorization: { evaluate: async () => 'allow' as const },
+   completion: { verify: async () => ['host validated'] },
+  };
+  await expect(runOceanCoreLocal(options)).rejects.toThrow('simulated crash');
+  append.mockRestore();
+  expect(execute).toHaveBeenCalledOnce();
+  const runtimeEvents = new FileRuntimeEventStore(join(root, 'events'));
+  expect((await runtimeEvents.snapshot('recovery-run')).state).toBe('interrupted');
+  const recovered = await runOceanCoreLocal({ ...options, resume: true });
+  expect(recovered.snapshot.state).toBe('completed');
+  expect(execute).toHaveBeenCalledOnce();
+  const persisted = await sessions.loadPersisted(session.id, root);
+  expect(persisted.messages.map(m => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant']);
+  expect((await runtimeEvents.read('recovery-run')).filter(e => e.type === 'tool.prepared')).toHaveLength(1);
+  expect((await runtimeEvents.read('recovery-run')).filter(e => e.type === 'tool.settled')).toHaveLength(1);
+ });
+ it('refuses to retry an unknown outcome even if the model produces another tool call', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-local-unknown-')); roots.push(root);
+  const sessions = new SessionStore(join(root, 'sessions'));
+  const session = await sessions.create(root);
+  await sessions.save(session.id, root, [{ role: 'user', content: 'perform exactly once' }]);
+  next.mockResolvedValueOnce({
+   kind: 'tools', calls: [{ id: 'unsafe-1', name: 'echo', input: { message: 'maybe' } }],
+  }).mockResolvedValueOnce({
+   kind: 'tools', calls: [{ id: 'unsafe-2', name: 'echo', input: { message: 'retry' } }],
+  });
+  const execute = vi.fn(async () => { throw new Error('connection lost after effect'); });
+  const options = {
+   sessionStore: sessions, sessionId: session.id, runId: 'unknown-run',
+   workspace: root, runtimeDirectory: join(root, 'events'),
+   model: {} as any, systemPrompt: 'test',
+   tools: { echo: { inputSchema: z.object({ message: z.string() }), execute } },
+   authorization: { evaluate: async () => 'allow' as const },
+   completion: { verify: async () => ['host validated'] },
+  };
+  await expect(runOceanCoreLocal(options)).rejects.toThrow('outcome unknown');
+  await expect(runOceanCoreLocal({ ...options, resume: true })).rejects.toThrow('Unresolved tool effects');
+  expect(execute).toHaveBeenCalledOnce();
+  expect(next).toHaveBeenCalledOnce();
+ });
+});
