@@ -62,7 +62,6 @@ describe('CLI Core interrupted-run recovery', () => {
    kind: 'tools', calls: [{ id: 'once-1', name: 'echo', input: { message: 'once' } }],
   }).mockResolvedValueOnce({ kind: 'complete', text: 'recovered' });
   const execute = vi.fn(async (input: { message: string }) => ({ text: input.message }));
-  const originalAppend = sessions.appendMessages.bind(sessions);
   const append = vi.spyOn(sessions, 'appendMessages').mockImplementationOnce(async () => {
    throw new Error('simulated crash after durable tool journal and Core result');
   });
