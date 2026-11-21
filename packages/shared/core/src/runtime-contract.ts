@@ -16,6 +16,7 @@ export interface RuntimeIdentity {
 export type RuntimeEvent = (
   | { type: 'run.created'; runId: string; at: string; sessionId?: string; schemaVersion?: 1 }
   | { type: 'run.transitioned'; runId: string; at: string; from: RuntimeState; to: RuntimeState }
+  | { type: 'tool.proposed'; runId: string; at: string; invocationId: string; toolName: string; inputDigest: string }
   | { type: 'tool.prepared'; runId: string; at: string; invocation: ToolInvocation }
   | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
   | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown }
@@ -44,6 +45,7 @@ export interface RuntimeSnapshot {
   state: RuntimeState;
   revision: number;
   pendingTools: Readonly<Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'>>;
+  queuedTools: Readonly<Record<string, { toolName: string; inputDigest: string }>>;
   completionVerified: boolean;
   activeSkills: readonly string[];
 }
@@ -71,6 +73,7 @@ export function canTransition(from: RuntimeState, to: RuntimeState): boolean {
 /** Pure replay: the event stream is the authority, not the last UI message. */
 export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): RuntimeSnapshot {
   const pendingTools: Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'> = {};
+  const queuedTools: Record<string, { toolName: string; inputDigest: string }> = {};
   let state: RuntimeState = 'created';
   let revision = 0;
   let created = false;
@@ -94,11 +97,20 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       if (event.to === 'completed' && !completionVerified) throw new Error('Completion requires independent verification');
       if (event.to !== 'completed') completionVerified = false;
       state = event.to;
+    } else if (event.type === 'tool.proposed') {
+      if (state !== 'validating_tools' || !event.invocationId.trim() ||
+          !event.toolName.trim() || !/^[a-f0-9]{64}$/.test(event.inputDigest) ||
+          Object.hasOwn(queuedTools, event.invocationId) ||
+          Object.hasOwn(pendingTools, event.invocationId))
+        throw new Error('Invalid queued tool proposal');
+      queuedTools[event.invocationId] = { toolName: event.toolName, inputDigest: event.inputDigest };
     } else if (event.type === 'tool.prepared') {
       if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
         throw new Error('Invalid tool preparation');
       if (createHash('sha256').update(JSON.stringify(event.invocation.input)).digest('hex') !== event.invocation.inputDigest)
         throw new Error('Tool invocation digest mismatch');
+      if (queuedTools[event.invocation.id] && queuedTools[event.invocation.id].toolName !== event.invocation.toolName)
+        throw new Error('Queued tool name mismatch');
       completionVerified = false;
       pendingTools[event.invocation.id] = 'prepared';
     } else if (event.type === 'tool.rejected') {
@@ -123,5 +135,5 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     revision++;
   }
   if (!created) throw new Error('Runtime event stream missing creation');
-  return { runId, sessionId, state, revision, pendingTools, completionVerified, activeSkills: [...activeSkills] };
+  return { runId, sessionId, state, revision, pendingTools, queuedTools, completionVerified, activeSkills: [...activeSkills] };
 }
