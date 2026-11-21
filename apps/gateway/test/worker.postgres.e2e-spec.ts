@@ -463,7 +463,14 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
     const contenderExit = once(contender, 'exit'); contender.kill('SIGKILL'); await contenderExit;
    }
    contender = launch();
-   await waitFor(runId, 'failed');
+   try {
+    await waitFor(runId, 'failed');
+   } catch (error) {
+    const state = await db.agentRun.findUnique({ where: { id: runId }, select: { status: true, executionToken: true, executionJobId: true } });
+    const queue = await db.outboxEvent.findMany({ where: { aggregateId: runId }, select: { topic: true, status: true } });
+    const steps = await db.runStep.findMany({ where: { runId }, select: { kind: true, status: true } });
+    throw new Error(`Crash recovery: ${String(error)}; state=${JSON.stringify(state)}; queue=${JSON.stringify(queue)}; steps=${JSON.stringify(steps)}; worker=${logs.slice(-2000)}`);
+   }
    expect(readFileSync(effectFile, 'utf8')).toBe('effect\n');
    expect(await db.runStep.findUniqueOrThrow({ where: { id: started.id } })).toMatchObject({ status: 'unknown', output: null });
    expect(await db.runStep.count({ where: { runId, kind: 'tool_call' } })).toBe(1);
