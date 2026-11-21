@@ -202,6 +202,41 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
       });
       if (!current || current.status !== 'running') return; // 已被其他进程处理
 
+      // A crashed worker may have committed an external side effect without
+      // persisting its result. Re-running the model here would incorrectly
+      // mark the run succeeded while its tool step remains started.
+      const unresolvedTool = await tx.runStep.findFirst({
+        where: { runId: run.id, kind: 'tool_call', status: 'started' },
+        orderBy: { seq: 'desc' },
+      });
+      if (unresolvedTool) {
+        const message = 'Tool result unknown after worker interruption; automatic replay prohibited.';
+        await tx.runStep.update({
+          where: { id: unresolvedTool.id },
+          data: { status: 'unknown', error: message, completedAt: new Date() },
+        });
+        await tx.agentRun.update({
+          where: { id: run.id },
+          data: { status: 'failed', executionToken: null, executionJobId: null, executionAttempt: null },
+        });
+        const lastEvent = await tx.runEvent.findFirst({
+          where: { runId: run.id }, orderBy: { sequence: 'desc' },
+        });
+        const sequence = lastEvent ? lastEvent.sequence + 1 : 0;
+        await tx.runEvent.create({
+          data: {
+            id: randomUUID(), runId: run.id, sequence,
+            type: 'run.failed', occurredAt: new Date(),
+            payload: {
+              id: randomUUID(), runId: run.id, sequence,
+              occurredAt: new Date().toISOString(), type: 'run.failed',
+              code: 'tool_execution_failed', message,
+            },
+          },
+        });
+        return;
+      }
+
       const pendingMessage = await tx.outboxEvent.findFirst({
         where: {
           topic: 'run.requested',
