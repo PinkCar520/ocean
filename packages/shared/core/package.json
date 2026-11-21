@@ -49,7 +49,7 @@
     "tiktoken": "^1.0.22"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "pnpm --filter @ocean/contracts build && tsc"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",

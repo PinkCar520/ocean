@@ -6,9 +6,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "prebuild": "pnpm --filter @ocean/core build",
+    "prebuild": "pnpm --filter @ocean/core build && pnpm --filter @ocean/mcp-im build && pnpm --filter @ocean/tools-zentao build",
     "build": "nest build",
-    "pretypecheck": "pnpm --filter @ocean/core build",
+    "pretypecheck": "pnpm --filter @ocean/core build && pnpm --filter @ocean/mcp-im build && pnpm --filter @ocean/tools-zentao build",
     "typecheck": "tsc --noEmit",
     "worker:dev": "nest build && node --watch dist/apps/gateway/src/worker/main.js",
     "worker:start": "node dist/apps/gateway/src/worker/main",
