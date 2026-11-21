@@ -3,6 +3,13 @@ import { generateText, type ModelMessage } from 'ai';
 import { createHash } from 'node:crypto';
 import { microcompactMessages } from './microcompact.js';
 
+export interface CompactionMetrics {
+  strategy: 'none' | 'microcompact' | 'summary' | 'fallback';
+  beforeTokens: number;
+  afterTokens: number;
+  budget: number;
+}
+
 export interface Compaction {
   covered: number;
   digest: string;
@@ -98,6 +105,7 @@ export async function compactContext(messages: ModelMessage[], options: {
   outputReserve?: number;
   toolReserve?: number;
   scope?: string;
+  onMetrics?: (metrics: CompactionMetrics) => void;
   previous?: Compaction;
   /** Provider usage for a prefix of `messages`, when no compacted snapshot is active. */
   usage?: TokenUsageSnapshot;
@@ -117,7 +125,10 @@ export async function compactContext(messages: ModelMessage[], options: {
       ? effectiveTokensWithUsage(messages, effective, options.usage, previous)
       : tokenCountWithEstimation(messages, options.usage))
     : contextTokens(effective);
-  if (currentTokens + systemTokens < budget) return effective;
+  if (currentTokens + systemTokens < budget) {
+    options.onMetrics?.({ strategy: 'none', beforeTokens: currentTokens + systemTokens, afterTokens: currentTokens + systemTokens, budget });
+    return effective;
+  }
   // First clear stale, replayable tool outputs without touching the durable
   // transcript. Only use the ephemeral view when it actually fits the budget.
   // Keep provider usage as the pressure signal, but use local token counting
@@ -125,6 +136,7 @@ export async function compactContext(messages: ModelMessage[], options: {
   const microcompacted = microcompactMessages(effective);
   if (microcompacted !== effective &&
       contextTokens(microcompacted) + systemTokens < budget) {
+    options.onMetrics?.({ strategy: 'microcompact', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(microcompacted) + systemTokens, budget });
     return microcompacted;
   }
   // If microcompaction alone cannot fit, summarize the reduced historical
@@ -132,7 +144,10 @@ export async function compactContext(messages: ModelMessage[], options: {
   const summaryView = microcompacted !== effective ? microcompacted : effective;
   const originalFits = contextTokens(effective) + systemTokens < budget;
   const cannotCompactSafely = (): ModelMessage[] => {
-    if (originalFits) return effective;
+    if (originalFits) {
+      options.onMetrics?.({ strategy: 'fallback', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(effective) + systemTokens, budget });
+      return effective;
+    }
     throw new ContextCompactionError('Context exceeds the configured budget and no safe compaction boundary is available.');
   };
   const floor = valid ? previous.covered : 0;
@@ -205,6 +220,7 @@ export async function compactContext(messages: ModelMessage[], options: {
     }
     await options.persist(snapshot);
     failures.delete(scope);
+    options.onMetrics?.({ strategy: 'summary', beforeTokens: currentTokens + systemTokens, afterTokens: contextTokens(compacted) + systemTokens, budget });
     return compacted;
   }
   throw lastError ?? new Error('Context compaction failed');
