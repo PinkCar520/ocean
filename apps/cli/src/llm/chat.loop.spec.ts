@@ -363,11 +363,15 @@ describe('CLI Agent loop transcript', () => {
       role: 'user' as const,
       content: `history ${i}: ${Array.from({ length: 200 }, (_, j) => `item-${i}-${j}`).join(' ')}`,
     }));
+    // Tokenization is expensive: grow the fixture in bounded batches instead
+    // of re-tokenizing the entire transcript after every appended word.
     let extra = 0;
-    while (contextTokens(messages) < 16000) {
-      messages[0].content += ` unique-token-${extra++}`;
+    let tokens = contextTokens(messages);
+    while (tokens < 16000) {
+      messages[0].content += Array.from({ length: 200 }, () => ` unique-token-${extra++}`).join('');
+      tokens = contextTokens(messages);
     }
-    expect(contextTokens(messages)).toBeLessThan(20000);
+    expect(tokens).toBeLessThan(20000);
     const persist = vi.fn();
     generateTextMock.mockResolvedValue({
       text: JSON.stringify({ goal: 'complete task', constraints: [], fileChanges: [],
