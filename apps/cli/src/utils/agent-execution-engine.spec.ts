@@ -94,3 +94,13 @@ describe('agent run recovery boundary', () => {
   await expect(engine.resume('session', runId)).rejects.toThrow('Tool journal reconciliation required');
  });
 });
+
+describe('agent cancellation', () => {
+ it('persists cancellation before a model request when already aborted', async () => {
+  const { engine, events } = fixture([]);
+  const controller = new AbortController();
+  controller.abort();
+  await expect(engine.run('session', 'run', 3, controller.signal)).rejects.toThrow();
+  expect((await events.snapshot('run')).state).toBe('cancelled');
+ });
+});
