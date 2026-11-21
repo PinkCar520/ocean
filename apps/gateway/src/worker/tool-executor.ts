@@ -2,7 +2,7 @@ import { RunService } from '../run/run.service';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { SubagentRunsService } from '../run/subagent-runs.service';
 import { DELEGATE_TASK_TOOL, delegateTaskSchema, policyForRun, permitsSubagentTool } from '../run/subagent-policy';
-import { canonicalPermissionInput, isReadOnlyTool, type PermissionDecision } from '@ocean/core';
+import { canonicalPermissionInput, isReadOnlyTool, normalizeToolOutput, type PermissionDecision } from '@ocean/core';
 import { PermissionService } from '../skill/permission.service';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
@@ -381,7 +381,9 @@ export class ToolExecutor {
         });
         invocationStarted = true;
         try {
-          output = await tool.execute(executionInput, { runId, userId, spaceId: runCheck.spaceId, toolCallId: toolCall.id }) as Prisma.InputJsonValue;
+          output = normalizeToolOutput(
+            await tool.execute(executionInput, { runId, userId, spaceId: runCheck.spaceId, toolCallId: toolCall.id }),
+          ) as Prisma.InputJsonValue;
         } catch (error) {
           await this.hooks.run('ToolUseFailure', { ...hookInput, tool_input: executionInput, error: error instanceof Error ? error.message : String(error) }, { spaceId: runCheck.spaceId });
           throw error;
@@ -446,7 +448,10 @@ export class ToolExecutor {
           runCheck.priority,
         );
         if (this.core) await this.core.settleQueuedTool(
-          tx, runId, toolCall.id, permissionDenial ? 'failed' : 'succeeded', output, !loop,
+          tx, runId, toolCall.id,
+          permissionDenial || (output && typeof output === 'object' && !Array.isArray(output) && 'error' in output)
+            ? 'failed' : 'succeeded',
+          output, !loop,
         );
         if (loop) {
           await tx.agentRun.update({
