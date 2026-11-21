@@ -357,7 +357,7 @@ export async function runChatLoop(
     };
     hooks?: LifecycleHooks;
     stopHookActive?: boolean;
-    compaction?: { previous?: Compaction; usage?: TokenUsageSnapshot; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string };
+    compaction?: { previous?: Compaction; usage?: TokenUsageSnapshot; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string; onMetrics?: (metrics: import('./compaction.js').CompactionMetrics) => void };
     /**
      * 审批门（对齐 Codex/Claude：CLI 执行、对话窗口弹审批）。
      * 传入后，requiresApproval 工具执行前先调 handler，返回 approved 才放行。
@@ -467,7 +467,9 @@ export async function runChatLoop(
   const persistedState = options.journal
     ? recoveryStatePrompt(await options.journal.store.load(options.journal.sessionId, options.journal.workspace))
     : '';
-  const effectiveSystemPrompt = options.systemPrompt + persistedState;
+  // Skill activation is derived from the durable transcript, not from the
+  // compacted model view; include it in both the request and token budget.
+  const effectiveSystemPrompt = options.systemPrompt + persistedState + activeSkillInstructions(messages);
   const compactionOptions = options.compaction;
   let initialSnapshot = compactionOptions?.previous;
   const context = compactionOptions ? await compactContext(messages, {
@@ -510,6 +512,7 @@ export async function runChatLoop(
       boundary: 'any',
       usage,
       previous: prefixMatches ? midTurnSnapshot : undefined,
+      onMetrics: compaction.onMetrics,
       persist: prefixMatches
         ? async (snapshot) => { nextSnapshot = snapshot; await compaction.persist(snapshot); }
         : async () => undefined,
@@ -551,7 +554,7 @@ export async function runChatLoop(
     const result = streamText({
       model: options.model,
       messages: context,
-      system: effectiveSystemPrompt + activeSkillInstructions(messages),
+      system: effectiveSystemPrompt,
       tools,
       toolChoice: 'auto',
       maxOutputTokens: maxTokens,
