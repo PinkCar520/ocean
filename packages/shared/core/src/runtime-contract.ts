@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /** Host-independent execution contract for Ocean's local-first Agent Core. */
 export const RUNTIME_STATES = [
   'created', 'preparing_context', 'calling_model', 'validating_tools',
@@ -93,6 +95,8 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     } else if (event.type === 'tool.prepared') {
       if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
         throw new Error('Invalid tool preparation');
+      if (createHash('sha256').update(JSON.stringify(event.invocation.input)).digest('hex') !== event.invocation.inputDigest)
+        throw new Error('Tool invocation digest mismatch');
       pendingTools[event.invocation.id] = 'prepared';
     } else if (event.type === 'skill.activated') {
       if (!event.skillId.trim() || state === 'completed' || state === 'failed' || state === 'cancelled')
