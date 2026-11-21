@@ -107,6 +107,10 @@ export function createModelRouter(config: CliConfig): ModelRouter {
     }
 
     const isDeepseekCompatible = resolved.provider === 'dashscope' || resolved.provider === 'deepseek';
+    // Reasoning effort is configurable; defaults to 'medium' to leave enough
+    // output-token budget for tool-call arguments. 'high' can truncate JSON.
+    const reasoningEffort = config.deepseekReasoningEffort ?? 'medium';
+    const thinkingEnabled = config.deepseekThinking !== false;
 
     const model = createOpenAI({
       baseURL: resolved.baseURL,
@@ -117,8 +121,10 @@ export function createModelRouter(config: CliConfig): ModelRouter {
             try {
               const body = JSON.parse(init.body);
               if (resolved.provider === 'deepseek') {
-                body.thinking = { type: 'enabled' };
-                body.reasoning_effort = 'high';
+                if (thinkingEnabled) {
+                  body.thinking = { type: 'enabled' };
+                  body.reasoning_effort = reasoningEffort;
+                }
               } else {
                 body.enable_thinking = true;
               }

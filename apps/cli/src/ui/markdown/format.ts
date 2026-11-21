@@ -1,5 +1,7 @@
 import chalk from 'chalk';
 import { marked, type Token, type Tokens } from 'marked';
+import type { CliHighlight } from '../../utils/cli-highlight.js';
+import { createHyperlink } from '../../utils/hyperlink.js';
 
 // 与 restored-src/src/utils/markdown.ts 保持同一套 token → ANSI 逻辑。
 const EOL = '\n';
@@ -14,71 +16,95 @@ export function configureMarked(): void {
   marked.use({ tokenizer: { del: () => undefined } } as unknown as Parameters<typeof marked.use>[0]);
 }
 
-export function applyMarkdown(content: string): string {
+export interface FormatContext {
+  highlight?: CliHighlight | null;
+  listDepth?: number;
+  orderedListNumber?: number | null;
+  parent?: Token | null;
+}
+
+export function applyMarkdown(content: string, highlight: CliHighlight | null = null): string {
   configureMarked();
   return marked
     .lexer(content)
-    .map((token) => formatToken(token))
+    .map((token) => formatToken(token, { highlight }))
     .join('')
     .trim();
 }
 
-export function formatToken(
-  token: Token,
-  listDepth = 0,
-  orderedListNumber: number | null = null,
-  parent: Token | null = null,
-): string {
+export function formatToken(token: Token, ctx: FormatContext = {}): string {
+  const { highlight = null, listDepth = 0, orderedListNumber = null, parent = null } = ctx;
+
   switch (token.type) {
     case 'blockquote': {
-      const inner = (token.tokens ?? []).map((child) => formatToken(child)).join('');
+      const inner = (token.tokens ?? []).map((child) => formatToken(child, { highlight })).join('');
       const bar = chalk.dim(BLOCKQUOTE_BAR);
+      // 保持正文正常亮度，仅竖线弱化；chalk.dim 在深色主题上几乎不可见。
       return inner
         .split(EOL)
         .map((line) => (stripAnsi(line).trim() ? `${bar} ${chalk.italic(line)}` : line))
         .join(EOL);
     }
-    case 'code':
-      // 不做语法高亮（对应 restored-src 的 highlight = null 分支）
-      return token.text + EOL;
+    case 'code': {
+      if (!highlight) return token.text + EOL;
+      let language = 'plaintext';
+      if (token.lang && highlight.supportsLanguage(token.lang)) language = token.lang;
+      return highlight.highlight(token.text, { language }) + EOL;
+    }
     case 'codespan':
       // 行内代码
       return chalk.cyan(token.text);
     case 'em':
-      return chalk.italic((token.tokens ?? []).map((child) => formatToken(child, 0, null, parent)).join(''));
+      return chalk.italic((token.tokens ?? []).map((child) => formatToken(child, { highlight, parent })).join(''));
     case 'strong':
-      return chalk.bold((token.tokens ?? []).map((child) => formatToken(child, 0, null, parent)).join(''));
+      return chalk.bold((token.tokens ?? []).map((child) => formatToken(child, { highlight, parent })).join(''));
     case 'heading':
       switch (token.depth) {
         case 1:
-          return chalk.bold.italic.underline((token.tokens ?? []).map((child) => formatToken(child)).join('')) + EOL + EOL;
+          return chalk.bold.italic.underline((token.tokens ?? []).map((child) => formatToken(child, { highlight })).join('')) + EOL + EOL;
         default:
-          return chalk.bold((token.tokens ?? []).map((child) => formatToken(child)).join('')) + EOL + EOL;
+          return chalk.bold((token.tokens ?? []).map((child) => formatToken(child, { highlight })).join('')) + EOL + EOL;
       }
     case 'hr':
       return '---';
     case 'image':
       return token.href;
     case 'link': {
-      const linkText = (token.tokens ?? []).map((child) => formatToken(child, 0, null, token)).join('');
-      if (linkText && linkText !== token.href) return `${chalk.underline(linkText)} ${chalk.dim(`(${token.href})`)}`;
-      return chalk.underline(token.href);
+      // mailto 链接不展示为可点击链接，直接显示邮箱
+      if (token.href.startsWith('mailto:')) return token.href.replace(/^mailto:/, '');
+
+      const linkText = (token.tokens ?? [])
+        .map((child) => formatToken(child, { highlight, parent: token }))
+        .join('');
+      const plainLinkText = stripAnsi(linkText);
+      if (plainLinkText && plainLinkText !== token.href) return createHyperlink(token.href, linkText);
+      return createHyperlink(token.href);
     }
     case 'list':
       return token.items
         .map((item: Token, index: number) =>
-          formatToken(item, listDepth, token.ordered ? token.start + index : null, token),
+          formatToken(item, {
+            highlight,
+            listDepth,
+            orderedListNumber: token.ordered ? token.start + index : null,
+            parent: token,
+          }),
         )
         .join('');
     case 'list_item':
       return (token.tokens ?? [])
         .map(
           (child) =>
-            `${'  '.repeat(listDepth)}${formatToken(child, listDepth + 1, orderedListNumber, token)}`,
+            `${'  '.repeat(listDepth)}${formatToken(child, {
+              highlight,
+              listDepth: listDepth + 1,
+              orderedListNumber,
+              parent: token,
+            })}`,
         )
         .join('');
     case 'paragraph':
-      return (token.tokens ?? []).map((child) => formatToken(child)).join('') + EOL;
+      return (token.tokens ?? []).map((child) => formatToken(child, { highlight })).join('') + EOL;
     case 'space':
     case 'br':
       return EOL;
@@ -87,13 +113,15 @@ export function formatToken(
       if (parent?.type === 'list_item') {
         const bullet = orderedListNumber === null ? '-' : `${getListNumber(listDepth, orderedListNumber)}.`;
         const body = token.tokens
-          ? token.tokens.map((child) => formatToken(child, listDepth, orderedListNumber, token)).join('')
+          ? token.tokens
+              .map((child) => formatToken(child, { highlight, listDepth, orderedListNumber, parent: token }))
+              .join('')
           : token.text;
         return `${bullet} ${body}${EOL}`;
       }
       return token.text;
     case 'table':
-      return formatTable(token as Tokens.Table);
+      return formatTable(token as Tokens.Table, highlight);
     case 'escape':
       return token.text;
     default:
@@ -102,9 +130,9 @@ export function formatToken(
   }
 }
 
-function formatTable(tableToken: Tokens.Table): string {
+function formatTable(tableToken: Tokens.Table, highlight: CliHighlight | null): string {
   const getDisplayText = (tokens: Token[] | undefined): string =>
-    stripAnsi((tokens ?? []).map((child) => formatToken(child)).join(''));
+    stripAnsi((tokens ?? []).map((child) => formatToken(child, { highlight })).join(''));
 
   const columnWidths = tableToken.header.map((header, index) => {
     let maxWidth = stringWidth(getDisplayText(header.tokens));
@@ -116,7 +144,7 @@ function formatTable(tableToken: Tokens.Table): string {
 
   let output = '| ';
   tableToken.header.forEach((header, index) => {
-    const content = (header.tokens ?? []).map((child) => formatToken(child)).join('');
+    const content = (header.tokens ?? []).map((child) => formatToken(child, { highlight })).join('');
     const width = columnWidths[index]!;
     output += padAligned(content, stringWidth(getDisplayText(header.tokens)), width, tableToken.align?.[index]) + ' | ';
   });
@@ -131,7 +159,7 @@ function formatTable(tableToken: Tokens.Table): string {
   tableToken.rows.forEach((row) => {
     output += '| ';
     row.forEach((cell, index) => {
-      const content = (cell.tokens ?? []).map((child) => formatToken(child)).join('');
+      const content = (cell.tokens ?? []).map((child) => formatToken(child, { highlight })).join('');
       const width = columnWidths[index]!;
       output += padAligned(content, stringWidth(getDisplayText(cell.tokens)), width, tableToken.align?.[index]) + ' | ';
     });
@@ -226,11 +254,12 @@ function isWide(codePoint: number): boolean {
   );
 }
 
-/** 终端显示宽度（CJK 字符计 2 列）。 */
+/** 终端显示宽度（CJK 字符计 2 列），自动忽略 ANSI/OSC 8 序列。 */
 export function stringWidth(input: string): number {
+  const text = input.includes('\x1b') ? stripAnsi(input) : input;
   let width = 0;
-  if (!SEGMENTER) return input.length;
-  for (const { segment } of SEGMENTER.segment(input)) {
+  if (!SEGMENTER) return text.length;
+  for (const { segment } of SEGMENTER.segment(text)) {
     const codePoint = segment.codePointAt(0) ?? 0;
     if (codePoint === 0x200d || (codePoint >= 0x300 && codePoint <= 0x36f)) continue;
     width += isWide(codePoint) ? 2 : 1;

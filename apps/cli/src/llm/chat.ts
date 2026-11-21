@@ -10,10 +10,16 @@ import { compactContext, type Compaction, type TokenUsageSnapshot } from './comp
 import { asSchema, streamText, type ModelMessage, type ToolResultPart, type ToolCallPart, stepCountIs, convertToModelMessages } from 'ai';
 import type { ModelConfig } from '../types.js';
 import type { LoadedSkill } from '../types.js';
+import {
+  type ApprovalDecision,
+  type ApprovalHandler,
+  type ApprovalRequest,
+  hookOutcomeToApproval,
+  isApproved,
+  stringDecisionToApproval,
+} from '../approval/types.js';
 
 export class TurnInterruptedError extends Error {}
-
-type ApprovalDecision = 'approved' | 'rejected' | 'expired';
 
 /** Accept both AI SDK v7 numeric usage and provider-shaped token objects. */
 function usageTokenTotal(usage: any): number | undefined {
@@ -23,16 +29,56 @@ function usageTokenTotal(usage: any): number | undefined {
   return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
 }
 type HookApproval = PermissionHookOutcome & { persistUpdates?: () => Promise<void> };
-type ToolApprovalHandler = (
-  toolName: string,
-  args: any,
-  context?: { toolCallId?: string; signal?: AbortSignal },
-) => Promise<ApprovalDecision | HookApproval>;
+
+/**
+ * Accepts either the unified single-arg form `(request) => ApprovalDecision`
+ * or the legacy `(toolName, args, context?) => string | HookApproval` form.
+ * Runtime dispatch happens in normalizeApprovalHandler.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyApprovalHandler = (...args: any[]) => Promise<unknown>;
+
+export interface ApprovalGateOptions {
+  /** Returns the current policy fingerprint so the gate can detect policy drift. */
+  getPolicyVersion?: () => string;
+  sessionId?: () => string;
+  workspace?: string;
+  /** Default approval timeout in ms; the handler may override it per request. */
+  defaultTimeoutMs?: number;
+}
+
+/** Normalize legacy 3-arg handlers and string/hook outcomes into ApprovalDecision. */
+export function normalizeApprovalHandler(handler: AnyApprovalHandler): ApprovalHandler {
+  return async (request: ApprovalRequest) => {
+    // New-form handlers take exactly one argument (the request object).
+    // Legacy handlers take (toolName, args, context?) — arity 0, 2, or 3.
+    const isNewForm = handler.length === 1;
+    let result;
+    if (isNewForm) {
+      result = await handler(request);
+    } else {
+      const hasContext = request.toolCallId !== undefined || request.signal !== undefined;
+      result = hasContext
+        ? await handler(request.toolName, request.args, { toolCallId: request.toolCallId, signal: request.signal })
+        : await handler(request.toolName, request.args);
+    }
+    if (typeof result === 'string') return stringDecisionToApproval(result as 'approved' | 'rejected' | 'expired' | 'cancelled');
+    if (result && typeof result === 'object' && 'kind' in result) return result as ApprovalDecision;
+    return hookOutcomeToApproval(result as HookApproval);
+  };
+}
 
 export function applyApprovalGate(
   tools: Record<string, any>,
-  approvalHandler?: ToolApprovalHandler,
+  approvalHandler?: AnyApprovalHandler,
+  options: ApprovalGateOptions = {},
 ): Record<string, any> {
+  const handler = approvalHandler ? normalizeApprovalHandler(approvalHandler) : undefined;
+  const getPolicyVersion = options.getPolicyVersion;
+  const sessionId = options.sessionId ?? (() => '');
+  const workspace = options.workspace ?? process.cwd();
+  const defaultTimeoutMs = options.defaultTimeoutMs ?? 24 * 60 * 60 * 1000;
+
   return Object.fromEntries(
     Object.entries(tools).map(([name, tool]) => {
       const definition = tool as any;
@@ -61,31 +107,44 @@ export function applyApprovalGate(
               if (blocked) return { error: blocked };
             }
             if (!approvalRequired(args)) return definition.execute(args, toolOptions);
-            if (!approvalHandler) {
+            if (!handler) {
               return {
                 type: 'text',
                 text: `[审批不可用] 工具 ${name} 需要人工批准；当前会话没有审批通道，因此未执行。`,
               };
             }
             const snapshot = structuredClone(args);
-            const deadline = Date.now() + 5 * 60_000;
-            const context = toolOptions?.toolCallId || toolOptions?.abortSignal
-              ? { toolCallId: toolOptions?.toolCallId, signal: toolOptions?.abortSignal }
-              : undefined;
-            const decision = context
-              ? await approvalHandler(name, structuredClone(snapshot), context)
-              : await approvalHandler(name, structuredClone(snapshot));
-            if (toolOptions?.abortSignal?.aborted || Date.now() >= deadline) return { error: 'Approval cancelled or expired.' };
-            if (!isDeepStrictEqual(args, snapshot)) return { error: 'Tool arguments changed; a new approval is required.' };
-            const approved = typeof decision === 'string' ? decision === 'approved' : decision.permission === 'allow';
-            if (!approved) {
+            const policyVersionAtRequest = getPolicyVersion?.() ?? 'unversioned';
+            const request: ApprovalRequest = {
+              toolName: name,
+              toolCallId: toolOptions?.toolCallId,
+              args: structuredClone(snapshot),
+              sessionId: sessionId(),
+              workspace,
+              policyVersion: policyVersionAtRequest,
+              signal: toolOptions?.abortSignal,
+              timeoutMs: defaultTimeoutMs,
+            };
+            const decision = await handler(request);
+            // After the handler returns, re-verify the world has not moved
+            // underneath us: signal, parameters, and policy fingerprint.
+            if (toolOptions?.abortSignal?.aborted) {
+              return { error: 'Approval cancelled by signal.' };
+            }
+            if (!isDeepStrictEqual(args, snapshot)) {
+              return { error: 'Tool arguments changed; a new approval is required.' };
+            }
+            if (policyVersionAtRequest !== 'unversioned' && getPolicyVersion?.() !== policyVersionAtRequest) {
+              return { error: 'Permission policy changed during approval; a new approval is required.' };
+            }
+            if (!isApproved(decision)) {
               return {
                 type: 'text',
-                text: `[审批拒绝] 工具 ${name} 未获批准（${typeof decision === 'string' ? decision : decision.reason}），已取消执行。`,
+                text: `[审批拒绝] 工具 ${name} 未获批准（${decision.reason ?? decision.kind}），已取消执行。`,
               };
             }
             let approvedInput = args;
-            if (typeof decision !== 'string' && decision.updatedInput !== undefined) {
+            if (decision.updatedInput !== undefined) {
               const validate = definition.inputSchema && asSchema(definition.inputSchema).validate;
               if (!validate) return { error: 'Unable to validate replacement tool input.' };
               const parsed = await validate(decision.updatedInput);
@@ -96,7 +155,7 @@ export function applyApprovalGate(
               const blocked = await definition.beforeApproval(approvedInput);
               if (blocked) return { error: blocked };
             }
-            if (typeof decision !== 'string' && decision.updatedPermissions?.length) {
+            if (decision.updatedPermissions?.length) {
               if (!decision.persistUpdates) return { error: 'Permission updates are unavailable for this execution.' };
               try {
                 await decision.persistUpdates();
@@ -106,7 +165,7 @@ export function applyApprovalGate(
               const blocked = await definition.beforeApproval?.(approvedInput);
               if (blocked) return { error: blocked };
             }
-            if (toolOptions?.abortSignal?.aborted || Date.now() >= deadline) return { error: 'Approval cancelled or expired.' };
+            if (toolOptions?.abortSignal?.aborted) return { error: 'Approval cancelled by signal.' };
             return definition.execute(approvedInput, toolOptions);
           },
         },
@@ -289,6 +348,8 @@ export async function runChatLoop(
     /** Maximum model/tool steps in one turn. */
     maxSteps?: number;
     failAtStepLimit?: boolean;
+    /** Maximum output tokens per model turn. Defaults to 8192. */
+    maxTokens?: number;
     delegation?: {
       workspace: string;
       permissions?: ConstructorParameters<typeof PermissionPolicy>[2];
@@ -298,9 +359,11 @@ export async function runChatLoop(
     compaction?: { previous?: Compaction; usage?: TokenUsageSnapshot; persist: (snapshot: Compaction) => Promise<void>; budget?: number; contextWindow?: number; outputReserve?: number; toolReserve?: number; scope?: string };
     /**
      * 审批门（对齐 Codex/Claude：CLI 执行、对话窗口弹审批）。
-     * 传入后，requiresApproval 工具执行前先调 handler，返回 'approved' 才放行。
+     * 传入后，requiresApproval 工具执行前先调 handler，返回 approved 才放行。
      */
-    approvalHandler?: ToolApprovalHandler;
+    approvalHandler?: AnyApprovalHandler;
+    /** Policy/session context forwarded to applyApprovalGate. */
+    approvalOptions?: ApprovalGateOptions;
   },
 ): Promise<{
   text: string;
@@ -311,15 +374,16 @@ export async function runChatLoop(
   usage?: TokenUsageSnapshot;
 }> {
   if (options.approvalHandler) {
-    const handler = options.approvalHandler;
+    const original = options.approvalHandler;
+    const normalized = normalizeApprovalHandler(original);
     const controller = new AbortController();
     const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
     options = {
       ...options,
       signal,
-      approvalHandler: async (name, input, context) => {
-        const verdict = await handler(name, input, { ...context, signal });
-        if (typeof verdict !== 'string' && verdict.interrupt) {
+      approvalHandler: async (request: ApprovalRequest) => {
+        const verdict = await normalized({ ...request, signal });
+        if (verdict.interrupt) {
           controller.abort(new TurnInterruptedError(verdict.reason || 'Permission hook interrupted the turn.'));
           signal.throwIfAborted();
         }
@@ -341,7 +405,7 @@ export async function runChatLoop(
   const last = messages.at(-1);
   const explicit = !options.stopHookActive && last?.role === 'user' && typeof last.content === 'string' ? last.content.match(/^\/([\w-]+)(?:\s|$)/)?.[1] : undefined;
   if (explicit && options.tools.activate_skill) {
-    const activated = await applyApprovalGate({ activate_skill: options.tools.activate_skill }, options.approvalHandler).activate_skill.execute({ skill_name: explicit }, { abortSignal: options.signal });
+    const activated = await applyApprovalGate({ activate_skill: options.tools.activate_skill }, options.approvalHandler, options.approvalOptions).activate_skill.execute({ skill_name: explicit }, { abortSignal: options.signal });
     if (activated?.instructions) activationMessages.push({ role: 'user', content: `[Activated Skill: ${explicit}]\n${activated.instructions}\nResource directory: ${activated.sourcePath}` });
   }
   messages = [...messages, ...activationMessages];
@@ -390,7 +454,11 @@ export async function runChatLoop(
       return output;
     } } : {}),
   }]));
-  const tools = applyApprovalGate(guardedTools, options.approvalHandler);
+  const tools = applyApprovalGate(guardedTools, options.approvalHandler, {
+    ...options.approvalOptions,
+    sessionId: options.journal ? () => options.journal!.sessionId : options.approvalOptions?.sessionId,
+    workspace: options.journal?.workspace ?? options.approvalOptions?.workspace,
+  });
 
   const compactionOptions = options.compaction;
   let initialSnapshot = compactionOptions?.previous;
@@ -445,52 +513,95 @@ export async function runChatLoop(
     carried = compacted;
     return isDeepStrictEqual(compacted, stepMessages) ? undefined : { messages: compacted };
   } : undefined;
-  const result = streamText({
-    model: options.model,
-    messages: context,
-    system: options.systemPrompt + activeSkillInstructions(messages),
-    tools,
-    toolChoice: 'auto',
-    stopWhen: stepCountIs(maxSteps),
-    prepareStep,
-    abortSignal: options.signal,
-    onChunk: ({ chunk }) => {
-      if (options.signal?.aborted) return;
-      if (chunk.type === 'text-delta') {
-        fullText += chunk.text;
-        options.onText?.(chunk.text);
-      } else if (chunk.type === 'tool-call') {
-        options.onToolCall?.(chunk.toolName, chunk.input);
-      }
-    },
-    onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults, usage }) => {
-      lastStepTotalTokens = usageTokenTotal(usage);
-      if (stepToolCalls) {
-        toolCalls.push(...(stepToolCalls as ToolCallPart[]));
-      }
-      if (stepToolResults) {
-        for (const tr of stepToolResults as ToolResultPart[]) {
-          toolResults.push(tr);
-          options.onToolResult?.(tr.toolName, tr.output);
-        }
-      }
-    },
-  });
+  const maxTokens = options.maxTokens ?? 8192;
 
-  // Consume the stream
-  const finalResult = await result;
-  const text = await Promise.resolve(finalResult.text).catch(error => {
-    options.signal?.throwIfAborted();
-    throw error;
-  });
-  options.signal?.throwIfAborted();
-  const finishReason = await finalResult.finishReason;
-  if (options.failAtStepLimit && finishReason === 'tool-calls') {
-    throw new Error(`Maximum model turns reached: ${maxSteps}.`);
+  /** Errors that may succeed on a second attempt (truncated JSON, transient network). */
+  function isRetryableStreamError(error: unknown): boolean {
+    if (error instanceof TurnInterruptedError) return false;
+    if (error instanceof Error) {
+      const msg = error.message;
+      if (msg.includes('aborted') || msg.includes('cancelled')) return false;
+      if (msg.includes('Unterminated') || msg.includes('JSON at position')) return true;
+      if (msg.includes('finishReason: other') || msg.includes('finishReason: error')) return true;
+      if (msg.includes('fetch failed') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT')) return true;
+      if (msg.includes('Model stream incomplete')) return true;
+    }
+    return false;
   }
-  if (finishReason === 'error' || finishReason === 'other') {
-    throw new Error('Model stream incomplete; turn was not completed.');
+
+  const MAX_STREAM_RETRIES = 1;
+  let finalResult: any;
+  let text = '';
+
+  for (let attempt = 0; attempt <= MAX_STREAM_RETRIES; attempt++) {
+    let streamError: Error | undefined;
+    fullText = '';
+    toolCalls.length = 0;
+    toolResults.length = 0;
+    lastStepTotalTokens = undefined;
+
+    const result = streamText({
+      model: options.model,
+      messages: context,
+      system: options.systemPrompt + activeSkillInstructions(messages),
+      tools,
+      toolChoice: 'auto',
+      maxOutputTokens: maxTokens,
+      stopWhen: stepCountIs(maxSteps),
+      prepareStep,
+      abortSignal: options.signal,
+      maxRetries: 3,
+      onError: ({ error }) => {
+        streamError = error instanceof Error ? error : new Error(String(error));
+      },
+      onChunk: ({ chunk }) => {
+        if (options.signal?.aborted) return;
+        if (chunk.type === 'text-delta') {
+          fullText += chunk.text;
+          options.onText?.(chunk.text);
+        } else if (chunk.type === 'tool-call') {
+          options.onToolCall?.(chunk.toolName, chunk.input);
+        }
+      },
+      onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults, usage }) => {
+        lastStepTotalTokens = usageTokenTotal(usage);
+        if (stepToolCalls) {
+          toolCalls.push(...(stepToolCalls as ToolCallPart[]));
+        }
+        if (stepToolResults) {
+          for (const tr of stepToolResults as ToolResultPart[]) {
+            toolResults.push(tr);
+            options.onToolResult?.(tr.toolName, tr.output);
+          }
+        }
+      },
+    });
+
+    try {
+      finalResult = await result;
+      text = await Promise.resolve(finalResult.text).catch((error) => {
+        options.signal?.throwIfAborted();
+        throw error;
+      });
+      options.signal?.throwIfAborted();
+      const finishReason = await finalResult.finishReason;
+      if (options.failAtStepLimit && finishReason === 'tool-calls') {
+        throw new Error(`Maximum model turns reached: ${maxSteps}.`);
+      }
+      if (finishReason === 'error' || finishReason === 'other') {
+        const detail = streamError ? ` ${streamError.message}` : '';
+        throw new Error(`Model stream incomplete (finishReason: ${finishReason}).${detail}`);
+      }
+      break; // success
+    } catch (error) {
+      options.signal?.throwIfAborted();
+      if (attempt < MAX_STREAM_RETRIES && isRetryableStreamError(error)) {
+        continue;
+      }
+      throw error;
+    }
   }
+
   options.signal?.throwIfAborted();
 
   const responseMessages = (await finalResult.responseMessages) as ModelMessage[];

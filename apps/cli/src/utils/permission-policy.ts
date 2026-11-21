@@ -107,6 +107,11 @@ export class PermissionPolicy {
     return this.load().settings.mode ?? 'default';
   }
 
+  /** Current policy fingerprint; changes whenever settings files or mode drift. */
+  getPolicyVersion(): string {
+    return this.load().policyVersion;
+  }
+
   async setWorkspaceMode(mode: PermissionMode): Promise<void> {
     await this.updateSettings('localSettings', settings => ({ ...settings, mode }));
   }

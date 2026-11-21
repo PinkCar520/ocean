@@ -1,11 +1,14 @@
-import { marked, type Token } from 'marked';
+import { marked, type Token, type Tokens } from 'marked';
 import React, { useMemo, useRef } from 'react';
 import { Box } from 'ink';
+import type { CliHighlight } from '../../utils/cli-highlight.js';
+import { useCliHighlight } from '../../utils/cli-highlight.js';
 import { Ansi } from './ansi.js';
 import { configureMarked, formatToken } from './format.js';
+import { MarkdownTable } from './markdown-table.js';
 
 // 与 restored-src/src/components/Markdown.tsx 同一套策略：
-// marked 词法分析 → token 树 → ANSI 字符串 → Ink <Text>。
+// marked 词法分析 → token 树 → ANSI 字符串 → Ink <Text>；表格单独走 flex 布局组件。
 
 const TOKEN_CACHE_MAX = 500;
 const tokenCache = new Map<string, Token[]>();
@@ -52,19 +55,48 @@ function cachedLexer(content: string): Token[] {
   return tokens;
 }
 
+function MarkdownBody({ children, highlight }: { children: string; highlight: CliHighlight | null }): React.ReactNode {
+  configureMarked();
+  const elements = useMemo(() => {
+    const content = children ?? '';
+    if (!content.trim()) return [] as React.ReactNode[];
+
+    // 纯文本快速路径：直接输出，不经过 lexer 与 ANSI 解析
+    if (!hasMarkdownSyntax(content)) return [<Ansi key="plain">{content}</Ansi>];
+
+    const tokens = cachedLexer(content);
+    const result: React.ReactNode[] = [];
+    let buffer = '';
+
+    const flush = () => {
+      if (!buffer) return;
+      result.push(<Ansi key={`text-${result.length}`}>{buffer}</Ansi>);
+      buffer = '';
+    };
+
+    for (const token of tokens) {
+      if (token.type === 'table') {
+        flush();
+        result.push(
+          <MarkdownTable key={`table-${result.length}`} token={token as Tokens.Table} highlight={highlight} />,
+        );
+      } else {
+        buffer += formatToken(token, { highlight });
+      }
+    }
+    flush();
+
+    return result;
+  }, [children, highlight]);
+
+  if (elements.length === 0) return null;
+  return <Box flexDirection="column">{elements}</Box>;
+}
+
 /** 把 Markdown 文本渲染成终端样式文本。 */
 export function Markdown({ children }: { children: string }): React.ReactNode {
-  configureMarked();
-  const ansi = useMemo(() => {
-    const content = children ?? '';
-    if (!content.trim()) return '';
-    // 纯文本快速路径：直接输出，不经过 ANSI 解析
-    if (!hasMarkdownSyntax(content)) return content;
-    return cachedLexer(content).map((token) => formatToken(token)).join('').trim();
-  }, [children]);
-
-  if (!ansi) return null;
-  return <Ansi>{ansi}</Ansi>;
+  const highlight = useCliHighlight();
+  return <MarkdownBody highlight={highlight}>{children}</MarkdownBody>;
 }
 
 /**
@@ -73,6 +105,7 @@ export function Markdown({ children }: { children: string }): React.ReactNode {
  */
 export function StreamingMarkdown({ children }: { children: string }): React.ReactNode {
   configureMarked();
+  const highlight = useCliHighlight();
   const stablePrefixRef = useRef('');
 
   const content = children ?? '';
@@ -85,7 +118,7 @@ export function StreamingMarkdown({ children }: { children: string }): React.Rea
   while (lastContentIndex >= 0 && tokens[lastContentIndex]!.type === 'space') lastContentIndex--;
 
   let advance = 0;
-  for (let i = 0; i < lastContentIndex; i++) advance += tokens[i]!.raw.length;
+  for (let index = 0; index < lastContentIndex; index++) advance += tokens[index]!.raw.length;
   if (advance > 0) stablePrefixRef.current = content.slice(0, boundary + advance);
 
   const stablePrefix = stablePrefixRef.current;
@@ -93,8 +126,8 @@ export function StreamingMarkdown({ children }: { children: string }): React.Rea
 
   return (
     <Box flexDirection="column">
-      {stablePrefix ? <Markdown>{stablePrefix}</Markdown> : null}
-      {unstableSuffix ? <Markdown>{unstableSuffix}</Markdown> : null}
+      {stablePrefix ? <MarkdownBody highlight={highlight}>{stablePrefix}</MarkdownBody> : null}
+      {unstableSuffix ? <MarkdownBody highlight={highlight}>{unstableSuffix}</MarkdownBody> : null}
     </Box>
   );
 }

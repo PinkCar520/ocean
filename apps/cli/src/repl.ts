@@ -559,6 +559,14 @@ async function runSingleQuery(
 
   const spinner = options.print ? undefined : ora(chalk.cyan('Thinking...')).start();
 
+  // Policy instance used for drift detection during approval.
+  const approvalPolicy = new PermissionPolicy(options.workspace, undefined, {
+    mode: options.permissionMode,
+    settings: options.commandPermissionSettings,
+    sources: options.permissionSources,
+    sessionId: toolContext.sessionId,
+  });
+
   try {
     const model = modelRouter.getModel(options.modelId);
     const hooks = LifecycleHooks.load(options.workspace);
@@ -620,6 +628,11 @@ async function runSingleQuery(
       systemPrompt,
       tools,
       approvalHandler,
+      approvalOptions: {
+        getPolicyVersion: () => approvalPolicy.getPolicyVersion(),
+        sessionId: () => toolContext.sessionId,
+        workspace: options.workspace,
+      },
       signal,
       ...(sessionStore && sessionId && {
         journal: { store: sessionStore, sessionId, workspace: options.workspace },
@@ -729,8 +742,12 @@ async function runReadlineRepl(options: ReplOptions) {
         gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
         apiKey,
         sessionId: () => activeSession.session.id,
+        workspacePath: options.workspace,
       })
     : undefined;
+  const approvalPolicy = new PermissionPolicy(options.workspace, undefined, {
+    sessionId: () => activeSession.session.id,
+  });
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
@@ -770,7 +787,12 @@ async function runReadlineRepl(options: ReplOptions) {
         const result = await runChatLoop(messages, {
       delegation: { workspace: options.workspace },
       hooks: LifecycleHooks.load(options.workspace),
-          model, systemPrompt, tools, approvalHandler,
+      model, systemPrompt, tools, approvalHandler,
+      approvalOptions: {
+        getPolicyVersion: () => approvalPolicy.getPolicyVersion(),
+        sessionId: () => activeSession.session.id,
+        workspace: options.workspace,
+      },
         compaction: {
           previous: activeSession.session.compaction,
           usage: activeSession.session.usage,

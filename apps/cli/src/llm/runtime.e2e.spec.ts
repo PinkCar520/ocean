@@ -31,7 +31,7 @@ describe('real SDK Agent execution E2E', () => {
       const hooks = new LifecycleHooks({ PreToolUse: [{ matcher: 'file_write', hooks: [{ type: 'command', command: 'exit 0' }] }], Stop: [{ hooks: [{ type: 'command', command: 'exit 0' }] }] }, root);
       const messages: ModelMessage[] = [{ role: 'user', content: 'Create result.ts with answer 42' }];
       await store.save(session.id, root, messages);
-      const result = await runChatLoop(messages, { model, tools, systemPrompt: 'Complete the user task.', hooks, approvalHandler: async (name) => { approvals.push(name); return 'approved'; } });
+      const result = await runChatLoop(messages, { model, tools, systemPrompt: 'Complete the user task.', hooks, approvalHandler: async (name, _args) => { approvals.push(name); return 'approved'; } });
       expect(result.text).toBe('Created result.ts');
       expect(approvals).toEqual(['file_write']);
       expect(await readFile(join(root, 'result.ts'), 'utf8')).toBe('export const answer = 42;');

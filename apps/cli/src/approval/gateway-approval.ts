@@ -1,6 +1,8 @@
 import { PermissionPolicy } from '../utils/permission-policy.js';
 import chalk from 'chalk';
 
+type GatewayDecision = 'approved' | 'rejected' | 'expired' | 'cancelled';
+
 /**
  * Gateway 外部审批 handler（对齐 Codex/Claude：CLI 负责执行，审批弹在对话窗口）。
  *
@@ -10,6 +12,7 @@ import chalk from 'chalk';
  * 3. 轮询 GET /api/approvals/:id 直到 approved / rejected / expired
  *
  * 审批通道不可用（Gateway 离线/无权限）时安全优先：直接拒绝，不静默执行。
+ * AbortSignal 会中断 fetch 与轮询，返回 'cancelled'。
  */
 export function createGatewayApprovalHandler(options: {
   gatewayUrl: string;
@@ -24,7 +27,8 @@ export function createGatewayApprovalHandler(options: {
 }): (
   toolName: string,
   args: any,
-) => Promise<'approved' | 'rejected' | 'expired'> {
+  context?: { signal?: AbortSignal },
+) => Promise<GatewayDecision> {
   const base = options.gatewayUrl.replace(/\/$/, '');
   const authHeaders = {
     'content-type': 'application/json',
@@ -33,7 +37,8 @@ export function createGatewayApprovalHandler(options: {
   };
   const hintText = options.hint ?? '请在对话窗口（Web 审批面板）批准或拒绝';
 
-  return async (toolName: string, args: any) => {
+  return async (toolName: string, args: any, context?: { signal?: AbortSignal }) => {
+    const signal = context?.signal;
     const currentVersion = () => options.policyVersion?.() ?? new PermissionPolicy(options.workspacePath ?? process.cwd()).evaluateDecision(toolName, args).policyVersion;
     const policyVersion = currentVersion();
     const sessionId = typeof options.sessionId === 'function'
@@ -45,12 +50,14 @@ export function createGatewayApprovalHandler(options: {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ sessionId, toolName, args: args ?? {}, policyVersion }),
+        signal,
       });
       if (lookup.ok && ((await lookup.json()) as { granted?: boolean }).granted === true) {
         return currentVersion() === policyVersion ? 'approved' : 'rejected';
       }
     } catch {
       // Lookup is an optimization; if unavailable, fall through to the normal approval.
+      if (signal?.aborted) return 'cancelled';
     }
 
     let approvalId: string;
@@ -64,6 +71,7 @@ export function createGatewayApprovalHandler(options: {
           sessionId,
           policyVersion,
         }),
+        signal,
       });
       if (!res.ok) {
         console.error(
@@ -74,6 +82,7 @@ export function createGatewayApprovalHandler(options: {
       const created = (await res.json()) as { id: string };
       approvalId = created.id;
     } catch {
+      if (signal?.aborted) return 'cancelled';
       console.error(
         chalk.red(`\n✗ [审批] 工具 ${toolName} 需要批准，但无法连接 Gateway。已拒绝执行。`),
       );
@@ -88,10 +97,16 @@ export function createGatewayApprovalHandler(options: {
     // 轮询审批结果（最长 24h，与 Gateway 端 expiresAt 一致）
     const deadline = Date.now() + 24 * 60 * 60 * 1000;
     while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, options.pollIntervalMs ?? 2000));
+      if (signal?.aborted) return 'cancelled';
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, options.pollIntervalMs ?? 2000);
+        signal?.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+      });
+      if (signal?.aborted) return 'cancelled';
       try {
         const res = await fetch(`${base}/api/approvals/${approvalId}`, {
           headers: authHeaders,
+          signal,
         });
         if (!res.ok) continue;
         const st = (await res.json()) as { status: string };
@@ -109,6 +124,7 @@ export function createGatewayApprovalHandler(options: {
           return 'expired';
         }
       } catch {
+        if (signal?.aborted) return 'cancelled';
         /* Gateway 瞬时不可用，继续轮询 */
       }
     }

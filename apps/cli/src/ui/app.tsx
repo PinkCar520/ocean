@@ -1,19 +1,18 @@
 import type { PermissionMode } from '@ocean/core/permission-policy';
 import { LifecycleHooks } from '../utils/lifecycle-hooks.js';
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { render, Box, Text, useInput, useApp, useStdin } from 'ink';
+import { render, Box, Text, useInput, useApp, useStdin, measureElement, type DOMElement } from 'ink';
 import TextInput from 'ink-text-input';
 import type { ModelMessage } from 'ai';
 import type { CliConfig, LoadedSkill, ModelProvider, ToolContext } from '../types.js';
 import { createModelRouter } from '../llm/model-router.js';
 import { buildSystemPrompt, runChatLoop } from '../llm/chat.js';
-import { createGatewayApprovalHandler } from '../approval/gateway-approval.js';
 import { toAgentToolSet } from '../tools/index.js';
 import { discoverSkills } from '../skills/loader.js';
 import { McpClientManager } from '../mcp/client.js';
 import { SessionStore, type StoredSession } from '../utils/session-store.js';
 import { formatTaskPlan } from '../utils/task-manager.js';
-import { PermissionPolicy } from '../utils/permission-policy.js';
+import { PermissionPolicy, defaultSessionPermissionGrants } from '../utils/permission-policy.js';
 import { StatusBar } from './status-bar.js';
 import { MessageList } from './message-list.js';
 import { ToolCallDisplay } from './tool-call-display.js';
@@ -36,16 +35,20 @@ export interface InkAppProps {
   sessionStore: SessionStore;
   activeSession: { session: StoredSession };
   systemPrompt: string;
-  /** 审批门：CLI 负责执行、对话窗口弹审批（无 API Key 时 undefined） */
-  approvalHandler?: (
-    toolName: string,
-    args: any,
-  ) => Promise<'approved' | 'rejected' | 'expired'>;
+  /** Native Ink approval coordinator for interactive terminal approvals. */
+  approvalCoordinator: InkApprovalCoordinator;
+  /** Approval handler bound to the coordinator; passed to runChatLoop. */
+  approvalHandler: ApprovalHandler;
+  /** Returns the current policy fingerprint for drift detection. */
+  getPolicyVersion: () => string;
 }
 
 import { resolveApiKey, removeCredentials, getAutoUserId, saveCredentials } from '../utils/auth.js';
 import { runAuthMenu } from './auth.js';
 import { CONFIG } from '../utils/config.js';
+import { InkApprovalCoordinator, type PendingApproval } from '../approval/ink-approval.js';
+import { ApprovalPrompt } from './approval-prompt.js';
+import type { ApprovalHandler, ApprovalRequest } from '../approval/types.js';
 
 /**
  * Main Ink App component
@@ -74,6 +77,27 @@ export function InkApp(props: InkAppProps) {
   const exitHintArmed = useRef(false);
   const exitHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeAbortController = useRef<AbortController | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+
+  // Subscribe to the approval coordinator so the UI re-renders when a tool
+  // needs approval or a decision is made.
+  useEffect(() => {
+    const sync = () => setPendingApprovals(props.approvalCoordinator.getPending());
+    sync();
+    return props.approvalCoordinator.subscribe(sync);
+  }, [props.approvalCoordinator]);
+  const pendingApproval = pendingApprovals[0];
+
+  // 测量整帧高度：输入框据此把真实终端光标放到输入行，
+  // 否则中文输入法的预编辑文本和候选词会画在整帧最底部。
+  const rootRef = useRef<DOMElement>(null);
+  const [frameHeight, setFrameHeight] = useState(0);
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!element) return;
+    const { height } = measureElement(element);
+    setFrameHeight(prev => (prev === height ? prev : height));
+  });
 
   useEffect(() => () => {
     if (exitHintTimer.current) clearTimeout(exitHintTimer.current);
@@ -128,6 +152,11 @@ export function InkApp(props: InkAppProps) {
         systemPrompt: props.systemPrompt,
         tools: props.tools,
         approvalHandler: props.approvalHandler,
+        approvalOptions: {
+          getPolicyVersion: props.getPolicyVersion,
+          sessionId: () => props.activeSession.session.id,
+          workspace: props.workspace,
+        },
         signal: abortController.signal,
         onText: (text: string) => {
           setStreamingText(prev => prev + text);
@@ -403,7 +432,7 @@ export function InkApp(props: InkAppProps) {
   }, { isActive: true });
 
   return (
-    <Box flexDirection="column" width="100%">
+    <Box ref={rootRef} flexDirection="column" width="100%">
       <StatusBar
         userId={userId}
         displayName={displayName}
@@ -424,6 +453,13 @@ export function InkApp(props: InkAppProps) {
         error={error}
       />
 
+      {pendingApproval && (
+        <ApprovalPrompt
+          pending={pendingApproval}
+          onDecide={(id, decision) => props.approvalCoordinator.decide(id, decision)}
+        />
+      )}
+
       <MessageInput
         key={props.activeSession.session.id}
         history={messages.flatMap((message) => {
@@ -435,6 +471,9 @@ export function InkApp(props: InkAppProps) {
         isWaiting={isWaitingInput}
         isThinking={isThinking}
         onSubmit={handleSubmit}
+        frameHeight={frameHeight}
+        rowsBelowInput={showExitHint ? 1 : 0}
+        isActive={!pendingApproval}
       />
 
       {showExitHint && (
@@ -529,16 +568,21 @@ export async function runInkApp(options: { userId: string; workspace: string; co
 
   const systemPrompt = buildSystemPrompt(options.userId, skills, options.workspace);
 
-  // 审批门：CLI 负责执行，审批弹在对话窗口（Web 审批面板）——有 API Key 时启用
+  // Interactive CLI uses native terminal approval by default (no forced web jump).
+  // A single PermissionPolicy instance backs both session grants and the policy
+  // fingerprint used for drift detection.
+  const approvalPolicy = new PermissionPolicy(options.workspace, undefined, {
+    grants: defaultSessionPermissionGrants,
+    mode: () => modes.get(activeSession.session.id),
+    sessionId: () => activeSession.session.id,
+  });
+  const approvalCoordinator = new InkApprovalCoordinator({
+    grantSession: (toolName, args) => approvalPolicy.grantSession(toolName, args),
+  });
+  const approvalHandler: ApprovalHandler = (request: ApprovalRequest) => approvalCoordinator.request(request);
+
   const apiKey = await resolveApiKey();
   const displayName = await resolveDisplayName(apiKey);
-  const approvalHandler = apiKey
-    ? createGatewayApprovalHandler({
-        gatewayUrl: process.env.OCEAN_GATEWAY_URL || 'http://localhost:3000',
-        apiKey,
-        sessionId: () => activeSession.session.id,
-      })
-    : undefined;
 
   const { waitUntilExit } = render(
     <InkApp
@@ -556,7 +600,9 @@ export async function runInkApp(options: { userId: string; workspace: string; co
       sessionStore={sessionStore}
       activeSession={activeSession}
       systemPrompt={systemPrompt}
+      approvalCoordinator={approvalCoordinator}
       approvalHandler={approvalHandler}
+      getPolicyVersion={() => approvalPolicy.getPolicyVersion()}
     />,
     { exitOnCtrlC: false },
   );

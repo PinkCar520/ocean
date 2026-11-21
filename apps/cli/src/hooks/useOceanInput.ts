@@ -7,6 +7,7 @@ interface UseOceanInputProps {
   onTab?: (value: string) => string | void; // Return new value if completed
   onUp?: () => void;
   onDown?: () => void;
+  isActive?: boolean;
 }
 
 /**
@@ -14,7 +15,7 @@ interface UseOceanInputProps {
  * Manages text state, cursor position, and keyboard events manually.
  * Fixed: Proper Unicode/Chinese character support and stable cursor tracking.
  */
-export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown }: UseOceanInputProps) {
+export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown, isActive = true }: UseOceanInputProps) {
   const [value, setValue] = useState(initialValue);
   const [cursorOffset, setCursorOffset] = useState(initialValue.length);
   const valueRef = useRef(value);
@@ -28,7 +29,6 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
   useInput((input, key) => {
     // Skip if processing a pending batch
     if (pendingInput.current !== null) return;
-
     // 1. Handle Vertical Navigation (for suggestions)
     if (key.upArrow) {
       if (onUp) onUp();
@@ -140,7 +140,7 @@ export function useOceanInput({ initialValue = '', onEnter, onTab, onUp, onDown 
       setCursorOffset(currentOffset + inputLength);
       cursorRef.current = currentOffset + inputLength;
     }
-  });
+  }, { isActive });
 
   return {
     value,

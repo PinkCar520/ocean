@@ -1,14 +1,22 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useCursor, useStdout } from 'ink';
+import wrapAnsiNpm from 'wrap-ansi';
 import chalk from 'chalk';
 import { useOceanInput } from '../hooks/useOceanInput.js';
 import { resolveCommandEnter } from './command-enter.js';
+import { stringWidth } from './markdown/format.js';
 
 interface MessageInputProps {
   isWaiting: boolean;
   isThinking: boolean;
   onSubmit: (input: string) => void;
   history?: string[];
+  /** 整个 Ink 帧的高度（由 App 通过 measureElement 传入），用于给输入法定位光标 */
+  frameHeight?: number;
+  /** 输入行之下、除输入框自带底部边框外的行数（如 Ctrl-C 提示） */
+  rowsBelowInput?: number;
+  /** When false, the input ignores keystrokes (e.g. while an approval prompt is active). */
+  isActive?: boolean;
 }
 
 const COMMANDS = [
@@ -29,12 +37,41 @@ const COMMANDS = [
   { name: '/exit', desc: 'Quit the application' },
 ];
 
-export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: MessageInputProps) {
+export function MessageInput({
+  isWaiting,
+  isThinking,
+  onSubmit,
+  history = [],
+  frameHeight = 0,
+  rowsBelowInput = 0,
+  isActive = true,
+}: MessageInputProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [startIndex, setStartIndex] = useState(0);
   const MAX_VISIBLE = 5;
   const position = useRef<number | undefined>(undefined);
   const draft = useRef('');
+
+  // 分隔线宽度必须小于终端总宽：写满整行会触发终端自动换行，
+  // Ink 按估算行数回退光标时就会错位，表现为每次按键界面整体跳动。
+  const { stdout } = useStdout();
+  const readColumns = () => {
+    const columns = stdout?.columns;
+    return columns && columns > 0 ? columns : 80;
+  };
+  const [terminalColumns, setTerminalColumns] = useState(readColumns);
+  useEffect(() => {
+    if (!stdout) return;
+    const handleResize = () => setTerminalColumns(readColumns());
+    handleResize();
+    stdout.on('resize', handleResize);
+    return () => {
+      stdout.off('resize', handleResize);
+    };
+  }, [stdout]);
+  const rule = '─'.repeat(Math.max(1, terminalColumns - 1));
+  // 输入内容区留 1 列余量（前缀 3 列），避免末行写满整行触发终端自动换行
+  const inputWidth = Math.max(1, terminalColumns - 4);
 
   // Real filtered suggestions logic
   const getMatches = (val: string) => {
@@ -56,6 +93,7 @@ export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: 
 
   // 1. Core State & Logic using our Hook
   const { value, cursorOffset, setValue, setCursorOffset } = useOceanInput({
+    isActive,
     onEnter: (val) => {
       if (!isWaiting) return true;
       const action = resolveCommandEnter(val, getMatches(val), selectedIndex);
@@ -120,17 +158,16 @@ export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: 
 
     // Placeholder logic - rendered only if value is empty
     if (!value && !isThinking) {
-      segments.push(
-        <Text key="cursor-empty" backgroundColor="cyan" color="black">
-          {' '}
+      return (
+        <Text>
+          <Text key="cursor-empty" backgroundColor="cyan" color="black">
+            {' '}
+          </Text>
+          <Text key="placeholder" dimColor>
+            {' Type your query or /help for commands'}
+          </Text>
         </Text>
       );
-      segments.push(
-        <Text key="placeholder" dimColor>
-          {' Type your query or /help for commands'}
-        </Text>
-      );
-      return segments;
     }
 
     if (!value && isThinking) {
@@ -164,22 +201,41 @@ export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: 
       }
     }
 
-    return segments;
+    // 必须在同一个 <Text> 内渲染，Ink 才会按终端宽度换行；并列的 Text 只会横向溢出
+    return <Text>{segments}</Text>;
   }, [value, cursorOffset, isThinking, activeMatches, selectedIndex]);
+
+  // 3. Input method (IME) support: place the real terminal cursor at the input cell
+  // so the preedit text and candidate window appear inline instead of at the frame bottom.
+  const { setCursorPosition } = useCursor();
+  const suggestionRows = activeMatches.length > 0
+    ? 1 + Math.min(MAX_VISIBLE, activeMatches.length - startIndex) + (activeMatches.length > MAX_VISIBLE ? 1 : 0)
+    : 0;
+
+  if (frameHeight > 0 && !isThinking) {
+    const { line, col, totalLines } = locateCursor(value, cursorOffset, inputWidth);
+    // 输入行之下：底部边框 + 候选列表 + 外部提示（如 Ctrl-C 提示）
+    const rowsBelow = 1 + suggestionRows + rowsBelowInput;
+    const lastInputLine = frameHeight - 1 - rowsBelow;
+    const y = lastInputLine - (totalLines - 1) + line;
+    setCursorPosition({ x: 3 + col, y: Math.max(0, y) });
+  } else {
+    setCursorPosition(undefined);
+  }
 
   return (
     <Box flexDirection="column" marginTop={1}>
       <Box>
-        <Text color="gray">{'─'.repeat(process.stdout.columns || 80)}</Text>
+        <Text color="gray">{rule}</Text>
       </Box>     
       <Box>
         <Box marginRight={1}>
           <Text bold color={isWaiting ? 'green' : 'gray'}>{'› '}</Text>
         </Box>
-        <Box>{renderedContent}</Box>
+        <Box width={inputWidth}>{renderedContent}</Box>
       </Box>
       <Box>
-        <Text color="gray">{'─'.repeat(process.stdout.columns || 80)}</Text>
+        <Text color="gray">{rule}</Text>
       </Box>
 
       {/* Suggestions List - Interactive & Scrolling */}
@@ -213,4 +269,27 @@ export function MessageInput({ isWaiting, isThinking, onSubmit, history = [] }: 
       )}
     </Box>
   );
+}
+
+/** 与 Ink <Text> 相同的换行方式，用于计算光标的行/列 */
+function wrapToWidth(text: string, width: number): string[] {
+  const lines: string[] = [];
+  for (const segment of text.split('\n')) {
+    lines.push(...wrapAnsiNpm(segment, width, { hard: false, trim: false, wordWrap: true }).split('\n'));
+  }
+  return lines.length > 0 ? lines : [''];
+}
+
+function locateCursor(value: string, cursorOffset: number, width: number) {
+  const before = value.slice(0, Math.max(0, Math.min(cursorOffset, value.length)));
+  const lines = wrapToWidth(before, width);
+  let line = lines.length - 1;
+  let col = stringWidth(lines[line] ?? '');
+  // 光标格本身也要占位：正好写满一行时落到下一行行首
+  if (col >= width) {
+    line += 1;
+    col = 0;
+  }
+  const totalLines = Math.max(wrapToWidth(value, width).length, 1);
+  return { line, col, totalLines };
 }

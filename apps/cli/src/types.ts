@@ -81,6 +81,12 @@ export interface CliConfig {
   deepseekApiKey?: string;
   deepseekBaseUrl?: string;
   deepseekModel?: string;
+  /** Reasoning effort for DeepSeek thinking mode. Defaults to 'medium'. */
+  deepseekReasoningEffort?: 'low' | 'medium' | 'high';
+  /** Enable DeepSeek thinking mode. Defaults to true. */
+  deepseekThinking?: boolean;
+  /** Maximum output tokens per model turn. Defaults to 8192. */
+  maxOutputTokens?: number;
   anthropicApiKey?: string;
   anthropicModel?: string;
   geminiApiKey?: string;

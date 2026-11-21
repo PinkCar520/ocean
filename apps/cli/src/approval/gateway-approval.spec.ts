@@ -71,4 +71,46 @@ describe('Gateway CLI approval binding', () => {
     expect(bodies.every(body => body.policyVersion === 'policy-v1')).toBe(true);
   });
 
+  it('returns cancelled when the AbortSignal fires during polling', async () => {
+    const controller = new AbortController();
+    let pollCount = 0;
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => {
+      if (init?.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+      if (String(url).endsWith('/lookup')) return new Response('{"granted":false}');
+      if (init?.method === 'POST') return new Response('{"id":"ab"}');
+      pollCount += 1;
+      // Abort on the first poll to simulate Ctrl+C.
+      if (pollCount === 1) controller.abort();
+      return new Response('{"status":"pending"}');
+    }));
+    const handler = createGatewayApprovalHandler({
+      gatewayUrl: 'http://gateway.test', apiKey: 'key', sessionId: 's', pollIntervalMs: 0,
+    });
+    expect(await handler('file_write', {}, { signal: controller.signal })).toBe('cancelled');
+  });
+
+  it('recovers from a transient gateway failure and still approves', async () => {
+    let pollCount = 0;
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => {
+      if (String(url).endsWith('/lookup')) return new Response('{"granted":false}');
+      if (init?.method === 'POST') return new Response('{"id":"rec"}');
+      pollCount += 1;
+      if (pollCount === 1) throw new Error('gateway unavailable');
+      return new Response('{"status":"approved"}');
+    }));
+    const handler = createGatewayApprovalHandler({
+      gatewayUrl: 'http://gateway.test', apiKey: 'key', sessionId: 's', pollIntervalMs: 0,
+    });
+    expect(await handler('file_write', {})).toBe('approved');
+    expect(pollCount).toBeGreaterThan(1);
+  });
+
+  it('fails closed (rejected) when the gateway cannot be reached at creation time', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    const handler = createGatewayApprovalHandler({
+      gatewayUrl: 'http://gateway.test', apiKey: 'key', sessionId: 's', pollIntervalMs: 0,
+    });
+    expect(await handler('file_write', {})).toBe('rejected');
+  });
+
 });
