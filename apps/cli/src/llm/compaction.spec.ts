@@ -100,8 +100,8 @@ it('compacts a tool-only step boundary without splitting a call/result pair', as
   const messages: ModelMessage[] = [{ role: 'user', content: 'Run the migration' }];
   for (let i = 0; i < 12; i += 1) {
     messages.push(
-      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `step-${i}`, toolName: 'bash', input: { command: `step ${i}` } }] },
-      { role: 'tool', content: [{ type: 'tool-result', toolCallId: `step-${i}`, toolName: 'bash', output: { type: 'text', value: 'y'.repeat(3000) } }] },
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `step-${i}`, toolName: 'nonreplayable', input: { command: `step ${i}` } }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: `step-${i}`, toolName: 'nonreplayable', output: { type: 'text', value: 'y'.repeat(3000) } }] },
     );
   }
   const result = await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, boundary: 'any', scope: 'tool-boundary', persist: vi.fn() });
