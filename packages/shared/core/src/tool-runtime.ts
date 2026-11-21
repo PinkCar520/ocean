@@ -16,6 +16,8 @@ export interface ToolAuthorization {
   /** Explicit allow only. No implicit approval or skill-provided privilege elevation. */
   evaluate(context: ToolPolicyContext): Promise<'allow' | 'deny' | 'ask'>;
   approve?(context: ToolPolicyContext): Promise<boolean>;
+  /** Required for callers that need to pin approvals to a mutable policy source. */
+  policyVersion?(): Promise<string>;
 }
 /**
  * One authorization boundary for local and remote hosts. Skills may filter
@@ -29,6 +31,8 @@ export class ToolRuntime {
   async invoke(runId: string, invocationId: string, descriptor: ToolDescriptor, rawInput: unknown): Promise<unknown> {
     const input = descriptor.validate(rawInput);
     const context: ToolPolicyContext = { runId, invocationId, toolName: descriptor.name, input };
+    const inputFingerprint = JSON.stringify(input);
+    const policyVersion = await this.authorization.policyVersion?.();
     const decision = await this.authorization.evaluate(context);
     if (decision === 'deny') throw new Error('Tool invocation denied by policy');
     if (decision === 'ask') {
@@ -36,7 +40,11 @@ export class ToolRuntime {
         throw new Error('Tool invocation approval required');
       // The policy is authoritative even after approval; a changed policy
       // cannot silently inherit a stale approval.
-      if (await this.authorization.evaluate(context) === 'deny')
+      if (policyVersion !== await this.authorization.policyVersion?.())
+        throw new Error('Tool approval invalidated by policy change');
+      if (JSON.stringify(input) !== inputFingerprint)
+        throw new Error('Tool input changed after approval');
+      if (await this.authorization.evaluate(context) !== 'ask' && await this.authorization.evaluate(context) !== 'allow')
         throw new Error('Tool invocation denied after approval');
     }
     return this.agent.executeTool(runId, invocationId, descriptor.name, input, descriptor.host);
