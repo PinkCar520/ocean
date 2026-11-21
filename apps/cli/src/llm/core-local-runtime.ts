@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { ModelMessage } from 'ai';
 import {
   AgentExecutionEngine,
+  normalizeToolOutput,
   type AgentCompletionPort,
   type ToolAuthorization,
 } from '@ocean/core';
@@ -60,9 +61,10 @@ export async function runOceanCoreLocal(options: {
           const blocked = await options.beforeToolUse?.(invocation.toolName, invocation.input, invocation.id);
           if (blocked) return { error: blocked };
           const output = await rawHost.execute(invocation);
-          return options.afterToolUse
+          const transformed = options.afterToolUse
             ? await options.afterToolUse(invocation.toolName, invocation.input, invocation.id, output)
             : output;
+          return normalizeToolOutput(transformed);
         } catch (error) {
           await options.onToolFailure?.(invocation.toolName, invocation.input, invocation.id, error);
           throw error;
