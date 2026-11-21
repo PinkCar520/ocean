@@ -26,4 +26,20 @@ describe('local host runtime event persistence', () => {
   }])).rejects.toThrow('Invalid runtime transition');
   expect(await store.read('run')).toEqual([created]);
  });
+ it('rejects a concurrent claim instead of racing the journal', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-runtime-')); roots.push(root);
+  const store = new FileRuntimeEventStore(root);
+  const created = { type: 'run.created' as const, runId: 'run', at: new Date().toISOString() };
+  await store.append('run', 0, [created]);
+  const { createHash } = await import('node:crypto');
+  const { open } = await import('node:fs/promises');
+  const file = join(root, `runtime-${createHash('sha256').update('run').digest('hex')}.json.lock`);
+  const lock = await open(file, 'wx', 0o600);
+  try {
+   await expect(store.append('run', 1, [{
+    type: 'run.transitioned', runId: 'run', at: created.at, from: 'created', to: 'preparing_context',
+   }])).rejects.toMatchObject({ code: 'EEXIST' });
+  } finally { await lock.close(); }
+ });
+
 });
