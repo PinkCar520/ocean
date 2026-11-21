@@ -257,3 +257,18 @@ it('ignores forged terminal journals with mismatched filenames or absent outputs
   expect(restored.messages).toEqual([{ role: 'user', content: 'safe recovery' }]);
  } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+it('rejects a terminal journal whose persisted input no longer matches its digest', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-journal-digest-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'run' }] as any);
+  await store.executeToolCall(session.id, root, 'digest-call', 'file_write', { path: 'safe.txt' }, async () => ({ ok: true }));
+  const journalName = (await readdir(root)).find(name => name.startsWith('journal-') && name.endsWith('.json'))!;
+  const journal = JSON.parse(await readFile(path.join(root, journalName), 'utf8'));
+  journal.input = { path: 'tampered.txt' };
+  await writeFile(path.join(root, journalName), JSON.stringify(journal));
+  expect((await new SessionStore(root).load(session.id, root)).messages).toEqual([{ role: 'user', content: 'run' }]);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
