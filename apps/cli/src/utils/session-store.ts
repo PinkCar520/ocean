@@ -118,7 +118,9 @@ export class SessionStore {
         const value = JSON.parse(await fs.readFile(file, 'utf8'));
         if (value?.sessionId === session.id && value?.workspace === session.workspace
           && (value?.state === 'succeeded' || value?.state === 'failed') && typeof value.toolCallId === 'string'
-          && typeof value.toolName === 'string' && value.input !== undefined) journals.push(value);
+          && typeof value.toolName === 'string' && value.input !== undefined
+          && typeof value.inputDigest === 'string' && Object.hasOwn(value, 'output')
+          && entry.name === `journal-${createHash('sha256').update(JSON.stringify([session.id, value.toolCallId])).digest('hex')}.json`) journals.push(value);
       } catch {
         // Corrupt journals are ignored; they cannot prove an outcome.
       }
