@@ -546,6 +546,7 @@ export async function runChatLoop(
 
   for (let attempt = 0; attempt <= MAX_STREAM_RETRIES; attempt++) {
     let streamError: Error | undefined;
+    let sawToolActivity = false;
     fullText = '';
     toolCalls.length = 0;
     toolResults.length = 0;
@@ -571,10 +572,12 @@ export async function runChatLoop(
           fullText += chunk.text;
           options.onText?.(chunk.text);
         } else if (chunk.type === 'tool-call') {
+          sawToolActivity = true;
           options.onToolCall?.(chunk.toolName, chunk.input);
         }
       },
       onStepFinish: ({ toolCalls: stepToolCalls, toolResults: stepToolResults, usage }) => {
+        if (stepToolCalls?.length || stepToolResults?.length) sawToolActivity = true;
         lastStepTotalTokens = usageTokenTotal(usage);
         if (stepToolCalls) {
           toolCalls.push(...(stepToolCalls as ToolCallPart[]));
@@ -608,7 +611,7 @@ export async function runChatLoop(
       options.signal?.throwIfAborted();
       // A model retry must never replay a tool side effect. The journal
       // protects stable toolCallIds, but a fresh stream can generate new IDs.
-      if (attempt < MAX_STREAM_RETRIES && toolCalls.length === 0 &&
+      if (attempt < MAX_STREAM_RETRIES && !sawToolActivity && toolCalls.length === 0 &&
           toolResults.length === 0 && isRetryableStreamError(error)) {
         continue;
       }
