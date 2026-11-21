@@ -35,6 +35,7 @@ export function createAiSdkStreamingModelPort(options: {
       if (calls.length) {
         return {
           kind: 'tools',
+          text,
           calls: calls.map(call => ({ id: call.toolCallId, name: call.toolName, input: call.input })),
         };
       }
