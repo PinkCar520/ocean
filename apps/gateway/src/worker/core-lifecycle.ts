@@ -37,6 +37,9 @@ export class GatewayCoreLifecycle {
     if (!current) current = await runtime.create(runId, sessionId || runId);
     if (Object.values(current.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
       throw new Error('Gateway recovery requires tool journal reconciliation; automatic replay prohibited');
+    if (current.state === 'validating_tools' &&
+        Object.keys(current.queuedTools).some(id => current.pendingTools[id] === undefined))
+      throw new Error('Gateway queued tool has not executed; model replay prohibited');
 
     if (current.state === 'executing_tools') {
       current = await runtime.transition(runId, 'persisting_results');
@@ -53,7 +56,10 @@ export class GatewayCoreLifecycle {
     return runtime.transition(runId, 'calling_model');
   }
 
-  async prepareQueuedTool(
+  /** Queue intent is not an execution claim: approval and schema validation
+   * still happen in ToolExecutor before any external side effect is possible.
+   */
+  async queueTool(
     tx: Prisma.TransactionClient,
     runId: string,
     call: { id: string; name: string; input: unknown },
@@ -62,8 +68,46 @@ export class GatewayCoreLifecycle {
     const snapshot = await runtime.snapshot(runId);
     if (snapshot.state !== 'calling_model')
       throw new Error('Gateway queued tool must originate from a model call');
+    const serialized = JSON.stringify(call.input);
+    if (serialized === undefined) throw new Error('Tool input is not serializable');
     await runtime.transition(runId, 'validating_tools');
-    await runtime.transition(runId, 'executing_tools');
+    const current = await runtime.snapshot(runId);
+    await new PrismaRuntimeEventStore(tx).append(runId, current.revision, [{
+      type: 'tool.proposed', runId, at: new Date().toISOString(),
+      invocationId: call.id, toolName: call.name,
+      inputDigest: createHash('sha256').update(serialized).digest('hex'),
+    }]);
+    return runtime.snapshot(runId);
+  }
+
+  /** ToolExecutor calls this inside its existing ownership-fenced transaction
+   * after validation, approval, replacement-input checks and hook evaluation.
+   */
+  async prepareToolExecution(
+    tx: Prisma.TransactionClient,
+    runId: string,
+    call: { id: string; name: string; input: unknown },
+  ): Promise<RuntimeSnapshot> {
+    const runtime = this.runtime(tx);
+    let snapshot = await this.snapshot(tx, runId);
+    if (!snapshot) {
+      // Standalone queued tool calls may have no model step.
+      snapshot = await runtime.create(runId, runId);
+      await runtime.transition(runId, 'preparing_context');
+      await runtime.transition(runId, 'calling_model');
+      snapshot = await runtime.transition(runId, 'validating_tools');
+    }
+    if (snapshot.pendingTools[call.id])
+      throw new Error('Gateway tool call already claimed; replay prohibited');
+    const proposed = snapshot.queuedTools[call.id];
+    if (Object.keys(snapshot.queuedTools).length && !proposed)
+      throw new Error('Tool invocation is not the queued model proposal');
+    if (proposed && proposed.toolName !== call.name)
+      throw new Error('Queued tool name mismatch');
+    if (snapshot.state === 'validating_tools' || snapshot.state === 'awaiting_approval')
+      snapshot = await runtime.transition(runId, 'executing_tools');
+    if (snapshot.state !== 'executing_tools')
+      throw new Error('Gateway tool claim has invalid runtime state');
     const serialized = JSON.stringify(call.input);
     if (serialized === undefined) throw new Error('Tool input is not serializable');
     const invocation: ToolInvocation = {
