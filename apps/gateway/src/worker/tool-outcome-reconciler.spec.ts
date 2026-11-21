@@ -9,7 +9,7 @@ function setup() {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
   };
-  const prisma = { runStep: tx.runStep, $transaction: jest.fn(async (cb: (tx: typeof tx) => Promise<unknown>) => cb(tx)) };
+  const prisma = { runStep: tx.runStep, $transaction: jest.fn(async (cb: (client: any) => Promise<unknown>) => cb(tx)) };
   const adapter: ToolOutcomeQueryAdapter = { query: jest.fn().mockResolvedValue({ status: 'unknown' }) };
   return { reconciler: new ToolOutcomeReconciler(prisma as never, new Map([[identity.toolName, adapter]])), adapter, tx, step };
 }
