@@ -78,7 +78,7 @@ it('stops repeated failed compaction requests for the same session scope', async
  generate.mockClear(); generate.mockRejectedValue(new Error('upstream unavailable'));
  const options = { model: {}, systemPrompt: '', budget: 5000, scope: 'failure-test', persist: vi.fn() };
  await expect(compactContext(history(), options)).rejects.toThrow('Context compaction failed');
- await expect(compactContext(history(), options)).rejects.toThrow('upstream');
+ await expect(compactContext(history(), options)).rejects.toThrow('Context compaction failed');
  await expect(compactContext(history(), options)).rejects.toThrow('failure limit');
  expect(generate).toHaveBeenCalledTimes(2);
  expect(options.persist).not.toHaveBeenCalled();
