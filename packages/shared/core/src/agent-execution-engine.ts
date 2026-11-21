@@ -200,7 +200,6 @@ export class AgentExecutionEngine<Message> {
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
           try { this.ports.onToolResult?.(call.name, result); } catch { /* telemetry cannot affect execution */ }
           const activated = this.ports.activatedSkill?.(call.name, result);
-          if (activated) await runtime.activateSkill(runId, activated.id, activated.source, activated.allowedTools);
           const toolDecision: AgentModelDecision = {
             kind: 'tools', calls: [call],
             text: callIndex === 0 ? decision.text : undefined,
@@ -208,6 +207,9 @@ export class AgentExecutionEngine<Message> {
           const next = this.ports.toMessages?.(toolDecision, result) ?? [this.ports.toMessage(toolDecision, result)];
           await this.ports.transcript.append(sessionId, messages.length, next);
           messages.push(...next);
+          // An activated skill must only enter durable Runtime state after its
+          // invocation/result pair is committed to the Session transcript.
+          if (activated) await runtime.activateSkill(runId, activated.id, activated.source, activated.allowedTools);
         }
       } catch (error) {
         await runtime.transition(runId, signal?.aborted ? 'cancelled' : 'interrupted');
