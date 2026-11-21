@@ -54,10 +54,10 @@ export interface RuntimeHost {
   execute(invocation: ToolInvocation): Promise<unknown>;
 }
 const transitions: Readonly<Record<RuntimeState, readonly RuntimeState[]>> = {
-  created: ['preparing_context', 'cancelled'],
+  created: ['preparing_context', 'cancelled', 'interrupted'],
   preparing_context: ['calling_model', 'failed', 'cancelled', 'interrupted'],
   calling_model: ['validating_tools', 'completed', 'failed', 'cancelled', 'interrupted'],
-  validating_tools: ['awaiting_approval', 'executing_tools', 'failed', 'cancelled'],
+  validating_tools: ['awaiting_approval', 'executing_tools', 'failed', 'cancelled', 'interrupted'],
   awaiting_approval: ['executing_tools', 'cancelled', 'interrupted'],
   executing_tools: ['persisting_results', 'failed', 'cancelled', 'interrupted'],
   persisting_results: ['preparing_context', 'completed', 'failed', 'cancelled', 'interrupted'],
