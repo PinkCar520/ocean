@@ -48,6 +48,14 @@ export function contextBudget(options: ContextBudgetOptions): number {
 }
 const failures = new Map<string, number>();
 
+/** A failed summary must not corrupt history or silently exceed the context budget. */
+export class ContextCompactionError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ContextCompactionError';
+  }
+}
+
 /** Provider usage covers the full transcript; subtract the summarized slice. */
 function effectiveTokensWithUsage(
   messages: ModelMessage[],
@@ -125,7 +133,14 @@ export async function compactContext(messages: ModelMessage[], options: {
   if (!hasClosedToolPairs(messages.slice(0, covered))) return effective;
   const source = valid ? [summaryMessage(previous.summary), ...messages.slice(previous.covered, covered)] : messages.slice(0, covered);
   const scope = options.scope ?? historyDigest([{ role: 'system', content: options.systemPrompt }]);
-  if ((failures.get(scope) ?? 0) >= 2) throw new Error('Context compaction failure limit reached; repair the cause before retrying.');
+  // If an estimate triggered compaction prematurely, the original transcript
+  // may still fit. Only fall back when the full context is safely within budget.
+  // Do not silently send an oversized request after a failed compaction.
+  const originalFits = contextTokens(effective) + systemTokens < budget;
+  if ((failures.get(scope) ?? 0) >= 2) {
+    if (originalFits) return effective;
+    throw new ContextCompactionError('Context compaction failure limit reached; original context exceeds the configured budget.');
+  }
   try {
   // A verbose summary may be larger than the history it replaces. Retry once
   // with a smaller output budget; never persist an ineffective snapshot.
@@ -168,6 +183,13 @@ export async function compactContext(messages: ModelMessage[], options: {
       if (failures.size >= 128 && !failures.has(scope)) failures.delete(failures.keys().next().value!);
       failures.set(scope, (failures.get(scope) ?? 0) + 1);
     }
-    throw error;
+    if (options.signal?.aborted) throw error;
+    // Preserve the unmodified effective transcript when it still fits. This
+    // can happen when provider usage triggers compaction ahead of our estimate.
+    if (originalFits) return effective;
+    throw new ContextCompactionError(
+      'Context compaction failed and original context exceeds the configured budget. Start a fresh session or reduce context before retrying.',
+      { cause: error },
+    );
   }
 }
