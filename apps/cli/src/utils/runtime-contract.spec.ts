@@ -114,3 +114,22 @@ describe('explicit tool outcome reconciliation', () => {
   expect(calls).toBe(1);
  });
 });
+
+describe('session and run isolation', () => {
+ it('supports independent runs within one session', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const runtime = new AgentRuntime(store, { execute: async () => ({ ok: true }) });
+  await runtime.create('run-a', 'session-1');
+  await runtime.create('run-b', 'session-1');
+  await runtime.transition('run-a', 'preparing_context');
+  expect(await runtime.snapshot('run-a')).toMatchObject({ sessionId: 'session-1', state: 'preparing_context' });
+  expect(await runtime.snapshot('run-b')).toMatchObject({ sessionId: 'session-1', state: 'created' });
+ });
+ it('rejects unsupported event schema versions and preserves existing stream', async () => {
+  const store = new MemoryRuntimeEventStore();
+  await expect(store.append('r', 0, [{
+   type: 'run.created', runId: 'r', at: '2026-01-01T00:00:00Z', schemaVersion: 2,
+  } as unknown as RuntimeEvent])).rejects.toThrow('Unsupported runtime event schema');
+  expect(await store.read('r')).toEqual([]);
+ });
+});
