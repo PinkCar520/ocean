@@ -41,6 +41,9 @@ export class GatewayCoreLifecycle {
     if (current.state === 'validating_tools' &&
         Object.keys(captured.queuedTools).some(id => captured.pendingTools[id] === undefined))
       throw new Error('Gateway queued tool has not executed; model replay prohibited');
+    // A settled side effect may only be followed by another model call if the
+    // queued execution has also reached a durable terminal result in RunStep.
+    // The surrounding Runner's fenced transaction owns that RunStep check.
 
     if (current.state === 'executing_tools') {
       current = await runtime.transition(runId, 'persisting_results');
