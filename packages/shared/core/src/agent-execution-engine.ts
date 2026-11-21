@@ -94,7 +94,9 @@ export class AgentExecutionEngine<Message> {
         await runtime.transition(runId, 'cancelled');
         signal.throwIfAborted();
       }
-      await runtime.transition(runId, 'preparing_context');
+      const beforeModel = await runtime.snapshot(runId);
+      if (beforeModel.state === 'created' || beforeModel.state === 'persisting_results' || beforeModel.state === 'interrupted')
+        await runtime.transition(runId, 'preparing_context');
       await runtime.transition(runId, 'calling_model');
       let decision: AgentModelDecision;
       try {
