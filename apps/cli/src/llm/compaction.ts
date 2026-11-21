@@ -243,6 +243,13 @@ export async function compactContext(messages: ModelMessage[], options: {
       lastError = new Error('Incomplete context summary');
       continue;
     }
+    const fields = parsed as Record<string, unknown>;
+    if (typeof fields.goal !== 'string' ||
+        required.slice(1).some(key => !Array.isArray(fields[key]) ||
+          !(fields[key] as unknown[]).every(item => typeof item === 'string'))) {
+      lastError = new Error('Invalid context summary field types');
+      continue;
+    }
     const snapshot: Compaction = { covered, digest: historyDigest(messages.slice(0, covered)), summary: JSON.stringify(parsed) };
     const compacted = [summaryMessage(snapshot.summary), ...messages.slice(covered)];
     if (contextTokens(compacted) >= originalTokens) {
