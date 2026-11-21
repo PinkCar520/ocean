@@ -4,7 +4,7 @@ import type { RuntimeEventStore, RuntimeHost, ToolInvocation } from './runtime-c
 export interface ToolDescriptor<Input = unknown> {
   name: string;
   host: ToolInvocation['host'];
-  validate(input: unknown): Input;
+  validate(input: unknown): Input | Promise<Input>;
 }
 export interface ToolPolicyContext {
   runId: string;
@@ -38,7 +38,7 @@ export class ToolRuntime {
     this.agent = new AgentRuntime(store, guardedHost);
   }
   async invoke(runId: string, invocationId: string, descriptor: ToolDescriptor, rawInput: unknown): Promise<unknown> {
-    const input = descriptor.validate(rawInput);
+    const input = await descriptor.validate(rawInput);
     const context: ToolPolicyContext = { runId, invocationId, toolName: descriptor.name, input };
     const inputFingerprint = JSON.stringify(input);
     const policyVersion = await this.authorization.policyVersion?.();
