@@ -315,3 +315,16 @@ describe('completion evidence freshness', () => {
   await expect(runtime.transition('r', 'completed')).rejects.toThrow('independent verification');
  });
 });
+
+describe('crash interruption protocol', () => {
+ it('marks an active run interrupted without dispatching any tool', async () => {
+  const store = new MemoryRuntimeEventStore();
+  let calls = 0;
+  const runtime = new AgentRuntime(store, { execute: async () => { calls++; } });
+  await runtime.create('r', 'session');
+  await runtime.transition('r', 'preparing_context');
+  expect((await runtime.markInterrupted('r')).state).toBe('interrupted');
+  expect((await runtime.markInterrupted('r')).state).toBe('interrupted');
+  expect(calls).toBe(0);
+ });
+});
