@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { AgentRuntime, type RuntimeSnapshot, type ToolInvocation } from '@ocean/core';
@@ -15,8 +15,6 @@ import { PrismaRuntimeEventStore } from '../run/runtime-event-store';
  */
 @Injectable()
 export class GatewayCoreLifecycle {
-  constructor(@Inject('PRISMA_CLIENT') private readonly _prisma: unknown) {}
-
   private runtime(tx: Prisma.TransactionClient): AgentRuntime {
     return new AgentRuntime(new PrismaRuntimeEventStore(tx), {
       execute: async () => { throw new Error('Gateway tools must execute through the fenced ToolExecutor'); },
