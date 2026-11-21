@@ -234,6 +234,23 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   expect(steps.filter(s => s.kind === 'tool_call' && s.status === 'succeeded')).toHaveLength(1);
   expect(await db.outboxEvent.count({ where: { aggregateId: runId, topic: 'tool.requested', status: 'processed' } })).toBe(1);
  }, 15000);
+ it('completes three provider tool rounds through HTTP, persisted Worker and final model response', async () => {
+  const initialRequests = providerContract.requests.length;
+  const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
+   .send({ space: { id: spaceId, type: 'work' }, input: 'OCEAN_LONG_TASK: call echo three times and finish',
+    metadata: { modelId: providerModelId, nonInteractive: true } }).expect(201);
+  const runId = response.body.run?.id ?? response.body.id;
+  worker.start();
+  try { await waitFor(runId, 'succeeded'); } finally { worker.stop(); }
+  const steps = await db.runStep.findMany({ where: { runId }, orderBy: { seq: 'asc' } });
+  expect(steps.filter(step => step.kind === 'model_call' && step.status === 'succeeded')).toHaveLength(4);
+  expect(steps.filter(step => step.kind === 'tool_call' && step.status === 'succeeded')).toHaveLength(3);
+  expect(steps.at(-1)?.output).toMatchObject({ text: 'OCEAN_PROVIDER_OK' });
+  const requests = providerContract.requests.slice(initialRequests);
+  expect(requests).toHaveLength(4);
+  expect(requests.map(req => req.messages.filter(msg => msg.role === 'tool').length)).toEqual([0, 1, 2, 3]);
+  expect(await db.outboxEvent.count({ where: { aggregateId: runId, topic: 'tool.requested', status: 'processed' } })).toBe(3);
+ }, 20000);
  async function waitFor(runId: string, status: string) {
   const deadline = Date.now() + 12000;
   while ((await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).status !== status) {
