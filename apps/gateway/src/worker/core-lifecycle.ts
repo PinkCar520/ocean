@@ -75,13 +75,7 @@ export class GatewayCoreLifecycle {
     const serialized = JSON.stringify(call.input);
     if (serialized === undefined) throw new Error('Tool input is not serializable');
     await runtime.transition(runId, 'validating_tools');
-    const current = await runtime.snapshot(runId);
-    await new PrismaRuntimeEventStore(tx).append(runId, current.revision, [{
-      type: 'tool.proposed', runId, at: new Date().toISOString(),
-      invocationId: call.id, toolName: call.name,
-      inputDigest: createHash('sha256').update(serialized).digest('hex'),
-    }]);
-    return runtime.snapshot(runId);
+    return runtime.proposeTools(runId, [call]);
   }
 
   /** ToolExecutor calls this inside its existing ownership-fenced transaction
