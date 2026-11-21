@@ -643,7 +643,7 @@ async function runSingleQuery(
       let stopFeedback: string | undefined;
       await runOceanCoreLocal({
         sessionStore, sessionId, runId: randomUUID(), workspace: options.workspace,
-        model, tools, systemPrompt, authorization, streaming: true, signal,
+        model, tools, skills, systemPrompt, authorization, streaming: true, signal,
         maxSteps: options.maxTurns,
         completion: {
           verify: async (_, text) => {
@@ -924,7 +924,7 @@ async function runReadlineRepl(options: ReplOptions) {
             sessionId: activeSession.session.id,
             runId: randomUUID(),
             workspace: options.workspace,
-            model, tools, systemPrompt, authorization, streaming: true,
+            model, tools, skills, systemPrompt, authorization, streaming: true,
             completion: {
               verify: async (_, text) => {
                 if (!text.trim()) return [];
