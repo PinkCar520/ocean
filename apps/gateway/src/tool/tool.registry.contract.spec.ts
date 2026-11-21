@@ -2,7 +2,7 @@ import { ToolRegistry } from './tool.registry';
 import { z } from 'zod';
 
 describe('Gateway shared tool descriptor adapter', () => {
-  it('maps registered tools into host-neutral schema descriptors', () => {
+  it('maps registered tools into host-neutral schema descriptors', async () => {
     const registry = new ToolRegistry();
     registry.register({
       name: 'descriptor_test',
@@ -12,8 +12,8 @@ describe('Gateway shared tool descriptor adapter', () => {
     });
     const descriptor = registry.getDescriptor('descriptor_test');
     expect(descriptor?.host).toBe('remote');
-    expect(descriptor?.validate({ count: 2 })).toEqual({ count: 2 });
-    expect(() => descriptor?.validate({ count: 'invalid' })).toThrow();
+    await expect(descriptor?.validate({ count: 2 })).resolves.toEqual({ count: 2 });
+    await expect(descriptor?.validate({ count: 'invalid' })).rejects.toThrow();
     expect(registry.getDescriptor('missing')).toBeUndefined();
   });
 });
