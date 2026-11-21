@@ -298,3 +298,20 @@ describe('journal input integrity', () => {
   expect(() => replayRuntime(runId, events)).toThrow('digest mismatch');
  });
 });
+
+describe('completion evidence freshness', () => {
+ it('invalidates verification when a run continues rather than completes', async () => {
+  const store = new MemoryRuntimeEventStore();
+  const runtime = new AgentRuntime(store, { execute: async () => undefined });
+  await runtime.create('r');
+  await runtime.transition('r', 'preparing_context');
+  await runtime.transition('r', 'calling_model');
+  await runtime.transition('r', 'validating_tools');
+  await runtime.transition('r', 'executing_tools');
+  await runtime.transition('r', 'persisting_results');
+  await runtime.verifyCompletion('r', ['initial check']);
+  await runtime.transition('r', 'preparing_context');
+  await runtime.transition('r', 'calling_model');
+  await expect(runtime.transition('r', 'completed')).rejects.toThrow('independent verification');
+ });
+});
