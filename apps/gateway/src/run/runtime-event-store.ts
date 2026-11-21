@@ -1,11 +1,11 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { replayRuntime, type RuntimeEvent, type RuntimeEventStore } from '@ocean/core';
 
 /** PostgreSQL adapter for the same event protocol used by the CLI local host.
  * Dedicated rows avoid interfering with Gateway's legacy RunEvent sequence.
  */
 export class PrismaRuntimeEventStore implements RuntimeEventStore {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: Pick<Prisma.TransactionClient, 'runtimeCoreEvent'>) {}
 
   async read(runId: string): Promise<readonly RuntimeEvent[]> {
     const rows = await this.prisma.runtimeCoreEvent.findMany({
