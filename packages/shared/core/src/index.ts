@@ -171,3 +171,5 @@ export { RUNTIME_STATES, canTransition, replayRuntime } from './runtime-contract
 export type { RuntimeIdentity, RuntimeState, RuntimeEvent, RuntimeSnapshot, RuntimeEventStore, RuntimeHost, ToolInvocation } from './runtime-contract.js';
 export { MemoryRuntimeEventStore } from './runtime-memory-store.js';
 export { AgentRuntime } from './agent-runtime.js';
+export { ToolRuntime } from './tool-runtime.js';
+export type { ToolDescriptor, ToolAuthorization, ToolPolicyContext } from './tool-runtime.js';
