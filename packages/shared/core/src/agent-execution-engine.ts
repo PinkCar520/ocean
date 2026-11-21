@@ -25,6 +25,8 @@ export interface AgentExecutionPorts<Message> {
   authorization: ToolAuthorization;
   resolveTool(name: string): ToolDescriptor | undefined;
   toMessage(decision: AgentModelDecision, result?: unknown): Message;
+  /** Skill host identifies a successful activation without granting permissions. */
+  activatedSkill?(toolName: string, result: unknown): { id: string; source: 'plugin' | 'user' | 'project' } | undefined;
   completion: AgentCompletionPort<Message>;
 }
 export interface AgentExecutionResult {
@@ -112,6 +114,8 @@ export class AgentExecutionEngine<Message> {
         for (const { call, descriptor } of prepared) {
           signal?.throwIfAborted();
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
+          const activated = this.ports.activatedSkill?.(call.name, result);
+          if (activated) await runtime.activateSkill(runId, activated.id, activated.source);
           const message = this.ports.toMessage({ kind: 'tools', calls: [call] }, result);
           await this.ports.transcript.append(sessionId, messages.length, [message]);
           messages.push(message);
