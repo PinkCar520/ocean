@@ -26,7 +26,16 @@ export interface ToolAuthorization {
 export class ToolRuntime {
   private readonly agent: AgentRuntime;
   constructor(store: RuntimeEventStore, host: RuntimeHost, private readonly authorization: ToolAuthorization) {
-    this.agent = new AgentRuntime(store, host);
+    const guardedHost: RuntimeHost = {
+      execute: async invocation => {
+        const result = await host.execute(invocation);
+        const serialized = JSON.stringify(result);
+        if (serialized && Buffer.byteLength(serialized, 'utf8') > 1024 * 1024)
+          return { truncated: true, error: 'Tool output exceeded 1 MiB limit' };
+        return result;
+      },
+    };
+    this.agent = new AgentRuntime(store, guardedHost);
   }
   async invoke(runId: string, invocationId: string, descriptor: ToolDescriptor, rawInput: unknown): Promise<unknown> {
     const input = descriptor.validate(rawInput);
