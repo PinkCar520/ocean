@@ -15,6 +15,7 @@ import { runRequestedMessageSchema } from '@ocean/contracts';
 import { OutboxService } from '../run/outbox.service';
 import { RunRunner, type RunExecutionResult } from './run-runner';
 import { ToolExecutor } from './tool-executor';
+import { ToolOutcomeReconciler } from './tool-outcome-reconciler';
 
 /**
  * WorkerService —— Gateway Worker 取件循环（Phase 4 骨架版）。
@@ -39,6 +40,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly outbox: OutboxService,
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @Optional() private readonly subagents?: SubagentRunsService,
+    @Optional() private readonly reconciler?: ToolOutcomeReconciler,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -74,6 +76,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.subagents?.reconcilePending();
+      await this.reconcileUnknownTools();
       const jobs = await this.outbox.claimRunRequests(
         this.workerId,
         claimLimit,
@@ -90,6 +93,24 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
           () => void this.poll(),
           this.intEnv('WORKER_POLL_MS', 1_000),
         );
+      }
+    }
+  }
+
+  /** Query-only reconciliation: never re-dispatch the original external operation. */
+  private async reconcileUnknownTools(): Promise<void> {
+    if (!this.reconciler) return;
+    const steps = await this.prisma.runStep.findMany({
+      where: { kind: 'tool_call', status: 'unknown' },
+      orderBy: { completedAt: 'asc' },
+      take: this.intEnv('WORKER_RECONCILE_BATCH', 20),
+      select: { id: true },
+    });
+    for (const step of steps) {
+      try {
+        await this.reconciler.reconcile(step.id);
+      } catch (error) {
+        this.logger.warn(`Outcome reconciliation failed for ${step.id}: ${this.describe(error)}`);
       }
     }
   }
