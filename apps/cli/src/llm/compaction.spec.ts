@@ -100,8 +100,8 @@ it('compacts a tool-only step boundary without splitting a call/result pair', as
   const messages: ModelMessage[] = [{ role: 'user', content: 'Run the migration' }];
   for (let i = 0; i < 12; i += 1) {
     messages.push(
-      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `step-${i}`, toolName: 'bash', input: { command: `step ${i}` } }] },
-      { role: 'tool', content: [{ type: 'tool-result', toolCallId: `step-${i}`, toolName: 'bash', output: { type: 'text', value: 'y'.repeat(3000) } }] },
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `step-${i}`, toolName: 'nonreplayable', input: { command: `step ${i}` } }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: `step-${i}`, toolName: 'nonreplayable', output: { type: 'text', value: 'y'.repeat(3000) } }] },
     );
   }
   const result = await compactContext(messages, { model: {}, systemPrompt: '', budget: 5000, boundary: 'any', scope: 'tool-boundary', persist: vi.fn() });
@@ -260,6 +260,27 @@ it('preserves a short unresolved tool call when provider usage alone triggers co
     scope: 'safe-unresolved-pair', persist,
   });
   expect(result).toBe(messages);
+  expect(generate).not.toHaveBeenCalled();
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it('microcompacts stale tool results before invoking the summary model', async () => {
+  generate.mockClear();
+  const messages: ModelMessage[] = [{ role: 'user', content: 'inspect logs' }];
+  for (let i = 0; i < 5; i++) {
+    messages.push(
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: `micro-${i}`, toolName: 'bash', input: { command: `log ${i}` } }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: `micro-${i}`, toolName: 'bash', output: { type: 'text', value: 'x'.repeat(3000) } }] },
+    );
+  }
+  const original = JSON.stringify(messages);
+  const persist = vi.fn();
+  const result = await compactContext(messages, {
+    model: {}, systemPrompt: '', budget: 1500, scope: 'microcompact-before-summary', persist,
+  });
+  expect(result).not.toBe(messages);
+  expect(contextTokens(result)).toBeLessThan(1500);
+  expect(JSON.stringify(messages)).toBe(original);
   expect(generate).not.toHaveBeenCalled();
   expect(persist).not.toHaveBeenCalled();
 });
