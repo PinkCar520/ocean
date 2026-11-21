@@ -136,3 +136,35 @@ describe('skill lifecycle event integration', () => {
   expect(result.snapshot.activeSkills).toEqual(['review']);
  });
 });
+
+describe('host recovery reconciliation', () => {
+ it('fails closed when a reconciliation callback leaves a prepared side effect unresolved', async () => {
+  const { engine, events, calls } = fixture([]);
+  const at = '2026-01-01T00:00:00Z', runId = 'run';
+  const transitions = [
+   ['created', 'preparing_context'], ['preparing_context', 'calling_model'],
+   ['calling_model', 'validating_tools'], ['validating_tools', 'executing_tools'],
+  ] as const;
+  await events.append(runId, 0, [{ type: 'run.created', runId, sessionId: 'session', at }]);
+  for (const [from, to] of transitions) {
+   await events.append(runId, (await events.read(runId)).length, [{ type: 'run.transitioned', runId, at, from, to }]);
+  }
+  const { createHash } = await import('node:crypto');
+  const input = {};
+  await events.append(runId, (await events.read(runId)).length, [{
+   type: 'tool.prepared', runId, at, invocation: {
+    id: 'pending', runId, toolName: 'shell', input,
+    inputDigest: createHash('sha256').update(JSON.stringify(input)).digest('hex'), host: 'local',
+   },
+  }]);
+  await events.append(runId, (await events.read(runId)).length, [
+   { type: 'run.transitioned', runId, at, from: 'executing_tools', to: 'interrupted' },
+  ]);
+  let reconciled = false;
+  const ports = (engine as any).ports as AgentExecutionPorts<Message>;
+  ports.reconcileRecovery = async () => { reconciled = true; };
+  await expect(engine.resume('session', runId)).rejects.toThrow('Unresolved tool effects');
+  expect(reconciled).toBe(true);
+  expect(calls()).toBe(0);
+ });
+});
