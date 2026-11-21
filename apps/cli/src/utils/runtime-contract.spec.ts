@@ -156,6 +156,7 @@ describe('shared tool authorization pipeline', () => {
   await expect(runtime.invoke('r', 'x', descriptor, {})).rejects.toThrow('denied');
   expect(calls()).toBe(0);
   expect((await store.read('r')).filter(e => e.type === 'tool.prepared')).toHaveLength(0);
+  expect((await store.read('r')).some(e => e.type === 'tool.rejected' && e.reason === 'policy')).toBe(true);
  });
  it('does not execute without explicit approval', async () => {
   const { runtime, calls } = await make(async () => 'ask', async () => false);
