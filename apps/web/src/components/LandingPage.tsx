@@ -107,6 +107,8 @@ const commonQuestions = [
   { question: 'Can I use Ocean from the terminal?', answer: 'Ocean includes a CLI. Review the repository README for current setup requirements and supported commands.' },
   { question: 'Do Skills and MCP connections work automatically?', answer: 'No. Extensions must be available, configured and permitted in your environment before they can be used.' },
   { question: 'Will a task started here run immediately?', answer: 'No. The homepage passes your prompt to the workspace. Authentication and actual execution happen there.' },
+  { question: 'Where can I report a problem?', answer: 'Use the public GitHub issue tracker to report reproducible problems and suggest improvements.' },
+  { question: 'Is every capability production ready?', answer: 'No. Review the current source, release notes and deployment configuration to understand which capabilities are available and tested.' },
 ] as const;
 
 const waysToWork = [
