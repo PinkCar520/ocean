@@ -12,16 +12,29 @@ struct OLOEntityView: View {
     @State private var breathing = false
     @State private var pulsing = false
     @State private var flash = false
+    /// Real microphone amplitude, forwarded by the Voice host.
+    var audioLevel: Float = 0
+    var isResponding: Bool = false
 
     var body: some View {
         ZStack {
-            orb
-            logo
-            highlightBar
-            if !center.privacyMode { cameraDot }
+            if showsLuminousPresence {
+                OLOLuminousPresence(level: audioLevel, state: center.state, responding: isResponding)
+                    .transition(.opacity.combined(with: .scale(scale: 0.84)))
+            } else {
+                orb
+                logo
+                highlightBar
+                if !center.privacyMode { cameraDot }
+            }
         }
+        .animation(.easeInOut(duration: 0.45), value: showsLuminousPresence)
         .frame(width: 205, height: 205)
-        .overlay(Circle().stroke(borderColor, lineWidth: 7))
+        .overlay {
+            if !showsLuminousPresence {
+                Circle().stroke(borderColor, lineWidth: 7)
+            }
+        }
         .shadow(color: .black.opacity(0.32), radius: 28, y: 22)
         .overlay(flashOverlay)
         .scaleEffect(currentScale)
@@ -33,6 +46,10 @@ struct OLOEntityView: View {
         }
         .task(id: center.state == .done) { await runDoneReset() }
         .onAppear { startAnimations(for: center.state) }
+    }
+
+    private var showsLuminousPresence: Bool {
+        !center.privacyMode && (center.state == .listening || center.state == .thinking || isResponding)
     }
 
     // MARK: - Parts
@@ -164,5 +181,58 @@ struct OLOEntityView: View {
         try? await Task.sleep(for: .seconds(1.3))
         guard center.state == .done else { return }
         withAnimation { center.state = .idle }
+    }
+}
+
+/// A SwiftUI Canvas light ribbon inspired by the supplied Siri interaction
+/// reference. This is OLO's own rendering, not Apple's proprietary effect.
+/// Drawn in the entity itself rather than as a second waveform underneath.
+private struct OLOLuminousPresence: View {
+    let level: Float
+    let state: OLOState
+    let responding: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+                let listening = state == .listening
+                let energy = listening ? min(1, max(0.06, Double(level))) : (responding ? 0.36 : 0.16)
+                let centerY = size.height * 0.5
+                let width = size.width
+                let halfWidth = width * 0.46
+                let height = 3.5 + energy * 20
+                let phase = time * (listening ? 4.8 : 2.1)
+                var ribbon = Path()
+                for step in 0...100 {
+                    let fraction = Double(step) / 100
+                    let x = width * 0.5 + (fraction * 2 - 1) * halfWidth
+                    let envelope = pow(max(0, 1 - pow(fraction * 2 - 1, 2)), 1.6)
+                    let wave = sin(fraction * 12.5 - phase) * height * envelope
+                    let secondary = sin(fraction * 6.2 + phase * 0.65) * height * 0.3 * envelope
+                    let point = CGPoint(x: x, y: centerY + wave + secondary)
+                    if step == 0 { ribbon.move(to: point) }
+                    else { ribbon.addLine(to: point) }
+                }
+                let start = CGPoint(x: width * 0.06, y: centerY)
+                let end = CGPoint(x: width * 0.94, y: centerY)
+                context.drawLayer { glow in
+                    glow.addFilter(.blur(radius: 13))
+                    glow.stroke(ribbon, with: .linearGradient(
+                        Gradient(colors: [.clear, .blue.opacity(0.6), .white, .cyan.opacity(0.7), .clear]),
+                        startPoint: start, endPoint: end
+                    ), style: StrokeStyle(lineWidth: 17, lineCap: .round))
+                }
+                context.stroke(ribbon, with: .linearGradient(
+                    Gradient(colors: [.clear, .blue.opacity(0.65), .white, .cyan.opacity(0.8), .clear]),
+                    startPoint: start, endPoint: end
+                ), style: StrokeStyle(lineWidth: 3.2 + energy * 2, lineCap: .round))
+                context.stroke(ribbon, with: .color(.white.opacity(0.9)),
+                               style: StrokeStyle(lineWidth: 0.8, lineCap: .round))
+            }
+        }
+        .accessibilityLabel(state == .listening ? "OLO 正在聆听" : responding ? "OLO 正在回应" : "OLO 正在思考")
+        .accessibilityIdentifier("olo.entity.luminous")
+        .allowsHitTesting(false)
     }
 }
