@@ -159,7 +159,7 @@ export function LandingPage() {
     // The workspace owns authentication and execution. The landing page never
     // calls a model or simulates a response. A prompt is a navigation hint only.
     const target = prompt.trim()
-      ? `/app?prompt=${encodeURIComponent(prompt.trim())}`
+      ? `/app?prompt=${encodeURIComponent(prompt.trim().slice(0, 8000))}`
       : '/app';
     window.location.assign(target);
   }
