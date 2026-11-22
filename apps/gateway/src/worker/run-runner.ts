@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { countTextTokens, validateCompaction, ContextBudgetError, validateAgentModelDecision } from '@ocean/core';
+import { countTextTokens, validateCompaction, ContextBudgetError, planDurableModelDecision } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -327,18 +327,18 @@ export class RunRunner {
 
       // Gateway's durable worker and CLI share the Core's model decision
       // contract before either host schedules tools or completes a turn.
-      validateAgentModelDecision(toolCalls.length
-        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })) }
+      const modelDecision = planDurableModelDecision(toolCalls.length
+        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
         : { kind: 'complete', text: fullText });
 
       // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
-      if (toolCalls.length > 0) {
+      if (modelDecision.kind === 'dispatch') {
         // Inquiry/delegation have dedicated asynchronous protocols. Refuse a
         // mixed batch rather than silently dropping any model-declared call.
         if (toolCalls.length > 1 && toolCalls.some(call =>
           call.name === RUN_INQUIRY_TOOL || call.name === 'delegate_task'))
           throw new Error('Mixed inquiry/delegation tool batches require separate model turns');
-        const first = toolCalls[0];
+        const first = modelDecision.call;
         const toolCall: ToolCall = {
           id: first.id,
           name: first.name,
@@ -748,10 +748,17 @@ export class RunRunner {
         where: { runId, kind: 'tool_call', seq: { gt: modelStep.seq } },
         select: { input: true },
       });
-      const claimed = new Set(steps.flatMap(step => {
-        const input = step.input as { id?: unknown } | null;
-        return typeof input?.id === 'string' ? [input.id] : [];
-      }));
+      const claimedIds = steps.map(step => {
+        const input = step.input as { id?: unknown; toolCall?: { id?: unknown } } | null;
+        return typeof input?.id === 'string' ? input.id : input?.toolCall?.id;
+      });
+      // Do not silently erase duplicate or unidentifiable journal rows with
+      // Set deduplication. They make replay safety impossible to establish.
+      if (claimedIds.some(id => typeof id !== 'string' || !id))
+        throw new Error('Unidentifiable durable tool journal claim; reconciliation required');
+      const claimed = new Set(claimedIds as string[]);
+      if (claimed.size !== claimedIds.length)
+        throw new Error('Duplicate durable tool journal claim; reconciliation required');
       // A claimed sibling may still be executing or awaiting approval. The
       // durable batch is sequential: never dispatch another side-effecting
       // tool while an earlier invocation lacks a terminal RunStep result.
@@ -760,13 +767,9 @@ export class RunRunner {
           status: { notIn: ['succeeded', 'failed', 'cancelled'] } },
         select: { id: true },
       });
-      if (unfinished) {
-        // Unknown/abandoned effects cannot be resumed as if the earlier
-        // sibling succeeded. Surface the unsafe journal state to the Run
-        // failure handler rather than leaving a running Run without work.
-        throw new Error('Gateway tool batch has an unresolved earlier invocation; reconciliation required');
-      }
-      const next = calls.find(call => !claimed.has(call.id));
+      // Core owns batch validation, ordering and fail-closed recovery policy.
+      const nextDecision = planDurableModelDecision({ kind: 'tools', calls }, claimed, Boolean(unfinished));
+      const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
       if (!next) return false;
       const pending = await tx.outboxEvent.findMany({
         where: { aggregateId: runId, topic: 'tool.requested', status: 'pending' },
@@ -825,8 +828,11 @@ export class RunRunner {
         select: { input: true },
       });
       const hasStep = steps.some((s) => {
-        const stepInput = (s.input ?? {}) as { toolCall?: { id?: string } };
-        return stepInput.toolCall?.id === toolCall.id;
+        // ToolExecutor persists the ToolCall itself as RunStep.input;
+        // older rows may contain the nested envelope. Both must prevent
+        // a duplicate outbox delivery after a Worker restart.
+        const stepInput = (s.input ?? {}) as { id?: string; toolCall?: { id?: string } };
+        return stepInput.id === toolCall.id || stepInput.toolCall?.id === toolCall.id;
       });
       let hasPending = false;
       if (!hasStep) {

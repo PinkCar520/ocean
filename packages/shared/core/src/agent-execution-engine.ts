@@ -64,11 +64,57 @@ export function validateAgentModelDecision(decision: AgentModelDecision): AgentM
   if (!decision.calls.length) throw new Error('Model returned an empty tool batch');
   const ids = new Set<string>();
   for (const call of decision.calls) {
-    if (!call.id || !call.name || ids.has(call.id))
+    if (typeof call.id !== 'string' || !call.id.trim() ||
+        typeof call.name !== 'string' || !call.name.trim() || ids.has(call.id))
       throw new Error('Model returned invalid or duplicate tool invocation');
     ids.add(call.id);
   }
   return decision;
+}
+
+/**
+ * Durable hosts use the same model-batch identity and ordering contract as
+ * the in-process Engine. A settled sibling may never be scheduled twice.
+ * An unresolved earlier invocation blocks all later side effects.
+ */
+export function nextDurableToolCall(
+  calls: readonly { id: string; name: string; input: unknown }[],
+  settledOrClaimedIds: ReadonlySet<string>,
+  hasUnresolvedInvocation: boolean,
+): { id: string; name: string; input: unknown } | undefined {
+  validateAgentModelDecision({ kind: 'tools', calls });
+  if (hasUnresolvedInvocation)
+    throw new Error('Gateway tool batch has an unresolved earlier invocation; reconciliation required');
+  // A durable sequential batch may only claim a prefix. A later claimed
+  // sibling with an earlier missing claim means the journal is inconsistent;
+  // never replay the earlier tool or skip over the missing effect.
+  let seenMissing = false;
+  for (const call of calls) {
+    if (!settledOrClaimedIds.has(call.id)) seenMissing = true;
+    else if (seenMissing)
+      throw new Error('Non-contiguous durable tool claims require journal reconciliation');
+  }
+  const knownIds = new Set(calls.map(call => call.id));
+  if ([...settledOrClaimedIds].some(id => !knownIds.has(id)))
+    throw new Error('Durable tool claim is absent from the model decision');
+  return calls.find(call => !settledOrClaimedIds.has(call.id));
+}
+
+/**
+ * A single scheduling contract for both the initial model decision and
+ * subsequent queue-backed resumptions. The host persists the entire model
+ * decision before enqueueing the returned invocation.
+ */
+export function planDurableModelDecision(
+  decision: AgentModelDecision,
+  claimedIds: ReadonlySet<string> = new Set<string>(),
+  hasUnresolvedInvocation = false,
+): { kind: 'complete'; text: string } | { kind: 'dispatch'; call: { id: string; name: string; input: unknown }; text?: string } | { kind: 'awaiting_results' } {
+  validateAgentModelDecision(decision);
+  if (decision.kind === 'complete') return decision;
+  const call = nextDurableToolCall(decision.calls, claimedIds, hasUnresolvedInvocation);
+  if (!call) return { kind: 'awaiting_results' };
+  return { kind: 'dispatch', call, text: decision.text };
 }
 
 export class AgentExecutionEngine<Message> {
