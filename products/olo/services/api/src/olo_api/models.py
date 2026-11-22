@@ -82,3 +82,12 @@ class ActionResultModel(BaseModel):
     providerRef: str | None = None
     evidence: dict[str, Any] = Field(default_factory=dict)
     summary: str = ""
+
+
+class VoiceTurnModel(BaseModel):
+    """A final, already-transcribed utterance from a trusted device host."""
+    model_config = ConfigDict(extra="forbid")
+    subjectId: str = Field(min_length=1)
+    sessionId: str = Field(min_length=1)
+    sourceBodyId: str = Field(min_length=1)
+    transcript: str = Field(min_length=1)
