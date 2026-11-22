@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Cpu, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
 
 const repository = 'https://github.com/PinkCar520/ocean';
 const documentation = `${repository}#readme`;
@@ -21,6 +21,13 @@ const navigationGroups = [
     { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'GitHub repository', href: repository }] },
     { heading: 'Get started', links: [{ label: 'Open workspace', href: '/app' }, { label: 'Sign in', href: '/auth' }] },
   ] },
+];
+
+const footerGroups = [
+  { heading: 'Product', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
+  { heading: 'Platform', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Architecture', href: '/#developers' }, { label: 'Workflows', href: '/app/workflows' }, { label: 'Integrations', href: '/app/integrations' }] },
+  { heading: 'Developers', links: [{ label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }, { label: 'Issues', href: `${repository}/issues` }, { label: 'Releases', href: `${repository}/releases` }] },
+  { heading: 'Resources', links: [{ label: 'Get started', href: '/app' }, { label: 'Sign in', href: '/auth' }, { label: 'README', href: documentation }, { label: 'Contribute', href: `${repository}/blob/main/CONTRIBUTING.md` }] },
 ];
 
 const capabilities = [
@@ -46,6 +53,7 @@ export function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [mobileGroup, setMobileGroup] = useState<string | null>(null);
+  const [languageOpen, setLanguageOpen] = useState(false);
 
   function openWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,11 +207,46 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-[#eae5e0] px-6 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-5 text-sm text-[#77716c] md:flex-row md:items-center">
-          <Link href="/" className="text-lg font-bold tracking-tight text-[#1c1b1b]">Ocean<span className="text-[#e9561b]">.</span></Link>
-          <p>One Agent Core. Multiple Hosts. Persistent Sessions.</p>
-          <div className="flex gap-5"><Link href="/app" className="hover:text-[#e9561b]">Workspace</Link><a href={documentation} className="hover:text-[#e9561b]">Docs</a><a href={repository} className="hover:text-[#e9561b]">GitHub</a></div>
+      <footer className="bg-[#181817] px-6 pb-8 pt-20 text-[#f4f0eb]">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-14 border-b border-white/15 pb-20 lg:grid-cols-[1.1fr_2fr]">
+            <div>
+              <Link href="/" className="text-3xl font-bold tracking-[-0.07em]">Ocean<span className="text-[#e9561b]">.</span></Link>
+              <p className="mt-5 max-w-xs text-sm leading-7 text-[#a8a39e]">One Agent Core.<br/>Multiple Hosts.<br/>Persistent Sessions.</p>
+              <a href={repository} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex items-center gap-2 text-sm text-[#d4d0cb] hover:text-white"><GitBranch size={17}/> GitHub <ArrowRight size={14}/></a>
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-4">
+              {footerGroups.map(group => (
+                <div key={group.heading}>
+                  <h2 className="mb-6 text-xs font-semibold uppercase tracking-[0.12em] text-[#85817d]">{group.heading}</h2>
+                  <ul className="space-y-4">
+                    {group.links.map(link => (
+                      <li key={link.label}><a href={link.href} className="text-sm leading-6 text-[#e6e2dd] transition-colors hover:text-[#f27b4a]">{link.label}</a></li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-6 pt-7 text-xs text-[#99938d] md:flex-row md:items-center md:justify-between">
+            <span>© {new Date().getFullYear()} Ocean. Open-source project.</span>
+            <div className="flex flex-wrap items-center gap-5">
+              <a href={repository} target="_blank" rel="noopener noreferrer" className="hover:text-white">GitHub</a>
+              <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white">Feedback & issues</a>
+              <div className="relative">
+                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50">
+                  <Globe2 size={15}/> English <ChevronDown size={14} className={languageOpen ? 'rotate-180' : ''}/>
+                </button>
+                {languageOpen && (
+                  <div className="absolute bottom-full right-0 mb-3 w-56 rounded-xl border border-white/15 bg-[#292827] p-2 shadow-xl">
+                    <p className="px-3 py-2 text-xs text-[#a8a39e]">Website language</p>
+                    <button type="button" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white">English · Current</button>
+                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">Additional translations are not available yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
