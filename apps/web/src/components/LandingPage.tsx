@@ -114,6 +114,7 @@ const commonQuestions = [
   { question: 'Will a task started here run immediately?', answer: 'No. The homepage passes your prompt to the workspace. Authentication and actual execution happen there.' },
   { question: 'Where should I report a security vulnerability?', answer: 'Check the repository security policy or use GitHub private vulnerability reporting if enabled. Avoid publishing sensitive exploit details in a public issue.' },
   { question: 'Where can I report a problem?', answer: 'Use the public GitHub issue tracker to report reproducible problems and suggest improvements.' },
+  { question: 'Where can I review the license?', answer: 'See the repository license file and applicable notices before reusing or redistributing Ocean code.' },
   { question: 'Is every capability production ready?', answer: 'No. Review the current source, release notes and deployment configuration to understand which capabilities are available and tested.' },
 ] as const;
 
