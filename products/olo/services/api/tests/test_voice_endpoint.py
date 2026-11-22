@@ -39,3 +39,19 @@ def test_voice_endpoint_rejects_empty_transcript(monkeypatch):
         json={**TURN, "transcript": ""},
     )
     assert response.status_code == 422
+
+
+def test_voice_endpoint_captures_queryable_task(monkeypatch):
+    import hashlib
+    monkeypatch.setenv("OLO_VOICE_CAPTURE_TOKEN", "test-secret")
+    headers = {"X-OLO-Voice-Token": "test-secret"}
+    response = client.post("/v1/voice/turns", headers=headers, json=TURN)
+    assert response.status_code == 202
+    digest = hashlib.sha256("\x00".join((
+        TURN["subjectId"], TURN["sourceBodyId"],
+        TURN["sessionId"], TURN["transcript"]
+    )).encode()).hexdigest()
+    task = client.get(f"/v1/tasks/task_voice_{digest[:32]}")
+    assert task.status_code == 200
+    assert task.json()["rawIntent"] == TURN["transcript"]
+    assert task.json()["status"] == "captured"
