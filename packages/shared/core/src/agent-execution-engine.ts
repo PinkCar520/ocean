@@ -71,6 +71,22 @@ export function validateAgentModelDecision(decision: AgentModelDecision): AgentM
   return decision;
 }
 
+/**
+ * Durable hosts use the same model-batch identity and ordering contract as
+ * the in-process Engine. A settled sibling may never be scheduled twice.
+ * An unresolved earlier invocation blocks all later side effects.
+ */
+export function nextDurableToolCall(
+  calls: readonly { id: string; name: string; input: unknown }[],
+  settledOrClaimedIds: ReadonlySet<string>,
+  hasUnresolvedInvocation: boolean,
+): { id: string; name: string; input: unknown } | undefined {
+  validateAgentModelDecision({ kind: 'tools', calls });
+  if (hasUnresolvedInvocation)
+    throw new Error('Gateway tool batch has an unresolved earlier invocation; reconciliation required');
+  return calls.find(call => !settledOrClaimedIds.has(call.id));
+}
+
 export class AgentExecutionEngine<Message> {
   constructor(private readonly ports: AgentExecutionPorts<Message>) {}
 
