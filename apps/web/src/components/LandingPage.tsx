@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, History, Menu, Terminal, X, FolderKanban, MessagesSquare, PlugZap, ShieldCheck } from 'lucide-react';
 
@@ -137,6 +137,16 @@ export function LandingPage() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [mobileGroup, setMobileGroup] = useState<string | null>(null);
   const [languageOpen, setLanguageOpen] = useState(false);
+
+  function selectFeatureWithKeyboard(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? featureDetails.length - 1 :
+      (index + (event.key === 'ArrowRight' ? 1 : -1) + featureDetails.length) % featureDetails.length;
+    const next = featureDetails[nextIndex];
+    setActiveFeature(next.id);
+    document.getElementById(`feature-tab-${next.id}`)?.focus();
+  }
 
   function openWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -298,9 +308,10 @@ export function LandingPage() {
             <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Discover how Ocean fits your work.</h2>
             <p className="mt-5 max-w-2xl leading-7 text-[#77716c]">Choose a capability to see a practical path into the workspace. These are product entry points, not simulated AI demos.</p>
             <div className="mt-10 flex flex-wrap gap-2" role="tablist" aria-label="Ocean capabilities">
-              {featureDetails.map(feature => (
+              {featureDetails.map((feature, index) => (
                 <button key={feature.id} id={`feature-tab-${feature.id}`} type="button" role="tab"
-                  aria-selected={activeFeature === feature.id} aria-controls="feature-panel"
+                  aria-selected={activeFeature === feature.id} aria-controls="feature-panel" tabIndex={activeFeature === feature.id ? 0 : -1}
+                  onKeyDown={event => selectFeatureWithKeyboard(event, index)}
                   onClick={() => setActiveFeature(feature.id)}
                   className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b] ${activeFeature === feature.id ? 'bg-[#1c1b1b] text-white' : 'border border-[#e7e1dc] bg-white text-[#5b5550] hover:border-[#e9561b]'}`}>
                   {feature.label}
