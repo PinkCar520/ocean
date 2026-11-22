@@ -88,8 +88,8 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
 
             <div className="mb-auto mt-auto max-w-md pb-24">
               <h1 className="text-5xl font-semibold leading-[1.13] tracking-[-0.06em]">
-                Together, let's explore<br />
-                <span className="text-[#e9784b]">what's next in human-AI interaction.</span>
+                Join us in exploring<br />
+                <span className="text-[#e9784b]">the future of products.</span>
               </h1>
 
             </div>
