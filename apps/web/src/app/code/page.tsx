@@ -72,7 +72,7 @@ export default function OceanCodePage() {
               </li>
             ))}
           </ol>
-          <p className="mt-4 text-sm text-[#bcb7b2]">Requires Node.js, pnpm, configured model credentials and any services required by your selected host.</p>
+          <p className="mt-4 text-sm text-[#bcb7b2]">Requires Node.js, pnpm, configured model credentials and any services required by your selected host. You can select each command manually if clipboard access is unavailable.</p>
         </section>
         <section id="code-start" aria-labelledby="code-start-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
           <p className="text-xs font-bold uppercase tracking-widest text-[#e9561b]">Getting started</p>
