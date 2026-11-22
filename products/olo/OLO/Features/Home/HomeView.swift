@@ -563,7 +563,11 @@ private final class OLOSpeechResponder {
 private final class SpeechCompletionDelegate: NSObject, AVSpeechSynthesizerDelegate {
     let onFinish: @MainActor () -> Void
     init(onFinish: @escaping @MainActor () -> Void) { self.onFinish = onFinish }
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        onFinish()
+    // AVSpeechSynthesizerDelegate is a nonisolated Objective-C protocol.
+    // Hop to the main actor before touching SwiftUI-observed state.
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor [weak self] in
+            self?.onFinish()
+        }
     }
 }
