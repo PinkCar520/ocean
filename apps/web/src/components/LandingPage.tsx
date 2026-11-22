@@ -264,7 +264,7 @@ export function LandingPage() {
             <label htmlFor="ocean-prompt" className="sr-only">Your task for Ocean</label>
             <textarea id="ocean-prompt" aria-describedby="ocean-prompt-hint" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
             <div className="flex items-center justify-between gap-3 pt-2">
-              <span id="ocean-prompt-hint" className="pl-2 text-xs text-[#99918a]">Continue in Ocean · {prompt.length.toLocaleString()}/8,000</span>
+              <span id="ocean-prompt-hint" aria-live="off" className="pl-2 text-xs text-[#99918a]">Continue in Ocean · {prompt.length.toLocaleString()}/8,000</span>
               <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b]"><ArrowUp size={21}/></button>
             </div>
           </form>
