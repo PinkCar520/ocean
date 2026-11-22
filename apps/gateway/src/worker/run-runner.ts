@@ -70,11 +70,11 @@ const DELTA_FLUSH_CHARS = 64;
  * - 执行 model_call 步骤：通过 ModelGateway 流式调用模型，把文本增量
  *   投影为 run.output_delta 事件；步骤状态（started/succeeded/failed）
  *   落 run_step 表，并发出 run.step_started / run.step_completed 事件。
- * - 工具循环：模型返回 tool_use 时，把首个工具调用提交为 outbox
- *   `tool.requested` 消息（幂等：同 toolCallId 已有步骤或 pending 消息则不重复
- *   提交），Run → queued 等工具执行；工具完成后 ToolExecutor 重投
- *   `run.requested`，本 Runner 从 run_step 重建 messages（含 tool_result）
- *   继续下一轮模型调用，直到模型输出无 tool_use 的最终消息。
+ * - 工具循环：模型返回 tool_use 时持久化完整工具批次，仅把首个工具
+ *   调用提交为 outbox `tool.requested`。每次工具完成后由
+ *   ToolExecutor 重投 `run.requested`，Runner 先分发尚未完成的批次成员，
+ *   全部结果持久化后才重建 messages（含 tool_result）调用模型。
+ *   幂等检查确保同 toolCallId 不会重复提交外部操作。
  * - 完成/失败：succeeded 或 failed（不可重试）/ queued（可重试，等 Worker 放回队列）。
  *
  * 崩溃语义：
