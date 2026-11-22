@@ -26,11 +26,6 @@ const navigationGroups = [
 // Social profiles can be activated later by setting their URL; unconfigured icons are intentionally inert.
 const socialProfiles = [
   { label: 'GitHub', slug: 'github', url: repository },
-  { label: 'X', slug: 'x', url: null },
-  { label: 'YouTube', slug: 'youtube', url: null },
-  { label: 'LinkedIn', slug: 'linkedin', url: null },
-  { label: 'Instagram', slug: 'instagram', url: null },
-  { label: 'Discord', slug: 'discord', url: null },
 ];
 
 const footerGroups = [
