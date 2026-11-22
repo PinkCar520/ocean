@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function OceanCodePage() {
   return (
-    <main id="main-content" className="min-h-screen bg-[#fcfbf9] text-[#1c1b1b]">
-      <a href="#code-start" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-5 focus:py-3 focus:shadow-lg">Skip to getting started</a>
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-[#fcfbf9] text-[#1c1b1b]">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-5 focus:py-3 focus:shadow-lg">Skip to main content</a>
       <header className="border-b border-black/10 px-6 py-5">
         <nav aria-label="Ocean Code" className="mx-auto flex max-w-6xl items-center justify-between">
           <Link href="/" className="text-2xl font-bold tracking-tight">Ocean<span className="text-[#e9561b]">.</span></Link>
