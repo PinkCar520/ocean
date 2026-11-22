@@ -112,6 +112,7 @@ export default function OceanCodePage() {
           <h2 id="code-faq-title" className="text-3xl font-semibold">Frequently asked questions</h2>
           <div className="mt-8 divide-y divide-[#e7e1dc]">
             {[
+              ['Where should API keys go?', 'Follow the repository environment configuration guidance. Never commit provider keys or local environment files to source control.'],
               ['Is Ocean Code a model?', 'No. It is a terminal agent interface. Configure a supported model provider and credentials separately.'],
               ['Are Skills and MCP servers enabled by default?', 'Not necessarily. Their availability depends on installation, configuration and permissions.'],
               ['Does Ocean Code share everything with the web workspace?', 'The architecture aims to share an Agent Core. Cross-host parity is an architecture goal, not a blanket guarantee. Verify behavior against the current implementation and tests.'],
