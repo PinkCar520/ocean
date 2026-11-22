@@ -62,7 +62,17 @@ export class SessionStore {
       if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SESSION_BYTES) throw new Error('Unsafe tool journal');
       const previous = JSON.parse(await fs.readFile(file, 'utf8'));
       if (previous.sessionId !== id || previous.toolCallId !== toolCallId || previous.toolName !== toolName || previous.inputDigest !== inputDigest) throw new Error('Tool journal identity mismatch');
-      if (previous.state === 'succeeded' || previous.state === 'failed') return previous.output;
+      if (previous.state === 'succeeded' || previous.state === 'failed') {
+        // A terminal result is only reusable when its persisted evidence is intact.
+        // Never replay the side effect when the journal is corrupt or incomplete.
+        if (previous.version !== 1 || previous.workspace !== path.resolve(workspace)
+          || !Object.hasOwn(previous, 'output') || previous.output === undefined
+          || previous.input === undefined
+          || createHash('sha256').update(JSON.stringify(previous.input)).digest('hex') !== previous.inputDigest) {
+          throw new Error('Invalid terminal tool journal; automatic replay is prohibited');
+        }
+        return previous.output;
+      }
       throw new Error('Tool execution outcome unknown; automatic replay is prohibited');
     }
     try { await handle.writeFile(JSON.stringify(record)); await handle.sync(); } finally { await handle.close(); }
@@ -102,7 +112,8 @@ export class SessionStore {
 
   /**
    * Rebuild the transcript from a completed tool journal when the process died
-   * after the side effect but before the turn snapshot was saved. Unknown or
+   * after the side effect but before the turn snapshot was saved. Both successful and
+   * failed terminal outcomes are durable. Unknown or
    * still-executing journals are never turned into a result.
    */
   private async recoverCompletedToolCalls(session: StoredSession): Promise<void> {
@@ -117,8 +128,11 @@ export class SessionStore {
         if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_SESSION_BYTES) continue;
         const value = JSON.parse(await fs.readFile(file, 'utf8'));
         if (value?.sessionId === session.id && value?.workspace === session.workspace
-          && value?.state === 'succeeded' && typeof value.toolCallId === 'string'
-          && typeof value.toolName === 'string' && value.input !== undefined) journals.push(value);
+          && (value?.state === 'succeeded' || value?.state === 'failed') && typeof value.toolCallId === 'string'
+          && typeof value.toolName === 'string' && value.input !== undefined
+          && typeof value.inputDigest === 'string' && Object.hasOwn(value, 'output')
+          && createHash('sha256').update(JSON.stringify(value.input)).digest('hex') === value.inputDigest
+          && entry.name === `journal-${createHash('sha256').update(JSON.stringify([session.id, value.toolCallId])).digest('hex')}.json`) journals.push(value);
       } catch {
         // Corrupt journals are ignored; they cannot prove an outcome.
       }
