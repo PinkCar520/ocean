@@ -55,10 +55,22 @@ export default function OceanCodePage() {
           <p className="text-xs font-bold uppercase tracking-widest text-[#ff9c70]">Local development</p>
           <h2 id="code-commands-title" className="mt-3 text-3xl font-semibold">Try Ocean Code locally.</h2>
           <p className="mt-4 max-w-3xl leading-7 text-[#d4cec8]">From a checked-out Ocean repository with dependencies and environment configured, use the CLI development command documented in the README.</p>
-          <div className="mt-7 flex items-center justify-between gap-4 rounded-xl border border-white/15 bg-black/30 px-5 py-4">
-            <code className="overflow-x-auto font-mono text-sm text-[#ffe5d8]">pnpm --filter @ocean/cli dev</code>
-            <CopyCommandButton command="pnpm --filter @ocean/cli dev" />
-          </div>
+          <ol className="mt-7 space-y-4">
+            {[
+              { label: '1. Install workspace dependencies', command: 'pnpm install' },
+              { label: '2. Create your local configuration', command: 'cp .env.example .env' },
+              { label: '3. Start the CLI development host', command: 'pnpm --filter @ocean/cli dev' },
+              { label: '4. Run CLI tests', command: 'pnpm --filter @ocean/cli test' },
+            ].map(step => (
+              <li key={step.command}>
+                <p className="mb-2 text-sm text-[#d4cec8]">{step.label}</p>
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-white/15 bg-black/30 px-5 py-4">
+                  <code className="overflow-x-auto font-mono text-sm text-[#ffe5d8]">{step.command}</code>
+                  <CopyCommandButton command={step.command} />
+                </div>
+              </li>
+            ))}
+          </ol>
           <p className="mt-4 text-sm text-[#bcb7b2]">Requires Node.js, pnpm, configured model credentials and any services required by your selected host.</p>
         </section>
         <section id="code-start" aria-labelledby="code-start-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
