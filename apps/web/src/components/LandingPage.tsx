@@ -243,7 +243,7 @@ export function LandingPage() {
         )}
       </header>
 
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section className="relative mx-auto flex min-h-[680px] max-w-6xl flex-col items-center justify-center px-6 pb-28 pt-28 text-center md:pt-36">
           <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-[#e9e3df] bg-white px-4 py-2 text-xs font-semibold tracking-wide text-[#77716c]">
             <span className="h-2 w-2 rounded-full bg-[#e9561b]"/> THE OCEAN AGENT PLATFORM
