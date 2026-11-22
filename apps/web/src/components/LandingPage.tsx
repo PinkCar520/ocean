@@ -91,6 +91,8 @@ const taskExamples = [
   { label: 'Debug', prompt: 'Investigate a failing test, identify the root cause, and suggest a minimal fix.', destination: '/app' },
   { label: 'Understand', prompt: 'Explain the architecture of this project and identify its main entry points.', destination: '/app' },
   { label: 'Plan', prompt: 'Break this feature into an implementation plan with testable milestones.', destination: '/app' },
+  { label: 'Review', prompt: 'Review this code change for correctness, security risks, and missing tests.', destination: '/app' },
+  { label: 'Document', prompt: 'Help me write clear documentation for this project, including setup and usage.', destination: '/app' },
 ];
 
 const featureDetails = [
