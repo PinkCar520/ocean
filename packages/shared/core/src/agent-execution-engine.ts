@@ -87,6 +87,23 @@ export function nextDurableToolCall(
   return calls.find(call => !settledOrClaimedIds.has(call.id));
 }
 
+/**
+ * A single scheduling contract for both the initial model decision and
+ * subsequent queue-backed resumptions. The host persists the entire model
+ * decision before enqueueing the returned invocation.
+ */
+export function planDurableModelDecision(
+  decision: AgentModelDecision,
+  claimedIds: ReadonlySet<string> = new Set<string>(),
+  hasUnresolvedInvocation = false,
+): { kind: 'complete'; text: string } | { kind: 'dispatch'; call: { id: string; name: string; input: unknown }; text?: string } | { kind: 'awaiting_results' } {
+  validateAgentModelDecision(decision);
+  if (decision.kind === 'complete') return decision;
+  const call = nextDurableToolCall(decision.calls, claimedIds, hasUnresolvedInvocation);
+  if (!call) return { kind: 'awaiting_results' };
+  return { kind: 'dispatch', call, text: decision.text };
+}
+
 export class AgentExecutionEngine<Message> {
   constructor(private readonly ports: AgentExecutionPorts<Message>) {}
 
