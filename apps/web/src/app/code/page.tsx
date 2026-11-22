@@ -33,9 +33,9 @@ export default function OceanCodePage() {
             { title: 'Extend your tools', body: 'Discover Skills and MCP integrations, then configure and approve connections before they are used.' },
           ].map(item => <article key={item.title} className="rounded-3xl border border-[#e7e1dc] bg-white p-7"><h2 className="text-xl font-semibold">{item.title}</h2><p className="mt-4 leading-7 text-[#6f6a65]">{item.body}</p></article>)}
         </div>
-        <section aria-labelledby="code-architecture" className="mt-24 border-t border-black/10 pt-20">
+        <section id="code-architecture" aria-labelledby="code-architecture-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
           <p className="text-xs font-bold uppercase tracking-widest text-[#e9561b]">Architecture</p>
-          <h2 id="code-architecture" className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">One Agent Core. Multiple Hosts.</h2>
+          <h2 id="code-architecture-title" className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">One Agent Core. Multiple Hosts.</h2>
           <p className="mt-5 max-w-3xl leading-8 text-[#6f6a65]">Ocean Code is the CLI host. Ocean Workspace is the web host. Both are part of the project&apos;s shared runtime architecture; feature parity and production integration should be verified against the current source and tests.</p>
           <Link href="/#developers" className="mt-5 inline-block font-semibold text-[#ba4b20] underline underline-offset-4">Explore the architecture</Link>
         </section>
