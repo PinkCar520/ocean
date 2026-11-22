@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, Youtube, Linkedin, Instagram, MessageCircle, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
 
 const repository = 'https://github.com/PinkCar520/ocean';
 const documentation = `${repository}#readme`;
@@ -25,12 +25,12 @@ const navigationGroups = [
 
 // Social profiles can be activated later by setting their URL; unconfigured icons are intentionally inert.
 const socialProfiles = [
-  { label: 'GitHub', icon: GitBranch, url: repository },
-  { label: 'X', icon: null, url: null },
-  { label: 'YouTube', icon: Youtube, url: null },
-  { label: 'LinkedIn', icon: Linkedin, url: null },
-  { label: 'Instagram', icon: Instagram, url: null },
-  { label: 'Discord', icon: MessageCircle, url: null },
+  { label: 'GitHub', icon: GitBranch, symbol: '', url: repository },
+  { label: 'X', icon: null, symbol: '𝕏', url: null },
+  { label: 'YouTube', icon: null, symbol: '▶', url: null },
+  { label: 'LinkedIn', icon: null, symbol: 'in', url: null },
+  { label: 'Instagram', icon: null, symbol: '◎', url: null },
+  { label: 'Discord', icon: null, symbol: '◕', url: null },
 ];
 
 const footerGroups = [
@@ -226,7 +226,7 @@ export function LandingPage() {
               <div className="mt-8 flex flex-wrap items-center gap-3" aria-label="Ocean social media">
                 {socialProfiles.map(profile => {
                   const Icon = profile.icon;
-                  const symbol = Icon ? <Icon size={19} aria-hidden="true"/> : <span aria-hidden="true" className="text-base font-semibold">𝕏</span>;
+                  const symbol = Icon ? <Icon size={19} aria-hidden="true"/> : <span aria-hidden="true" className="text-base font-semibold">{profile.symbol}</span>;
                   const className = "flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-[#d4d0cb] transition-colors";
                   return profile.url
                     ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:border-[#e9561b] hover:text-[#e9561b]`}>{symbol}</a>
