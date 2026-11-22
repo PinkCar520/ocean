@@ -97,7 +97,6 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
               </p>
 
             </div>
-            <p className="relative z-10 text-xs text-white/35">One Agent Core. Multiple Hosts. Persistent Sessions.</p>
           </div>
         </div>
 
