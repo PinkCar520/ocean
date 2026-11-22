@@ -177,5 +177,5 @@ export { assembleContext, validateCompaction, ContextBudgetError } from './conte
 export type { ContextLayers, ContextBudgetEvidence } from './context-engine.js';
 export { resolveSkills, skillAllowedTools } from './skills-runtime.js';
 export type { SkillDescriptor, SkillActivation } from './skills-runtime.js';
-export { AgentExecutionEngine, validateAgentModelDecision } from './agent-execution-engine.js';
+export { AgentExecutionEngine, validateAgentModelDecision, nextDurableToolCall } from './agent-execution-engine.js';
 export type { AgentModelDecision, AgentModelPort, AgentTranscriptPort, AgentCompletionPort, AgentExecutionPorts, AgentExecutionResult } from './agent-execution-engine.js';
