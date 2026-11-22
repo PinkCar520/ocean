@@ -1,6 +1,7 @@
 import Foundation
 
 protocol AgentControlPlaneSyncing: Sendable {
+    func captureVoiceTranscript(_ text: String, sessionID: UUID) async
     func capture(request: AgentRequest) async
     func startAction(
         taskID: UUID,
@@ -21,6 +22,7 @@ protocol AgentControlPlaneSyncing: Sendable {
 
 extension AgentControlPlaneSyncing {
     func retryPending() async {}
+    func captureVoiceTranscript(_ text: String, sessionID: UUID) async {}
 }
 
 actor OLOAgentControlPlaneSync: AgentControlPlaneSyncing {
@@ -86,6 +88,24 @@ actor OLOAgentControlPlaneSync: AgentControlPlaneSyncing {
             subjectID: subjectID,
             bodyID: bodyID
         )
+    }
+
+    func captureVoiceTranscript(_ text: String, sessionID: UUID) async {
+        guard let client,
+              let token = ProcessInfo.processInfo.environment["OLO_VOICE_CAPTURE_TOKEN"],
+              !token.isEmpty else { return }
+        do {
+            try await client.captureVoiceTranscript(
+                text,
+                subjectID: subjectID,
+                sessionID: sessionID.uuidString.lowercased(),
+                bodyID: bodyID,
+                token: token
+            )
+        } catch {
+            // Local, user-confirmed Agent execution must not depend on
+            // experimental remote capture availability.
+        }
     }
 
     func capture(request: AgentRequest) async {
