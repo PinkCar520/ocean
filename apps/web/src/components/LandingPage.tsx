@@ -341,7 +341,7 @@ export function LandingPage() {
           <div className="mx-auto max-w-6xl">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">Explore capabilities</p>
             <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Discover how Ocean fits your work.</h2>
-            <p className="mt-5 max-w-2xl leading-7 text-[#77716c]">Choose a capability to see a practical path into the workspace. These are product entry points, not simulated AI demos.</p>
+            <p className="mt-5 max-w-2xl leading-7 text-[#77716c]">Choose a capability to see a practical path into the workspace. These are product entry points, not simulated AI demos. Availability depends on deployment and configured permissions.</p>
             <div className="mt-10 flex flex-wrap gap-2" role="tablist" aria-label="Ocean capabilities">
               {featureDetails.map((feature, index) => (
                 <button key={feature.id} id={`feature-tab-${feature.id}`} type="button" role="tab"
