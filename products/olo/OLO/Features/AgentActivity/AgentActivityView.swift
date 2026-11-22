@@ -10,6 +10,13 @@ struct AgentActivityView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("执行记录") {
+                    NavigationLink {
+                        ActionsView()
+                    } label: {
+                        Label("Actions · 执行凭证与同步状态", systemImage: "checkmark.seal")
+                    }
+                }
                 if let agent = center.agentRuntime, let task = agent.task {
                     Section("当前任务") {
                         Text(task.rawIntent)
