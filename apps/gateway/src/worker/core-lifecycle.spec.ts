@@ -96,6 +96,25 @@ describe('Gateway Worker shares the Agent Runtime state machine', () => {
   await expect(core.startModel(tx, 'partial-run', 'session')).rejects.toThrow('has not executed');
   expect(await events.read('partial-run')).toEqual(before);
  });
+ it('refuses a changed session identity on an already persisted Run', async () => {
+  const { core, tx, events } = fixture();
+  await core.startModel(tx, 'session-run', 'session-a');
+  const before = await events.read('session-run');
+  await expect(core.startModel(tx, 'session-run', 'session-b'))
+   .rejects.toThrow('session identity mismatch');
+  expect(await events.read('session-run')).toEqual(before);
+ });
+
+ it('blocks continuation after a settled but unknown external tool outcome', async () => {
+  const { core, tx } = fixture();
+  await core.startModel(tx, 'unknown-run', 'session');
+  await core.queueTool(tx, 'unknown-run', { id: 'unknown-tool', name: 'shell', input: {} });
+  await core.prepareToolExecution(tx, 'unknown-run', { id: 'unknown-tool', name: 'shell', input: {} });
+  await core.settleQueuedTool(tx, 'unknown-run', 'unknown-tool', 'unknown', undefined, false);
+  await expect(core.startModel(tx, 'unknown-run', 'session'))
+   .rejects.toThrow('journal reconciliation');
+ });
+
  it('rejects changed queued tool names before any execution claim', async () => {
   const { core, tx } = fixture();
   await core.startModel(tx, 'run', 'session');
