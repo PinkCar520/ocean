@@ -9,8 +9,8 @@ const documentation = `${repository}#readme`;
 
 const navigationGroups = [
   { label: 'Product', columns: [
-    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/#ocean-code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
-    { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Ocean Code', href: '/#ocean-code' }, { label: 'Capabilities', href: '/#features' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
+    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
+    { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Ocean Code', href: '/code' }, { label: 'Capabilities', href: '/#features' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
     { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Capability explorer', href: '/#features' }, { label: 'What you can do', href: '/#use-cases' }, { label: 'Architecture', href: '/#developers' }] },
   ] },
   { label: 'Developers', columns: [
@@ -86,18 +86,18 @@ const useCases = [
 ];
 
 const productSurfaces = [
-  { name: 'Ocean Code', tag: 'TERMINAL', title: 'Work directly in your codebase.', description: 'Explore the terminal agent, its configuration and available commands in the open-source repository.', href: documentation, action: 'Explore CLI setup', icon: Terminal },
+  { name: 'Ocean Code', tag: 'TERMINAL', title: 'Work directly in your codebase.', description: 'Explore the terminal agent, its configuration and available commands in the open-source repository.', href: '/code', action: 'Explore Ocean Code', icon: Terminal },
   { name: 'Ocean Workspace', tag: 'WEB', title: 'A home for conversations and projects.', description: 'Move from a question to an ongoing conversation, with access to projects and the features enabled on your host.', href: '/app', action: 'Open workspace', icon: MessagesSquare },
   { name: 'Skills & MCP', tag: 'EXTENSIONS', title: 'Extend the agent on your terms.', description: 'Discover supported Skills and integrations. Configure connections and review permissions before use.', href: '/app/integrations', action: 'Explore integrations', icon: PlugZap },
 ] as const;
 
 const taskExamples = [
-  { label: 'Build', prompt: 'Help me plan and implement a small web application, starting with the project structure.', destination: '/app' },
-  { label: 'Debug', prompt: 'Investigate a failing test, identify the root cause, and suggest a minimal fix.', destination: '/app' },
-  { label: 'Understand', prompt: 'Explain the architecture of this project and identify its main entry points.', destination: '/app' },
-  { label: 'Plan', prompt: 'Break this feature into an implementation plan with testable milestones.', destination: '/app' },
-  { label: 'Review', prompt: 'Review this code change for correctness, security risks, and missing tests.', destination: '/app' },
-  { label: 'Document', prompt: 'Help me write clear documentation for this project, including setup and usage.', destination: '/app' },
+  { label: 'Build', prompt: 'Help me plan and implement a small web application, starting with the project structure.' },
+  { label: 'Debug', prompt: 'Investigate a failing test, identify the root cause, and suggest a minimal fix.' },
+  { label: 'Understand', prompt: 'Explain the architecture of this project and identify its main entry points.' },
+  { label: 'Plan', prompt: 'Break this feature into an implementation plan with testable milestones.' },
+  { label: 'Review', prompt: 'Review this code change for correctness, security risks, and missing tests.' },
+  { label: 'Document', prompt: 'Help me write clear documentation for this project, including setup and usage.' },
 ];
 
 const featureDetails = [
@@ -112,7 +112,9 @@ const commonQuestions = [
   { question: 'Can I use Ocean from the terminal?', answer: 'Ocean includes a CLI. Review the repository README for current setup requirements and supported commands.' },
   { question: 'Do Skills and MCP connections work automatically?', answer: 'No. Extensions must be available, configured and permitted in your environment before they can be used.' },
   { question: 'Will a task started here run immediately?', answer: 'No. The homepage passes your prompt to the workspace. Authentication and actual execution happen there.' },
+  { question: 'Where should I report a security vulnerability?', answer: 'Check the repository security policy or use GitHub private vulnerability reporting if enabled. Avoid publishing sensitive exploit details in a public issue.' },
   { question: 'Where can I report a problem?', answer: 'Use the public GitHub issue tracker to report reproducible problems and suggest improvements.' },
+  { question: 'Where can I review the license?', answer: 'See the repository license file and applicable notices before reusing or redistributing Ocean code.' },
   { question: 'Is every capability production ready?', answer: 'No. Review the current source, release notes and deployment configuration to understand which capabilities are available and tested.' },
 ] as const;
 
@@ -178,7 +180,7 @@ export function LandingPage() {
             {navigationGroups.map(group => (
               <button key={group.label} type="button"
                 className={`flex h-full items-center gap-1.5 border-b-2 transition-colors ${activeMenu === group.label ? 'border-[#e9561b] text-[#e9561b]' : 'border-transparent hover:text-[#e9561b]'}`}
-                aria-expanded={activeMenu === group.label} aria-controls="ocean-mega-menu"
+                aria-expanded={activeMenu === group.label} aria-haspopup="true" aria-controls="ocean-mega-menu"
                 onMouseEnter={() => setActiveMenu(group.label)}
                 onFocus={() => setActiveMenu(group.label)}
                 onClick={() => setActiveMenu(activeMenu === group.label ? null : group.label)}>
@@ -190,7 +192,7 @@ export function LandingPage() {
             <Link href="/auth" className="rounded-full px-4 py-2.5 text-sm font-medium hover:bg-black/5">Log in</Link>
             <Link href="/app" className="rounded-full bg-[#1c1b1b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e9561b]">Open Ocean <ArrowRight className="ml-1 inline" size={15}/></Link>
           </div>
-          <button type="button" className="rounded-lg p-2 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="ocean-mobile-navigation">
+          <button type="button" className="rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b] md:hidden" onClick={() => { setMenuOpen(!menuOpen); setActiveMenu(null); }} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="ocean-mobile-navigation">
             {menuOpen ? <X size={24}/> : <Menu size={24}/>}
           </button>
         </nav>
@@ -230,7 +232,7 @@ export function LandingPage() {
                 </button>
                 {mobileGroup === group.label && <div className="flex flex-col gap-3 pb-4 pl-4">
                   {group.columns.flatMap(column => column.links).map(link => (
-                    <a key={link.label} href={link.href} onClick={() => setMenuOpen(false)} className="rounded text-[#77716c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">{link.label}</a>
+                    <a key={link.label} href={link.href} onClick={() => { setMenuOpen(false); setMobileGroup(null); }} className="rounded text-[#77716c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">{link.label}</a>
                   ))}
                 </div>}
               </div>
@@ -241,7 +243,7 @@ export function LandingPage() {
         )}
       </header>
 
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section className="relative mx-auto flex min-h-[680px] max-w-6xl flex-col items-center justify-center px-6 pb-28 pt-28 text-center md:pt-36">
           <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-[#e9e3df] bg-white px-4 py-2 text-xs font-semibold tracking-wide text-[#77716c]">
             <span className="h-2 w-2 rounded-full bg-[#e9561b]"/> THE OCEAN AGENT PLATFORM
@@ -254,7 +256,7 @@ export function LandingPage() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-2" aria-label="Try an example task">
             {taskExamples.map(example => (
-              <button key={example.label} type="button" aria-pressed={prompt === example.prompt} onClick={() => { setPrompt(example.prompt); document.getElementById("ocean-prompt")?.focus(); }}
+              <button key={example.label} type="button" aria-pressed={prompt === example.prompt} title={`Use ${example.label} example`} onClick={() => { setPrompt(example.prompt); document.getElementById("ocean-prompt")?.focus(); }}
                 className="rounded-full border border-[#e8e2dd] bg-white px-4 py-2 text-sm font-medium text-[#5b5550] transition-colors hover:border-[#e9561b] hover:text-[#b34e28] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">
                 {example.label}
               </button>
@@ -262,13 +264,13 @@ export function LandingPage() {
           </div>
           <form onSubmit={openWorkspace} className="mt-5 w-full max-w-2xl rounded-[26px] border border-[#e8e2dd] bg-white p-4 text-left shadow-[0_18px_70px_rgba(39,26,16,0.07)] focus-within:border-[#e9561b]/50">
             <label htmlFor="ocean-prompt" className="sr-only">Your task for Ocean</label>
-            <textarea id="ocean-prompt" aria-describedby="ocean-prompt-hint" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
+            <textarea id="ocean-prompt" aria-describedby="ocean-prompt-hint" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} placeholder="What would you like to build?" rows={3} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
             <div className="flex items-center justify-between gap-3 pt-2">
               <span id="ocean-prompt-hint" aria-live="off" className="pl-2 text-xs text-[#99918a]">Continue in Ocean · {prompt.length.toLocaleString()}/8,000</span>
-              <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b]"><ArrowUp size={21}/></button>
+              <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]"><ArrowUp size={21}/></button>
             </div>
           </form>
-          <p className="mt-3 max-w-2xl text-xs leading-5 text-[#99918a]">Your draft opens in the Ocean workspace for review. Nothing is sent to a model from this page. Your text remains editable before you send it.</p>
+          <p className="mt-3 max-w-2xl text-xs leading-5 text-[#99918a]">Your draft opens in the Ocean workspace for review. Nothing is sent to a model from this page. Your text remains editable before you send it. Press Ctrl+Enter (or ⌘+Enter on Mac) to continue. You can also use the arrow button.</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href="/app" className="rounded-full border border-[#e8e2dd] bg-white px-5 py-2.5 text-sm font-medium hover:border-[#e9561b]">Explore Ocean <ArrowRight className="ml-1 inline" size={14}/></Link>
           </div>
@@ -474,13 +476,14 @@ export function LandingPage() {
               <p className="mt-5 max-w-xs text-sm leading-7 text-[#a8a39e]">One Agent Core.<br/>Multiple Hosts.<br/>Persistent Sessions.</p>
               <div className="mt-8 flex flex-wrap items-center gap-10" aria-label="Ocean social media">
                 {socialProfiles.map(profile => {
-                  const symbol = <img src={`/icons/social/${profile.slug}.svg`} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 invert" />;
+                  const symbol = <img src={`/icons/social/${profile.slug}.svg`} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 invert" loading="lazy" />;
                   const className = "inline-flex h-4 w-4 shrink-0 items-center justify-center text-[#d4d0cb] transition-opacity";
                   return profile.url
-                    ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:opacity-70`}>{symbol}</a>
+                    ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:opacity-70 focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ff9c70]`}>{symbol}</a>
                     : <span key={profile.label} role="img" aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
                 })}
               </div>
+              <p className="mt-3 text-xs text-[#a8a39e]">Other social channels are coming soon.</p>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-4">
               {footerGroups.map(group => (
@@ -498,16 +501,16 @@ export function LandingPage() {
           <div className="flex flex-col gap-6 pt-7 text-xs text-[#99938d] md:flex-row md:items-center md:justify-between">
             <span>© {new Date().getFullYear()} Ocean. Open-source project.</span>
             <div className="flex flex-wrap items-center gap-5">
-              <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white">Feedback & issues</a>
+              <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white">Feedback & issues (GitHub)</a>
               <div className="relative">
-                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">
+                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} onKeyDown={event => { if (event.key === "Escape") setLanguageOpen(false); }} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">
                   <Globe2 size={15}/> English <ChevronDown size={14} className={languageOpen ? 'rotate-180' : ''}/>
                 </button>
                 {languageOpen && (
                   <div className="absolute bottom-full right-0 mb-3 w-56 rounded-xl border border-white/15 bg-[#292827] p-2 shadow-xl">
                     <p className="px-3 py-2 text-xs text-[#a8a39e]">Website language</p>
-                    <button type="button" aria-current="true" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">English · Current</button>
-                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Workspace language preferences are managed separately.</p>
+                    <button type="button" aria-current="true" aria-label="English, current website language" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">English · Current</button>
+                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Other languages are planned; workspace language preferences are separate.</p>
                   </div>
                 )}
               </div>
