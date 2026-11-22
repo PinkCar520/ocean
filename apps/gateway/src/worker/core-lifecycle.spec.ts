@@ -44,6 +44,23 @@ describe('Gateway Worker shares the Agent Runtime state machine', () => {
   await core.prepareToolExecution(tx, 'run', { id: 'call', name: 'shell', input: {} });
   await expect(core.startModel(tx, 'run', 'session')).rejects.toThrow('journal reconciliation');
  });
+ it('rejects recovery after a sibling tool settles but another proposed call was never claimed', async () => {
+  const { core, tx, events } = fixture();
+  await core.startModel(tx, 'partial-run', 'session');
+  const proposed = await core.queueTool(tx, 'partial-run', { id: 'first', name: 'shell', input: {} });
+  // Simulate a persisted two-call model batch. Gateway must not forget the
+  // second proposed call merely because the first tool has completed.
+  await events.append('partial-run', proposed.revision, [{
+   type: 'tool.proposed', runId: 'partial-run', at: new Date().toISOString(),
+   invocationId: 'second', toolName: 'shell',
+   inputDigest: '44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a',
+  }]);
+  await core.prepareToolExecution(tx, 'partial-run', { id: 'first', name: 'shell', input: {} });
+  await core.settleQueuedTool(tx, 'partial-run', 'first', 'succeeded', { ok: true }, false);
+  const before = await events.read('partial-run');
+  await expect(core.startModel(tx, 'partial-run', 'session')).rejects.toThrow('has not executed');
+  expect(await events.read('partial-run')).toEqual(before);
+ });
  it('rejects changed queued tool names before any execution claim', async () => {
   const { core, tx } = fixture();
   await core.startModel(tx, 'run', 'session');
