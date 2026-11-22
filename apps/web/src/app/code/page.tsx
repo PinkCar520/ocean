@@ -17,7 +17,7 @@ export default function OceanCodePage() {
       <header className="border-b border-black/10 px-6 py-5">
         <nav aria-label="Ocean Code" className="mx-auto flex max-w-6xl items-center justify-between">
           <Link href="/" className="text-2xl font-bold tracking-tight">Ocean<span className="text-[#e9561b]">.</span></Link>
-          <div className="flex items-center gap-5"><Link href="/#ocean-code" className="hidden text-sm font-medium text-[#6f6a65] hover:text-[#e9561b] sm:inline">Product overview</Link><Link href="/app" className="rounded-full bg-[#1c1b1b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#e9561b]">Open workspace</Link></div>
+          <div className="flex items-center gap-5"><a href={repository} target="_blank" rel="noopener noreferrer" className="hidden text-sm font-medium text-[#6f6a65] hover:text-[#e9561b] md:inline">GitHub</a><Link href="/#ocean-code" className="hidden text-sm font-medium text-[#6f6a65] hover:text-[#e9561b] sm:inline">Product overview</Link><Link href="/app" className="rounded-full bg-[#1c1b1b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#e9561b]">Open workspace</Link></div>
         </nav>
       </header>
       <section id="main-content" tabIndex={-1} aria-labelledby="code-hero-title" className="mx-auto max-w-6xl px-6 py-24 md:py-32">
