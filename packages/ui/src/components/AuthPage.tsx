@@ -76,8 +76,28 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
         {/* ── Left Side: Ocean Code brand, aligned with the current product ── */}
         <div className="relative hidden flex-1 overflow-hidden bg-[#1b1b1a] p-12 text-white lg:flex lg:flex-col">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -bottom-[490px] -left-[210px] h-[680px] w-[900px] rounded-[50%] border-2 border-white/10" />
-            <div className="absolute -bottom-[490px] -left-[210px] h-[680px] w-[900px] rounded-[50%] border border-[#ed744b]/55 bg-[radial-gradient(ellipse_at_50%_0%,rgba(233,86,27,0.12),transparent_56%)] shadow-[0_-12px_52px_-30px_rgba(233,86,27,0.45)]" />
+            {/* The planet's dark hemisphere and its sunlit atmospheric rim share one ellipse. */}
+            <div className="absolute -bottom-[490px] -left-[210px] h-[680px] w-[900px] rounded-[50%] bg-[radial-gradient(ellipse_at_43%_0%,rgba(101,57,43,0.27)_0%,rgba(32,27,29,0.96)_44%,#111116_78%)]" />
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 600 720" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="ocean-atmosphere" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#ed744b" stopOpacity="0.25" />
+                  <stop offset="31%" stopColor="#ff9d6b" stopOpacity="0.95" />
+                  <stop offset="51%" stopColor="#ffbb88" stopOpacity="0.65" />
+                  <stop offset="75%" stopColor="#ed744b" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#ed744b" stopOpacity="0" />
+                </linearGradient>
+                <filter id="ocean-atmosphere-glow" x="-50%" y="-200%" width="200%" height="500%">
+                  <feGaussianBlur stdDeviation="9" />
+                </filter>
+                <filter id="ocean-atmosphere-halo" x="-50%" y="-300%" width="200%" height="700%">
+                  <feGaussianBlur stdDeviation="23" />
+                </filter>
+              </defs>
+              <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="#ff8654" strokeOpacity="0.22" strokeWidth="28" filter="url(#ocean-atmosphere-halo)" />
+              <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="url(#ocean-atmosphere)" strokeWidth="13" filter="url(#ocean-atmosphere-glow)" />
+              <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="url(#ocean-atmosphere)" strokeWidth="1.7" />
+            </svg>
           </div>
 
           <div className="relative z-10 flex h-full flex-col">
