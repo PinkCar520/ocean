@@ -140,7 +140,9 @@ describe('RunRunner', () => {
     expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
       error: expect.stringContaining('reconciliation required') });
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
-    expect(tx.agentRun.update).not.toHaveBeenCalled();
+    expect(tx.agentRun.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'run_1' }, data: { status: 'failed' },
+    }));
   });
 
   it.each(['NaN', 'Infinity', '0', '-1', '1.5'])('fails closed for invalid turn limit %s', async (limit) => {
