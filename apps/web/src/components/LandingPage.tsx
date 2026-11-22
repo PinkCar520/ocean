@@ -15,7 +15,7 @@ const navigationGroups = [
   ] },
   { label: 'Developers', columns: [
     { heading: 'Build', links: [{ label: 'Ocean Code CLI', href: '/code' }, { label: 'Developer overview', href: '/#developers' }, { label: 'CLI setup', href: '/code#code-commands' }, { label: 'Source code', href: repository }, { label: 'Documentation', href: documentation }, { label: 'CLI documentation', href: '/code#code-resources' }] },
-    { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }] },
+    { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }, { label: 'CLI permissions', href: '/code#code-permissions-section' }] },
   ] },
   { label: 'Resources', columns: [
     { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'CLI FAQ', href: '/code#code-faq' }, { label: 'Releases', href: `${repository}/releases` }, { label: 'Report an issue', href: `${repository}/issues/new` }, { label: 'Contributing guide', href: `${repository}/blob/main/CONTRIBUTING.md` }, { label: 'Source code', href: repository }] },
