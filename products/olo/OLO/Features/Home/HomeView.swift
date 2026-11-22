@@ -28,6 +28,12 @@ struct HomeView: View {
     @State private var tapDebounce: Task<Void, Never>?
     // long-press tracking
     @State private var longPressFired = false
+    @State private var pressStartedAt: Date?
+    @State private var pressActivated = false
+    @State private var pressActivationTask: Task<Void, Never>?
+    @State private var pushToTalk = false
+    @State private var capturedSpeech = ""
+    @State private var listenGeneration = UUID()
 
     var body: some View {
         GeometryReader { geometry in
@@ -56,6 +62,8 @@ struct HomeView: View {
         }
         .onDisappear {
             speech.stop()
+            pressActivationTask?.cancel()
+            listenGeneration = UUID()
             tapDebounce?.cancel()
             listenTask?.cancel()
             Task { await center.voiceService?.stop() }
@@ -109,21 +117,18 @@ struct HomeView: View {
         .frame(height: 460)
         .accessibilityIdentifier("olo.entity")
         .contentShape(Rectangle())
-        // Order of attachment matters: long press fires the release-time
-        // of tap only if minDuration elapses; double-tap beats single tap
-        // via the 350 ms debounce.
         .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.6)
-                .onEnded { _ in
-                    longPressFired = true
-                    tapDebounce?.cancel()
-                    tapCount = 0
-                    wakeAgent()
-                }
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in beginPressIfNeeded() }
+                .onEnded { _ in endPress() }
         )
         .highPriorityGesture(
             TapGesture(count: 2)
-                .onEnded { standby() }
+                .onEnded {
+                    tapDebounce?.cancel()
+                    tapCount = 0
+                    standby()
+                }
         )
         .highPriorityGesture(
             TapGesture(count: 1)
@@ -185,7 +190,7 @@ struct HomeView: View {
     /// gesture already fired independently via highPriorityGesture).
     @MainActor
     private func enqueueSingleTap() {
-        guard !longPressFired else { longPressFired = false; return }
+        guard !longPressFired, !pressActivated else { longPressFired = false; return }
         tapCount += 1
         tapDebounce?.cancel()
         tapDebounce = Task {
@@ -203,17 +208,21 @@ struct HomeView: View {
     /// so the user is never stuck with no way to talk to OLO. Matches
     /// 1.html where the primary input is a text panel.
     @MainActor
-    private func startConversation() {
+    private func startConversation(pushToTalk mode: Bool = false) {
         speech.stop()
         guard !center.privacyMode else {
             showToast("隐私模式下麦克风已暂停")
             return
         }
         if center.state == .listening {
-            Task { await center.voiceService?.stop() }
+            if !mode { finishListening() }
             return
         }
         guard center.state == .idle || center.state == .done else { return }
+        pushToTalk = mode
+        capturedSpeech = ""
+        let generation = UUID()
+        listenGeneration = generation
         guard let voice = center.voiceService else {
             showingTextInput = true
             return
@@ -225,22 +234,21 @@ struct HomeView: View {
             do {
                 let stream = try await voice.start()
                 try Task.checkCancellation()
-                guard !center.privacyMode else { await voice.stop(); return }
+                guard !center.privacyMode, listenGeneration == generation else { await voice.stop(); return }
                 withAnimation { center.state = .listening }
                 var partial = ""
                 for try await transcript in stream {
                     try Task.checkCancellation()
-                    if transcript.isFinal {
-                        let final = transcript.text.isEmpty ? partial : transcript.text
+                    partial = transcript.text.isEmpty ? partial : transcript.text
+                    capturedSpeech = partial
+                    center.liveTranscript = partial
+                    if transcript.isFinal && !pushToTalk {
                         await voice.stop()
-                        await finishVoice(final)
+                        if listenGeneration == generation && !pushToTalk { await finishVoice(partial) }
                         return
-                    } else {
-                        partial = transcript.text
-                        center.liveTranscript = partial
                     }
                 }
-                await finishVoice(partial)
+                if listenGeneration == generation && !pushToTalk { await finishVoice(partial) }
             } catch is CancellationError {
                 return
             } catch VoiceError.unauthorized {
@@ -269,37 +277,47 @@ struct HomeView: View {
         }
     }
 
-    /// Long press is OLO's intentional invocation gesture. It starts the
-    /// same real microphone → on-device speech-recognition path as tap.
+    /// Press-and-hold to talk. A hold only activates after 600ms.
     @MainActor
-    private func wakeAgent() {
-        guard !center.privacyMode else {
-            showToast("隐私模式下 Agent 不会监听")
-            return
+    private func beginPressIfNeeded() {
+        guard pressStartedAt == nil else { return }
+        pressStartedAt = .now
+        pressActivated = false
+        pressActivationTask?.cancel()
+        pressActivationTask = Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, pressStartedAt != nil else { return }
+            pressActivated = true
+            longPressFired = true
+            tapDebounce?.cancel()
+            tapCount = 0
+            startConversation(pushToTalk: true)
         }
-        guard center.agentRuntime?.isBusy != true else { showToast("任务正在处理，请到 Activity 查看"); return }
-        center.lastVoiceRequest = nil
-        showToast("请说出你需要 OLO 做什么")
-        startConversation()
     }
 
-    /// Double-tap — flip privacy mode.
     @MainActor
-    private func togglePrivacy() {
-        tapDebounce?.cancel(); tapCount = 0
-        if !center.privacyMode {
-            listenTask?.cancel()
-            listenTask = nil
-            Task { await center.voiceService?.stop() }
-            center.liveTranscript = ""
-            showingAgentSheet = false
-            showingTextInput = false
-            withAnimation { center.state = .idle }
+    private func endPress() {
+        pressStartedAt = nil
+        pressActivationTask?.cancel()
+        pressActivationTask = nil
+        guard pressActivated else { return }
+        pressActivated = false
+        finishListening()
+    }
+
+    @MainActor
+    private func finishListening() {
+        guard center.state == .listening || center.state == .needYou else { return }
+        let finalText = capturedSpeech.isEmpty ? center.liveTranscript : capturedSpeech
+        listenGeneration = UUID()
+        listenTask?.cancel()
+        listenTask = nil
+        pushToTalk = false
+        withAnimation { center.state = .thinking }
+        Task {
+            await center.voiceService?.stop()
+            await finishVoice(finalText)
         }
-        withAnimation(.easeInOut(duration: 0.35)) {
-            center.privacyMode.toggle()
-        }
-        showToast(center.privacyMode ? "视觉感知已关闭" : "隐私模式已关闭")
     }
 
     @MainActor
@@ -360,6 +378,13 @@ struct HomeView: View {
     @MainActor
     private func standby() {
         speech.stop()
+        pressActivationTask?.cancel()
+        pressActivationTask = nil
+        pressStartedAt = nil
+        pressActivated = false
+        pushToTalk = false
+        capturedSpeech = ""
+        listenGeneration = UUID()
         tapDebounce?.cancel(); tapCount = 0
         listenTask?.cancel(); listenTask = nil
         Task { await center.voiceService?.stop() }
