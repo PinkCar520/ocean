@@ -136,6 +136,16 @@ describe('R01 Core turn orchestration contract', () => {
     expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [] }))
       .toEqual({ kind: 'call_model' });
   });
+  it('rejects orphan outbox deliveries without a durable tool claim', () => {
+    expect(() => planAgentTurn({
+      cancelled: false, unfinishedTool: true, pendingDeliveryIds: ['a'],
+      modelDecision: { kind: 'tools', calls }, claimedIds: new Set<string>(),
+    })).toThrow(/lacks durable tool claim/);
+    expect(planAgentTurn({
+      cancelled: false, unfinishedTool: true, pendingDeliveryIds: ['a'],
+      modelDecision: { kind: 'tools', calls }, claimedIds: new Set(['a']),
+    })).toEqual({ kind: 'wait_for_host' });
+  });
   it('dispatches only the next journal-safe tool', () => {
     const decision = { kind: 'tools' as const, calls };
     expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [],
