@@ -113,6 +113,30 @@ export function nextDurableToolCall(
 }
 
 /**
+ * Shared execution protocol for inline and queue-backed hosts.
+ * Claims must form a contiguous prefix; an unresolved claim blocks dispatch.
+ * A host persists the proposal before executing the returned call.
+ */
+export type AgentExecutionDirective =
+  | { kind: 'complete'; text: string }
+  | { kind: 'dispatch'; call: { id: string; name: string; input: unknown }; text?: string }
+  | { kind: 'awaiting_results' };
+
+export function nextAgentExecutionDirective(
+  decision: AgentModelDecision,
+  state: { claimedIds?: ReadonlySet<string>; unresolved?: boolean } = {},
+): AgentExecutionDirective {
+  validateAgentModelDecision(decision);
+  if (decision.kind === 'complete') {
+    if (state.unresolved || state.claimedIds?.size)
+      throw new Error('Cannot complete while tool claims remain unresolved');
+    return { kind: 'complete', text: decision.text };
+  }
+  const call = nextDurableToolCall(decision.calls, state.claimedIds ?? new Set<string>(), state.unresolved ?? false);
+  return call ? { kind: 'dispatch', call, text: decision.text } : { kind: 'awaiting_results' };
+}
+
+/**
  * A single scheduling contract for both the initial model decision and
  * subsequent queue-backed resumptions. The host persists the entire model
  * decision before enqueueing the returned invocation.
@@ -122,11 +146,7 @@ export function planDurableModelDecision(
   claimedIds: ReadonlySet<string> = new Set<string>(),
   hasUnresolvedInvocation = false,
 ): { kind: 'complete'; text: string } | { kind: 'dispatch'; call: { id: string; name: string; input: unknown }; text?: string } | { kind: 'awaiting_results' } {
-  validateAgentModelDecision(decision);
-  if (decision.kind === 'complete') return decision;
-  const call = nextDurableToolCall(decision.calls, claimedIds, hasUnresolvedInvocation);
-  if (!call) return { kind: 'awaiting_results' };
-  return { kind: 'dispatch', call, text: decision.text };
+  return nextAgentExecutionDirective(decision, { claimedIds, unresolved: hasUnresolvedInvocation });
 }
 
 export class AgentExecutionEngine<Message> {
@@ -416,7 +436,13 @@ export class AgentExecutionEngine<Message> {
       }
       await runtime.transition(runId, 'executing_tools');
       try {
-        for (const [callIndex, { call, descriptor }] of prepared.entries()) {
+        const claimed = new Set<string>();
+        for (let callIndex = 0; callIndex < prepared.length; callIndex++) {
+          const directive = nextAgentExecutionDirective(decision, { claimedIds: claimed });
+          if (directive.kind !== 'dispatch')
+            throw new Error('Shared execution protocol expected a tool dispatch');
+          const { call } = directive;
+          const descriptor = prepared[callIndex].descriptor;
           signal?.throwIfAborted();
           try { ports.onToolCall?.(call.name, call.input); } catch { /* telemetry cannot affect execution */ }
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
@@ -429,6 +455,7 @@ export class AgentExecutionEngine<Message> {
           const next = ports.toMessages?.(toolDecision, result) ?? [ports.toMessage(toolDecision, result)];
           await ports.transcript.append(sessionId, messages.length, next);
           messages.push(...next);
+          claimed.add(call.id);
           // An activated skill must only enter durable Runtime state after its
           // invocation/result pair is committed to the Session transcript.
           if (activated) await runtime.activateSkill(runId, activated.id, activated.source, activated.allowedTools);
