@@ -13,6 +13,7 @@ describe('shared inline/durable execution protocol', () => {
     const { MemoryRuntimeEventStore } = await import('./runtime-memory-store.js');
     const engine = AgentExecutionEngine.durable(new MemoryRuntimeEventStore());
     await expect(engine.assertDurableSession('run', '')).rejects.toThrow(/required/);
+    await expect(engine.assertDurableSession('run', 'session-a')).rejects.toThrow(/not found/);
     await engine.startDurableModel('run', 'session-a');
     await expect(engine.assertDurableSession('run', 'session-b')).rejects.toThrow(/mismatch/);
     await expect(engine.assertDurableSession('run', 'session-a')).resolves.toBeUndefined();

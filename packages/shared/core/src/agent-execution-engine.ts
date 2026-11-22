@@ -305,7 +305,8 @@ export class AgentExecutionEngine<Message> {
   async assertDurableSession(runId: string, sessionId: string): Promise<void> {
     if (!sessionId.trim()) throw new Error('Durable session identity is required');
     const snapshot = await this.durableSnapshot(runId);
-    if (snapshot?.sessionId && snapshot.sessionId !== sessionId)
+    if (!snapshot) throw new Error('Durable runtime session not found');
+    if (snapshot.sessionId !== sessionId)
       throw new Error('Durable runtime session identity mismatch');
   }
 
