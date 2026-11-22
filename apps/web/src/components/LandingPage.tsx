@@ -166,6 +166,7 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#fcfbf9] text-[#1c1b1b] selection:bg-[#ffdfcf]">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-5 focus:py-3 focus:shadow-lg">Skip to main content</a>
       <header onMouseLeave={() => setActiveMenu(null)} className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#fcfbf9]/90 backdrop-blur-xl">
         <nav className="mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-6 px-6 md:px-10" aria-label="Main navigation">
           <Link href="/" className="text-2xl font-bold tracking-[-0.07em]" aria-label="Ocean home">Ocean<span className="text-[#ed5b20]">.</span></Link>
