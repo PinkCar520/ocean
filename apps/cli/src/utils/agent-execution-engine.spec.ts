@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AgentExecutionEngine, MemoryRuntimeEventStore, nextDurableToolCall, type AgentExecutionPorts } from '@ocean/core';
+import { AgentExecutionEngine, MemoryRuntimeEventStore, nextDurableToolCall, planDurableModelDecision, type AgentExecutionPorts } from '@ocean/core';
 
 type Message = { role: string; content: string };
 function fixture(decisions: Array<{ kind: 'complete'; text: string } | { kind: 'tools'; calls: Array<{ id: string; name: string; input: unknown }> }>) {
@@ -412,6 +412,34 @@ describe('shared durable tool batch scheduling', () => {
  });
  it('rejects duplicate identities even if they appear claimed', () => {
   expect(() => nextDurableToolCall([calls[0], calls[0]], new Set(['a']), false))
+   .toThrow('duplicate tool invocation');
+ });
+});
+
+
+describe('durable model decision planner', () => {
+ const calls = [
+  { id: 'first', name: 'shell', input: { cmd: 'pwd' } },
+  { id: 'second', name: 'shell', input: { cmd: 'ls' } },
+ ];
+ it('returns a terminal response without dispatching a tool', () => {
+  expect(planDurableModelDecision({ kind: 'complete', text: 'done' }))
+   .toEqual({ kind: 'complete', text: 'done' });
+ });
+ it('dispatches the first call and resumes with its next sibling', () => {
+  const decision = { kind: 'tools' as const, calls, text: 'working' };
+  expect(planDurableModelDecision(decision)).toEqual({ kind: 'dispatch', call: calls[0], text: 'working' });
+  expect(planDurableModelDecision(decision, new Set(['first'])))
+   .toEqual({ kind: 'dispatch', call: calls[1], text: 'working' });
+  expect(planDurableModelDecision(decision, new Set(['first', 'second'])))
+   .toEqual({ kind: 'awaiting_results' });
+ });
+ it('never dispatches past an unresolved prior effect', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['first']), true))
+   .toThrow('reconciliation required');
+ });
+ it('rejects duplicate tool identities before any dispatch', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls: [calls[0], calls[0]] }))
    .toThrow('duplicate tool invocation');
  });
 });
