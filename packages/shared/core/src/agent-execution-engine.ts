@@ -54,6 +54,23 @@ export interface AgentExecutionResult {
  * Portable Agent execution loop. A host supplies model, storage and tools;
  * the core owns state transitions, write-ahead tool claims and completion.
  */
+/**
+ * A durable host may need to yield after a model decision while an external
+ * worker executes tools. The same decision validation is shared with the
+ * synchronous CLI loop, so both hosts reject malformed tool batches alike.
+ */
+export function validateAgentModelDecision(decision: AgentModelDecision): AgentModelDecision {
+  if (decision.kind === 'complete') return decision;
+  if (!decision.calls.length) throw new Error('Model returned an empty tool batch');
+  const ids = new Set<string>();
+  for (const call of decision.calls) {
+    if (!call.id || !call.name || ids.has(call.id))
+      throw new Error('Model returned invalid or duplicate tool invocation');
+    ids.add(call.id);
+  }
+  return decision;
+}
+
 export class AgentExecutionEngine<Message> {
   constructor(private readonly ports: AgentExecutionPorts<Message>) {}
 
@@ -129,7 +146,7 @@ export class AgentExecutionEngine<Message> {
       let decision: AgentModelDecision;
       try {
         const context = this.ports.prepareContext ? await this.ports.prepareContext(messages, signal) : messages;
-        decision = await this.ports.model.next(context, signal);
+        decision = validateAgentModelDecision(await this.ports.model.next(context, signal));
       } catch (error) {
         await runtime.transition(runId, signal?.aborted ? 'cancelled' : 'failed');
         throw error;
