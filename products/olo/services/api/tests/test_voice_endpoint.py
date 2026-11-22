@@ -30,6 +30,7 @@ def test_voice_endpoint_requires_token_and_captures_once(monkeypatch):
     assert second.status_code == 202
     assert first.json() == second.json()
     assert first.json()["status"] == "captured"
+    assert first.json()["taskId"].startswith("task_voice_")
 
 
 def test_voice_endpoint_rejects_empty_transcript(monkeypatch):
