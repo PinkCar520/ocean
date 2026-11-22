@@ -226,9 +226,9 @@ export function LandingPage() {
               <div className="mt-8 flex flex-wrap items-center gap-3" aria-label="Ocean social media">
                 {socialProfiles.map(profile => {
                   const symbol = <img src={`/icons/social/${profile.slug}.svg`} alt="" aria-hidden="true" width={19} height={19} className="h-[19px] w-[19px] invert" />;
-                  const className = "flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-[#d4d0cb] transition-colors";
+                  const className = "flex h-10 w-10 items-center justify-center text-[#d4d0cb] transition-opacity";
                   return profile.url
-                    ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:border-[#e9561b] hover:text-[#e9561b]`}>{symbol}</a>
+                    ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:opacity-70`}>{symbol}</a>
                     : <span key={profile.label} aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
                 })}
               </div>
