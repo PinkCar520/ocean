@@ -792,12 +792,20 @@ export class RunRunner {
       });
       if (pendingIds.some(id => typeof id !== 'string'))
         throw new Error('Unidentifiable pending tool delivery; reconciliation required');
-      // Core owns journal ordering, pending-delivery fencing and resumption.
+      // Outbox rows for older batches may coexist with the current model
+      // step. Only the current model batch may influence this resume decision.
+      // Any unidentifiable delivery is a hard consistency failure.
       const nextDecision = this.executionDriver.resume(
         { kind: 'tools', calls }, claimed,
         { unfinishedTool: Boolean(unfinished), pendingDeliveryIds: pendingIds as string[] },
       );
-      if (nextDecision.kind === 'wait_for_host') return true;
+      if (nextDecision.kind === 'wait_for_host') {
+        // Do not acknowledge the run.requested message as successful while a
+        // prior external effect is still in flight. Ownership is relinquished
+        // and the existing tool-result continuation will resume the run.
+        await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
+        return true;
+      }
       const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
       if (!next) return false;
       {

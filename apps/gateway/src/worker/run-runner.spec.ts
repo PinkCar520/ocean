@@ -145,6 +145,21 @@ describe('RunRunner', () => {
     }));
   });
 
+  it('waits for a pending outbox tool without invoking the model or duplicating dispatch', async () => {
+    const { runner, tx, outbox, gateway } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
+    tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {
+      if (where?.kind === 'model_call') return { seq: 1, output: { toolCalls: [
+        { id: 'first', name: 'local_notebook_edit', input: {} },
+        { id: 'second', name: 'local_notebook_edit', input: {} },
+      ] } };
+      return null;
+    });
+    tx.outboxEvent.findMany.mockResolvedValue([{ payload: { toolCall: { id: 'first' } } }]);
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
   it('refuses to replay a missing earlier tool when a later sibling is already claimed', async () => {
     const { runner, tx, outbox, gateway } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
     tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {

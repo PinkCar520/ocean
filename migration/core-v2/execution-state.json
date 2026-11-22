@@ -2,17 +2,15 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M02-inline-durable-execution-driver",
+    "id": "M03-gateway-host-adapter-integration",
     "status": "implemented_unverified",
     "codePaths": [
-      "packages/shared/core/src/agent-execution-engine.ts",
-      "packages/shared/core/src/index.ts",
-      "packages/shared/core/src/agent-execution-protocol.spec.ts",
-      "apps/gateway/src/worker/run-runner.ts"
+      "apps/gateway/src/worker/run-runner.ts",
+      "apps/gateway/src/worker/run-runner.spec.ts"
     ],
-    "evidence": "Inline and Gateway production paths invoke shared AgentExecutionDriver; contract tests committed, not executed."
+    "evidence": "Gateway production worker uses shared driver; pending outbox integration test added; CI unverified"
   },
-  "nextTask": "M03 Gateway Host Adapter Integration: ensure Core is mandatory in production and all RunStep/outbox state changes share fenced transactions",
+  "nextTask": "M04 Persistent Session Lifecycle: verify stable session ownership, append and resume semantics",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -70,7 +68,14 @@
       ]
     },
     "M03": {
-      "status": "pending"
+      "status": "implemented_unverified",
+      "implementationStatus": "implemented",
+      "verificationStatus": "not_run",
+      "description": "Gateway resume integration fences pending tool deliveries and requeues owned run while awaiting prior external effect; Jest worker integration test",
+      "codePaths": [
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts"
+      ]
     },
     "M04": {
       "status": "pending"
@@ -87,5 +92,15 @@
     "M08": {
       "status": "pending"
     }
+  },
+  "ciInvestigation": {
+    "workflow": ".github/workflows/ci.yml",
+    "triggers": [
+      "pull_request",
+      "push(main,develop)",
+      "workflow_dispatch",
+      "workflow_call"
+    ],
+    "observation": "No runs returned for PR head; pull_request event should trigger, investigate Actions permissions and PR draft handling"
   }
 }
