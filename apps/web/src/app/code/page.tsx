@@ -19,7 +19,7 @@ export default function OceanCodePage() {
       </header>
       <section className="mx-auto max-w-6xl px-6 py-24 md:py-32">
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#e9561b]">Ocean Code · Terminal agent</p>
-        <h1 className="mt-6 max-w-4xl text-5xl font-semibold tracking-[-0.06em] md:text-7xl">Bring an agent into your codebase.</h1>
+        <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-[-0.06em] sm:text-5xl md:text-7xl">Bring an agent into your codebase.</h1>
         <p className="mt-8 max-w-2xl text-lg leading-8 text-[#6f6a65]">Explore Ocean Code, the terminal interface to the Ocean agent platform. Review the source and setup requirements before running it in your environment.</p>
         <div className="mt-10 flex flex-wrap gap-3">
           <a href="#code-start" className="rounded-full border border-[#e9561b] px-6 py-3 font-semibold text-[#ba4b20] hover:bg-[#fff0e8]">Getting started</a>
