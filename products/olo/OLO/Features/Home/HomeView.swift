@@ -30,7 +30,6 @@ struct HomeView: View {
             VStack(spacing: 18) {
                 hero
                 entityStage
-                controls
                 NavigationLink {
                     WorldView()
                 } label: {
@@ -121,7 +120,7 @@ struct HomeView: View {
             Text("它一直在。")
                 .font(.largeTitle.bold().lowercaseSmallCaps())
                 .kerning(-1.2)
-            Text("轻触、长按、翻转。OLO 的交互从实体开始，而不是从 App 开始。")
+            Text("OLO 在合适的时机出现，其他时候安静陪伴。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -219,18 +218,8 @@ struct HomeView: View {
         var bold = AttributeContainer()
         bold.inlinePresentationIntent = .stronglyEmphasized
         var s = AttributedString(stateName, attributes: bold)
-        s.append(AttributedString(" · 轻触聆听 · 长按 600ms 说出任务 · 双击待机"))
-        return s
-    }
 
-    /// Three control cards matching the prototype layout: 轻触 / 长按 / 双击.
-    private var controls: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 9) {
-            controlButton(strong: "轻触", span: "开始对话", icon: "hand.tap.fill", action: enqueueSingleTap)
-            controlButton(strong: "长按", span: "说出任务", icon: "brain.head.profile", action: wakeAgent)
-            controlButton(strong: "双击", span: "回到待机", icon: "moon.fill", action: standby)
-            controlButton(strong: "翻转", span: "Privacy", icon: "eye.slash.fill", action: togglePrivacy)
-        }
+        return s
     }
 
     // MARK: - Rows / buttons
@@ -272,22 +261,6 @@ struct HomeView: View {
         .padding(16)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
-    }
-
-    private func controlButton(strong: String, span: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon).font(.title3)
-                Text(strong).font(.caption2.bold())
-                Text(span).font(.caption2).foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(.black.opacity(0.06)))
-        }
-        .buttonStyle(.plain)
-        .tint(.primary)
     }
 
     // MARK: - Gesture dispatch
