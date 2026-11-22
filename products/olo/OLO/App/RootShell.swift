@@ -3,7 +3,7 @@ import SwiftData
 
 /// Top-level shell of the iPhone body. Voice, Activity, Memory and Settings
 /// are the four primary destinations. World lives under Settings and
-/// Actions under Activity; the ambient Home view is not a tab.
+/// Actions under Activity; the former Home entity surface is the Voice tab.
 struct RootShell: View {
     @Environment(OLOCenter.self) private var center
     @Environment(\.modelContext) private var modelContext
@@ -12,7 +12,7 @@ struct RootShell: View {
         NavigationStack {
             TabView {
                 Tab("Voice", systemImage: "mic") {
-                    VoiceView()
+                    HomeView()
                 }
                 Tab("Activity", systemImage: "waveform") {
                     AgentActivityView()
