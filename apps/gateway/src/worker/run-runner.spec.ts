@@ -145,6 +145,20 @@ describe('RunRunner', () => {
     }));
   });
 
+  it('rejects duplicate tool IDs using the shared Core decision contract', async () => {
+    const calls = [
+      { id: 'duplicate', name: 'local_notebook_edit', input: {} },
+      { id: 'duplicate', name: 'local_notebook_edit', input: {} },
+    ];
+    const { runner, outbox } = createRunner(
+      { id: 'run_1', userId: 'user_1', status: 'queued', input: 'work' },
+      { generateResult: { text: '', toolCalls: calls } },
+    );
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('duplicate tool invocation') });
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+  });
+
   it.each(['NaN', 'Infinity', '0', '-1', '1.5'])('fails closed for invalid turn limit %s', async (limit) => {
     const previous = process.env.WORKER_MAX_TURNS;
     process.env.WORKER_MAX_TURNS = limit;
