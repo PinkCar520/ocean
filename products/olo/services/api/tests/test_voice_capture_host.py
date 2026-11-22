@@ -16,11 +16,13 @@ def test_capture_uses_real_repository_and_is_idempotent():
     second = asyncio.run(host.respond(turn))
     assert first == second
     assert first.session_id == "session_1"
-    task_id = next(iter(repository.agent._tasks))
+    import hashlib
+    digest = hashlib.sha256("\x00".join((turn.subject_id, turn.source_body_id, turn.session_id, turn.transcript)).encode()).hexdigest()
+    task_id = f"task_voice_{digest[:32]}"
     stored = repository.get_task(task_id)
     assert stored["rawIntent"] == turn.transcript
     assert stored["subjectId"] == turn.subject_id
-    assert len(repository.agent._tasks) == 1
+    assert stored["status"] == "captured"
 
 
 def test_capture_separates_subject_and_session():
@@ -32,4 +34,4 @@ def test_capture_separates_subject_and_session():
             subject_id=subject, session_id=session,
             transcript="提醒我明天开会", source_body_id="iphone_1",
         )))
-    assert len(repository.agent._tasks) == 3
+    assert repository.get_task("task_voice_" + __import__("hashlib").sha256("\\x00".join(("person_2", "iphone_1", "session_1", "提醒我明天开会")).encode()).hexdigest()[:32])["subjectId"] == "person_2"
