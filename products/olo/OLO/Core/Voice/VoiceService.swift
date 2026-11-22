@@ -40,6 +40,13 @@ public protocol VoiceService: AnyObject, Sendable {
 
     /// Stop listening and finalize the current transcript.
     func stop() async
+
+    /// Live normalized microphone level for the Voice UI.
+    func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?)
+}
+
+public extension VoiceService {
+    func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {}
 }
 
 public enum VoiceError: Error, Sendable {
