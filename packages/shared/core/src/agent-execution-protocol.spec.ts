@@ -136,11 +136,11 @@ describe('R01 Core turn orchestration contract', () => {
     expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [] }))
       .toEqual({ kind: 'call_model' });
   });
-  it('rejects orphan outbox deliveries without a durable tool claim', () => {
-    expect(() => planAgentTurn({
+  it('waits for an enqueued outbox delivery before a tool is claimed', () => {
+    expect(planAgentTurn({
       cancelled: false, unfinishedTool: true, pendingDeliveryIds: ['a'],
       modelDecision: { kind: 'tools', calls }, claimedIds: new Set<string>(),
-    })).toThrow(/lacks durable tool claim/);
+    })).toEqual({ kind: 'wait_for_host' });
     expect(planAgentTurn({
       cancelled: false, unfinishedTool: true, pendingDeliveryIds: ['a'],
       modelDecision: { kind: 'tools', calls }, claimedIds: new Set(['a']),

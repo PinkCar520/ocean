@@ -181,8 +181,6 @@ export function planAgentExecutionResume(
   const known = new Set(decision.calls.map(call => call.id));
   if (inFlight.pendingDeliveryIds.some(id => !known.has(id)))
     throw new Error('Pending delivery absent from model decision; reconciliation required');
-  if (inFlight.pendingDeliveryIds.some(id => !claimedIds.has(id)))
-    throw new Error('Pending delivery lacks durable tool claim; reconciliation required');
   // Check journal ordering even when blocked by a pending delivery.
   nextDurableToolCall(decision.calls, claimedIds, false);
   if (inFlight.unfinishedTool || inFlight.pendingDeliveryIds.length)
