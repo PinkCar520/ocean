@@ -3,7 +3,8 @@ import { collectMcpTools } from '@ocean/core';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
 import type { JsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/types.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { createHash } from 'node:crypto';
+import { configFile, mutateServers } from './config-store.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { homedir } from 'node:os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -15,7 +16,8 @@ export interface McpServerEntry {
   id: string;
   name: string;
   command: string;
-  type?: 'stdio' | 'http';
+  type?: 'stdio' | 'http' | 'sse';
+  headers?: Record<string,string>;
   url?: string;
   args: string[];
   env?: Record<string, string>;
@@ -69,7 +71,7 @@ export class McpClientManager {
     const candidates = configPath ? [{ file: configPath, scope: 'Explicit', trusted: true }] : [
       { file: path.join(homedir(), '.ocean', 'mcp.json'), scope: 'User', trusted: true },
       { file: path.join(workspace, '.ocean', 'mcp.json'), scope: 'Project', trusted: false },
-      { file: path.join(homedir(), '.ocean', 'projects', createHash('sha256').update(fs.realpathSync(workspace)).digest('hex'), 'mcp.json'), scope: 'Local', trusted: true },
+      { file: configFile('local', workspace), scope: 'Local', trusted: true },
     ];
     const merged = new Map<string, McpServerEntry>();
     for (const origin of candidates) {
@@ -153,7 +155,11 @@ export class McpClientManager {
     if (!server) throw new Error(`Unknown MCP server: ${id}`);
     if (enabled !== false && !this.origins.get(id)?.trusted && !this.sdkTransports.has(id)) throw new Error('The MCP server is configured by an untrusted workspace.');
     if (enabled === undefined && server.enabled !== true) throw new Error('Enable the MCP server before reconnecting.');
-    if (enabled !== undefined) server.enabled = enabled;
+    if (enabled !== undefined) {
+      const origin = this.origins.get(id);
+      if (origin?.trusted && origin.scope !== 'Explicit') mutateServers(origin.file, entries => entries.map(entry => entry.id === id ? {...entry, enabled} : entry));
+      server.enabled = enabled;
+    }
     await this.disconnectServer(id);
     this.diagnostics.delete(id);
     if (server.enabled !== true) return;
@@ -210,8 +216,9 @@ export class McpClientManager {
     }
 
     if (this.clients.has(server.id)) return;
-    const transport = this.sdkTransports.get(server.id)?.() ?? (server.type === 'http'
-      ? new StreamableHTTPClientTransport(new URL(server.url!))
+    const headers = Object.fromEntries(Object.entries(server.headers ?? {}).map(([k,v])=>[k,replaceEnvVars(v,process.env)]));
+    const transport = this.sdkTransports.get(server.id)?.() ?? (server.type === 'sse' ? new SSEClientTransport(new URL(server.url!), {requestInit:{headers}}) : server.type === 'http'
+      ? new StreamableHTTPClientTransport(new URL(server.url!), {requestInit:{headers}})
       : new StdioClientTransport({
       command: replaceEnvVars(server.command, process.env),
       args: resolvedArgs,
@@ -364,12 +371,12 @@ export function normalizeMcpConfig(value: unknown): McpConfigFile {
       throw new Error(`MCP server id is invalid or duplicated: ${id}`);
     }
     ids.add(id);
-    if (raw?.type !== undefined && !['stdio', 'http'].includes(raw.type)) throw new Error('Unsupported MCP transport');
-    if (raw?.type === 'http') {
+    if (raw?.type !== undefined && !['stdio', 'http', 'sse', 'streamable-http'].includes(raw.type)) throw new Error('Unsupported MCP transport');
+    if (['http','sse','streamable-http'].includes(raw?.type)) {
       const url = new URL(raw.url);
       if (url.username || url.password || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))) throw new Error('Unsafe MCP HTTP URL');
     }
-    if (raw?.type !== 'http' && (typeof raw?.command !== 'string' || !raw.command.trim())) {
+    if (!['http','sse','streamable-http'].includes(raw?.type) && (typeof raw?.command !== 'string' || !raw.command.trim())) {
       throw new Error(`MCP server ${id} must define a stdio command`);
     }
     if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') {
@@ -383,10 +390,13 @@ export function normalizeMcpConfig(value: unknown): McpConfigFile {
       || Object.values(env).some((item) => typeof item !== 'string')) {
       throw new Error(`MCP server ${id} env must contain string values`);
     }
+    const headers = raw.headers ?? {};
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers) || Object.values(headers).some(v=>typeof v!=='string')) throw new Error('Invalid MCP headers');
     return {
       id,
+      headers,
       name: typeof raw.name === 'string' && raw.name.trim() ? raw.name : id,
-      type: raw.type ?? 'stdio',
+      type: raw.type === 'streamable-http' ? 'http' : raw.type ?? 'stdio',
       url: raw.url,
       command: raw.command ?? '',
       args: raw.args ?? [],
