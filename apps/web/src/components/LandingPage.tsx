@@ -491,7 +491,7 @@ export function LandingPage() {
                   <h2 className="mb-6 text-xs font-semibold uppercase tracking-[0.12em] text-[#85817d]">{group.heading}</h2>
                   <ul className="space-y-4">
                     {group.links.map(link => (
-                      <li key={link.label}><a href={link.href} className="text-sm leading-6 text-[#e6e2dd] transition-colors hover:text-[#f27b4a]">{link.label}</a></li>
+                      <li key={link.label}><a href={link.href} className="rounded text-sm leading-6 text-[#e6e2dd] transition-colors hover:text-[#f27b4a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">{link.label}</a></li>
                     ))}
                   </ul>
                 </div>
