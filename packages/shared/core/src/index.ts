@@ -173,7 +173,7 @@ export { MemoryRuntimeEventStore } from './runtime-memory-store.js';
 export { AgentRuntime } from './agent-runtime.js';
 export { ToolRuntime, normalizeToolOutput } from './tool-runtime.js';
 export type { ToolDescriptor, ToolAuthorization, ToolPolicyContext } from './tool-runtime.js';
-export { assembleContext, validateCompaction, ContextBudgetError } from './context-engine.js';
+export { assembleContext, validateCompaction, validateHistoryCompactionBoundary, validateCachedCompaction, ContextBudgetError } from './context-engine.js';
 export type { ContextLayers, ContextBudgetEvidence } from './context-engine.js';
 export { resolveSkills, skillAllowedTools } from './skills-runtime.js';
 export type { SkillDescriptor, SkillActivation } from './skills-runtime.js';

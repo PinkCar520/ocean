@@ -159,6 +159,20 @@ describe('RunRunner', () => {
     expect(gateway.generate).not.toHaveBeenCalled();
   });
 
+  it('ignores stale pending deliveries from earlier model batches', async () => {
+    const { runner, tx, outbox } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
+    tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {
+      if (where?.kind === 'model_call') return { seq: 3, output: { toolCalls: [
+        { id: 'current-first', name: 'local_notebook_edit', input: {} },
+        { id: 'current-second', name: 'local_notebook_edit', input: {} },
+      ] } };
+      return null;
+    });
+    tx.outboxEvent.findMany.mockResolvedValue([{ payload: { toolCall: { id: 'old-batch' } } }]);
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(outbox.enqueueToolRequested).toHaveBeenCalled();
+  });
+
   it('refuses to replay a missing earlier tool when a later sibling is already claimed', async () => {
     const { runner, tx, outbox, gateway } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
     tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {

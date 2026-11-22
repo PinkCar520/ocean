@@ -3,7 +3,7 @@ name: Ocean Quality Gate
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'feat/core-v2-final-integration']
   workflow_dispatch:
   workflow_call:
 

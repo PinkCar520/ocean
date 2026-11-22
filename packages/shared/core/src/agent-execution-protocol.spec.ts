@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validateCachedCompaction, validateHistoryCompactionBoundary } from './context-engine.js';
 import { AgentExecutionDriver, nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume, planAgentCompletion, planAgentFailure } from './agent-execution-engine.js';
 
 const calls = [
@@ -87,5 +88,17 @@ describe('shared inline/durable execution protocol', () => {
   });
   it('cannot declare completion with outstanding claims', () => {
     expect(() => nextAgentExecutionDirective({ kind: 'complete', text: 'done' }, { claimedIds: new Set(['a']) })).toThrow(/Cannot complete/);
+  });
+});
+
+describe('Core v2 context integrity acceptance', () => {
+  it('accepts a closed plain-text history prefix', () => {
+    expect(() => validateHistoryCompactionBoundary([{ role: 'user', text: 'hi' }, { role: 'assistant', text: 'ok' }], 2)).not.toThrow();
+  });
+  it('refuses to summarize a structured tool invocation', () => {
+    expect(() => validateHistoryCompactionBoundary([{ role: 'assistant', toolCalls: [{ id: 'a' }] }], 1)).toThrow(/structured tool/);
+  });
+  it('refuses non-reducing cached summaries', () => {
+    expect(() => validateCachedCompaction(100, 100, 200, [{ role: 'user', text: 'hello' }], 1)).toThrow(/did not reduce/);
   });
 });

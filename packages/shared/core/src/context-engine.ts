@@ -35,3 +35,39 @@ export function validateCompaction(evidence: ContextBudgetEvidence): void {
 export function assembleContext<T>(layers: ContextLayers<T>): T[] {
   return [...layers.l0, ...layers.l2, ...layers.l1];
 }
+
+/** A history compaction boundary must not separate a tool call from its
+ * result. Unknown structured rows are retained rather than silently erased.
+ */
+export function validateHistoryCompactionBoundary(
+  history: readonly unknown[],
+  boundary: number,
+): void {
+  if (!Number.isSafeInteger(boundary) || boundary < 0 || boundary > history.length)
+    throw new ContextBudgetError('Invalid history compaction boundary');
+  for (let index = 0; index < boundary; index++) {
+    const row = history[index];
+    if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+    const record = row as Record<string, unknown>;
+    // Text-only chat turns can be summarized; structured tool events require
+    // the host to prove the pair is closed before dropping either side.
+    if (record.toolCalls !== undefined || record.toolResults !== undefined ||
+        record.toolCallId !== undefined || record.toolResult !== undefined ||
+        record.role === 'tool')
+      throw new ContextBudgetError('Cannot compact structured tool history without journal reconciliation');
+  }
+}
+
+/** An old cached summary is only reusable when it fits the same effective
+ * budget and its immutable history prefix has been verified by the host.
+ */
+export function validateCachedCompaction(
+  beforeTokens: number, afterTokens: number, budgetTokens: number,
+  history: readonly unknown[], boundary: number,
+): void {
+  validateHistoryCompactionBoundary(history, boundary);
+  validateCompaction({
+    beforeTokens, afterTokens, budgetTokens,
+    summaryValid: true, toolPairsClosed: true, preservesRequiredContext: true,
+  });
+}

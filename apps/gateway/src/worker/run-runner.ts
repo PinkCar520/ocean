@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { AgentExecutionDriver, AgentExecutionEngine, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
+import { AgentExecutionDriver, AgentExecutionEngine, countTextTokens, validateCompaction, validateHistoryCompactionBoundary, validateCachedCompaction, ContextBudgetError } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -522,6 +522,7 @@ export class RunRunner {
       const rows = history.slice(cached.boundary);
       const after = countTextTokens(JSON.stringify(rows)) + countTextTokens(cached.summary);
       if (after < historyBudget && after < countTextTokens(JSON.stringify(history))) {
+        validateCachedCompaction(countTextTokens(JSON.stringify(history)), after, historyBudget, history, cached.boundary);
         return { rows, summary: cached.summary, toolBudget: historyBudget - after };
       }
     }
@@ -600,6 +601,7 @@ export class RunRunner {
     // The current user prompt and system policy are outside chatHistory and
     // must never be discarded as a side effect of summarizing older turns.
     if (boundary > 0) {
+      validateHistoryCompactionBoundary(history, boundary);
       validateCompaction({
         beforeTokens, afterTokens, budgetTokens: historyBudget,
         summaryValid: Boolean(summary?.trim()),
@@ -831,9 +833,11 @@ export class RunRunner {
       // Outbox rows for older batches may coexist with the current model
       // step. Only the current model batch may influence this resume decision.
       // Any unidentifiable delivery is a hard consistency failure.
+      const currentBatchIds = new Set(calls.map(call => call.id));
+      const relevantPendingIds = (pendingIds as string[]).filter(id => currentBatchIds.has(id));
       const nextDecision = this.executionDriver.resume(
         { kind: 'tools', calls }, claimed,
-        { unfinishedTool: Boolean(unfinished), pendingDeliveryIds: pendingIds as string[] },
+        { unfinishedTool: Boolean(unfinished), pendingDeliveryIds: relevantPendingIds },
       );
       if (nextDecision.kind === 'wait_for_host') {
         // Do not acknowledge the run.requested message as successful while a

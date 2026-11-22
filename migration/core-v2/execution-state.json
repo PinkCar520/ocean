@@ -2,16 +2,19 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M04-persistent-session-lifecycle",
-    "status": "implemented_unverified",
+    "id": "M05-M08-integrated-change-set",
+    "status": "partial",
     "codePaths": [
+      "packages/shared/core/src/context-engine.ts",
+      "packages/shared/core/src/index.ts",
       "apps/gateway/src/worker/run-runner.ts",
       "apps/gateway/src/worker/run-runner.spec.ts",
-      "packages/shared/core/src/agent-execution-engine.ts"
+      "packages/shared/core/src/agent-execution-protocol.spec.ts",
+      ".github/workflows/ci.yml"
     ],
-    "evidence": "Session ownership/parent validation and duplicate-safe transcript commit integrated; tests added but not run"
+    "evidence": "Context, recovery, contract tests and CI trigger committed together; not verified"
   },
-  "nextTask": "M05 Context Lifecycle: unify context budget and transcript compaction through Core ports",
+  "nextTask": "Run CI and PostgreSQL integration, fix any failures; finish M06-M08 and A01-A20 before acceptance",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -90,16 +93,44 @@
       ]
     },
     "M05": {
-      "status": "pending"
+      "status": "implemented_unverified",
+      "implementationStatus": "implemented",
+      "verificationStatus": "not_run",
+      "description": "Core validates compaction boundaries, cached-summary reduction and budget; Gateway applies shared checks before persistent summaries; unit coverage",
+      "codePaths": [
+        "packages/shared/core/src/context-engine.ts",
+        "apps/gateway/src/worker/run-runner.ts",
+        "packages/shared/core/src/agent-execution-protocol.spec.ts"
+      ]
     },
     "M06": {
-      "status": "pending"
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Durable recovery ignores stale prior-batch pending outbox deliveries, while preserving unresolved current-batch fences; additional crash cases remain",
+      "codePaths": [
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts"
+      ]
     },
     "M07": {
-      "status": "pending"
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Added context and stale outbox contract cases; A01-A20 CI matrix remains unverified",
+      "codePaths": [
+        "packages/shared/core/src/agent-execution-protocol.spec.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts"
+      ]
     },
     "M08": {
-      "status": "pending"
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "CI push trigger extended to integration branch; complete CI and PostgreSQL acceptance still required",
+      "codePaths": [
+        ".github/workflows/ci.yml"
+      ]
     }
   },
   "ciInvestigation": {
@@ -110,6 +141,6 @@
       "workflow_dispatch",
       "workflow_call"
     ],
-    "observation": "No runs returned for PR head; pull_request event should trigger, investigate Actions permissions and PR draft handling"
+    "observation": "Push trigger expanded to feat/core-v2-final-integration; workflow run evidence must be inspected after push"
   }
 }
