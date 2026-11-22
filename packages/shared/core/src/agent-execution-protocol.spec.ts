@@ -18,6 +18,14 @@ describe('shared inline/durable execution protocol', () => {
     await expect(engine.assertDurableSession('run', 'session-b')).rejects.toThrow(/mismatch/);
     await expect(engine.assertDurableSession('run', 'session-a')).resolves.toBeUndefined();
   });
+  it('rejects lossy JSON tool arguments before durable dispatch', () => {
+    for (const input of [{ limit: Number.NaN }, { nested: [Infinity] }, { key: undefined },
+      { cb: () => 1 }, { date: new Date() }]) {
+      expect(() => nextAgentExecutionDirective({
+        kind: 'tools', calls: [{ id: 'call', name: 'echo', input }],
+      })).toThrow(/non-serializable|non-JSON/);
+    }
+  });
   it('uses one production driver for inline and durable model turns', () => {
     const driver = new AgentExecutionDriver();
     const decision = { kind: 'tools' as const, calls };

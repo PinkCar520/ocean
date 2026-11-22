@@ -79,6 +79,29 @@ export function validateAgentModelDecision(decision: AgentModelDecision): AgentM
     let encoded: string | undefined;
     try { encoded = JSON.stringify(call.input); } catch { /* cyclic input */ }
     if (encoded === undefined) throw new Error('Model returned non-serializable tool input');
+    // JSON.stringify silently rewrites NaN/Infinity to null and drops
+    // undefined/functions/symbols. Durable replay must not change tool args.
+    const stack: unknown[] = [call.input];
+    const visited = new Set<object>();
+    while (stack.length) {
+      const value = stack.pop();
+      if (typeof value === 'number' && !Number.isFinite(value))
+        throw new Error('Model returned non-serializable tool input');
+      if (value === undefined || typeof value === 'function' || typeof value === 'symbol' ||
+          typeof value === 'bigint')
+        throw new Error('Model returned non-serializable tool input');
+      if (value && typeof value === 'object') {
+        if (visited.has(value)) continue;
+        visited.add(value);
+        if (Array.isArray(value)) stack.push(...value);
+        else {
+          const proto = Object.getPrototypeOf(value);
+          if (proto !== Object.prototype && proto !== null)
+            throw new Error('Model returned non-JSON tool input');
+          stack.push(...Object.values(value));
+        }
+      }
+    }
     ids.add(call.id);
   }
   return decision;
