@@ -98,6 +98,7 @@ export default function OceanCodePage() {
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {[
               ['Source repository', repository],
+              ['CLI implementation', repository + '/tree/main/apps/cli'],
               ['Setup and README', repository + '#readme'],
               ['Architecture documents', repository + '/tree/main/docs/architecture/v2'],
               ['Releases', repository + '/releases'],
