@@ -32,6 +32,13 @@ integration('Tool idempotency identity against PostgreSQL', () => {
     ); INSERT INTO "${schema}"."run_approvals" VALUES ('legacy', 'session-1', 'file_write', 'approved')`);
     await admin.query(readFileSync(resolve(process.cwd(), 'prisma/migrations/20261116000002_approval_binding/migration.sql'), 'utf8'));
     await admin.query(readFileSync(resolve(process.cwd(), 'prisma/migrations/20261116000003_tool_idempotency/migration.sql'), 'utf8'));
+    await admin.query(`INSERT INTO "${schema}"."run_steps"
+      ("id", "runId", "seq", "kind", "status", "input")
+      VALUES
+       ('legacy-unique', 'legacy-run', 1, 'tool_call', 'succeeded', '{"idempotencyKey":"legacy-key","name":"echo","input":{}}'::jsonb),
+       ('legacy-duplicate-a', 'legacy-run', 2, 'tool_call', 'succeeded', '{"idempotencyKey":"duplicate","name":"echo","input":{}}'::jsonb),
+       ('legacy-duplicate-b', 'legacy-run', 3, 'tool_call', 'unknown', '{"idempotencyKey":"duplicate","name":"echo","input":{}}'::jsonb)`);
+    await admin.query(readFileSync(resolve(process.cwd(), 'prisma/migrations/20261122010000_tool_idempotency_backfill/migration.sql'), 'utf8'));
     pool = new Pool({ connectionString: url.toString() });
     prisma = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
   }, 15_000);
@@ -52,6 +59,21 @@ integration('Tool idempotency identity against PostgreSQL', () => {
     const bound = await admin.query(`SELECT * FROM "${schema}"."run_approvals" WHERE "sessionId" = 'session-1' AND "toolName" = 'file_write' AND status = 'approved'`);
     expect(bound.rows).toHaveLength(1);
     expect(bound.rows[0]).toMatchObject({ scope: 'session', policyVersion: 'v1', policyRuleId: 'rule-1', argsHash: 'digest' });
+  });
+
+  it('backfills unambiguous legacy keys and leaves colliding histories for conservative fallback', async () => {
+    const result = await admin.query(`SELECT id, "idempotencyKey" FROM "${schema}"."run_steps"
+      WHERE "runId" = 'legacy-run' ORDER BY seq`);
+    expect(result.rows).toEqual([
+      { id: 'legacy-unique', idempotencyKey: 'legacy-key' },
+      { id: 'legacy-duplicate-a', idempotencyKey: null },
+      { id: 'legacy-duplicate-b', idempotencyKey: null },
+    ]);
+    await expect(prisma.runStep.create({
+      data: { id: 'legacy-replay', runId: 'legacy-run', seq: 4,
+        kind: 'tool_call', status: 'started', idempotencyKey: 'legacy-key',
+        input: { name: 'echo', input: {}, idempotencyKey: 'legacy-key' } },
+    })).rejects.toMatchObject({ code: 'P2002' });
   });
 
   it('rejects a second tool_call with the same run/idempotency key', async () => {
