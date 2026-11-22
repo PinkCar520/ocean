@@ -125,6 +125,7 @@ export default function OceanCodePage() {
           <p className="mt-4 max-w-2xl leading-7 text-[#6f6a65]">Start with the open-source CLI or open the Ocean web workspace.</p>
           <div className="mt-7 flex flex-wrap gap-3"><a href={repository + '#readme'} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1c1b1b] px-6 py-3 font-semibold text-white hover:bg-[#e9561b]" aria-label="CLI documentation on GitHub (opens in a new tab)">CLI documentation</a><Link href="/app" className="rounded-full border border-black/20 px-6 py-3 font-semibold hover:border-[#e9561b]">Open workspace</Link></div>
         </section>
+        <p className="mt-16 border-t border-black/10 pt-6 text-xs leading-6 text-[#77716c]">Ocean is an evolving open-source project. Features, providers, and host integrations may change; check the source and release notes for current behavior.</p>
         <div className="mt-14 text-right"><a href="#main-content" className="text-sm font-semibold text-[#ba4b20] underline underline-offset-4">Back to top</a></div>
       </section>
     </main>
