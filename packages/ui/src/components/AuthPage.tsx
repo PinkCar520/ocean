@@ -88,12 +88,9 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
 
             <div className="mb-auto mt-auto max-w-md pb-24">
               <h1 className="text-5xl font-semibold leading-[1.13] tracking-[-0.06em]">
-                One Agent Core.<br />
-                <span className="text-[#e9784b]">Multiple Hosts.</span>
+                Together, let's explore<br />
+                <span className="text-[#e9784b]">what's next in human-AI interaction.</span>
               </h1>
-              <p className="mt-7 max-w-sm text-lg leading-8 text-white/65">
-                Together, let's explore what's next in human-AI interaction.
-              </p>
 
             </div>
           </div>
