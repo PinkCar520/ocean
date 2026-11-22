@@ -507,7 +507,7 @@ export function LandingPage() {
                   <div className="absolute bottom-full right-0 mb-3 w-56 rounded-xl border border-white/15 bg-[#292827] p-2 shadow-xl">
                     <p className="px-3 py-2 text-xs text-[#a8a39e]">Website language</p>
                     <button type="button" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white">English · Current</button>
-                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">Additional translations are not available yet.</p>
+                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Workspace language preferences are managed separately.</p>
                   </div>
                 )}
               </div>
