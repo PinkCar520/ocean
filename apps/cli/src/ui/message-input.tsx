@@ -48,7 +48,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [startIndex, setStartIndex] = useState(0);
-  const MAX_VISIBLE = 5;
+  const MAX_VISIBLE = 10;
   const position = useRef<number | undefined>(undefined);
   const draft = useRef('');
 
