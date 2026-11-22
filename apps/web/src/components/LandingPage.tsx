@@ -232,7 +232,7 @@ export function LandingPage() {
                 </button>
                 {mobileGroup === group.label && <div className="flex flex-col gap-3 pb-4 pl-4">
                   {group.columns.flatMap(column => column.links).map(link => (
-                    <a key={link.label} href={link.href} onClick={() => setMenuOpen(false)} className="rounded text-[#77716c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">{link.label}</a>
+                    <a key={link.label} href={link.href} onClick={() => { setMenuOpen(false); setMobileGroup(null); }} className="rounded text-[#77716c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">{link.label}</a>
                   ))}
                 </div>}
               </div>
