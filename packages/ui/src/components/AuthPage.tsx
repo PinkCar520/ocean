@@ -23,7 +23,8 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLanguage = i18n.resolvedLanguage?.startsWith('zh') ? 'zh' : 'en';
 
   // Form states
   const [email, setEmail] = useState('');
@@ -118,6 +119,22 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
 
         {/* ── Right Side: Auth Form ── */}
         <div className="relative flex flex-1 flex-col items-center px-4 py-6 sm:p-8 md:p-10 lg:items-center lg:flex-[0.8] lg:px-10 lg:py-12">
+          <div className="mb-6 flex w-full max-w-[380px] justify-end lg:mb-0">
+            <div className="inline-flex items-center gap-2 text-xs text-[#77716d]">
+              <Globe className="h-4 w-4" aria-hidden="true" />
+              <label htmlFor="auth-language" className="sr-only">{t('auth.language_label')}</label>
+              <select
+                id="auth-language"
+                aria-label={t('auth.language_label')}
+                value={currentLanguage}
+                onChange={(event) => { void i18n.changeLanguage(event.target.value); }}
+                className="cursor-pointer rounded-md border border-transparent bg-transparent px-1 py-1 text-xs text-[#55504c] outline-none focus-visible:border-[#e9784b]"
+              >
+                <option value="en">English</option>
+                <option value="zh">简体中文</option>
+              </select>
+            </div>
+          </div>
           <div className="mx-auto flex w-full max-w-[320px] flex-1 flex-col sm:max-w-[348px] lg:max-w-[380px] lg:justify-center">
           
           <div className="mb-7 w-full text-center">
