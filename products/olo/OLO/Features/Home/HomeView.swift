@@ -13,6 +13,9 @@ struct HomeView: View {
     @Environment(OLOCenter.self) private var center
 
     @State private var speech = OLOSpeechResponder()
+    @State private var microphoneLevel: Float = 0
+    @State private var isSpeaking = false
+    @State private var voiceMode = false
     @State private var lastSpokenStatus: AgentTaskStatus?
     @State private var lastSpokenTaskID: UUID?
     @State private var showingAgentSheet = false
@@ -61,6 +64,9 @@ struct HomeView: View {
             if enabled { speech.stop(); standby() }
         }
         .onDisappear {
+            center.voiceService?.setLevelHandler(nil)
+            microphoneLevel = 0
+            voiceMode = false
             speech.stop()
             pressActivationTask?.cancel()
             listenGeneration = UUID()
@@ -112,7 +118,12 @@ struct HomeView: View {
             VStack(spacing: 18) {
                 OLOEntityView()
                 stateLabel
+                if voiceMode && !center.privacyMode {
+                    voiceWaveform
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
             }
+            .animation(.easeInOut(duration: 0.25), value: voiceMode)
         }
         .frame(height: 460)
         .accessibilityIdentifier("olo.entity")
@@ -134,6 +145,30 @@ struct HomeView: View {
             TapGesture(count: 1)
                 .onEnded { enqueueSingleTap() }
         )
+    }
+
+    private var voiceWaveform: some View {
+        VStack(spacing: 10) {
+            HStack(alignment: .center, spacing: 4) {
+                ForEach(0..<27, id: \.self) { index in
+                    let phase = abs(sin(Double(index) * 0.73))
+                    let amplitude = center.state == .listening
+                        ? Double(microphoneLevel)
+                        : (isSpeaking ? 0.36 : 0.08)
+                    Capsule()
+                        .fill(Color.primary.opacity(0.35 + phase * 0.5))
+                        .frame(width: 3, height: 5 + 35 * amplitude * (0.25 + phase * 0.75))
+                }
+            }
+            .frame(height: 45)
+            .animation(.easeOut(duration: 0.12), value: microphoneLevel)
+            Text(isSpeaking ? "正在回应" : center.state == .listening ? "正在聆听 · 点击结束" :
+                 center.state == .thinking ? "正在思考" : "点击 OLO 继续对话")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("olo.voice.waveform")
     }
 
     private var stateLabel: some View {
@@ -214,15 +249,23 @@ struct HomeView: View {
             showToast("隐私模式下麦克风已暂停")
             return
         }
-        if center.state == .listening {
+        if center.state == .listening || (center.state == .needYou && listenTask != nil) {
             if !mode { finishListening() }
             return
         }
-        guard center.state == .idle || center.state == .done else { return }
+        if isSpeaking { speech.stop(); isSpeaking = false }
+        guard center.state == .idle || center.state == .done || center.state == .error else { return }
+        voiceMode = true
         pushToTalk = mode
         capturedSpeech = ""
         let generation = UUID()
         listenGeneration = generation
+        center.voiceService?.setLevelHandler { level in
+            Task { @MainActor in
+                guard listenGeneration == generation else { return }
+                microphoneLevel = level
+            }
+        }
         guard let voice = center.voiceService else {
             showingTextInput = true
             return
@@ -310,6 +353,8 @@ struct HomeView: View {
         guard center.state == .listening || center.state == .needYou else { return }
         let finalText = capturedSpeech.isEmpty ? center.liveTranscript : capturedSpeech
         listenGeneration = UUID()
+        center.voiceService?.setLevelHandler(nil)
+        microphoneLevel = 0
         listenTask?.cancel()
         listenTask = nil
         pushToTalk = false
@@ -350,7 +395,7 @@ struct HomeView: View {
             Task { await sync.captureVoiceTranscript(trimmed, sessionID: request.id) }
         }
         withAnimation { center.state = .idle }
-        speech.say("好的，我来处理。")
+        speak("好的，我来处理。")
         route(request)
     }
 
@@ -378,6 +423,10 @@ struct HomeView: View {
     @MainActor
     private func standby() {
         speech.stop()
+        isSpeaking = false
+        voiceMode = false
+        microphoneLevel = 0
+        center.voiceService?.setLevelHandler(nil)
         pressActivationTask?.cancel()
         pressActivationTask = nil
         pressStartedAt = nil
@@ -429,21 +478,32 @@ struct HomeView: View {
         lastSpokenStatus = status
         switch status {
         case .needsInformation:
-            speech.say(center.agentRuntime?.clarificationQuestion.isEmpty == false
+            speak(center.agentRuntime?.clarificationQuestion.isEmpty == false
                 ? (center.agentRuntime?.clarificationQuestion ?? "")
                 : task.summary)
         case .waitingForPermission:
-            speech.say("请确认任务内容与执行权限。")
+            speak("请确认任务内容与执行权限。")
         case .completed:
-            speech.say(task.summary.isEmpty ? "任务已完成。" : task.summary)
+            speak(task.summary.isEmpty ? "任务已完成。" : task.summary)
         case .failed:
             speech.say(task.summary.isEmpty ? "任务执行失败，请查看活动记录。" : task.summary)
         case .partial:
-            speech.say("操作结果尚未核实，请先查看活动记录，不要重复执行。")
+            speak("操作结果尚未核实，请先查看活动记录，不要重复执行。")
         case .cancelled:
             speech.stop()
         default:
             break
+        }
+    }
+
+    @MainActor
+    private func speak(_ text: String) {
+        guard !center.privacyMode else { return }
+        voiceMode = true
+        isSpeaking = true
+        speech.say(text) { [weak center] in
+            guard center?.privacyMode != true else { return }
+            isSpeaking = false
         }
     }
 
@@ -469,11 +529,15 @@ struct HomeView: View {
 @Observable
 private final class OLOSpeechResponder {
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
+    @ObservationIgnored private var delegate: SpeechCompletionDelegate?
 
-    func say(_ message: String) {
+    func say(_ message: String, onFinish: @escaping @MainActor () -> Void) {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
+        let completion = SpeechCompletionDelegate(onFinish: onFinish)
+        delegate = completion
+        synthesizer.delegate = completion
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
@@ -482,5 +546,16 @@ private final class OLOSpeechResponder {
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
+        synthesizer.delegate = nil
+        delegate = nil
+    }
+}
+
+@MainActor
+private final class SpeechCompletionDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    let onFinish: @MainActor () -> Void
+    init(onFinish: @escaping @MainActor () -> Void) { self.onFinish = onFinish }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        onFinish()
     }
 }
