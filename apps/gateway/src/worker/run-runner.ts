@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { countTextTokens, validateCompaction, ContextBudgetError, validateAgentModelDecision, nextDurableToolCall } from '@ocean/core';
+import { countTextTokens, validateCompaction, ContextBudgetError, planDurableModelDecision } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -327,18 +327,18 @@ export class RunRunner {
 
       // Gateway's durable worker and CLI share the Core's model decision
       // contract before either host schedules tools or completes a turn.
-      validateAgentModelDecision(toolCalls.length
-        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })) }
+      const modelDecision = planDurableModelDecision(toolCalls.length
+        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
         : { kind: 'complete', text: fullText });
 
       // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
-      if (toolCalls.length > 0) {
+      if (modelDecision.kind === 'dispatch') {
         // Inquiry/delegation have dedicated asynchronous protocols. Refuse a
         // mixed batch rather than silently dropping any model-declared call.
         if (toolCalls.length > 1 && toolCalls.some(call =>
           call.name === RUN_INQUIRY_TOOL || call.name === 'delegate_task'))
           throw new Error('Mixed inquiry/delegation tool batches require separate model turns');
-        const first = toolCalls[0];
+        const first = modelDecision.call;
         const toolCall: ToolCall = {
           id: first.id,
           name: first.name,
@@ -761,7 +761,8 @@ export class RunRunner {
         select: { id: true },
       });
       // Core owns batch validation, ordering and fail-closed recovery policy.
-      const next = nextDurableToolCall(calls, claimed, Boolean(unfinished));
+      const nextDecision = planDurableModelDecision({ kind: 'tools', calls }, claimed, Boolean(unfinished));
+      const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
       if (!next) return false;
       const pending = await tx.outboxEvent.findMany({
         where: { aggregateId: runId, topic: 'tool.requested', status: 'pending' },
