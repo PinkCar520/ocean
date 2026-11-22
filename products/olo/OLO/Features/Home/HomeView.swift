@@ -28,7 +28,6 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                hero
                 entityStage
                 NavigationLink {
                     WorldView()
@@ -110,23 +109,6 @@ struct HomeView: View {
     }
 
     // MARK: - Sections
-
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("OLO One · Physical".uppercased())
-                .font(.caption2)
-                .tracking(1.4)
-                .foregroundStyle(.secondary)
-            Text("它一直在。")
-                .font(.largeTitle.bold().lowercaseSmallCaps())
-                .kerning(-1.2)
-            Text("OLO 在合适的时机出现，其他时候安静陪伴。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 8)
-    }
 
     private var entityStage: some View {
         ZStack {
