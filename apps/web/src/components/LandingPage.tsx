@@ -34,7 +34,7 @@ const socialProfiles = [
 ];
 
 const footerGroups = [
-  { heading: 'Product', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
+  { heading: 'Product', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
   { heading: 'Platform', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Architecture', href: '/#developers' }, { label: 'Workflows', href: '/app/workflows' }, { label: 'Integrations', href: '/app/integrations' }] },
   { heading: 'Developers', links: [{ label: 'Ocean Code setup', href: '/code#code-commands' }, { label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }, { label: 'Issues', href: `${repository}/issues` }, { label: 'Releases', href: `${repository}/releases` }] },
   { heading: 'Resources', links: [{ label: 'Get started', href: '/#get-started' }, { label: 'FAQ', href: '/#faq' }, { label: 'Sign in', href: '/auth' }, { label: 'README', href: documentation }, { label: 'Contribute', href: `${repository}/blob/main/CONTRIBUTING.md` }] },
