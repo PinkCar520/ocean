@@ -26,6 +26,13 @@ export default function OceanCodePage() {
           <a href={repository} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1c1b1b] px-6 py-3 font-semibold text-white hover:bg-[#e9561b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">Explore source code</a>
           <a href={repository + '#readme'} target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/20 px-6 py-3 font-semibold hover:border-[#e9561b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">Read setup guide</a>
         </div>
+        <nav aria-label="On this page" className="mt-12 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-[#6f6a65]">
+          <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-capabilities">Capabilities</a>
+          <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-architecture">Architecture</a>
+          <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-start">Getting started</a>
+          <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-resources">Resources</a>
+          <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-faq">FAQ</a>
+        </nav>
         <div id="code-capabilities" className="mt-24 grid scroll-mt-24 gap-5 md:grid-cols-3" aria-label="Ocean Code capabilities">
           {[
             { title: 'Work in a repository', body: 'Use the terminal host to explore code and work on development tasks, subject to configured tool permissions.' },
