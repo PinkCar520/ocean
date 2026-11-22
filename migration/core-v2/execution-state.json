@@ -2,16 +2,16 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "P0-shared-execution-protocol",
+    "id": "P0-durable-resume-fencing",
     "status": "implemented",
     "codePaths": [
       "packages/shared/core/src/agent-execution-engine.ts",
-      "packages/shared/core/src/index.ts",
+      "apps/gateway/src/worker/run-runner.ts",
       "packages/shared/core/src/agent-execution-protocol.spec.ts"
     ],
-    "evidence": "Source committed; CI not yet verified. Inline tool dispatch now uses shared directive planner, durable Gateway uses same planner via planDurableModelDecision. Full orchestration unification remains incomplete."
+    "evidence": "Core now owns pending-delivery/journal resume decision. Gateway defers sibling dispatch and model replay when earlier outbox delivery or tool step remains unresolved. Code committed, no passing CI evidence."
   },
-  "nextTask": "Move Gateway model/retry/approval/termination orchestration and CLI completion/recovery to a single Core authority; preserve Worker/Outbox fencing",
+  "nextTask": "P0 unify model completion, approval and retry decisions across inline and durable hosts; add Gateway integration tests for duplicate outbox delivery",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -35,7 +35,9 @@
     "A20": "pending"
   },
   "externalBlocks": [
-    "A19 requires live Provider credentials; no credential availability established"
+    "Local GitHub DNS unavailable; connector writes functional",
+    "No GitHub Actions runs/statuses were returned for previous commit; CI verification pending",
+    "A19 live Provider credentials not established"
   ],
   "verifiedTests": [],
   "updatedAt": "2026-11-22"
