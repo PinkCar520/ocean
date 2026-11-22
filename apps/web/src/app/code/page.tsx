@@ -17,9 +17,9 @@ export default function OceanCodePage() {
           <div className="flex items-center gap-5"><Link href="/#ocean-code" className="hidden text-sm font-medium text-[#6f6a65] hover:text-[#e9561b] sm:inline">Product overview</Link><Link href="/app" className="rounded-full bg-[#1c1b1b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#e9561b]">Open workspace</Link></div>
         </nav>
       </header>
-      <section className="mx-auto max-w-6xl px-6 py-24 md:py-32">
+      <section aria-labelledby="code-hero-title" className="mx-auto max-w-6xl px-6 py-24 md:py-32">
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#e9561b]">Ocean Code · Terminal agent</p>
-        <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-[-0.06em] sm:text-5xl md:text-7xl">Bring an agent into your codebase.</h1>
+        <h1 id="code-hero-title" className="mt-6 max-w-4xl text-4xl font-semibold tracking-[-0.06em] sm:text-5xl md:text-7xl">Bring an agent into your codebase.</h1>
         <p className="mt-8 max-w-2xl text-lg leading-8 text-[#6f6a65]">Explore Ocean Code, the terminal interface to the Ocean agent platform. Review the source and setup requirements before running it in your environment.</p>
         <div className="mt-10 flex flex-wrap gap-3">
           <a href="#code-start" className="rounded-full border border-[#e9561b] px-6 py-3 font-semibold text-[#ba4b20] hover:bg-[#fff0e8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">Getting started</a>
