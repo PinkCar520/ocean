@@ -18,7 +18,7 @@ const navigationGroups = [
     { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }] },
   ] },
   { label: 'Resources', columns: [
-    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'Releases', href: `${repository}/releases` }, { label: 'Report an issue', href: `${repository}/issues/new` }, { label: 'Contributing guide', href: `${repository}/blob/main/CONTRIBUTING.md` }, { label: 'Source code', href: repository }] },
+    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'CLI FAQ', href: '/code#code-faq' }, { label: 'Releases', href: `${repository}/releases` }, { label: 'Report an issue', href: `${repository}/issues/new` }, { label: 'Contributing guide', href: `${repository}/blob/main/CONTRIBUTING.md` }, { label: 'Source code', href: repository }] },
     { heading: 'Get started', links: [{ label: 'Open workspace', href: '/app' }, { label: 'Sign in', href: '/auth' }] },
   ] },
 ];
