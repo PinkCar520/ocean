@@ -88,9 +88,12 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
 
             <div className="mb-auto mt-auto max-w-md pb-24">
               <h1 className="text-5xl font-semibold leading-[1.13] tracking-[-0.06em]">
-                重新想象，<br />
-                <span className="text-[#e9784b]">人与智能的关系。</span>
+                One Agent Core.<br />
+                <span className="text-[#e9784b]">Multiple Hosts.</span>
               </h1>
+              <p className="mt-7 max-w-sm text-lg leading-8 text-white/65">
+                Reimagining the relationship between humans and AI.
+              </p>
 
             </div>
           </div>
