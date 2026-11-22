@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { countTextTokens, validateCompaction, ContextBudgetError, validateAgentModelDecision } from '@ocean/core';
+import { countTextTokens, validateCompaction, ContextBudgetError, validateAgentModelDecision, nextDurableToolCall } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -760,13 +760,8 @@ export class RunRunner {
           status: { notIn: ['succeeded', 'failed', 'cancelled'] } },
         select: { id: true },
       });
-      if (unfinished) {
-        // Unknown/abandoned effects cannot be resumed as if the earlier
-        // sibling succeeded. Surface the unsafe journal state to the Run
-        // failure handler rather than leaving a running Run without work.
-        throw new Error('Gateway tool batch has an unresolved earlier invocation; reconciliation required');
-      }
-      const next = calls.find(call => !claimed.has(call.id));
+      // Core owns batch validation, ordering and fail-closed recovery policy.
+      const next = nextDurableToolCall(calls, claimed, Boolean(unfinished));
       if (!next) return false;
       const pending = await tx.outboxEvent.findMany({
         where: { aggregateId: runId, topic: 'tool.requested', status: 'pending' },
