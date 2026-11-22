@@ -25,7 +25,7 @@ export default function OceanCodePage() {
           <a href={repository} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1c1b1b] px-6 py-3 font-semibold text-white hover:bg-[#e9561b]">Explore source code</a>
           <a href={repository + '#readme'} target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/20 px-6 py-3 font-semibold hover:border-[#e9561b]">Read setup guide</a>
         </div>
-        <div className="mt-24 grid gap-5 md:grid-cols-3" aria-label="Ocean Code capabilities">
+        <div id="code-capabilities" className="mt-24 grid scroll-mt-24 gap-5 md:grid-cols-3" aria-label="Ocean Code capabilities">
           {[
             { title: 'Work in a repository', body: 'Use the terminal host to explore code and work on development tasks, subject to configured tool permissions.' },
             { title: 'Continue a session', body: 'The shared runtime is designed around persistent sessions. Check the deployment and current implementation for supported recovery behavior.' },
