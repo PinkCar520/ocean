@@ -91,9 +91,6 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
                 One Agent Core.<br />
                 <span className="text-[#e9784b]">Multiple Hosts.</span>
               </h1>
-              <p className="mt-7 max-w-sm text-base leading-8 text-white/60">
-                Persistent sessions across CLI and Web. Your agent, context, and work in one place.
-              </p>
 
             </div>
           </div>
