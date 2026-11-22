@@ -245,6 +245,7 @@ struct HomeView: View {
     @MainActor
     private func startConversation(pushToTalk mode: Bool = false) {
         speech.stop()
+        isSpeaking = false
         guard !center.privacyMode else {
             showToast("隐私模式下麦克风已暂停")
             return
@@ -254,6 +255,13 @@ struct HomeView: View {
             return
         }
         if isSpeaking { speech.stop(); isSpeaking = false }
+        if center.state == .thinking || center.state == .needYou || center.state == .acting {
+            // Stop the conversation UI, not a potentially committed external action.
+            voiceMode = false
+            speech.stop()
+            showToast("已停止语音回应；任务状态请在 Activity 查看")
+            return
+        }
         guard center.state == .idle || center.state == .done || center.state == .error else { return }
         voiceMode = true
         pushToTalk = mode
@@ -486,11 +494,12 @@ struct HomeView: View {
         case .completed:
             speak(task.summary.isEmpty ? "任务已完成。" : task.summary)
         case .failed:
-            speech.say(task.summary.isEmpty ? "任务执行失败，请查看活动记录。" : task.summary)
+            speak(task.summary.isEmpty ? "任务执行失败，请查看活动记录。" : task.summary)
         case .partial:
             speak("操作结果尚未核实，请先查看活动记录，不要重复执行。")
         case .cancelled:
             speech.stop()
+            isSpeaking = false
         default:
             break
         }
@@ -501,8 +510,7 @@ struct HomeView: View {
         guard !center.privacyMode else { return }
         voiceMode = true
         isSpeaking = true
-        speech.say(text) { [weak center] in
-            guard center?.privacyMode != true else { return }
+        speech.say(text) {
             isSpeaking = false
         }
     }
