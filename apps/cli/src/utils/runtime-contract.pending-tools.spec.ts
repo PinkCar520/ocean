@@ -34,6 +34,26 @@ describe('unclaimed model tool proposals', () => {
     }])).toThrow('Invalid completion verification');
   });
 
+  it('rejects an extra tool claim that was never proposed by the model', () => {
+    expect(() => replayRuntime(runId, [
+      ...base.slice(0, 7),
+      { type: 'tool.prepared', runId, at, invocation: {
+        id: 'shadow-effect', runId, toolName: 'write', input: { value: 1 },
+        inputDigest: digest, host: 'local',
+      } },
+    ])).toThrow('not the queued model proposal');
+  });
+
+  it('rejects malformed tool identities before a side effect can be recorded', () => {
+    expect(() => replayRuntime(runId, [
+      ...base.slice(0, 7),
+      { type: 'tool.prepared', runId, at, invocation: {
+        id: 'first', runId, toolName: '', input: { value: 1 },
+        inputDigest: digest, host: 'local',
+      } },
+    ])).toThrow('Invalid tool preparation');
+  });
+
   it('allows verification once every proposed tool has been prepared and settled', () => {
     const events: RuntimeEvent[] = [
       ...base.slice(0, -1),
