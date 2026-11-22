@@ -114,6 +114,15 @@ describe('R01 Core turn orchestration contract', () => {
     expect(planAgentTurn({ cancelled: true, unfinishedTool: false, pendingDeliveryIds: [] }))
       .toEqual({ kind: 'cancel' });
   });
+  it('does not commit completion while a tool or outbox delivery remains unresolved', () => {
+    const complete = { kind: 'complete' as const, text: 'done' };
+    expect(planAgentTurn({ cancelled: false, unfinishedTool: true, pendingDeliveryIds: [],
+      modelDecision: complete })).toEqual({ kind: 'wait_for_host' });
+    expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: ['delivery'],
+      modelDecision: complete })).toEqual({ kind: 'wait_for_host' });
+    expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [],
+      modelDecision: complete })).toEqual({ kind: 'complete', text: 'done' });
+  });
   it('requests model only when no outstanding host work remains', () => {
     expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [] }))
       .toEqual({ kind: 'call_model' });

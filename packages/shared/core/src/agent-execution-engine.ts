@@ -148,7 +148,11 @@ export function planAgentExecutionResume(
   inFlight: { unfinishedTool: boolean; pendingDeliveryIds: readonly string[] },
 ): AgentExecutionDirective | { kind: 'wait_for_host' } {
   validateAgentModelDecision(decision);
-  if (decision.kind === 'complete') return nextAgentExecutionDirective(decision, { claimedIds });
+  if (decision.kind === 'complete') {
+    if (inFlight.unfinishedTool || inFlight.pendingDeliveryIds.length)
+      return { kind: 'wait_for_host' };
+    return nextAgentExecutionDirective(decision, { claimedIds });
+  }
   const known = new Set(decision.calls.map(call => call.id));
   if (inFlight.pendingDeliveryIds.some(id => !known.has(id)))
     throw new Error('Pending delivery absent from model decision; reconciliation required');
