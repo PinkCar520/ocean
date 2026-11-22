@@ -2,13 +2,12 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M06-crash-recovery",
+    "id": "M05-context-lifecycle",
     "status": "partial",
     "codePaths": [
-      "apps/gateway/src/worker/run-runner.ts",
       "apps/gateway/src/worker/run-runner.spec.ts"
     ],
-    "evidence": "Durable session errors enter terminal persistence; CI pending"
+    "evidence": "Fixed false-positive regression test for Session-bound cache; await CI"
   },
   "nextTask": "Finish M06 recovery tests and M07 cross-host suite, then M08 verification",
   "acceptance": {
@@ -140,6 +139,8 @@
     "observation": "Push trigger expanded to feat/core-v2-final-integration; workflow run evidence must be inspected after push",
     "observedRun": 44978776737,
     "observedFailure": "TS2307 vitest imports in shared Core specs",
-    "fix": "Declare Vitest in Core devDependencies and lockfile; execute both specs in ci:unit"
+    "fix": "Test fixture now binds initial summary to same immutable Session as follow-up; preserve production cache guard",
+    "latestFailingRun": 44979627711,
+    "latestFailure": "Gateway RunRunner compaction test fixture omitted Session identity, so safe cross-run cache reuse correctly declined"
   }
 }

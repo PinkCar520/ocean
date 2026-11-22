@@ -599,7 +599,7 @@ describe('RunRunner', () => {
     const oldTurn = [{ role: 'user', text: 'old '.repeat(20_000) }, { role: 'assistant', text: 'old answer' }];
     const recentTurn = [{ role: 'user', text: 'recent question' }, { role: 'assistant', text: 'recent answer' }];
     const rows = [...oldTurn, ...recentTurn];
-    const first = await runner['compactChatHistory']('run', {}, rows, 'deepseek-flash', 'current');
+    const first = await runner['compactChatHistory']('run', { sessionId: 'session' }, rows, 'deepseek-flash', 'current');
     expect(first).toMatchObject({ rows: recentTurn, summary: 'Earlier decisions' });
     const saved = tx.agentRun.update.mock.calls.at(-1)?.[0].data.metadata;
     expect(saved.chatCompaction).toMatchObject({ boundary: 2, summary: 'Earlier decisions', fingerprint: expect.any(String) });
