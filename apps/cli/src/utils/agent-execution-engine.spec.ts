@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AgentExecutionEngine, MemoryRuntimeEventStore, type AgentExecutionPorts } from '@ocean/core';
+import { AgentExecutionEngine, MemoryRuntimeEventStore, nextDurableToolCall, planDurableModelDecision, type AgentExecutionPorts } from '@ocean/core';
 
 type Message = { role: string; content: string };
 function fixture(decisions: Array<{ kind: 'complete'; text: string } | { kind: 'tools'; calls: Array<{ id: string; name: string; input: unknown }> }>) {
@@ -332,7 +332,7 @@ describe('durable model tool batch', () => {
     { id: 'duplicate', name: 'shell', input: { command: 'second' } },
    ] },
   ]);
-  await expect(engine.run('session', 'duplicate-batch')).rejects.toThrow('duplicate tool proposal');
+  await expect(engine.run('session', 'duplicate-batch')).rejects.toThrow('duplicate tool invocation');
   expect(calls()).toBe(0);
   expect((await events.snapshot('duplicate-batch')).state).toBe('failed');
   expect((await events.read('duplicate-batch')).filter(event => event.type === 'tool.proposed')).toHaveLength(0);
@@ -393,5 +393,89 @@ describe('Skill scopes constrain shared ToolRuntime authorization', () => {
   ports.authorization = { evaluate: async () => 'deny' };
   await expect(engine.run('session', 'host-denied')).rejects.toThrow('denied by policy');
   expect(calls()).toBe(0);
+ });
+});
+
+
+describe('shared durable tool batch scheduling', () => {
+ const calls = [
+  { id: 'a', name: 'shell', input: { cmd: 'one' } },
+  { id: 'b', name: 'shell', input: { cmd: 'two' } },
+ ];
+ it('selects only the next unclaimed sibling and ends after the batch', () => {
+  expect(nextDurableToolCall(calls, new Set(), false)?.id).toBe('a');
+  expect(nextDurableToolCall(calls, new Set(['a']), false)?.id).toBe('b');
+  expect(nextDurableToolCall(calls, new Set(['a', 'b']), false)).toBeUndefined();
+ });
+ it('fails closed when an earlier invocation is unresolved', () => {
+  expect(() => nextDurableToolCall(calls, new Set(['a']), true)).toThrow('reconciliation required');
+ });
+ it('rejects duplicate identities even if they appear claimed', () => {
+  expect(() => nextDurableToolCall([calls[0], calls[0]], new Set(['a']), false))
+   .toThrow('duplicate tool invocation');
+ });
+});
+
+
+describe('durable model decision planner', () => {
+ const calls = [
+  { id: 'first', name: 'shell', input: { cmd: 'pwd' } },
+  { id: 'second', name: 'shell', input: { cmd: 'ls' } },
+ ];
+ it('returns a terminal response without dispatching a tool', () => {
+  expect(planDurableModelDecision({ kind: 'complete', text: 'done' }))
+   .toEqual({ kind: 'complete', text: 'done' });
+ });
+ it('dispatches the first call and resumes with its next sibling', () => {
+  const decision = { kind: 'tools' as const, calls, text: 'working' };
+  expect(planDurableModelDecision(decision)).toEqual({ kind: 'dispatch', call: calls[0], text: 'working' });
+  expect(planDurableModelDecision(decision, new Set(['first'])))
+   .toEqual({ kind: 'dispatch', call: calls[1], text: 'working' });
+  expect(planDurableModelDecision(decision, new Set(['first', 'second'])))
+   .toEqual({ kind: 'awaiting_results' });
+ });
+ it('never dispatches past an unresolved prior effect', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['first']), true))
+   .toThrow('reconciliation required');
+ });
+ it('rejects duplicate tool identities before any dispatch', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls: [calls[0], calls[0]] }))
+   .toThrow('duplicate tool invocation');
+ });
+});
+
+
+describe('durable journal prefix invariants', () => {
+ const calls = [
+  { id: 'a', name: 'shell', input: {} },
+  { id: 'b', name: 'shell', input: {} },
+  { id: 'c', name: 'shell', input: {} },
+ ];
+ it('rejects an out-of-order claimed sibling', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['b'])))
+   .toThrow('Non-contiguous durable tool claims');
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['a', 'c'])))
+   .toThrow('Non-contiguous durable tool claims');
+ });
+ it('rejects claims not belonging to the current model decision', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['old-run'])))
+   .toThrow('absent from the model decision');
+ });
+ it('allows an ordered prefix and schedules exactly the next invocation', () => {
+  expect(planDurableModelDecision({ kind: 'tools', calls }, new Set(['a', 'b'])))
+   .toMatchObject({ kind: 'dispatch', call: calls[2] });
+ });
+});
+
+
+describe('runtime model decision boundary validation', () => {
+ it.each([
+  { id: 42, name: 'shell', input: {} },
+  { id: ' ', name: 'shell', input: {} },
+  { id: 'valid', name: 5, input: {} },
+  { id: 'valid', name: ' ', input: {} },
+ ])('rejects malformed tool identifiers before dispatch', (call) => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls: [call as never] }))
+   .toThrow('invalid or duplicate tool invocation');
  });
 });
