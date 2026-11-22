@@ -26,6 +26,11 @@ describe('shared inline/durable execution protocol', () => {
       })).toThrow(/non-serializable|non-JSON/);
     }
   });
+  it('rejects oversized durable tool arguments before persistence', () => {
+    expect(() => nextAgentExecutionDirective({
+      kind: 'tools', calls: [{ id: 'oversized', name: 'echo', input: { value: 'x'.repeat(4 * 1024 * 1024) } }],
+    })).toThrow(/oversized durable tool input/);
+  });
   it('uses one production driver for inline and durable model turns', () => {
     const driver = new AgentExecutionDriver();
     const decision = { kind: 'tools' as const, calls };

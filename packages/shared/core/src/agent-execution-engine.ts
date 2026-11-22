@@ -79,6 +79,8 @@ export function validateAgentModelDecision(decision: AgentModelDecision): AgentM
     let encoded: string | undefined;
     try { encoded = JSON.stringify(call.input); } catch { /* cyclic input */ }
     if (encoded === undefined) throw new Error('Model returned non-serializable tool input');
+    if (encoded.length > 4 * 1024 * 1024)
+      throw new Error('Model returned oversized durable tool input');
     // JSON.stringify silently rewrites NaN/Infinity to null and drops
     // undefined/functions/symbols. Durable replay must not change tool args.
     const stack: unknown[] = [call.input];
