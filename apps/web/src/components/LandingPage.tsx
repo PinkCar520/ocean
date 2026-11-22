@@ -18,7 +18,7 @@ const navigationGroups = [
     { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }] },
   ] },
   { label: 'Resources', columns: [
-    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }] },
+    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'Source code', href: repository }] },
     { heading: 'Get started', links: [{ label: 'Open workspace', href: '/app' }, { label: 'Sign in', href: '/auth' }] },
   ] },
 ];
@@ -37,7 +37,7 @@ const footerGroups = [
   { heading: 'Product', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
   { heading: 'Platform', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Architecture', href: '/#developers' }, { label: 'Workflows', href: '/app/workflows' }, { label: 'Integrations', href: '/app/integrations' }] },
   { heading: 'Developers', links: [{ label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }, { label: 'Issues', href: `${repository}/issues` }, { label: 'Releases', href: `${repository}/releases` }] },
-  { heading: 'Resources', links: [{ label: 'Get started', href: '/app' }, { label: 'Sign in', href: '/auth' }, { label: 'README', href: documentation }, { label: 'Contribute', href: `${repository}/blob/main/CONTRIBUTING.md` }] },
+  { heading: 'Resources', links: [{ label: 'Get started', href: '/#get-started' }, { label: 'FAQ', href: '/#faq' }, { label: 'Sign in', href: '/auth' }, { label: 'README', href: documentation }, { label: 'Contribute', href: `${repository}/blob/main/CONTRIBUTING.md` }] },
 ];
 
 const capabilities = [
@@ -97,6 +97,13 @@ const featureDetails = [
   { id: 'skills', label: 'Skills', heading: 'Bring specialized instructions to the task.', body: 'Discover Skills from the workspace and review the open-source implementation. Skill availability varies by installation.', steps: ['Browse available Skills', 'Review the skill configuration', 'Use supported capabilities in your environment'], href: '/app/skills', action: 'Explore Skills' },
   { id: 'integrations', label: 'Integrations', heading: 'Connect the tools around your work.', body: 'Explore integrations and MCP configuration. A connection must be installed and configured before Ocean can use it.', steps: ['Discover integrations', 'Configure supported connections', 'Review permissions before use'], href: '/app/integrations', action: 'Explore integrations' },
   { id: 'developers', label: 'Developer tools', heading: 'See how Ocean is built.', body: 'Inspect the CLI, Web host and shared Agent Core in the repository. The public source is the reference for implementation status.', steps: ['Read the repository overview', 'Inspect the host architecture', 'Follow the setup instructions'], href: documentation, action: 'Read developer docs' },
+] as const;
+
+const commonQuestions = [
+  { question: 'Is Ocean an AI model?', answer: 'Ocean is an agent application and execution architecture, not a foundation model. Model availability depends on your deployment configuration.' },
+  { question: 'Can I use Ocean from the terminal?', answer: 'Ocean includes a CLI. Review the repository README for current setup requirements and supported commands.' },
+  { question: 'Do Skills and MCP connections work automatically?', answer: 'No. Extensions must be available, configured and permitted in your environment before they can be used.' },
+  { question: 'Will a task started here run immediately?', answer: 'No. The homepage passes your prompt to the workspace. Authentication and actual execution happen there.' },
 ] as const;
 
 const waysToWork = [
@@ -336,6 +343,48 @@ export function LandingPage() {
                   <p className="mt-3 min-h-[84px] text-sm leading-7 text-[#77716c]">{description}</p>
                   <a href={href} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold hover:text-[#e9561b]">{action}<ArrowRight size={16} /></a>
                 </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="get-started" className="scroll-mt-20 border-t border-[#eee9e5] bg-[#191817] px-6 py-24 text-[#f8f5f2] md:py-28">
+          <div className="mx-auto grid max-w-6xl gap-12 md:grid-cols-2 md:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff9c70]">Get started</p>
+              <h2 className="mt-5 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Start where you work.</h2>
+              <p className="mt-5 max-w-lg leading-8 text-[#b5ada6]">Use the web workspace or explore the CLI source and installation instructions. Ocean's available capabilities depend on the running host and configuration.</p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href="/app" className="inline-flex items-center gap-2 rounded-full bg-[#f8f5f2] px-6 py-3 text-sm font-semibold text-[#1c1b1b] hover:bg-[#ffe4d6]">Open workspace <ArrowRight size={16}/></Link>
+                <a href={documentation} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm font-semibold text-white hover:border-[#ff9c70]">CLI setup guide <BookOpen size={16}/></a>
+              </div>
+            </div>
+            <div className="rounded-[28px] border border-white/15 bg-white/[0.045] p-7 md:p-9">
+              <p className="mb-6 text-xs font-semibold uppercase tracking-[0.15em] text-[#b5ada6]">Choose your entry point</p>
+              <div className="space-y-4">
+                <Link href="/app" className="group flex items-center justify-between rounded-2xl border border-white/15 bg-white/5 px-5 py-5 hover:border-[#ff9c70]">
+                  <span><span className="block font-semibold">Ocean Web</span><span className="mt-1 block text-xs text-[#b5ada6]">Conversations, projects and workspace tools</span></span><ArrowRight size={18} className="text-[#ff9c70]"/>
+                </Link>
+                <a href={documentation} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between rounded-2xl border border-white/15 bg-white/5 px-5 py-5 hover:border-[#ff9c70]">
+                  <span><span className="block font-semibold">Ocean CLI</span><span className="mt-1 block text-xs text-[#b5ada6]">Explore terminal setup and source</span></span><ArrowRight size={18} className="text-[#ff9c70]"/>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" className="scroll-mt-20 border-t border-[#eee9e5] bg-white px-6 py-24">
+          <div className="mx-auto max-w-4xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">Frequently asked questions</p>
+            <h2 className="mt-5 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Good questions, clear answers.</h2>
+            <div className="mt-10 divide-y divide-[#e9e4df] border-y border-[#e9e4df]">
+              {commonQuestions.map(item => (
+                <details key={item.question} className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-base font-semibold marker:hidden">
+                    {item.question}<ChevronDown size={20} className="shrink-0 text-[#a15c42] transition-transform group-open:rotate-180"/>
+                  </summary>
+                  <p className="max-w-2xl pb-2 pt-4 text-sm leading-7 text-[#77716c]">{item.answer}</p>
+                </details>
               ))}
             </div>
           </div>
