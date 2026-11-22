@@ -29,10 +29,13 @@ const __dirname = path.dirname(__filename);
 // dist/index.js is at apps/cli/dist, .env is at project root
 // Need to go up 3 levels: dist -> cli -> apps -> project-root
 const envRoot = path.resolve(__dirname, '../../..');
+// Explicit process environment wins over project .env, which wins over root .env.
+const explicitEnv = { ...process.env };
 // Only the launcher may select the managed settings file.
 const managedSettingsPath = process.env.OCEAN_MANAGED_SETTINGS_PATH;
 const envResult1 = dotenv.config({ path: path.join(envRoot, '.env'), override: true, quiet: true });
 const envResult2 = dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true, quiet: true });
+Object.assign(process.env, explicitEnv);
 
 // Debug logging (only when DEBUG env is set)
 if (managedSettingsPath === undefined) delete process.env.OCEAN_MANAGED_SETTINGS_PATH;
