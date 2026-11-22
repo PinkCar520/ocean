@@ -82,7 +82,7 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
 
           <div className="relative z-10 flex h-full flex-col">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e9561b] text-lg font-bold tracking-[-0.08em]" aria-hidden="true">O.</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e9561b] text-lg font-bold tracking-[-0.08em]" aria-hidden="true">O.</span>
               <span className="text-2xl font-semibold tracking-[-0.05em]">Ocean<span className="text-[#e9561b]">.</span></span>
             </div>
 
@@ -95,11 +95,7 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
               <p className="mt-7 max-w-sm text-base leading-8 text-white/60">
                 Persistent sessions across CLI and Web. Your agent, context, and work in one place.
               </p>
-              <div className="mt-9 flex flex-wrap gap-2 text-xs text-white/70">
-                <span className="rounded-full border border-white/15 px-3 py-2">Shared Agent Core</span>
-                <span className="rounded-full border border-white/15 px-3 py-2">Persistent Sessions</span>
-                <span className="rounded-full border border-white/15 px-3 py-2">CLI + Web</span>
-              </div>
+
             </div>
             <p className="relative z-10 text-xs text-white/35">One Agent Core. Multiple Hosts. Persistent Sessions.</p>
           </div>
