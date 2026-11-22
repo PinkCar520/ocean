@@ -483,6 +483,7 @@ export function LandingPage() {
                     : <span key={profile.label} role="img" aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
                 })}
               </div>
+              <p className="mt-3 text-xs text-[#a8a39e]">Other social channels are coming soon.</p>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-4">
               {footerGroups.map(group => (
