@@ -337,7 +337,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="scroll-mt-20 border-t border-[#eee9e5] bg-[#fcfbf9] px-6 py-24 md:py-32">
+        <section id="features" className="scroll-mt-24 border-t border-[#eee9e5] bg-[#fcfbf9] px-6 py-24 md:py-32">
           <div className="mx-auto max-w-6xl">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">Explore capabilities</p>
             <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Discover how Ocean fits your work.</h2>
