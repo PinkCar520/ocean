@@ -57,7 +57,7 @@ export function SkillsPanel({ skills, enabled, onToggle, onClose }: {
       <Text color="cyan" bold>Skills</Text>
       <Text dimColor>{searching || query ? `${list.length}/${skills.length} skills` : `${skills.length} skills`} · {searching ? 'type to filter · ↓/enter to select · Esc to clear' : 'enter/space to cycle, / to search, t to sort, Esc to close'}</Text>
       <Box borderStyle="round" borderColor={searching ? 'cyan' : 'gray'} marginTop={1} paddingX={1}>
-        <Text wrap="truncate-end">⌕ {query ? <Text>{query}</Text> : <Text dimColor>Search skills…</Text>}{searching ? <Text inverse>{' '}</Text> : null}</Text>
+        <Text wrap="truncate-end">⌕ {query ? <Text>{query}{searching && <Text inverse>{' '}</Text>}</Text> : searching ? <Text><Text inverse>S</Text><Text dimColor>earch skills…</Text></Text> : <Text dimColor>Search skills…</Text>}</Text>
       </Box>
       {list.slice(start,start+visible).map(s => {
         const current = s === active;
