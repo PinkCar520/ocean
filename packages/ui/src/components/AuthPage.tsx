@@ -87,7 +87,6 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
             </div>
 
             <div className="mb-auto mt-auto max-w-md pb-24">
-              <p className="mb-5 text-xs font-semibold uppercase tracking-[0.22em] text-[#e9784b]">Ocean Code</p>
               <h1 className="text-5xl font-semibold leading-[1.13] tracking-[-0.06em]">
                 One Agent Core.<br />
                 <span className="text-[#e9784b]">Multiple Hosts.</span>
