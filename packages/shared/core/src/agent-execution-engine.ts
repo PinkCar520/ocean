@@ -61,6 +61,8 @@ export interface AgentExecutionResult {
  * synchronous CLI loop, so both hosts reject malformed tool batches alike.
  */
 export function validateAgentModelDecision(decision: AgentModelDecision): AgentModelDecision {
+  if (!decision || (decision.kind !== 'complete' && decision.kind !== 'tools'))
+    throw new Error('Model returned an invalid decision kind');
   if (decision.kind === 'complete') {
     if (typeof decision.text !== 'string') throw new Error('Model returned invalid completion text');
     return decision;
