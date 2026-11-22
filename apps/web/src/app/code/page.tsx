@@ -86,7 +86,7 @@ export default function OceanCodePage() {
             ].map(([number, title, body]) => <li key={number} className="rounded-2xl bg-[#f1eeea] p-6"><span className="text-sm font-bold text-[#e9561b]">{number}</span><h3 className="mt-4 font-semibold">{title}</h3><p className="mt-3 text-sm leading-7 text-[#6f6a65]">{body}</p></li>)}
           </ol>
         </section>
-        <section aria-labelledby="code-permissions" className="mt-24 rounded-3xl bg-[#1c1b1b] p-8 text-white md:p-12">
+        <section id="code-permissions-section" aria-labelledby="code-permissions" className="mt-24 scroll-mt-24 rounded-3xl bg-[#1c1b1b] p-8 text-white md:p-12">
           <h2 id="code-permissions" className="text-3xl font-semibold">Your environment. Your permissions.</h2>
           <p className="mt-5 max-w-3xl leading-8 text-[#d4cec8]">Model access, file changes, shell execution and external integrations depend on how your installation is configured. Review commands and approvals before granting access to sensitive projects.</p>
           <a href={repository + '/issues'} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block font-semibold text-[#ffad87] underline underline-offset-4">Report a non-sensitive issue on GitHub</a>
