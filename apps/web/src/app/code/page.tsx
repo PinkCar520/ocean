@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CopyCommandButton } from '../../components/CopyCommandButton';
 import type { Metadata } from 'next';
 
 const repository = 'https://github.com/PinkCar520/ocean';
@@ -49,6 +50,16 @@ export default function OceanCodePage() {
           <h2 id="code-architecture-title" className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">One Agent Core. Multiple Hosts.</h2>
           <p className="mt-5 max-w-3xl leading-8 text-[#6f6a65]">Ocean Code is the CLI host. Ocean Workspace is the web host. Both are part of the project&apos;s shared runtime architecture; feature parity and production integration should be verified against the current source and tests.</p>
           <Link href="/#developers" className="mt-5 inline-block font-semibold text-[#ba4b20] underline underline-offset-4">Explore the architecture</Link>
+        </section>
+        <section aria-labelledby="code-commands-title" className="mt-24 rounded-3xl bg-[#1c1b1b] p-8 text-white md:p-12">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#ff9c70]">Local development</p>
+          <h2 id="code-commands-title" className="mt-3 text-3xl font-semibold">Try Ocean Code locally.</h2>
+          <p className="mt-4 max-w-3xl leading-7 text-[#d4cec8]">From a checked-out Ocean repository with dependencies and environment configured, use the CLI development command documented in the README.</p>
+          <div className="mt-7 flex items-center justify-between gap-4 rounded-xl border border-white/15 bg-black/30 px-5 py-4">
+            <code className="overflow-x-auto font-mono text-sm text-[#ffe5d8]">pnpm --filter @ocean/cli dev</code>
+            <CopyCommandButton command="pnpm --filter @ocean/cli dev" />
+          </div>
+          <p className="mt-4 text-sm text-[#bcb7b2]">Requires Node.js, pnpm, configured model credentials and any services required by your selected host.</p>
         </section>
         <section id="code-start" aria-labelledby="code-start-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
           <p className="text-xs font-bold uppercase tracking-widest text-[#e9561b]">Getting started</p>
