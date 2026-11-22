@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateCachedCompaction, validateHistoryCompactionBoundary } from './context-engine.js';
-import { AgentExecutionDriver, nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume, planAgentCompletion, planAgentFailure } from './agent-execution-engine.js';
+import { AgentExecutionDriver, planAgentTurn, nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume, planAgentCompletion, planAgentFailure } from './agent-execution-engine.js';
 
 const calls = [
   { id: 'a', name: 'read', input: { path: 'one' } },
@@ -100,5 +100,27 @@ describe('Core v2 context integrity acceptance', () => {
   });
   it('refuses non-reducing cached summaries', () => {
     expect(() => validateCachedCompaction(100, 100, 200, [{ role: 'user', text: 'hello' }], 1)).toThrow(/did not reduce/);
+  });
+});
+
+describe('R01 Core turn orchestration contract', () => {
+  it('never calls model when an external effect is unresolved', () => {
+    expect(planAgentTurn({ cancelled: false, unfinishedTool: true, pendingDeliveryIds: [] }))
+      .toEqual({ kind: 'wait_for_host' });
+    expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: ['pending'] }))
+      .toEqual({ kind: 'wait_for_host' });
+  });
+  it('honors cancellation before dispatch or model calls', () => {
+    expect(planAgentTurn({ cancelled: true, unfinishedTool: false, pendingDeliveryIds: [] }))
+      .toEqual({ kind: 'cancel' });
+  });
+  it('requests model only when no outstanding host work remains', () => {
+    expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [] }))
+      .toEqual({ kind: 'call_model' });
+  });
+  it('dispatches only the next journal-safe tool', () => {
+    const decision = { kind: 'tools' as const, calls };
+    expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [],
+      modelDecision: decision, claimedIds: new Set(['a']) })).toMatchObject({ kind: 'dispatch', call: calls[1] });
   });
 });

@@ -353,9 +353,17 @@ export class RunRunner {
 
       // Gateway's durable worker and CLI share the Core's model decision
       // contract before either host schedules tools or completes a turn.
-      const modelDecision = this.executionDriver.decide(toolCalls.length
-        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
-        : { kind: 'complete', text: fullText });
+      const modelDecision = this.executionDriver.planTurn({
+        cancelled: modelAbort.signal.aborted,
+        unfinishedTool: false,
+        pendingDeliveryIds: [],
+        modelDecision: toolCalls.length
+          ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
+          : { kind: 'complete', text: fullText },
+      });
+      if (modelDecision.kind === 'cancel') return { jobId: job.id, runId, status: 'succeeded' };
+      if (modelDecision.kind === 'wait_for_host' || modelDecision.kind === 'call_model')
+        throw new Error('Unexpected Core turn plan after model response');
 
       // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
       if (modelDecision.kind === 'dispatch') {

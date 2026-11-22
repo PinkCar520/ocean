@@ -202,7 +202,40 @@ export function planAgentFailure(retryable: boolean): AgentFailureDirective {
  * Host-neutral driver for a model turn. Both inline and durable workers call
  * this before any transcript mutation, RunStep or Outbox side effect.
  */
+/** The model-turn scheduling gate is owned by Core, not by a queue host.
+ * Hosts supply journal evidence and perform only the resulting I/O.
+ */
+export interface AgentTurnReadiness {
+  cancelled: boolean;
+  pendingDeliveryIds: readonly string[];
+  unfinishedTool: boolean;
+  modelDecision?: AgentModelDecision;
+  claimedIds?: ReadonlySet<string>;
+}
+export type AgentTurnPlan =
+  | { kind: 'cancel' }
+  | { kind: 'wait_for_host' }
+  | { kind: 'call_model' }
+  | AgentExecutionDirective;
+
+export function planAgentTurn(readiness: AgentTurnReadiness): AgentTurnPlan {
+  if (readiness.cancelled) return { kind: 'cancel' };
+  if (!readiness.modelDecision) {
+    if (readiness.unfinishedTool || readiness.pendingDeliveryIds.length)
+      return { kind: 'wait_for_host' };
+    return { kind: 'call_model' };
+  }
+  return planAgentExecutionResume(
+    readiness.modelDecision,
+    readiness.claimedIds ?? new Set<string>(),
+    { unfinishedTool: readiness.unfinishedTool, pendingDeliveryIds: readiness.pendingDeliveryIds },
+  );
+}
+
 export class AgentExecutionDriver {
+  planTurn(readiness: AgentTurnReadiness): AgentTurnPlan {
+    return planAgentTurn(readiness);
+  }
   decide(decision: AgentModelDecision): AgentExecutionDirective {
     return nextAgentExecutionDirective(decision);
   }
