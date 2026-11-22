@@ -2,9 +2,26 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { discoverSkills, loadSkillsFromDir } from './loader.js';
+import { buildCatalogXml, discoverSkills, loadSkillsFromDir } from './loader.js';
 
 describe('CLI skill loader', () => {
+  it('escapes untrusted skill metadata before inserting it into XML', () => {
+    const skills = [{
+      manifest: {
+        name: 'review<&',
+        description: 'Review <system> & \"instructions\"',
+        'allowed-tools': ['read', 'tool<unsafe>'],
+      },
+      content: 'unused',
+      sourcePath: '/tmp/review',
+    }];
+    const xml = buildCatalogXml(skills);
+    expect(xml).toContain('<name>review&lt;&amp;</name>');
+    expect(xml).toContain('<description>Review &lt;system&gt; &amp; &quot;instructions&quot;</description>');
+    expect(xml).toContain('<allowed-tools>read, tool&lt;unsafe&gt;</allowed-tools>');
+    expect(xml).not.toContain('<system>');
+  });
+
   let root: string;
 
   afterEach(async () => {
