@@ -202,6 +202,12 @@ export class RunRunner {
         };
       }
 
+      // A prior model decision may have proposed several tools. After one
+      // tool settles, dispatch the next durable sibling before calling the
+      // model again; the provider transcript must contain all tool results.
+      if (await this.dispatchRemainingModelTool(runId, userId, takeover.priority))
+        return { jobId: job.id, runId, status: 'succeeded' };
+
       const promptHook = await this.hooks.run('UserPromptSubmit', {
         prompt: takeover.input,
         run_id: runId,
@@ -321,6 +327,11 @@ export class RunRunner {
 
       // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
       if (toolCalls.length > 0) {
+        // Inquiry/delegation have dedicated asynchronous protocols. Refuse a
+        // mixed batch rather than silently dropping any model-declared call.
+        if (toolCalls.length > 1 && toolCalls.some(call =>
+          call.name === RUN_INQUIRY_TOOL || call.name === 'delegate_task'))
+          throw new Error('Mixed inquiry/delegation tool batches require separate model turns');
         const first = toolCalls[0];
         const toolCall: ToolCall = {
           id: first.id,
@@ -338,11 +349,10 @@ export class RunRunner {
           takeover.priority,
           step,
           toolCall,
-          // Persist only the call submitted to the outbox in this turn. This
-          // keeps the transcript valid for providers that require a result for
-          // every assistant tool call; remaining work is requested on a later
-          // model turn instead of leaving orphan tool-call IDs in history.
-          { text: fullText, toolCalls: [first], ...(providerUsage ? { usage: providerUsage } : {}), ...(contextBreakdown && { contextBreakdown }) },
+          // The complete tool decision is durable before any side effect.
+          // Queue the first tool now; later siblings are dispatched from
+          // this model step after preceding tool results have committed.
+          { text: fullText, toolCalls, ...(providerUsage ? { usage: providerUsage } : {}), ...(contextBreakdown && { contextBreakdown }) },
           reasoning,
         );
         return { jobId: job.id, runId, status: 'succeeded' };
@@ -713,6 +723,59 @@ export class RunRunner {
   }
 
   /**
+   * Resume one not-yet-claimed sibling of a previously persisted model tool
+   * decision. The existing RunStep identity and Outbox state are authoritative;
+   * no model request and no external tool execution happen in this method.
+   */
+  private async dispatchRemainingModelTool(
+    runId: string, userId: string, priority: string,
+  ): Promise<boolean> {
+    return this.fencedTransaction(async tx => {
+      const modelStep = await tx.runStep.findFirst({
+        where: { runId, kind: 'model_call', status: 'succeeded' },
+        orderBy: { seq: 'desc' },
+        select: { seq: true, output: true },
+      });
+      const calls = (modelStep?.output as { toolCalls?: ModelToolCall[] } | null)?.toolCalls;
+      if (!modelStep || !Array.isArray(calls) || calls.length < 2) return false;
+      const steps = await tx.runStep.findMany({
+        where: { runId, kind: 'tool_call', seq: { gt: modelStep.seq } },
+        select: { input: true },
+      });
+      const claimed = new Set(steps.flatMap(step => {
+        const input = step.input as { id?: unknown } | null;
+        return typeof input?.id === 'string' ? [input.id] : [];
+      }));
+      const next = calls.find(call => !claimed.has(call.id));
+      if (!next) return false;
+      const pending = await tx.outboxEvent.findMany({
+        where: { aggregateId: runId, topic: 'tool.requested', status: 'pending' },
+        select: { payload: true },
+      });
+      const alreadyQueued = pending.some(row => {
+        const payload = row.payload as { toolCall?: { id?: unknown } } | null;
+        return payload?.toolCall?.id === next.id;
+      });
+      if (!alreadyQueued) {
+        const toolCall: ToolCall = { id: next.id, name: next.name, input: next.input, idempotencyKey: next.id };
+        await this.outbox.enqueueToolRequested(tx, toolRequestedMessageSchema.parse({
+          version: 1, runId, userId, toolCall,
+        }), priorityRankOf(priority));
+        await this.appendEvent(tx, runId, {
+          id: randomUUID(), runId, sequence: await this.nextSequence(tx, runId),
+          occurredAt: new Date().toISOString(), type: 'tool.requested', toolCall,
+        });
+      }
+      await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
+      await this.appendEvent(tx, runId, {
+        id: randomUUID(), runId, sequence: await this.nextSequence(tx, runId),
+        occurredAt: new Date().toISOString(), type: 'run.status_changed', status: 'queued',
+      });
+      return true;
+    });
+  }
+
+  /**
    * 提交工具调用（最小 Agent Loop）：model_call 步骤 succeeded + 事件，
    * 幂等投递 outbox `tool.requested`（同 toolCallId 已有工具步骤或 pending 消息
    * 则不重复提交），Run → queued 等待 ToolExecutor 执行后回喂续跑。
@@ -786,7 +849,7 @@ export class RunRunner {
         }),
       });
       if (this.core && toolCall.name !== RUN_INQUIRY_TOOL && toolCall.name !== 'delegate_task')
-        await this.core.queueTool(tx, runId, toolCall);
+        await this.core.queueTools(tx, runId, output.toolCalls);
       if (toolCall.name !== RUN_INQUIRY_TOOL) {
         await this.outbox.enqueueToolRequested(tx, message, priorityRankOf(priority));
       }

@@ -125,6 +125,14 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
       text: '', toolCalls: [{ id: 'delegation-fixture', name: 'delegate_task', input: { agent: 'reader', task: 'Inspect the fixture' } }],
      });
     }
+    if (req.messages.some(message => message.role === 'user' && message.text === 'Gateway two-tool batch fixture')) {
+     const echoed = req.messages.filter(message => message.role === 'tool' && message.toolName === 'echo');
+     if (echoed.length === 2) return Promise.resolve({ text: 'Both batch tools completed', toolCalls: [] });
+     return Promise.resolve({ text: 'Running both tools', toolCalls: [
+      { id: 'batch-echo-first', name: 'echo', input: { text: 'one' } },
+      { id: 'batch-echo-second', name: 'echo', input: { text: 'two' } },
+     ] });
+    }
     return sim.generate(req);
    },
   }, outbox, registry, metrics, hooks, core),
@@ -607,6 +615,33 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
     .auth(auth(), { type: 'bearer' }).send({ decision: 'approved' }).expect(201);
    await waitFor(runId, 'succeeded');
   } finally { worker.stop(); registry.register(echo); rmSync(file, { force: true }); }
+ }, 20000);
+
+ it('persists and executes the full two-tool model batch before model continuation', async () => {
+  const response = await request(app.getHttpServer()).post('/api/runs')
+   .auth(auth(), { type: 'bearer' })
+   .send({ space: { id: spaceId, type: 'work' }, input: 'Gateway two-tool batch fixture' }).expect(201);
+  const runId = response.body.run?.id ?? response.body.id;
+  try {
+   worker.start();
+   await waitFor(runId, 'succeeded');
+   const models = await db.runStep.findMany({
+    where: { runId, kind: 'model_call' }, orderBy: { seq: 'asc' },
+   });
+   expect(models).toHaveLength(2);
+   expect((models[0].output as { toolCalls: unknown[] }).toolCalls).toHaveLength(2);
+   expect(models[1].output).toMatchObject({ text: 'Both batch tools completed' });
+   const tools = await db.runStep.findMany({
+    where: { runId, kind: 'tool_call' }, orderBy: { seq: 'asc' },
+   });
+   expect(tools).toHaveLength(2);
+   expect(tools.map(step => step.status)).toEqual(['succeeded', 'succeeded']);
+   expect(tools.map(step => (step.output as { text: string }).text)).toEqual(['one', 'two']);
+   const coreEvents = await new PrismaRuntimeEventStore(db).read(runId);
+   expect(coreEvents.filter(event => event.type === 'tool.proposed')).toHaveLength(2);
+   expect(coreEvents.filter(event => event.type === 'tool.prepared')).toHaveLength(2);
+   expect(coreEvents.filter(event => event.type === 'tool.settled')).toHaveLength(2);
+  } finally { worker.stop(); }
  }, 20000);
 
  it('persists Stop hook feedback and completes a second model turn through the real queue', async () => {

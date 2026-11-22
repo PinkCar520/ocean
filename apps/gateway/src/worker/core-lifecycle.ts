@@ -72,14 +72,23 @@ export class GatewayCoreLifecycle {
     runId: string,
     call: { id: string; name: string; input: unknown },
   ): Promise<RuntimeSnapshot> {
+    return this.queueTools(tx, runId, [call]);
+  }
+
+  /** Persist the complete model decision atomically, even though the
+   * Gateway Outbox executes one claimed tool at a time.
+   */
+  async queueTools(
+    tx: Prisma.TransactionClient,
+    runId: string,
+    calls: readonly { id: string; name: string; input: unknown }[],
+  ): Promise<RuntimeSnapshot> {
     const runtime = this.runtime(tx);
     const snapshot = await runtime.snapshot(runId);
-    if (snapshot.state !== 'calling_model')
-      throw new Error('Gateway queued tool must originate from a model call');
-    const serialized = JSON.stringify(call.input);
-    if (serialized === undefined) throw new Error('Tool input is not serializable');
+    if (snapshot.state !== 'calling_model' || !calls.length)
+      throw new Error('Gateway queued tools must originate from a model call');
     await runtime.transition(runId, 'validating_tools');
-    return runtime.proposeTools(runId, [call]);
+    return runtime.proposeTools(runId, calls);
   }
 
   /** ToolExecutor calls this inside its existing ownership-fenced transaction
@@ -132,7 +141,13 @@ export class GatewayCoreLifecycle {
     const current = await runtime.snapshot(runId);
     if (current.state !== 'executing_tools' || current.pendingTools[invocationId] !== 'prepared')
       throw new Error('Gateway tool execution has no matching persisted claim');
-    await runtime.settlePreparedTool(runId, invocationId, outcome, result);
+    const settled = await runtime.settlePreparedTool(runId, invocationId, outcome, result);
+    // The next queued sibling has not executed yet. Keep executing_tools so
+    // ToolExecutor can claim it under the same durable batch, and never
+    // certify completion or invoke the model against incomplete tool results.
+    if (Object.keys(settled.queuedTools).some(id => !Object.hasOwn(settled.pendingTools, id))
+        || Object.values(settled.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
+      return settled;
     await runtime.transition(runId, 'persisting_results');
     if (completed) {
       await runtime.verifyCompletion(runId, ['Gateway tool result committed to RunStep']);
