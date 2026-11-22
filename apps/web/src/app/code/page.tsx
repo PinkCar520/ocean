@@ -60,7 +60,7 @@ export default function OceanCodePage() {
         <section aria-labelledby="code-permissions" className="mt-24 rounded-3xl bg-[#1c1b1b] p-8 text-white md:p-12">
           <h2 id="code-permissions" className="text-3xl font-semibold">Your environment. Your permissions.</h2>
           <p className="mt-5 max-w-3xl leading-8 text-[#d4cec8]">Model access, file changes, shell execution and external integrations depend on how your installation is configured. Review commands and approvals before granting access to sensitive projects.</p>
-          <a href={repository + '/issues'} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block font-semibold text-[#ffad87] underline underline-offset-4">Report an issue on GitHub</a>
+          <a href={repository + '/issues'} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block font-semibold text-[#ffad87] underline underline-offset-4">Report a non-sensitive issue on GitHub</a>
         </section>
         <section id="code-resources" aria-labelledby="code-resources-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
           <h2 id="code-resources-title" className="text-3xl font-semibold">Developer resources</h2>
