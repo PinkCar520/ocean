@@ -192,7 +192,7 @@ export function LandingPage() {
             <Link href="/auth" className="rounded-full px-4 py-2.5 text-sm font-medium hover:bg-black/5">Log in</Link>
             <Link href="/app" className="rounded-full bg-[#1c1b1b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e9561b]">Open Ocean <ArrowRight className="ml-1 inline" size={15}/></Link>
           </div>
-          <button type="button" className="rounded-lg p-2 md:hidden" onClick={() => { setMenuOpen(!menuOpen); setActiveMenu(null); }} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="ocean-mobile-navigation">
+          <button type="button" className="rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b] md:hidden" onClick={() => { setMenuOpen(!menuOpen); setActiveMenu(null); }} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="ocean-mobile-navigation">
             {menuOpen ? <X size={24}/> : <Menu size={24}/>}
           </button>
         </nav>
