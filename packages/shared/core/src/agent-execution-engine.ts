@@ -149,7 +149,9 @@ export function planAgentExecutionResume(
 ): AgentExecutionDirective | { kind: 'wait_for_host' } {
   validateAgentModelDecision(decision);
   if (decision.kind === 'complete') {
-    if (inFlight.unfinishedTool || inFlight.pendingDeliveryIds.length)
+    if (inFlight.pendingDeliveryIds.length)
+      throw new Error('Pending delivery has no model tool decision; journal reconciliation required');
+    if (inFlight.unfinishedTool)
       return { kind: 'wait_for_host' };
     return nextAgentExecutionDirective(decision, { claimedIds });
   }

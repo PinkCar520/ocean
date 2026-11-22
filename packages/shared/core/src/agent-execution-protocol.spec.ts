@@ -118,8 +118,8 @@ describe('R01 Core turn orchestration contract', () => {
     const complete = { kind: 'complete' as const, text: 'done' };
     expect(planAgentTurn({ cancelled: false, unfinishedTool: true, pendingDeliveryIds: [],
       modelDecision: complete })).toEqual({ kind: 'wait_for_host' });
-    expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: ['delivery'],
-      modelDecision: complete })).toEqual({ kind: 'wait_for_host' });
+    expect(() => planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: ['delivery'],
+      modelDecision: complete })).toThrow(/journal reconciliation required/);
     expect(planAgentTurn({ cancelled: false, unfinishedTool: false, pendingDeliveryIds: [],
       modelDecision: complete })).toEqual({ kind: 'complete', text: 'done' });
   });
