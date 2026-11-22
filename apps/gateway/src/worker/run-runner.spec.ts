@@ -123,6 +123,25 @@ describe('RunRunner', () => {
     jest.restoreAllMocks();
   });
 
+  it('does not dispatch another batch sibling while a prior tool step is unfinished', async () => {
+    const { runner, tx, outbox } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
+    tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {
+      if (where?.kind === 'model_call') return {
+        seq: 1, output: { toolCalls: [
+          { id: 'first', name: 'local_notebook_edit', input: {} },
+          { id: 'second', name: 'local_notebook_edit', input: {} },
+        ] },
+      };
+      if (where?.kind === 'tool_call') return { id: 'unfinished-step' };
+      return null;
+    });
+    tx.runStep.findMany.mockResolvedValue([{ input: { id: 'first' } }]);
+    const deferred = await (runner as any).dispatchRemainingModelTool('run_1', 'user_1', 'normal');
+    expect(deferred).toBe(true);
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+    expect(tx.agentRun.update).not.toHaveBeenCalled();
+  });
+
   it.each(['NaN', 'Infinity', '0', '-1', '1.5'])('fails closed for invalid turn limit %s', async (limit) => {
     const previous = process.env.WORKER_MAX_TURNS;
     process.env.WORKER_MAX_TURNS = limit;
