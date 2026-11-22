@@ -28,7 +28,7 @@ describe('CLI skill loader', () => {
     if (root) await rm(root, { recursive: true, force: true });
   });
 
-  it('merges user and project skills with project precedence and loads bodies on demand', async () => {
+  it('merges user and project skills with user precedence and loads bodies on demand', async () => {
     root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
     const home = path.join(root, 'home');
     const workspace = path.join(root, 'workspace');
@@ -43,7 +43,7 @@ ${body}`);
     }
     const skills = discoverSkills(workspace, home);
     expect(skills).toHaveLength(1);
-    await writeFile(path.join(workspace, '.ocean/skills/review/SKILL.md'), `---
+    await writeFile(path.join(home, '.ocean/skills/review/SKILL.md'), `---
 name: review
 description: Review code
 ---
@@ -68,7 +68,7 @@ updated`);
     expect(skills).toHaveLength(1);
     expect(skills[0]).toMatchObject({ manifest: { name: 'review' }, content: 'Check the diff.' });
   });
-  it('rejects ambiguous same-priority skill names instead of silently overriding', async () => {
+  it('ignores foreign platform directories by default', async () => {
     root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
     const home = path.join(root, 'home');
     const workspace = path.join(root, 'workspace');
@@ -78,7 +78,28 @@ updated`);
       await mkdir(target, { recursive: true });
       await writeFile(path.join(target, 'SKILL.md'), '---\nname: review\ndescription: Review\n---\nInstructions');
     }
-    expect(() => discoverSkills(workspace, home)).toThrow('Conflicting skill definitions');
+    expect(discoverSkills(workspace, home)).toHaveLength(1);
+    expect(discoverSkills(workspace, home)[0].sourcePath).toContain('.ocean/skills');
+  });
+
+  it('prefers native over shared and isolates ambiguous definitions', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ocean-skills-'));
+    const home = path.join(root, 'home');
+    const workspace = path.join(root, 'workspace');
+    for (const [base, folder, name, body] of [
+      [home, '.agents/skills/review', 'review', 'shared'],
+      [workspace, '.ocean/skills/review', 'review', 'native'],
+      [workspace, '.ocean/skills/a', 'duplicate', 'a'],
+      [workspace, '.ocean/skills/b', 'duplicate', 'b'],
+      [home, '.claude/skills/foreign', 'foreign', 'foreign'],
+    ]) {
+      const dir = path.join(base, folder);
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: Test\n---\n${body}`);
+    }
+    const skills = discoverSkills(workspace, home);
+    expect(skills.map(s => s.manifest.name)).toEqual(['review']);
+    expect(skills[0].content).toBe('native');
   });
 
   it('parses quoted and multiline YAML and rejects invalid typed manifests', async () => {

@@ -155,24 +155,42 @@ export function getSkillByName(skills: LoadedSkill[], name: string): LoadedSkill
   return skills.find(s => s.manifest.name === name) || null;
 }
 
-/** User defaults, legacy project directory, then project-specific overrides. */
+/** Native directories outrank shared directories; user outranks project within each tier.
+ * Foreign product configuration is never discovered implicitly.
+ * Ambiguous definitions within the winning tier are quarantined, not overridden.
+ */
 export function discoverSkills(workspace: string, home = homedir()): LoadedSkill[] {
-  const entries: Array<{ descriptor: SkillDescriptor; skill: LoadedSkill }> = [];
-  const add = (skill: LoadedSkill, source: SkillDescriptor['source']) => {
-    entries.push({ descriptor: { id: skill.sourcePath, name: skill.manifest.name, source }, skill });
-  };
-  for (const directory of pluginContributions('skills', home)) {
-    for (const skill of loadSkillsFromDir(directory)) add(skill, 'plugin');
-  }
-  for (const [base, source] of [[home, 'user'], [workspace, 'project']] as const) {
-    for (const directory of ['agents/skills', '.claude/skills', '.ocean/skills']) {
-      for (const skill of loadSkillsFromDir(path.join(fs.realpathSync(base), directory))) add(skill, source);
+  const entries: Array<{ descriptor: SkillDescriptor; skill: LoadedSkill; rank: number }> = [];
+  const addDirectory = (directory: string, source: SkillDescriptor['source'], rank: number) => {
+    for (const skill of loadSkillsFromDir(directory)) {
+      const id = fs.realpathSync(skill.sourcePath);
+      entries.push({ descriptor: { id, name: skill.manifest.name, source }, skill, rank });
     }
+  };
+  for (const directory of pluginContributions('skills', home)) addDirectory(directory, 'plugin', 0);
+  for (const [base, source, offset] of [[workspace, 'project', 0], [home, 'user', 1]] as const) {
+    addDirectory(path.join(fs.realpathSync(base), '.agents/skills'), source, 1 + offset);
+    addDirectory(path.join(fs.realpathSync(base), '.ocean/skills'), source, 3 + offset);
   }
-  const resolved = resolveSkills(entries.map(entry => entry.descriptor));
-  return resolved.map(descriptor => {
-    const skill = entries.find(entry => entry.descriptor.id === descriptor.id)!.skill;
-    // Do not spread the getter-backed skill: full instructions must remain lazy.
+  const groups = new Map<string, typeof entries>();
+  for (const entry of entries) {
+    const name = entry.descriptor.name;
+    const group = groups.get(name) ?? [];
+    group.push(entry);
+    groups.set(name, group);
+  }
+  const winners: typeof entries = [];
+  for (const [name, group] of groups) {
+    const highest = Math.max(...group.map(entry => entry.rank));
+    const unique = new Map(group.filter(entry => entry.rank === highest).map(entry => [entry.descriptor.id, entry]));
+    if (unique.size !== 1) {
+      console.warn(`[SkillLoader] Conflicting skill definitions for "${name}"; skipped: ${[...unique.keys()].join(', ')}`);
+      continue;
+    }
+    winners.push([...unique.values()][0]);
+  }
+  return resolveSkills(winners.map(entry => entry.descriptor)).map(descriptor => {
+    const skill = winners.find(entry => entry.descriptor.id === descriptor.id)!.skill;
     skill.source = descriptor.source;
     return skill;
   });
