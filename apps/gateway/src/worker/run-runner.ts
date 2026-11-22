@@ -748,11 +748,17 @@ export class RunRunner {
         where: { runId, kind: 'tool_call', seq: { gt: modelStep.seq } },
         select: { input: true },
       });
-      const claimed = new Set(steps.flatMap(step => {
+      const claimedIds = steps.map(step => {
         const input = step.input as { id?: unknown; toolCall?: { id?: unknown } } | null;
-        const id = typeof input?.id === 'string' ? input.id : input?.toolCall?.id;
-        return typeof id === 'string' ? [id] : [];
-      }));
+        return typeof input?.id === 'string' ? input.id : input?.toolCall?.id;
+      });
+      // Do not silently erase duplicate or unidentifiable journal rows with
+      // Set deduplication. They make replay safety impossible to establish.
+      if (claimedIds.some(id => typeof id !== 'string' || !id))
+        throw new Error('Unidentifiable durable tool journal claim; reconciliation required');
+      const claimed = new Set(claimedIds as string[]);
+      if (claimed.size !== claimedIds.length)
+        throw new Error('Duplicate durable tool journal claim; reconciliation required');
       // A claimed sibling may still be executing or awaiting approval. The
       // durable batch is sequential: never dispatch another side-effecting
       // tool while an earlier invocation lacks a terminal RunStep result.
