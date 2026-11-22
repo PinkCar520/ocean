@@ -510,7 +510,7 @@ export function LandingPage() {
                   <div id="ocean-language-menu" aria-labelledby="ocean-language-title" onKeyDown={event => { if (event.key === "Escape") setLanguageOpen(false); }} className="absolute bottom-full right-0 mb-3 w-56 rounded-xl border border-white/15 bg-[#292827] p-2 shadow-xl">
                     <p id="ocean-language-title" className="px-3 py-2 text-xs text-[#a8a39e]">Website language</p>
                     <button type="button" aria-current="true" aria-label="English, current website language" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">English · Current</button>
-                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Other languages are planned; workspace language preferences are separate.</p>
+                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Other website languages are planned; workspace language preferences are separate.</p>
                   </div>
                 )}
               </div>
