@@ -5,6 +5,7 @@ const repository = 'https://github.com/PinkCar520/ocean';
 export const metadata: Metadata = {
   title: 'Ocean Code',
   description: 'Explore the Ocean Code terminal agent, source code, runtime architecture, and setup documentation.',
+  keywords: ['Ocean Code', 'AI coding agent', 'terminal agent', 'MCP', 'Skills'],
 };
 
 export default function OceanCodePage() {
