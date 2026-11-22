@@ -503,7 +503,7 @@ export function LandingPage() {
             <div className="flex flex-wrap items-center gap-5">
               <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white">Feedback & issues</a>
               <div className="relative">
-                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">
+                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} onKeyDown={event => { if (event.key === "Escape") setLanguageOpen(false); }} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">
                   <Globe2 size={15}/> English <ChevronDown size={14} className={languageOpen ? 'rotate-180' : ''}/>
                 </button>
                 {languageOpen && (
