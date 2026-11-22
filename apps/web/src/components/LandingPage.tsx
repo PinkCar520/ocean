@@ -352,7 +352,7 @@ export function LandingPage() {
               ))}
             </div>
             {featureDetails.filter(feature => feature.id === activeFeature).map(feature => (
-              <div key={feature.id} id="feature-panel" role="tabpanel" aria-labelledby={`feature-tab-${feature.id}`}
+              <div key={feature.id} id="feature-panel" role="tabpanel" tabIndex={0} aria-labelledby={`feature-tab-${feature.id}`}
                 className="mt-7 grid gap-10 rounded-[30px] border border-[#e7e1dc] bg-white p-8 md:grid-cols-2 md:p-12">
                 <div>
                   <h3 className="text-3xl font-semibold tracking-[-0.045em]">{feature.heading}</h3>
