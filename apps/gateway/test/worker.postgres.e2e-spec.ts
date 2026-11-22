@@ -618,12 +618,21 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
     .send({ space: { id: spaceId, type: 'work' }, input: 'Stop hook continuation' }).expect(201);
    const runId = response.body.run?.id ?? response.body.id;
-   worker.start(); await waitFor(runId, 'succeeded'); worker.stop();
+   worker.start(); await waitFor(runId, 'succeeded');
+   // The terminal Run status commits before the Worker acknowledges its
+   // outbox message. Wait for the independent durable ack before asserting,
+   // instead of stopping the Worker while the second ack is still in flight.
+   const ackDeadline = Date.now() + 5000;
+   let processed = await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } });
+   while (processed < 2 && Date.now() < ackDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 25));
+    processed = await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } });
+   }
+   expect(processed).toBe(2);
    const steps = await db.runStep.findMany({ where: { runId, kind: 'model_call' }, orderBy: { seq: 'asc' } });
    expect(steps).toHaveLength(2);
    expect(steps[0].output).toMatchObject({ hookFeedback: 'verify before stopping' });
    expect(steps[1]).toMatchObject({ status: 'succeeded' });
-   expect(await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } })).toBe(2);
   } finally { worker.stop(); writeFileSync(hookFile, JSON.stringify({ trustedSpaces: [spaceId], hooks: {} })); }
  }, 20000);
 
