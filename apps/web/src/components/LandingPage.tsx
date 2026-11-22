@@ -270,7 +270,7 @@ export function LandingPage() {
               <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]"><ArrowUp size={21}/></button>
             </div>
           </form>
-          <p className="mt-3 max-w-2xl text-xs leading-5 text-[#99918a]">Your draft opens in the Ocean workspace for review. Nothing is sent to a model from this page. Your text remains editable before you send it. Press Ctrl+Enter (or ⌘+Enter on Mac) to continue.</p>
+          <p className="mt-3 max-w-2xl text-xs leading-5 text-[#99918a]">Your draft opens in the Ocean workspace for review. Nothing is sent to a model from this page. Your text remains editable before you send it. Press Ctrl+Enter (or ⌘+Enter on Mac) to continue. You can also use the arrow button.</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href="/app" className="rounded-full border border-[#e8e2dd] bg-white px-5 py-2.5 text-sm font-medium hover:border-[#e9561b]">Explore Ocean <ArrowRight className="ml-1 inline" size={14}/></Link>
           </div>
