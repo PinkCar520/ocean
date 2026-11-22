@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AVFoundation
 
 /// OLO Home — the entry page of the iPhone body.
 ///
@@ -11,6 +12,9 @@ import SwiftData
 struct HomeView: View {
     @Environment(OLOCenter.self) private var center
 
+    @State private var speech = OLOSpeechResponder()
+    @State private var lastSpokenStatus: AgentTaskStatus?
+    @State private var lastSpokenTaskID: UUID?
     @State private var showingAgentSheet = false
     @State private var showingTextInput = false
     @State private var showingWakePlanner = false
@@ -26,14 +30,18 @@ struct HomeView: View {
     @State private var longPressFired = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                entityStage
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    entityStage
+                        .frame(maxWidth: 520)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: geometry.size.height, alignment: .center)
+                .padding(.horizontal, 18)
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 32)
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .background(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.87)], startPoint: .top, endPoint: .bottom))
         .scrollIndicators(.hidden)
         .overlay(alignment: .top) {
             OLOToast(text: toastText, isShown: $toastShown)
@@ -44,15 +52,17 @@ struct HomeView: View {
             if phase == .background { standby() }
         }
         .onChange(of: center.privacyMode) { _, enabled in
-            if enabled { standby() }
+            if enabled { speech.stop(); standby() }
         }
         .onDisappear {
+            speech.stop()
             tapDebounce?.cancel()
             listenTask?.cancel()
             Task { await center.voiceService?.stop() }
         }
         .onChange(of: center.agentRuntime?.task?.status) { _, status in
             guard let status else { return }
+            announceAgentStatus(status)
             switch status {
             case .captured, .understanding, .planning: center.state = .thinking
             case .needsInformation, .waitingForPermission: center.state = .needYou
@@ -91,22 +101,6 @@ struct HomeView: View {
 
     private var entityStage: some View {
         ZStack {
-            RadialGradient(
-                colors: [Color.white, Color(white: 0.88), Color(white: 0.80)],
-                center: .center,
-                startRadius: 10,
-                endRadius: 200
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 34))
-            // ground shadow under the orb — matches prototype stage:after
-            .overlay(alignment: .bottom) {
-                Ellipse()
-                    .fill(.black.opacity(0.14))
-                    .frame(width: 250, height: 35)
-                    .blur(radius: 18)
-                    .offset(y: -10)
-            }
-
             VStack(spacing: 18) {
                 OLOEntityView()
                 stateLabel
@@ -210,6 +204,7 @@ struct HomeView: View {
     /// 1.html where the primary input is a text panel.
     @MainActor
     private func startConversation() {
+        speech.stop()
         guard !center.privacyMode else {
             showToast("隐私模式下麦克风已暂停")
             return
@@ -337,6 +332,7 @@ struct HomeView: View {
             Task { await sync.captureVoiceTranscript(trimmed, sessionID: request.id) }
         }
         withAnimation { center.state = .idle }
+        speech.say("好的，我来处理。")
         route(request)
     }
 
@@ -363,6 +359,7 @@ struct HomeView: View {
 
     @MainActor
     private func standby() {
+        speech.stop()
         tapDebounce?.cancel(); tapCount = 0
         listenTask?.cancel(); listenTask = nil
         Task { await center.voiceService?.stop() }
@@ -374,6 +371,8 @@ struct HomeView: View {
 
     @MainActor
     private func prepareAgent(_ request: AgentRequest) {
+        lastSpokenStatus = nil
+        lastSpokenTaskID = request.id
         guard let agent = center.agentRuntime else {
             showToast("任务服务尚未就绪")
             return
@@ -395,6 +394,35 @@ struct HomeView: View {
     }
 
     @MainActor
+    private func announceAgentStatus(_ status: AgentTaskStatus) {
+        guard !center.privacyMode, let task = center.agentRuntime?.task else { return }
+        if lastSpokenTaskID != task.id {
+            lastSpokenTaskID = task.id
+            lastSpokenStatus = nil
+        }
+        guard lastSpokenStatus != status else { return }
+        lastSpokenStatus = status
+        switch status {
+        case .needsInformation:
+            speech.say(center.agentRuntime?.clarificationQuestion.isEmpty == false
+                ? (center.agentRuntime?.clarificationQuestion ?? "")
+                : task.summary)
+        case .waitingForPermission:
+            speech.say("请确认任务内容与执行权限。")
+        case .completed:
+            speech.say(task.summary.isEmpty ? "任务已完成。" : task.summary)
+        case .failed:
+            speech.say(task.summary.isEmpty ? "任务执行失败，请查看活动记录。" : task.summary)
+        case .partial:
+            speech.say("操作结果尚未核实，请先查看活动记录，不要重复执行。")
+        case .cancelled:
+            speech.stop()
+        default:
+            break
+        }
+    }
+
+    @MainActor
     private func showToast(_ text: String) {
         toastText = text
         withAnimation { toastShown = true }
@@ -410,4 +438,24 @@ struct HomeView: View {
         HomeView()
     }
     .environment(OLOCenter())
+}
+
+@MainActor
+@Observable
+private final class OLOSpeechResponder {
+    @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
+
+    func say(_ message: String) {
+        let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        synthesizer.stopSpeaking(at: .immediate)
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        synthesizer.speak(utterance)
+    }
+
+    func stop() {
+        synthesizer.stopSpeaking(at: .immediate)
+    }
 }
