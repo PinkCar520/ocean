@@ -109,12 +109,8 @@ struct HomeView: View {
     private var entityStage: some View {
         ZStack {
             VStack(spacing: 18) {
-                OLOEntityView()
+                OLOEntityView(audioLevel: microphoneLevel, isResponding: isSpeaking)
                 stateLabel
-                if voiceMode && !center.privacyMode {
-                    voiceWaveform
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                }
             }
             .animation(.easeInOut(duration: 0.25), value: voiceMode)
         }
@@ -147,31 +143,6 @@ struct HomeView: View {
                     }
                 }
         )
-    }
-
-    private var voiceWaveform: some View {
-        VStack(spacing: 10) {
-            HStack(alignment: .center, spacing: 4) {
-                ForEach(0..<27, id: \.self) { index in
-                    let phase = abs(sin(Double(index) * 0.73))
-                    let amplitude = center.state == .listening
-                        ? Double(microphoneLevel)
-                        : (isSpeaking ? 0.36 : 0.08)
-                    Capsule()
-                        .fill(Color(red: 59.0 / 255, green: 130.0 / 255, blue: 246.0 / 255)
-                            .opacity((center.state == .listening ? 0.5 : 0.25) + phase * (center.state == .listening ? 0.5 : 0.35)))
-                        .frame(width: 3, height: 8 + 72 * amplitude * (0.25 + phase * 0.75))
-                }
-            }
-            .frame(height: 96)
-            .animation(.easeOut(duration: 0.10), value: microphoneLevel)
-            Text(isSpeaking ? "正在回应" : center.state == .listening ? "正在聆听 · 点击结束" :
-                 center.state == .thinking ? "正在思考" : "点击 OLO 继续对话")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("olo.voice.waveform")
     }
 
     private var stateLabel: some View {
