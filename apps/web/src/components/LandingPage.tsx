@@ -223,7 +223,7 @@ export function LandingPage() {
             <div>
               <Link href="/" className="text-3xl font-bold tracking-[-0.07em]">Ocean<span className="text-[#e9561b]">.</span></Link>
               <p className="mt-5 max-w-xs text-sm leading-7 text-[#a8a39e]">One Agent Core.<br/>Multiple Hosts.<br/>Persistent Sessions.</p>
-              <div className="mt-8 flex flex-wrap items-center gap-3" aria-label="Ocean social media">
+              <div className="mt-8 flex flex-wrap items-center gap-10" aria-label="Ocean social media">
                 {socialProfiles.map(profile => {
                   const symbol = <img src={`/icons/social/${profile.slug}.svg`} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 invert" />;
                   const className = "inline-flex h-4 w-4 shrink-0 items-center justify-center text-[#d4d0cb] transition-opacity";
