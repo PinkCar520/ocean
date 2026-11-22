@@ -158,12 +158,13 @@ struct HomeView: View {
                         ? Double(microphoneLevel)
                         : (isSpeaking ? 0.36 : 0.08)
                     Capsule()
-                        .fill(Color.primary.opacity(0.35 + phase * 0.5))
-                        .frame(width: 3, height: 5 + 35 * amplitude * (0.25 + phase * 0.75))
+                        .fill(Color(red: 59.0 / 255, green: 130.0 / 255, blue: 246.0 / 255)
+                            .opacity((center.state == .listening ? 0.5 : 0.25) + phase * (center.state == .listening ? 0.5 : 0.35)))
+                        .frame(width: 3, height: 8 + 72 * amplitude * (0.25 + phase * 0.75))
                 }
             }
-            .frame(height: 45)
-            .animation(.easeOut(duration: 0.12), value: microphoneLevel)
+            .frame(height: 96)
+            .animation(.easeOut(duration: 0.10), value: microphoneLevel)
             Text(isSpeaking ? "正在回应" : center.state == .listening ? "正在聆听 · 点击结束" :
                  center.state == .thinking ? "正在思考" : "点击 OLO 继续对话")
                 .font(.caption2)
