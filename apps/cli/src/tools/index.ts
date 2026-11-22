@@ -46,7 +46,7 @@ export function getTools(context: ToolContext, skills: LoadedSkill[] = [], planS
     task_plan: taskPlan,
   };
   for (const tool of createWebTools()) tools[tool.name] = tool;
-  if (skills.length > 0) tools.activate_skill = createSkillActivationTool(skills);
+  tools.activate_skill = createSkillActivationTool(skills);
   return tools;
 }
 

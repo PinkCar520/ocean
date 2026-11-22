@@ -13,6 +13,8 @@ import { compactContext } from '../llm/compaction.js';
 import { randomUUID } from 'node:crypto';
 import { toAgentToolSet } from '../tools/index.js';
 import { discoverSkills } from '../skills/loader.js';
+import { SkillAvailability } from '../skills/availability.js';
+import { SkillsPanel } from './skills-panel.js';
 import { McpClientManager } from '../mcp/client.js';
 import { SessionStore, type StoredSession } from '../utils/session-store.js';
 import { formatTaskPlan } from '../utils/task-manager.js';
@@ -30,6 +32,7 @@ export interface InkAppProps {
   workspace: string;
   cliConfig: CliConfig;
   skills: LoadedSkill[];
+  skillAvailability?: SkillAvailability;
   toolContext: ToolContext;
   setSessionMode?: (mode: PermissionMode) => void;
   tools: Record<string, any>;
@@ -73,6 +76,8 @@ export function InkApp(props: InkAppProps) {
     [props.workspace, props.toolContext.getPermissionMode],
   );
   const permissionMode = permissionPolicy.getMode();
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [, refreshSkills] = useState(0);
   const [commandOutput, setCommandOutput] = useState<string | null>(null);
   const [commandType, setCommandType] = useState<'help' | 'model' | 'skills' | 'tools' | 'mcp' | 'tasks' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +128,7 @@ export function InkApp(props: InkAppProps) {
     setError(null);
     setStreamingText('');
 
+    if (trimmed.toLowerCase() === '/skills') { setSkillsOpen(true); return; }
     if (trimmed.startsWith('/') && !props.skills.some((skill) => skill.manifest.name === trimmed.slice(1).split(/\s+/)[0])) {
       handleCommand(trimmed);
       return;
@@ -137,6 +143,7 @@ export function InkApp(props: InkAppProps) {
 
     try {
       const model = props.modelRouter.getModel(selectedModel);
+      const systemPrompt = props.skillAvailability ? buildSystemPrompt(userId, props.skills, props.workspace) : props.systemPrompt;
       const allMessages = [...messages, userMsg];
       await props.sessionStore.save(props.activeSession.session.id, props.workspace, allMessages);
 
@@ -154,7 +161,7 @@ export function InkApp(props: InkAppProps) {
               props.activeSession.session = await props.sessionStore.saveCompaction(props.activeSession.session.id, props.workspace, snapshot);
             },
           },
-          systemPrompt: props.systemPrompt,
+          systemPrompt,
           tools: props.tools,
           approvalHandler: props.approvalHandler,
           approvalOptions: {
@@ -199,7 +206,7 @@ export function InkApp(props: InkAppProps) {
         await runOceanCoreLocal({
           sessionStore: props.sessionStore,
           sessionId, runId: randomUUID(), workspace: props.workspace,
-          model, tools: props.tools, skills: props.skills, systemPrompt: props.systemPrompt,
+          model, tools: props.tools, skills: props.skills, systemPrompt,
           authorization, streaming: true, signal: abortController.signal,
           completion: {
             verify: async (_, text) => {
@@ -216,7 +223,7 @@ export function InkApp(props: InkAppProps) {
               : undefined,
           },
           prepareContext: async request => compactContext([...request], {
-            model, systemPrompt: props.systemPrompt, signal: abortController.signal,
+            model, systemPrompt, signal: abortController.signal,
             scope: sessionId, previous: props.activeSession.session.compaction,
             usage: props.activeSession.session.usage,
             persist: async snapshot => {
@@ -264,7 +271,7 @@ export function InkApp(props: InkAppProps) {
       setIsThinking(false);
       setIsWaitingInput(true);
     }
-  }, [isThinking, messages, selectedModel, props]);
+  }, [isThinking, messages, selectedModel, props, userId]);
 
   const handleCommand = useCallback(async (cmd: string) => {
     const parts = cmd.slice(1).split(' ');
@@ -422,13 +429,7 @@ export function InkApp(props: InkAppProps) {
         break;
 
       case 'skills':
-        if (props.skills.length === 0) {
-          setCommandOutput('No skills loaded');
-        } else {
-          const skillList = props.skills.map(s => `  ${s.manifest.name} - ${s.manifest.description}`).join('\n');
-          setCommandOutput(`◎ Available Skills:\n${skillList}`);
-        }
-        setCommandType('skills');
+        setSkillsOpen(true);
         break;
 
       case 'tools':
@@ -498,7 +499,7 @@ export function InkApp(props: InkAppProps) {
     if (input === 'd' && key.ctrl) {
       exit();
     }
-  }, { isActive: true });
+  }, { isActive: !skillsOpen });
 
   return (
     <Box ref={rootRef} flexDirection="column" width="100%">
@@ -529,6 +530,13 @@ export function InkApp(props: InkAppProps) {
         />
       )}
 
+      {skillsOpen && <SkillsPanel skills={props.skillAvailability?.catalog ?? props.skills}
+        enabled={skill => props.skills.includes(skill)}
+        onToggle={skill => {
+          try { props.skillAvailability?.toggle(skill); refreshSkills(n => n + 1); }
+          catch (err) { setError(String(err)); }
+        }} onClose={() => setSkillsOpen(false)} />}
+      <Box display={skillsOpen ? 'none' : 'flex'} flexDirection="column">
       <MessageInput
         key={props.activeSession.session.id}
         history={messages.flatMap((message) => {
@@ -542,9 +550,10 @@ export function InkApp(props: InkAppProps) {
         onSubmit={handleSubmit}
         frameHeight={frameHeight}
         rowsBelowInput={showExitHint ? 1 : 0}
-        isActive={!pendingApproval}
+        isActive={!pendingApproval && !skillsOpen}
       />
 
+      </Box>
       {showExitHint && (
         <Box marginLeft={3}>
           <Text color="gray">Press Ctrl-C again to exit</Text>
@@ -602,7 +611,8 @@ export async function runInkApp(options: { userId: string; workspace: string; co
 
   const modelRouter = createModelRouter(cliConfig);
 
-  const skills: LoadedSkill[] = discoverSkills(options.workspace);
+  const skillAvailability = new SkillAvailability(discoverSkills(options.workspace), options.workspace);
+  const skills = skillAvailability.enabled;
 
   const mcpManager = new McpClientManager(cliConfig);
   let mcpTools: Array<{ name: string; description: string }> = [];
@@ -660,6 +670,7 @@ export async function runInkApp(options: { userId: string; workspace: string; co
       workspace={options.workspace}
       cliConfig={cliConfig}
       skills={skills}
+      skillAvailability={skillAvailability}
       toolContext={toolContext}
       setSessionMode={(mode) => modes.set(activeSession.session.id, mode)}
       tools={tools}
