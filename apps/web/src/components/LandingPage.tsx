@@ -2,10 +2,26 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUp, Blocks, BookOpen, Cpu, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Cpu, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
 
 const repository = 'https://github.com/PinkCar520/ocean';
 const documentation = `${repository}#readme`;
+
+const navigationGroups = [
+  { label: 'Product', columns: [
+    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
+    { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
+    { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Architecture', href: '/#developers' }] },
+  ] },
+  { label: 'Developers', columns: [
+    { heading: 'Build', links: [{ label: 'Developer overview', href: '/#developers' }, { label: 'Source code', href: repository }, { label: 'Documentation', href: documentation }] },
+    { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }] },
+  ] },
+  { label: 'Resources', columns: [
+    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'GitHub repository', href: repository }] },
+    { heading: 'Get started', links: [{ label: 'Open workspace', href: '/app' }, { label: 'Sign in', href: '/auth' }] },
+  ] },
+];
 
 const capabilities = [
   {
@@ -28,6 +44,8 @@ const capabilities = [
 export function LandingPage() {
   const [prompt, setPrompt] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [mobileGroup, setMobileGroup] = useState<string | null>(null);
 
   function openWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,14 +59,21 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#fcfbf9] text-[#1c1b1b] selection:bg-[#ffdfcf]">
-      <header className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#fcfbf9]/90 backdrop-blur-xl">
+      <header onMouseLeave={() => setActiveMenu(null)} className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#fcfbf9]/90 backdrop-blur-xl">
         <nav className="mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-6 px-6 md:px-10" aria-label="Main navigation">
           <Link href="/" className="text-2xl font-bold tracking-[-0.07em]" aria-label="Ocean home">Ocean<span className="text-[#ed5b20]">.</span></Link>
-          <div className="hidden items-center gap-9 text-sm font-medium text-[#4b4947] md:flex">
-            <a href="#product" className="hover:text-[#e9561b]">Product</a>
-            <a href="#developers" className="hover:text-[#e9561b]">Developers</a>
-            <a href={documentation} target="_blank" rel="noopener noreferrer" className="hover:text-[#e9561b]">Docs</a>
-            <a href={repository} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-[#e9561b]">GitHub <ArrowRight size={14}/></a>
+          <div className="hidden h-full items-center gap-8 text-sm font-medium text-[#4b4947] md:flex">
+            {navigationGroups.map(group => (
+              <button key={group.label} type="button"
+                className={`flex h-full items-center gap-1.5 border-b-2 transition-colors ${activeMenu === group.label ? 'border-[#e9561b] text-[#e9561b]' : 'border-transparent hover:text-[#e9561b]'}`}
+                aria-expanded={activeMenu === group.label} aria-controls="ocean-mega-menu"
+                onMouseEnter={() => setActiveMenu(group.label)}
+                onFocus={() => setActiveMenu(group.label)}
+                onClick={() => setActiveMenu(activeMenu === group.label ? null : group.label)}>
+                {group.label}<ChevronDown size={14} className={activeMenu === group.label ? 'rotate-180 transition-transform' : 'transition-transform'}/>
+              </button>
+            ))}
+            <a href={repository} target="_blank" rel="noopener noreferrer" onMouseEnter={() => setActiveMenu(null)} className="inline-flex items-center gap-1.5 hover:text-[#e9561b]">GitHub <ArrowRight size={14}/></a>
           </div>
           <div className="hidden items-center gap-3 md:flex">
             <Link href="/auth" className="rounded-full px-4 py-2.5 text-sm font-medium hover:bg-black/5">Log in</Link>
@@ -58,11 +83,47 @@ export function LandingPage() {
             {menuOpen ? <X size={24}/> : <Menu size={24}/>}
           </button>
         </nav>
+        {activeMenu && (
+          <div id="ocean-mega-menu" className="absolute left-0 right-0 top-full hidden border-t border-black/[0.06] border-b border-[#e8e3df] bg-[#fcfbf9] shadow-[0_22px_45px_rgba(30,20,12,0.09)] md:block"
+            onMouseEnter={() => setActiveMenu(activeMenu)}
+            onMouseLeave={() => setActiveMenu(null)}
+            onKeyDown={event => { if (event.key === 'Escape') setActiveMenu(null); }}>
+            <div className="mx-auto grid max-w-7xl grid-cols-3 gap-10 px-10 py-10">
+              {navigationGroups.find(group => group.label === activeMenu)?.columns.map(column => (
+                <div key={column.heading} className="space-y-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#918b85]">{column.heading}</p>
+                  <div className="flex flex-col gap-4">
+                    {column.links.map(link => (
+                      <a key={link.label} href={link.href} onClick={() => setActiveMenu(null)}
+                        className="w-fit text-base font-medium text-[#292724] transition-colors hover:text-[#e9561b]">{link.label}</a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-[#eee9e5] bg-[#f7f5f1]">
+              <div className="mx-auto flex max-w-7xl items-center justify-between px-10 py-3 text-xs text-[#77716c]">
+                <span>One Agent Core · Multiple Hosts · Persistent Sessions</span>
+                <Link href="/app" onClick={() => setActiveMenu(null)} className="font-semibold text-[#292724] hover:text-[#e9561b]">Open Ocean →</Link>
+              </div>
+            </div>
+          </div>
+        )}
         {menuOpen && (
           <div className="flex flex-col gap-1 border-t border-black/10 px-6 py-3 text-sm md:hidden">
-            <a href="#product" onClick={() => setMenuOpen(false)} className="py-3">Product</a>
-            <a href="#developers" onClick={() => setMenuOpen(false)} className="py-3">Developers</a>
-            <a href={documentation} className="py-3">Docs</a>
+            {navigationGroups.map(group => (
+              <div key={group.label} className="border-b border-black/5">
+                <button type="button" className="flex w-full items-center justify-between py-3 text-left font-medium"
+                  aria-expanded={mobileGroup === group.label} onClick={() => setMobileGroup(mobileGroup === group.label ? null : group.label)}>
+                  {group.label}<ChevronDown size={16} className={mobileGroup === group.label ? 'rotate-180' : ''}/>
+                </button>
+                {mobileGroup === group.label && <div className="flex flex-col gap-3 pb-4 pl-4">
+                  {group.columns.flatMap(column => column.links).map(link => (
+                    <a key={link.label} href={link.href} onClick={() => setMenuOpen(false)} className="text-[#77716c]">{link.label}</a>
+                  ))}
+                </div>}
+              </div>
+            ))}
             <a href={repository} className="py-3">GitHub</a>
             <Link href="/auth" className="py-3">Log in</Link>
             <Link href="/app" className="rounded-xl bg-[#1c1b1b] px-4 py-3 text-center text-white">Open Ocean</Link>
