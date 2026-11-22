@@ -99,6 +99,7 @@ export default function OceanCodePage() {
             {[
               ['Source repository', repository],
               ['Setup and README', repository + '#readme'],
+              ['Architecture documents', repository + '/tree/main/docs/architecture/v2'],
               ['Releases', repository + '/releases'],
               ['Issues and feedback', repository + '/issues'],
               ['Contributing', repository + '/blob/main/CONTRIBUTING.md'],
