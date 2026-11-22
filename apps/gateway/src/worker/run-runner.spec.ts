@@ -36,8 +36,8 @@ function createTxMock(
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
     },
-    message: { findFirst: jest.fn(), create: jest.fn() },
-    session: { update: jest.fn() },
+    message: { findFirst: jest.fn().mockResolvedValue({ id: 'parent_1' }), findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+    session: { update: jest.fn(), findFirst: jest.fn().mockResolvedValue({ id: 'session_1' }) },
     outboxEvent: {
       findMany: jest.fn().mockResolvedValue([]),
     },
@@ -137,12 +137,40 @@ describe('RunRunner', () => {
       return null;
     });
     tx.runStep.findMany.mockResolvedValue([{ input: { id: 'first' } }]);
-    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
-      error: expect.stringContaining('reconciliation required') });
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
     expect(tx.agentRun.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'run_1' }, data: { status: 'failed' },
+      where: { id: 'run_1' }, data: { status: 'queued' },
     }));
+  });
+
+  it('waits for a pending outbox tool without invoking the model or duplicating dispatch', async () => {
+    const { runner, tx, outbox, gateway } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
+    tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {
+      if (where?.kind === 'model_call') return { seq: 1, output: { toolCalls: [
+        { id: 'first', name: 'local_notebook_edit', input: {} },
+        { id: 'second', name: 'local_notebook_edit', input: {} },
+      ] } };
+      return null;
+    });
+    tx.outboxEvent.findMany.mockResolvedValue([{ payload: { toolCall: { id: 'first' } } }]);
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale pending deliveries from earlier model batches', async () => {
+    const { runner, tx, outbox } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
+    tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {
+      if (where?.kind === 'model_call') return { seq: 3, output: { toolCalls: [
+        { id: 'current-first', name: 'local_notebook_edit', input: {} },
+        { id: 'current-second', name: 'local_notebook_edit', input: {} },
+      ] } };
+      return null;
+    });
+    tx.outboxEvent.findMany.mockResolvedValue([{ payload: { toolCall: { id: 'old-batch' } } }]);
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
+    expect(outbox.enqueueToolRequested).toHaveBeenCalled();
   });
 
   it('refuses to replay a missing earlier tool when a later sibling is already claimed', async () => {
@@ -181,6 +209,28 @@ describe('RunRunner', () => {
     expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
       error: expect.stringContaining(error) });
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
+  it('refuses to execute a Run bound to a missing or foreign Session', async () => {
+    const { runner, tx, gateway } = createRunner({
+      id: 'run_1', userId: 'user_1', status: 'queued', input: 'hello',
+      metadata: { sessionId: 'foreign-session', chatUserMessageId: 'parent_1' },
+    } as never);
+    tx.session.findFirst.mockResolvedValue(null);
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('not owned') });
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
+  it('refuses a chat parent outside its durable Session', async () => {
+    const { runner, tx, gateway } = createRunner({
+      id: 'run_1', userId: 'user_1', status: 'queued', input: 'hello',
+      metadata: { sessionId: 'session_1', chatUserMessageId: 'wrong-parent' },
+    } as never);
+    tx.message.findFirst.mockResolvedValue(null);
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('parent message') });
     expect(gateway.generate).not.toHaveBeenCalled();
   });
 
@@ -549,7 +599,7 @@ describe('RunRunner', () => {
     const oldTurn = [{ role: 'user', text: 'old '.repeat(20_000) }, { role: 'assistant', text: 'old answer' }];
     const recentTurn = [{ role: 'user', text: 'recent question' }, { role: 'assistant', text: 'recent answer' }];
     const rows = [...oldTurn, ...recentTurn];
-    const first = await runner['compactChatHistory']('run', {}, rows, 'deepseek-flash', 'current');
+    const first = await runner['compactChatHistory']('run', { sessionId: 'session' }, rows, 'deepseek-flash', 'current');
     expect(first).toMatchObject({ rows: recentTurn, summary: 'Earlier decisions' });
     const saved = tx.agentRun.update.mock.calls.at(-1)?.[0].data.metadata;
     expect(saved.chatCompaction).toMatchObject({ boundary: 2, summary: 'Earlier decisions', fingerprint: expect.any(String) });

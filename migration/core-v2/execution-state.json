@@ -1,0 +1,148 @@
+{
+  "phase": "P0 Execution Unification",
+  "completedTasks": [],
+  "currentTask": {
+    "id": "R01-shared-agent-orchestration",
+    "status": "partial",
+    "codePaths": [
+      "packages/shared/core/src/agent-execution-engine.ts",
+      "apps/gateway/src/worker/run-runner.ts",
+      "packages/shared/core/src/agent-execution-protocol.spec.ts"
+    ],
+    "evidence": "Core turn readiness now gates model, cancellation and durable tool dispatch; further Gateway loop extraction remains"
+  },
+  "nextTask": "Continue R01 model lifecycle, tool authorization and Gateway host adapter migration",
+  "acceptance": {
+    "A01": "implemented",
+    "A02": "implemented",
+    "A03": "implemented",
+    "A04": "pending",
+    "A05": "pending",
+    "A06": "pending",
+    "A07": "pending",
+    "A08": "pending",
+    "A09": "pending",
+    "A10": "pending",
+    "A11": "pending",
+    "A12": "pending",
+    "A13": "pending",
+    "A14": "pending",
+    "A15": "pending",
+    "A16": "pending",
+    "A17": "pending",
+    "A18": "pending",
+    "A19": "blocked",
+    "A20": "pending"
+  },
+  "externalBlocks": [
+    "Local GitHub DNS unavailable; connector writes functional",
+    "No GitHub Actions runs/statuses were returned for previous commit; CI verification pending",
+    "A19 live Provider credentials not established"
+  ],
+  "verifiedTests": [],
+  "updatedAt": "2026-11-22",
+  "modulePolicy": "Module-Driven Development; one logical module per atomic multi-file commit",
+  "modules": {
+    "M01": {
+      "status": "implemented_unverified",
+      "description": "Shared model decision, sequential tool scheduling, durable resume fencing, completion and failure directives",
+      "codePaths": [
+        "packages/shared/core/src/agent-execution-engine.ts",
+        "packages/shared/core/src/index.ts",
+        "packages/shared/core/src/agent-execution-protocol.spec.ts",
+        "apps/gateway/src/worker/run-runner.ts"
+      ],
+      "verification": "Not executed; no CI workflow available at previous head",
+      "implementationStatus": "implemented",
+      "verificationStatus": "not_run"
+    },
+    "M02": {
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Shared execution driver invoked from CLI Engine and Gateway model dispatch, durable sibling recovery, Stop completion and retry boundaries",
+      "codePaths": [
+        "packages/shared/core/src/agent-execution-engine.ts",
+        "packages/shared/core/src/index.ts",
+        "packages/shared/core/src/agent-execution-protocol.spec.ts",
+        "apps/gateway/src/worker/run-runner.ts"
+      ]
+    },
+    "M03": {
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Gateway resume integration fences pending tool deliveries and requeues owned run while awaiting prior external effect; Jest worker integration test",
+      "codePaths": [
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts"
+      ]
+    },
+    "M04": {
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Gateway durable session and parent-message ownership checks, Core stable session identity, idempotent assistant transcript append under Session row lock, regression tests",
+      "codePaths": [
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts",
+        "packages/shared/core/src/agent-execution-engine.ts"
+      ]
+    },
+    "M05": {
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Core context cache identity and tool-pair boundary invariants; Gateway cached summaries now tied to session identity and budget. Full cross-host compaction unification remains pending.",
+      "codePaths": [
+        "packages/shared/core/src/context-engine.ts",
+        "apps/gateway/src/worker/run-runner.ts",
+        "packages/shared/core/src/context-engine.spec.ts"
+      ]
+    },
+    "M06": {
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Fail closed on durable session corruption by throwing into fenced terminal failure persistence; remaining crash recovery and outbox integration pending",
+      "codePaths": [
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts"
+      ]
+    },
+    "M07": {
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Added context and stale outbox contract cases; A01-A20 CI matrix remains unverified",
+      "codePaths": [
+        "packages/shared/core/src/agent-execution-protocol.spec.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts"
+      ]
+    },
+    "M08": {
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "CI push trigger extended to integration branch; complete CI and PostgreSQL acceptance still required",
+      "codePaths": [
+        ".github/workflows/ci.yml"
+      ]
+    }
+  },
+  "ciInvestigation": {
+    "workflow": ".github/workflows/ci.yml",
+    "triggers": [
+      "pull_request",
+      "push(main,develop)",
+      "workflow_dispatch",
+      "workflow_call"
+    ],
+    "observation": "Push trigger expanded to feat/core-v2-final-integration; workflow run evidence must be inspected after push",
+    "observedRun": 44978776737,
+    "observedFailure": "TS2307 vitest imports in shared Core specs",
+    "fix": "Test fixture now binds initial summary to same immutable Session as follow-up; preserve production cache guard",
+    "latestFailingRun": 44979627711,
+    "latestFailure": "Gateway RunRunner compaction test fixture omitted Session identity, so safe cross-run cache reuse correctly declined"
+  }
+}

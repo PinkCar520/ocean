@@ -316,7 +316,12 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
  async function waitFor(runId: string, status: string) {
   const deadline = Date.now() + 12000;
   while ((await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).status !== status) {
-   if (Date.now() > deadline) throw new Error(`Run ${runId} never reached ${status}`);
+   if (Date.now() > deadline) {
+    const run = await db.agentRun.findUniqueOrThrow({ where: { id: runId } });
+    const steps = await db.runStep.findMany({ where: { runId }, orderBy: { seq: 'asc' },
+     select: { kind: true, status: true, error: true } });
+    throw new Error(`Run ${runId} never reached ${status}; actual=${run.status}; steps=${JSON.stringify(steps)}`);
+   }
    await new Promise(resolve => setTimeout(resolve, 100));
   }
  }
@@ -324,8 +329,9 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   const echo = registry.get('echo')!;
   registry.register({ ...echo, requiresApproval: true });
   try {
+   const session = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'Approval fixture' } });
    const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
-    .send({ space: { id: spaceId, type: 'work' }, input: '调用工具 approved', metadata: { sessionId: 'e2e-session' } }).expect(201);
+    .send({ space: { id: spaceId, type: 'work' }, input: '调用工具 approved', metadata: { sessionId: session.id } }).expect(201);
    const runId = response.body.run?.id ?? response.body.id;
    worker.start();
    await waitFor(runId, 'waiting_for_approval');
@@ -569,7 +575,8 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
  it('does not reuse a session grant issued under an obsolete policy', async () => {
   const echo = registry.get('echo')!;
   registry.register({ ...echo, requiresApproval: true });
-  const sessionId = randomUUID();
+  const session = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'Policy grant fixture' } });
+  const sessionId = session.id;
   const input = '调用工具 obsolete session grant';
   const create = async () => {
    const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
@@ -809,9 +816,10 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
 
  it('streams a provider tool call through cancellation, retry, session approval and completion', async () => {
   const requestsBeforeCancellation = providerContract.requests.length;
+  const session = await db.session.create({ data: { userId, spaceId, channel: 'cli', title: 'Provider fixture' } });
   const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
    .send({ space: { id: spaceId, type: 'work' }, input: 'Provider contract',
-    metadata: { modelId: providerModelId, sessionId: 'provider-contract', systemPrompt: 'System fixture', appendSystemPrompt: 'Extra fixture' } }).expect(201);
+    metadata: { modelId: providerModelId, sessionId: session.id, systemPrompt: 'System fixture', appendSystemPrompt: 'Extra fixture' } }).expect(201);
   const runId = response.body.run.id;
   await request(app.getHttpServer()).post(`/api/runs/${runId}/cancel`).auth(auth(), { type: 'bearer' }).send({}).expect(201);
   expect(await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).toMatchObject({ status: 'cancelled' });

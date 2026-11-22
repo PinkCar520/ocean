@@ -61,13 +61,49 @@ export interface AgentExecutionResult {
  * synchronous CLI loop, so both hosts reject malformed tool batches alike.
  */
 export function validateAgentModelDecision(decision: AgentModelDecision): AgentModelDecision {
-  if (decision.kind === 'complete') return decision;
-  if (!decision.calls.length) throw new Error('Model returned an empty tool batch');
+  if (!decision || (decision.kind !== 'complete' && decision.kind !== 'tools'))
+    throw new Error('Model returned an invalid decision kind');
+  if (decision.kind === 'complete') {
+    if (typeof decision.text !== 'string') throw new Error('Model returned invalid completion text');
+    return decision;
+  }
+  if (!Array.isArray(decision.calls) || !decision.calls.length)
+    throw new Error('Model returned an empty tool batch');
   const ids = new Set<string>();
   for (const call of decision.calls) {
     if (typeof call.id !== 'string' || !call.id.trim() ||
         typeof call.name !== 'string' || !call.name.trim() || ids.has(call.id))
       throw new Error('Model returned invalid or duplicate tool invocation');
+    // A model decision must be replayable after a process restart. Reject
+    // non-JSON inputs before either host persists or dispatches side effects.
+    let encoded: string | undefined;
+    try { encoded = JSON.stringify(call.input); } catch { /* cyclic input */ }
+    if (encoded === undefined) throw new Error('Model returned non-serializable tool input');
+    if (encoded.length > 4 * 1024 * 1024)
+      throw new Error('Model returned oversized durable tool input');
+    // JSON.stringify silently rewrites NaN/Infinity to null and drops
+    // undefined/functions/symbols. Durable replay must not change tool args.
+    const stack: unknown[] = [call.input];
+    const visited = new Set<object>();
+    while (stack.length) {
+      const value = stack.pop();
+      if (typeof value === 'number' && !Number.isFinite(value))
+        throw new Error('Model returned non-serializable tool input');
+      if (value === undefined || typeof value === 'function' || typeof value === 'symbol' ||
+          typeof value === 'bigint')
+        throw new Error('Model returned non-serializable tool input');
+      if (value && typeof value === 'object') {
+        if (visited.has(value)) continue;
+        visited.add(value);
+        if (Array.isArray(value)) stack.push(...value);
+        else {
+          const proto = Object.getPrototypeOf(value);
+          if (proto !== Object.prototype && proto !== null)
+            throw new Error('Model returned non-JSON tool input');
+          stack.push(...Object.values(value));
+        }
+      }
+    }
     ids.add(call.id);
   }
   return decision;
@@ -102,6 +138,59 @@ export function nextDurableToolCall(
 }
 
 /**
+ * Shared execution protocol for inline and queue-backed hosts.
+ * Claims must form a contiguous prefix; an unresolved claim blocks dispatch.
+ * A host persists the proposal before executing the returned call.
+ */
+export type AgentExecutionDirective =
+  | { kind: 'complete'; text: string }
+  | { kind: 'dispatch'; call: { id: string; name: string; input: unknown }; text?: string }
+  | { kind: 'awaiting_results' };
+
+export function nextAgentExecutionDirective(
+  decision: AgentModelDecision,
+  state: { claimedIds?: ReadonlySet<string>; unresolved?: boolean } = {},
+): AgentExecutionDirective {
+  validateAgentModelDecision(decision);
+  if (decision.kind === 'complete') {
+    if (state.unresolved || state.claimedIds?.size)
+      throw new Error('Cannot complete while tool claims remain unresolved');
+    return { kind: 'complete', text: decision.text };
+  }
+  const call = nextDurableToolCall(decision.calls, state.claimedIds ?? new Set<string>(), state.unresolved ?? false);
+  return call ? { kind: 'dispatch', call, text: decision.text } : { kind: 'awaiting_results' };
+}
+
+/**
+ * The queue-backed host cannot advance the model or the next sibling while
+ * a previous tool claim or outbox delivery is still in flight.
+ * In-process hosts use the same sequential dispatch contract, but settle
+ * each invocation before requesting the next directive.
+ */
+export function planAgentExecutionResume(
+  decision: AgentModelDecision,
+  claimedIds: ReadonlySet<string>,
+  inFlight: { unfinishedTool: boolean; pendingDeliveryIds: readonly string[] },
+): AgentExecutionDirective | { kind: 'wait_for_host' } {
+  validateAgentModelDecision(decision);
+  if (decision.kind === 'complete') {
+    if (inFlight.pendingDeliveryIds.length)
+      throw new Error('Pending delivery has no model tool decision; journal reconciliation required');
+    if (inFlight.unfinishedTool)
+      return { kind: 'wait_for_host' };
+    return nextAgentExecutionDirective(decision, { claimedIds });
+  }
+  const known = new Set(decision.calls.map(call => call.id));
+  if (inFlight.pendingDeliveryIds.some(id => !known.has(id)))
+    throw new Error('Pending delivery absent from model decision; reconciliation required');
+  // Check journal ordering even when blocked by a pending delivery.
+  nextDurableToolCall(decision.calls, claimedIds, false);
+  if (inFlight.unfinishedTool || inFlight.pendingDeliveryIds.length)
+    return { kind: 'wait_for_host' };
+  return nextAgentExecutionDirective(decision, { claimedIds });
+}
+
+/**
  * A single scheduling contract for both the initial model decision and
  * subsequent queue-backed resumptions. The host persists the entire model
  * decision before enqueueing the returned invocation.
@@ -111,11 +200,92 @@ export function planDurableModelDecision(
   claimedIds: ReadonlySet<string> = new Set<string>(),
   hasUnresolvedInvocation = false,
 ): { kind: 'complete'; text: string } | { kind: 'dispatch'; call: { id: string; name: string; input: unknown }; text?: string } | { kind: 'awaiting_results' } {
-  validateAgentModelDecision(decision);
-  if (decision.kind === 'complete') return decision;
-  const call = nextDurableToolCall(decision.calls, claimedIds, hasUnresolvedInvocation);
-  if (!call) return { kind: 'awaiting_results' };
-  return { kind: 'dispatch', call, text: decision.text };
+  return nextAgentExecutionDirective(decision, { claimedIds, unresolved: hasUnresolvedInvocation });
+}
+
+/**
+ * Completion and failure are Core decisions; hosts only persist the chosen
+ * transition and implement their own Stop hook / retry transport.
+ */
+export type AgentTerminalDirective =
+  | { kind: 'commit_completion' }
+  | { kind: 'continue_model'; feedback: string }
+  | { kind: 'reject_completion' };
+
+export function planAgentCompletion(
+  verification: { accepted: boolean; feedback?: string },
+): AgentTerminalDirective {
+  if (verification.accepted) return { kind: 'commit_completion' };
+  if (typeof verification.feedback === 'string' && verification.feedback.trim())
+    return { kind: 'continue_model', feedback: verification.feedback };
+  return { kind: 'reject_completion' };
+}
+
+export type AgentFailureDirective =
+  | { kind: 'retry'; state: 'queued' }
+  | { kind: 'terminate'; state: 'failed' };
+
+export function planAgentFailure(retryable: boolean): AgentFailureDirective {
+  return retryable ? { kind: 'retry', state: 'queued' } : { kind: 'terminate', state: 'failed' };
+}
+
+/**
+ * Host-neutral driver for a model turn. Both inline and durable workers call
+ * this before any transcript mutation, RunStep or Outbox side effect.
+ */
+/** The model-turn scheduling gate is owned by Core, not by a queue host.
+ * Hosts supply journal evidence and perform only the resulting I/O.
+ */
+export interface AgentTurnReadiness {
+  cancelled: boolean;
+  pendingDeliveryIds: readonly string[];
+  unfinishedTool: boolean;
+  modelDecision?: AgentModelDecision;
+  claimedIds?: ReadonlySet<string>;
+}
+export type AgentTurnPlan =
+  | { kind: 'cancel' }
+  | { kind: 'wait_for_host' }
+  | { kind: 'call_model' }
+  | AgentExecutionDirective;
+
+export function planAgentTurn(readiness: AgentTurnReadiness): AgentTurnPlan {
+  if (readiness.cancelled) return { kind: 'cancel' };
+  if (!readiness.modelDecision) {
+    if (readiness.unfinishedTool || readiness.pendingDeliveryIds.length)
+      return { kind: 'wait_for_host' };
+    return { kind: 'call_model' };
+  }
+  return planAgentExecutionResume(
+    readiness.modelDecision,
+    readiness.claimedIds ?? new Set<string>(),
+    { unfinishedTool: readiness.unfinishedTool, pendingDeliveryIds: readiness.pendingDeliveryIds },
+  );
+}
+
+export class AgentExecutionDriver {
+  planTurn(readiness: AgentTurnReadiness): AgentTurnPlan {
+    return planAgentTurn(readiness);
+  }
+  decide(decision: AgentModelDecision): AgentExecutionDirective {
+    return nextAgentExecutionDirective(decision);
+  }
+
+  resume(
+    decision: AgentModelDecision,
+    claimedIds: ReadonlySet<string>,
+    inFlight: { unfinishedTool: boolean; pendingDeliveryIds: readonly string[] },
+  ): AgentExecutionDirective | { kind: 'wait_for_host' } {
+    return planAgentExecutionResume(decision, claimedIds, inFlight);
+  }
+
+  completion(accepted: boolean, feedback?: string): AgentTerminalDirective {
+    return planAgentCompletion({ accepted, feedback });
+  }
+
+  failure(retryable: boolean): AgentFailureDirective {
+    return planAgentFailure(retryable);
+  }
 }
 
 export class AgentExecutionEngine<Message> {
@@ -153,12 +323,24 @@ export class AgentExecutionEngine<Message> {
     return this.durableRuntime().snapshot(runId);
   }
 
+  /** Resolve the immutable Session identity for an existing durable Run.
+   * A missing sessionId may be supplied for legacy runs, but a different
+   * session must never take over the event stream.
+   */
+  async assertDurableSession(runId: string, sessionId: string): Promise<void> {
+    if (!sessionId.trim()) throw new Error('Durable session identity is required');
+    const snapshot = await this.durableSnapshot(runId);
+    if (!snapshot) throw new Error('Durable runtime session not found');
+    if (snapshot.sessionId !== sessionId)
+      throw new Error('Durable runtime session identity mismatch');
+  }
+
   /** Begin an initial or recovered model segment without replaying unsettled effects. */
   async startDurableModel(runId: string, sessionId?: string): Promise<RuntimeSnapshot> {
     const runtime = this.durableRuntime();
     let current = await this.durableSnapshot(runId);
     if (!current) current = await runtime.create(runId, sessionId || runId);
-    if (sessionId && current.sessionId !== sessionId)
+    if (sessionId && current.sessionId && current.sessionId !== sessionId)
       throw new Error('Durable runtime session identity mismatch');
     if (Object.values(current.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
       throw new Error('Durable recovery requires tool journal reconciliation; automatic replay prohibited');
@@ -278,6 +460,7 @@ export class AgentExecutionEngine<Message> {
   private async execute(sessionId: string, runId: string, maxSteps: number, signal: AbortSignal | undefined, resume: boolean): Promise<AgentExecutionResult> {
     if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid agent step limit');
     const ports = this.executionPorts();
+    const driver = new AgentExecutionDriver();
     const runtime = new AgentRuntime(ports.events, ports.host);
     const baseAuthorization = ports.authorization;
     const tools = new ToolRuntime(ports.events, ports.host, {
@@ -351,7 +534,8 @@ export class AgentExecutionEngine<Message> {
         catch (error) { await runtime.transition(runId, 'failed'); throw error; }
         if (!checks.length) {
           const feedback = await ports.completion.onIncomplete?.(decision.text);
-          if (feedback !== undefined) {
+          const completion = driver.completion(false, typeof feedback === 'string' ? feedback : feedback === undefined ? undefined : 'host-feedback');
+          if (completion.kind === 'continue_model' && feedback !== undefined) {
             const assistant = ports.toMessages?.(decision) ?? [ports.toMessage(decision)];
             try {
               await ports.transcript.append(sessionId, messages.length, [...assistant, feedback]);
@@ -405,7 +589,13 @@ export class AgentExecutionEngine<Message> {
       }
       await runtime.transition(runId, 'executing_tools');
       try {
-        for (const [callIndex, { call, descriptor }] of prepared.entries()) {
+        const claimed = new Set<string>();
+        for (let callIndex = 0; callIndex < prepared.length; callIndex++) {
+          const directive = driver.resume(decision, claimed, { unfinishedTool: false, pendingDeliveryIds: [] });
+          if (directive.kind !== 'dispatch')
+            throw new Error('Shared execution protocol expected a tool dispatch');
+          const { call } = directive;
+          const descriptor = prepared[callIndex].descriptor;
           signal?.throwIfAborted();
           try { ports.onToolCall?.(call.name, call.input); } catch { /* telemetry cannot affect execution */ }
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
@@ -418,6 +608,7 @@ export class AgentExecutionEngine<Message> {
           const next = ports.toMessages?.(toolDecision, result) ?? [ports.toMessage(toolDecision, result)];
           await ports.transcript.append(sessionId, messages.length, next);
           messages.push(...next);
+          claimed.add(call.id);
           // An activated skill must only enter durable Runtime state after its
           // invocation/result pair is committed to the Session transcript.
           if (activated) await runtime.activateSkill(runId, activated.id, activated.source, activated.allowedTools);

@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { AgentExecutionEngine, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
+import { AgentExecutionDriver, AgentExecutionEngine, countTextTokens, validateCompaction, validateHistoryCompactionBoundary, validateCachedCompaction, ContextBudgetError } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -97,6 +97,8 @@ export class RunRunner {
     @Optional() private readonly core?: GatewayCoreLifecycle,
   ) {}
 
+  private readonly executionDriver = new AgentExecutionDriver();
+
   private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
 
   private fencedTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
@@ -159,6 +161,29 @@ export class RunRunner {
             code: 'tool_execution_failed', message,
           });
           return { ok: false as const, reason: message };
+        }
+        // Bind the durable Run to an existing, owned Session before any
+        // model call, transcript read or external tool dispatch.
+        const sessionMetadata = run.metadata && typeof run.metadata === 'object' && !Array.isArray(run.metadata)
+          ? run.metadata as { sessionId?: unknown; chatUserMessageId?: unknown }
+          : undefined;
+        if (sessionMetadata?.sessionId !== undefined) {
+          if (typeof sessionMetadata.sessionId !== 'string' || !sessionMetadata.sessionId.trim())
+            throw new Error('Invalid durable session identity');
+          const session = await tx.session.findFirst({
+            where: { id: sessionMetadata.sessionId, userId, status: 'active' },
+            select: { id: true },
+          });
+          if (!session) throw new Error('Durable session is unavailable or not owned by run user');
+          if (sessionMetadata.chatUserMessageId !== undefined) {
+            if (typeof sessionMetadata.chatUserMessageId !== 'string' || !sessionMetadata.chatUserMessageId.trim())
+              throw new Error('Invalid chat parent message identity');
+            const parent = await tx.message.findFirst({
+              where: { id: sessionMetadata.chatUserMessageId, sessionId: session.id, role: 'user' },
+              select: { id: true },
+            });
+            if (!parent) throw new Error('Chat parent message is not in the owned session');
+          }
         }
         const claimed = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
         if (!claimed.count) return { ok: false as const, ignored: true as const };
@@ -328,9 +353,17 @@ export class RunRunner {
 
       // Gateway's durable worker and CLI share the Core's model decision
       // contract before either host schedules tools or completes a turn.
-      const modelDecision = AgentExecutionEngine.planDurableDecision(toolCalls.length
-        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
-        : { kind: 'complete', text: fullText });
+      const modelDecision = this.executionDriver.planTurn({
+        cancelled: modelAbort.signal.aborted,
+        unfinishedTool: false,
+        pendingDeliveryIds: [],
+        modelDecision: toolCalls.length
+          ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
+          : { kind: 'complete', text: fullText },
+      });
+      if (modelDecision.kind === 'cancel') return { jobId: job.id, runId, status: 'succeeded' };
+      if (modelDecision.kind === 'wait_for_host' || modelDecision.kind === 'call_model')
+        throw new Error('Unexpected Core turn plan after model response');
 
       // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
       if (modelDecision.kind === 'dispatch') {
@@ -374,6 +407,10 @@ export class RunRunner {
         run_id: runId, user_id: userId, space_id: takeover.spaceId,
         last_assistant_message: fullText,
       }, { spaceId: takeover.spaceId });
+      const completionDirective = this.executionDriver.completion(
+        !stopHook.blocked,
+        stopHook.blocked ? stopHook.reason || 'Continue working before stopping.' : undefined,
+      );
       // 6) 无工具 → 完成：step succeeded + step_completed + run succeeded（同一事务）
       await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
@@ -387,8 +424,8 @@ export class RunRunner {
             completedAt: new Date(),
           },
         });
-        if (this.core) await this.core.finishModel(tx, runId, !stopHook.blocked);
-        if (!stopHook.blocked) this.metrics.inc('run.terminal', { status: 'succeeded' });
+        if (this.core) await this.core.finishModel(tx, runId, completionDirective.kind === 'commit_completion');
+        if (completionDirective.kind === 'commit_completion') this.metrics.inc('run.terminal', { status: 'succeeded' });
         await this.appendEvent(tx, runId, {
           id: randomUUID(),
           runId,
@@ -404,7 +441,7 @@ export class RunRunner {
             output,
           }),
         });
-        if (stopHook.blocked) {
+        if (completionDirective.kind === 'continue_model') {
           await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
           await this.outbox.enqueueRunRequested(tx, { version: 1, runId, userId }, priorityRankOf(takeover.priority));
           await this.appendEvent(tx, runId, {
@@ -429,11 +466,24 @@ export class RunRunner {
                 ? output.text : '',
             ).join('');
             if (content) {
-              await tx.message.create({ data: {
-                sessionId, parentId, role: 'assistant', content,
-                parts: [{ type: 'text', text: content, completedRunId: runId }],
-              } });
-              await tx.session.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
+              // A recovered worker must never append the same completed Run
+              // twice. The Session row is locked by the fenced transaction.
+              await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${sessionId} FOR UPDATE`;
+              const siblings = await tx.message.findMany({
+                where: { sessionId, parentId, role: 'assistant' },
+                select: { parts: true },
+              });
+              const alreadyCommitted = siblings.some(({ parts }) =>
+                Array.isArray(parts) && parts.some(part =>
+                  part !== null && typeof part === 'object' && !Array.isArray(part) &&
+                  (part as { completedRunId?: unknown }).completedRunId === runId));
+              if (!alreadyCommitted) {
+                await tx.message.create({ data: {
+                  sessionId, parentId, role: 'assistant', content,
+                  parts: [{ type: 'text', text: content, completedRunId: runId }],
+                } });
+                await tx.session.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
+              }
             }
           }
         }
@@ -476,10 +526,13 @@ export class RunRunner {
         typeof cached.boundary === 'number' && Number.isSafeInteger(cached.boundary) &&
         cached.boundary > 0 && cached.boundary <= history.length &&
         typeof cached.summary === 'string' && Boolean(cached.summary) &&
-        cached.fingerprint === fingerprint(cached.boundary)) {
+        cached.fingerprint === fingerprint(cached.boundary) &&
+        cached.budgetTokens === historyBudget &&
+        cached.sessionId === metadata.sessionId) {
       const rows = history.slice(cached.boundary);
       const after = countTextTokens(JSON.stringify(rows)) + countTextTokens(cached.summary);
       if (after < historyBudget && after < countTextTokens(JSON.stringify(history))) {
+        validateCachedCompaction(countTextTokens(JSON.stringify(history)), after, historyBudget, history, cached.boundary);
         return { rows, summary: cached.summary, toolBudget: historyBudget - after };
       }
     }
@@ -502,7 +555,9 @@ export class RunRunner {
           typeof saved.boundary === 'number' && Number.isSafeInteger(saved.boundary) &&
           saved.boundary > 0 && saved.boundary <= history.length &&
           typeof saved.summary === 'string' && saved.summary &&
-          saved.fingerprint === fingerprint(saved.boundary)) {
+          saved.fingerprint === fingerprint(saved.boundary) &&
+          saved.budgetTokens === historyBudget &&
+          saved.sessionId === metadata.sessionId) {
         previousBoundary = saved.boundary;
         previousSummary = saved.summary;
       }
@@ -558,6 +613,7 @@ export class RunRunner {
     // The current user prompt and system policy are outside chatHistory and
     // must never be discarded as a side effect of summarizing older turns.
     if (boundary > 0) {
+      validateHistoryCompactionBoundary(history, boundary);
       validateCompaction({
         beforeTokens, afterTokens, budgetTokens: historyBudget,
         summaryValid: Boolean(summary?.trim()),
@@ -566,7 +622,7 @@ export class RunRunner {
       });
       await this.fencedTransaction(async tx => {
         await tx.agentRun.update({ where: { id: runId }, data: {
-          metadata: { ...metadata, chatCompaction: { boundary, summary, fingerprint: fingerprint(boundary), ...(summaryUsage && { usage: summaryUsage }) } } as Prisma.InputJsonValue,
+          metadata: { ...metadata, chatCompaction: { boundary, summary, sessionId: metadata.sessionId, budgetTokens: historyBudget, fingerprint: fingerprint(boundary), ...(summaryUsage && { usage: summaryUsage }) } } as Prisma.InputJsonValue,
         } });
       });
     } else if (afterTokens >= historyBudget) {
@@ -773,19 +829,38 @@ export class RunRunner {
           status: { notIn: ['succeeded', 'failed', 'cancelled'] } },
         select: { id: true },
       });
-      // Core owns batch validation, ordering and fail-closed recovery policy.
-      const nextDecision = AgentExecutionEngine.planDurableDecision({ kind: 'tools', calls }, claimed, Boolean(unfinished));
-      const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
-      if (!next) return false;
+      // A pending outbox delivery is an outstanding side effect, even before
+      // ToolExecutor creates its RunStep. Never advance a sibling or call the
+      // model while the earlier delivery is unresolved.
       const pending = await tx.outboxEvent.findMany({
         where: { aggregateId: runId, topic: 'tool.requested', status: 'pending' },
         select: { payload: true },
       });
-      const alreadyQueued = pending.some(row => {
+      const pendingIds = pending.map(row => {
         const payload = row.payload as { toolCall?: { id?: unknown } } | null;
-        return payload?.toolCall?.id === next.id;
+        return payload?.toolCall?.id;
       });
-      if (!alreadyQueued) {
+      if (pendingIds.some(id => typeof id !== 'string'))
+        throw new Error('Unidentifiable pending tool delivery; reconciliation required');
+      // Outbox rows for older batches may coexist with the current model
+      // step. Only the current model batch may influence this resume decision.
+      // Any unidentifiable delivery is a hard consistency failure.
+      const currentBatchIds = new Set(calls.map(call => call.id));
+      const relevantPendingIds = (pendingIds as string[]).filter(id => currentBatchIds.has(id));
+      const nextDecision = this.executionDriver.resume(
+        { kind: 'tools', calls }, claimed,
+        { unfinishedTool: Boolean(unfinished), pendingDeliveryIds: relevantPendingIds },
+      );
+      if (nextDecision.kind === 'wait_for_host') {
+        // Do not acknowledge the run.requested message as successful while a
+        // prior external effect is still in flight. Ownership is relinquished
+        // and the existing tool-result continuation will resume the run.
+        await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
+        return true;
+      }
+      const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
+      if (!next) return false;
+      {
         const message = toolRequestedMessageSchema.parse({
           version: 1, runId, userId,
           toolCall: { id: next.id, name: next.name, input: next.input, idempotencyKey: next.id },
@@ -992,7 +1067,9 @@ export class RunRunner {
   ): Promise<RunExecutionResult> {
     const { runId } = job.payload;
     const message = error instanceof Error ? error.message : String(error);
-    const retryable = error instanceof RetryableError;
+    // Ownership and Session integrity violations are terminal, never replayed.
+    const failureDirective = this.executionDriver.failure(error instanceof RetryableError);
+    const retryable = failureDirective.kind === 'retry';
     let ignored = false;
 
     try {
