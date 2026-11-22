@@ -249,7 +249,7 @@ export function LandingPage() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-2" aria-label="Try an example task">
             {taskExamples.map(example => (
-              <button key={example.label} type="button" onClick={() => setPrompt(example.prompt)}
+              <button key={example.label} type="button" onClick={() => { setPrompt(example.prompt); document.getElementById("ocean-prompt")?.focus(); }}
                 className="rounded-full border border-[#e8e2dd] bg-white px-4 py-2 text-sm font-medium text-[#5b5550] transition-colors hover:border-[#e9561b] hover:text-[#b34e28] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">
                 {example.label}
               </button>
