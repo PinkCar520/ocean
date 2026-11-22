@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import hmac
+import os
 
 from fastapi import FastAPI, Header, HTTPException, Response
 
@@ -10,6 +12,7 @@ from .models import (
     IntentModel,
     ObservationModel,
     PermissionDecisionModel,
+    VoiceTurnModel,
 )
 from .repository import (
     InMemoryControlPlaneRepository,
@@ -19,6 +22,9 @@ from .repository import (
     RepositoryPermissionDenied,
     build_repository,
 )
+
+from .voice_capture_host import CaptureOnlyAgentHost
+from .voice_pipeline import VoiceTurn
 
 repository = build_repository()
 
@@ -144,3 +150,30 @@ def reset_in_memory_repository_for_testing() -> None:
     if not isinstance(repository, InMemoryControlPlaneRepository):
         raise TypeError("test reset is only available for the in-memory repository")
     repository.reset()
+
+
+@app.post("/v1/voice/turns", status_code=202)
+async def capture_voice_turn(
+    model: VoiceTurnModel,
+    voice_capture_token: str | None = Header(default=None, alias="X-OLO-Voice-Token"),
+) -> dict[str, object]:
+    """Capture a final transcript, not an authorization or execution request.
+
+    Authentication and device identity verification must be enforced at the
+    deployment boundary before this endpoint is exposed to untrusted clients.
+    """
+    expected_token = os.environ.get("OLO_VOICE_CAPTURE_TOKEN")
+    if not expected_token:
+        raise HTTPException(status_code=503, detail="voice capture is not configured")
+    if not voice_capture_token or not hmac.compare_digest(voice_capture_token, expected_token):
+        raise HTTPException(status_code=401, detail="invalid voice capture credentials")
+    try:
+        reply = await CaptureOnlyAgentHost(repository).respond(VoiceTurn(
+            subject_id=model.subjectId,
+            session_id=model.sessionId,
+            source_body_id=model.sourceBodyId,
+            transcript=model.transcript,
+        ))
+    except RepositoryConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return {"sessionId": reply.session_id, "taskId": reply.task_id, "status": "captured", "message": reply.text}

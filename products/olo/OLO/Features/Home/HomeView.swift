@@ -438,6 +438,11 @@ struct HomeView: View {
         )
         center.lastVoiceRequest = request
         center.liveTranscript = ""
+        // The remote capture path is opt-in and observational. The existing
+        // local permission/confirmation flow remains authoritative.
+        if let sync = center.controlPlaneSync {
+            Task { await sync.captureVoiceTranscript(trimmed, sessionID: request.id) }
+        }
         withAnimation { center.state = .idle }
         route(request)
     }
