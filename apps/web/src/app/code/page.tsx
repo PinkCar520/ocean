@@ -73,7 +73,7 @@ export default function OceanCodePage() {
             {[
               ['Is Ocean Code a model?', 'No. It is a terminal agent interface. You configure a supported model provider separately.'],
               ['Are Skills and MCP servers enabled by default?', 'Not necessarily. Their availability depends on installation, configuration and permissions.'],
-              ['Does Ocean Code share everything with the web workspace?', 'The architecture aims to share an Agent Core. Verify actual cross-host behavior against the current implementation and tests.'],
+              ['Does Ocean Code share everything with the web workspace?', 'The architecture aims to share an Agent Core. Cross-host parity is an architecture goal, not a blanket guarantee. Verify behavior against the current implementation and tests.'],
             ].map(([question, answer]) => <details key={question} className="group py-5"><summary className="cursor-pointer rounded font-semibold focus-visible:outline-2 focus-visible:outline-[#e9561b]">{question}</summary><p className="mt-4 max-w-3xl leading-7 text-[#6f6a65]">{answer}</p></details>)}
           </div>
         </section>
