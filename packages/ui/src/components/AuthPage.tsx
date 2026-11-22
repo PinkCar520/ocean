@@ -92,7 +92,7 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
                 <span className="text-[#e9784b]">Multiple Hosts.</span>
               </h1>
               <p className="mt-7 max-w-sm text-lg leading-8 text-white/65">
-                Reimagining the relationship between humans and AI.
+                Together, let's explore what's next in human-AI interaction.
               </p>
 
             </div>
