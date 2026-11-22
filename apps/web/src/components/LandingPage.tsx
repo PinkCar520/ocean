@@ -478,7 +478,7 @@ export function LandingPage() {
                   const className = "inline-flex h-4 w-4 shrink-0 items-center justify-center text-[#d4d0cb] transition-opacity";
                   return profile.url
                     ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:opacity-70`}>{symbol}</a>
-                    : <span key={profile.label} aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
+                    : <span key={profile.label} role="img" aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
                 })}
               </div>
             </div>
