@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { AgentExecutionEngine, planAgentExecutionResume, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
+import { AgentExecutionEngine, planAgentExecutionResume, planAgentCompletion, planAgentFailure, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -374,6 +374,10 @@ export class RunRunner {
         run_id: runId, user_id: userId, space_id: takeover.spaceId,
         last_assistant_message: fullText,
       }, { spaceId: takeover.spaceId });
+      const completionDirective = planAgentCompletion({
+        accepted: !stopHook.blocked,
+        feedback: stopHook.blocked ? stopHook.reason || 'Continue working before stopping.' : undefined,
+      });
       // 6) 无工具 → 完成：step succeeded + step_completed + run succeeded（同一事务）
       await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
@@ -387,8 +391,8 @@ export class RunRunner {
             completedAt: new Date(),
           },
         });
-        if (this.core) await this.core.finishModel(tx, runId, !stopHook.blocked);
-        if (!stopHook.blocked) this.metrics.inc('run.terminal', { status: 'succeeded' });
+        if (this.core) await this.core.finishModel(tx, runId, completionDirective.kind === 'commit_completion');
+        if (completionDirective.kind === 'commit_completion') this.metrics.inc('run.terminal', { status: 'succeeded' });
         await this.appendEvent(tx, runId, {
           id: randomUUID(),
           runId,
@@ -404,7 +408,7 @@ export class RunRunner {
             output,
           }),
         });
-        if (stopHook.blocked) {
+        if (completionDirective.kind === 'continue_model') {
           await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
           await this.outbox.enqueueRunRequested(tx, { version: 1, runId, userId }, priorityRankOf(takeover.priority));
           await this.appendEvent(tx, runId, {
@@ -1001,7 +1005,8 @@ export class RunRunner {
   ): Promise<RunExecutionResult> {
     const { runId } = job.payload;
     const message = error instanceof Error ? error.message : String(error);
-    const retryable = error instanceof RetryableError;
+    const failureDirective = planAgentFailure(error instanceof RetryableError);
+    const retryable = failureDirective.kind === 'retry';
     let ignored = false;
 
     try {

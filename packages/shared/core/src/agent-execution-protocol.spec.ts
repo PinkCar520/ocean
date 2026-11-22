@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume } from './agent-execution-engine.js';
+import { nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume, planAgentCompletion, planAgentFailure } from './agent-execution-engine.js';
 
 const calls = [
   { id: 'a', name: 'read', input: { path: 'one' } },
@@ -48,6 +48,18 @@ describe('shared inline/durable execution protocol', () => {
     expect(() => planAgentExecutionResume(decision, new Set(['b']), {
       unfinishedTool: true, pendingDeliveryIds: [],
     })).toThrow(/Non-contiguous/);
+  });
+  it('uses one completion policy for Stop hook rejection and verified termination', () => {
+    expect(planAgentCompletion({ accepted: true })).toEqual({ kind: 'commit_completion' });
+    expect(planAgentCompletion({ accepted: false, feedback: 'keep going' })).toEqual({
+      kind: 'continue_model', feedback: 'keep going',
+    });
+    expect(planAgentCompletion({ accepted: false, feedback: ' ' })).toEqual({ kind: 'reject_completion' });
+    expect(planAgentCompletion({ accepted: false })).toEqual({ kind: 'reject_completion' });
+  });
+  it('shares retry vs terminal failure semantics across hosts', () => {
+    expect(planAgentFailure(true)).toEqual({ kind: 'retry', state: 'queued' });
+    expect(planAgentFailure(false)).toEqual({ kind: 'terminate', state: 'failed' });
   });
   it('cannot declare completion with outstanding claims', () => {
     expect(() => nextAgentExecutionDirective({ kind: 'complete', text: 'done' }, { claimedIds: new Set(['a']) })).toThrow(/Cannot complete/);

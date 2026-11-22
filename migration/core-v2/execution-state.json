@@ -2,16 +2,17 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "P0-durable-resume-fencing",
-    "status": "implemented",
+    "id": "M01-shared-agent-execution-protocol",
+    "status": "implemented_unverified",
     "codePaths": [
       "packages/shared/core/src/agent-execution-engine.ts",
-      "apps/gateway/src/worker/run-runner.ts",
-      "packages/shared/core/src/agent-execution-protocol.spec.ts"
+      "packages/shared/core/src/index.ts",
+      "packages/shared/core/src/agent-execution-protocol.spec.ts",
+      "apps/gateway/src/worker/run-runner.ts"
     ],
-    "evidence": "Core now owns pending-delivery/journal resume decision. Gateway defers sibling dispatch and model replay when earlier outbox delivery or tool step remains unresolved. Code committed, no passing CI evidence."
+    "evidence": "Core protocol used by inline and Gateway for model decisions, completion and retry, with contract tests. No test pass established."
   },
-  "nextTask": "P0 unify model completion, approval and retry decisions across inline and durable hosts; add Gateway integration tests for duplicate outbox delivery",
+  "nextTask": "M02 Inline / Durable Execution Driver: converge real model and tool execution paths, recovery and cancellation",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -40,5 +41,40 @@
     "A19 live Provider credentials not established"
   ],
   "verifiedTests": [],
-  "updatedAt": "2026-11-22"
+  "updatedAt": "2026-11-22",
+  "modulePolicy": "Module-Driven Development; one logical module per atomic multi-file commit",
+  "modules": {
+    "M01": {
+      "status": "implemented_unverified",
+      "description": "Shared model decision, sequential tool scheduling, durable resume fencing, completion and failure directives",
+      "codePaths": [
+        "packages/shared/core/src/agent-execution-engine.ts",
+        "packages/shared/core/src/index.ts",
+        "packages/shared/core/src/agent-execution-protocol.spec.ts",
+        "apps/gateway/src/worker/run-runner.ts"
+      ],
+      "verification": "Not executed; no CI workflow available at previous head"
+    },
+    "M02": {
+      "status": "pending"
+    },
+    "M03": {
+      "status": "pending"
+    },
+    "M04": {
+      "status": "pending"
+    },
+    "M05": {
+      "status": "pending"
+    },
+    "M06": {
+      "status": "pending"
+    },
+    "M07": {
+      "status": "pending"
+    },
+    "M08": {
+      "status": "pending"
+    }
+  }
 }

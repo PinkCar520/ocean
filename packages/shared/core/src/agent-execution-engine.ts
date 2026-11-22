@@ -172,6 +172,32 @@ export function planDurableModelDecision(
   return nextAgentExecutionDirective(decision, { claimedIds, unresolved: hasUnresolvedInvocation });
 }
 
+/**
+ * Completion and failure are Core decisions; hosts only persist the chosen
+ * transition and implement their own Stop hook / retry transport.
+ */
+export type AgentTerminalDirective =
+  | { kind: 'commit_completion' }
+  | { kind: 'continue_model'; feedback: string }
+  | { kind: 'reject_completion' };
+
+export function planAgentCompletion(
+  verification: { accepted: boolean; feedback?: string },
+): AgentTerminalDirective {
+  if (verification.accepted) return { kind: 'commit_completion' };
+  if (typeof verification.feedback === 'string' && verification.feedback.trim())
+    return { kind: 'continue_model', feedback: verification.feedback };
+  return { kind: 'reject_completion' };
+}
+
+export type AgentFailureDirective =
+  | { kind: 'retry'; state: 'queued' }
+  | { kind: 'terminate'; state: 'failed' };
+
+export function planAgentFailure(retryable: boolean): AgentFailureDirective {
+  return retryable ? { kind: 'retry', state: 'queued' } : { kind: 'terminate', state: 'failed' };
+}
+
 export class AgentExecutionEngine<Message> {
   constructor(private readonly ports: AgentExecutionPorts<Message> | RuntimeEventStore) {}
 
@@ -405,7 +431,8 @@ export class AgentExecutionEngine<Message> {
         catch (error) { await runtime.transition(runId, 'failed'); throw error; }
         if (!checks.length) {
           const feedback = await ports.completion.onIncomplete?.(decision.text);
-          if (feedback !== undefined) {
+          const completion = planAgentCompletion({ accepted: false, feedback: typeof feedback === 'string' ? feedback : feedback === undefined ? undefined : 'host-feedback' });
+          if (completion.kind === 'continue_model' && feedback !== undefined) {
             const assistant = ports.toMessages?.(decision) ?? [ports.toMessage(decision)];
             try {
               await ports.transcript.append(sessionId, messages.length, [...assistant, feedback]);
