@@ -94,6 +94,7 @@ export default function OceanCodePage() {
         </section>
         <section id="code-resources" aria-labelledby="code-resources-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
           <h2 id="code-resources-title" className="text-3xl font-semibold">Developer resources</h2>
+          <p className="mt-4 max-w-2xl leading-7 text-[#6f6a65]">The repository is the source of truth for installation, releases, and known issues.</p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {[
               ['Source repository', repository],
