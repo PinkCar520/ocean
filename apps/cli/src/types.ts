@@ -52,6 +52,8 @@ export interface SkillManifest {
 }
 
 export interface LoadedSkill {
+  /** Provenance determined by discovery; never trusted from SKILL.md frontmatter. */
+  source?: 'plugin' | 'user' | 'project';
   manifest: SkillManifest;
   content: string;
   sourcePath: string;

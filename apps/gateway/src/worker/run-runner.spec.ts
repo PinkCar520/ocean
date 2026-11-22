@@ -123,6 +123,42 @@ describe('RunRunner', () => {
     jest.restoreAllMocks();
   });
 
+  it('does not dispatch another batch sibling while a prior tool step is unfinished', async () => {
+    const { runner, tx, outbox } = createRunner({ id: 'run_1', userId: 'user_1', status: 'running' });
+    tx.runStep.findFirst.mockImplementation(async ({ where }: any) => {
+      if (where?.kind === 'model_call') return {
+        seq: 1, output: { toolCalls: [
+          { id: 'first', name: 'local_notebook_edit', input: {} },
+          { id: 'second', name: 'local_notebook_edit', input: {} },
+        ] },
+      };
+      if (where?.kind === 'tool_call' && where?.status === 'started') return null;
+      if (where?.kind === 'tool_call') return { id: 'unfinished-step' };
+      return null;
+    });
+    tx.runStep.findMany.mockResolvedValue([{ input: { id: 'first' } }]);
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('reconciliation required') });
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+    expect(tx.agentRun.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'run_1' }, data: { status: 'failed' },
+    }));
+  });
+
+  it('rejects duplicate tool IDs using the shared Core decision contract', async () => {
+    const calls = [
+      { id: 'duplicate', name: 'local_notebook_edit', input: {} },
+      { id: 'duplicate', name: 'local_notebook_edit', input: {} },
+    ];
+    const { runner, outbox } = createRunner(
+      { id: 'run_1', userId: 'user_1', status: 'queued', input: 'work' },
+      { generateResult: { text: '', toolCalls: calls } },
+    );
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('duplicate tool invocation') });
+    expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+  });
+
   it.each(['NaN', 'Infinity', '0', '-1', '1.5'])('fails closed for invalid turn limit %s', async (limit) => {
     const previous = process.env.WORKER_MAX_TURNS;
     process.env.WORKER_MAX_TURNS = limit;
@@ -419,7 +455,10 @@ describe('RunRunner', () => {
     expect(stepUpdate?.[0].data.output).toEqual({
       text: '我来查：',
       reasoning: 'provider continuation',
-      toolCalls: [{ id: 'tc_1', name: 'echo', input: { text: '查一下' } }],
+      toolCalls: [
+        { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
+        { id: 'tc_2', name: 'echo', input: { text: '再查一次' } },
+      ],
     });
     const emitted = tx.runEvent.create.mock.calls
       .map(call => call[0].data.payload)
@@ -490,6 +529,32 @@ describe('RunRunner', () => {
       fork, 'deepseek-flash', 'current', 'owner');
     expect(forked.summary).toBeUndefined();
 
+  });
+
+  it('fails closed rather than silently dropping history when no summary fits the budget', async () => {
+    const { runner, tx } = createRunner(null);
+    jest.spyOn(runner as any, 'fencedTransaction').mockImplementation(async (persist: any) => persist(tx));
+    const history = [
+      { role: 'user', text: 'critical constraint must not be omitted' },
+      { role: 'assistant', text: 'acknowledged' },
+    ];
+    await expect(runner['compactChatHistory']('run', {}, history,
+      'deepseek-flash', 'oversized prompt '.repeat(16_000))).rejects.toThrow(/context|budget/i);
+    expect(tx.agentRun.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cached history summary when the Session prefix fingerprint no longer matches', async () => {
+    const { runner, gateway } = createRunner(null, {
+      generateResult: { text: 'new summary', toolCalls: [] },
+    });
+    const history = [{ role: 'user', text: 'new original message' },
+      { role: 'assistant', text: 'response' }];
+    const stale = { boundary: 1, summary: 'stale summary', fingerprint: '0'.repeat(64) };
+    const output = await runner['compactChatHistory']('run', { chatCompaction: stale }, history,
+      'deepseek-flash', 'current');
+    expect(output.summary).not.toBe('stale summary');
+    expect(output.rows).toEqual(history);
+    expect(gateway.generate).not.toHaveBeenCalled();
   });
 
   it('restores a prior Session Run with paired tool history and reasoning', async () => {

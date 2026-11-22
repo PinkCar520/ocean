@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileRuntimeEventStore } from './runtime-event-store.js';
@@ -15,6 +15,17 @@ describe('local host runtime event persistence', () => {
   expect(await store.append('run', 0, [event])).toBe(1);
   expect(await new FileRuntimeEventStore(root).read('run')).toEqual([event]);
   await expect(store.append('run', 0, [event])).rejects.toThrow('revision conflict');
+ });
+ it('refuses symlinked journal paths without following them', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-runtime-')); roots.push(root);
+  const store = new FileRuntimeEventStore(root);
+  const outside = join(root, 'outside.json');
+  const { writeFile } = await import('node:fs/promises');
+  const { createHash } = await import('node:crypto');
+  await writeFile(outside, JSON.stringify([{ type: 'run.created', runId: 'run', at: new Date().toISOString() }]));
+  const journal = join(root, `runtime-${createHash('sha256').update('run').digest('hex')}.json`);
+  await symlink(outside, journal);
+  await expect(store.read('run')).rejects.toThrow('Unsafe runtime event file');
  });
  it('rejects malformed streams without replacing persisted events', async () => {
   const root = await mkdtemp(join(tmpdir(), 'ocean-runtime-')); roots.push(root);

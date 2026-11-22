@@ -50,6 +50,7 @@ import { MetricsService } from '../src/obs/metrics.service';
 import { AuditService } from '../src/audit/audit.service';
 import { ToolRegistry } from '../src/tool/tool.registry';
 import { RunRunner } from '../src/worker/run-runner';
+import { GatewayCoreLifecycle } from '../src/worker/core-lifecycle';
 import { ToolExecutor } from '../src/worker/tool-executor';
 import { WorkerService } from '../src/worker/worker.service';
 import { ToolOutcomeReconciler, type ToolOutcomeQueryAdapter } from '../src/worker/tool-outcome-reconciler';
@@ -113,6 +114,7 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    LOCAL_API_KEY: 'fixture',
   }));
   const sim = new SimModelGateway(0);
+  const core = new GatewayCoreLifecycle();
   worker = new WorkerService(new RunRunner(db, {
    generate: req => {
     if (req.modelId === providerModelId) return provider.generate(req);
@@ -123,10 +125,18 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
       text: '', toolCalls: [{ id: 'delegation-fixture', name: 'delegate_task', input: { agent: 'reader', task: 'Inspect the fixture' } }],
      });
     }
+    if (req.messages.some(message => message.role === 'user' && message.text === 'Gateway two-tool batch fixture')) {
+     const echoed = req.messages.filter(message => message.role === 'tool' && message.toolName === 'echo');
+     if (echoed.length === 2) return Promise.resolve({ text: 'Both batch tools completed', toolCalls: [] });
+     return Promise.resolve({ text: 'Running both tools', toolCalls: [
+      { id: 'batch-echo-first', name: 'echo', input: { text: 'one' } },
+      { id: 'batch-echo-second', name: 'echo', input: { text: 'two' } },
+     ] });
+    }
     return sim.generate(req);
    },
-  }, outbox, registry, metrics, hooks),
-   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents, service), outbox, db, subagents);
+  }, outbox, registry, metrics, hooks, core),
+   new ToolExecutor(db, registry, outbox, metrics, new AuditService(db), new PermissionService(policyHome), hooks, subagents, service, core), outbox, db, subagents);
   const module = await Test.createTestingModule({ controllers: [ChatController, SessionController, RunScheduleController, SubagentRunsController, RunController, ExternalApprovalController, MCPCredentialsController, MCPOAuthController], providers: [
    { provide: ChatService, useValue: new ChatService(new ConfigService({ CHAT_USE_RUN: 'true' }), service) },
    { provide: SpaceService, useValue: spaces },
@@ -279,6 +289,12 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   expect(steps.filter(s => s.kind === 'model_call' && s.status === 'succeeded')).toHaveLength(2);
   expect(steps.filter(s => s.kind === 'tool_call' && s.status === 'succeeded')).toHaveLength(1);
   expect(await db.outboxEvent.count({ where: { aggregateId: runId, topic: 'tool.requested', status: 'processed' } })).toBe(1);
+  const runtimeEvents = await new PrismaRuntimeEventStore(db).read(runId);
+  expect(runtimeEvents.map(event => event.type)).toEqual(expect.arrayContaining([
+   'run.created', 'tool.proposed', 'tool.prepared', 'tool.settled', 'run.completion_verified',
+  ]));
+  expect(runtimeEvents.filter(event => event.type === 'run.transitioned').at(-1))
+   .toMatchObject({ type: 'run.transitioned', to: 'completed' });
  }, 15000);
  it('completes three provider tool rounds through HTTP, persisted Worker and final model response', async () => {
   const initialRequests = providerContract.requests.length;
@@ -601,6 +617,33 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
   } finally { worker.stop(); registry.register(echo); rmSync(file, { force: true }); }
  }, 20000);
 
+ it('persists and executes the full two-tool model batch before model continuation', async () => {
+  const response = await request(app.getHttpServer()).post('/api/runs')
+   .auth(auth(), { type: 'bearer' })
+   .send({ space: { id: spaceId, type: 'work' }, input: 'Gateway two-tool batch fixture' }).expect(201);
+  const runId = response.body.run?.id ?? response.body.id;
+  try {
+   worker.start();
+   await waitFor(runId, 'succeeded');
+   const models = await db.runStep.findMany({
+    where: { runId, kind: 'model_call' }, orderBy: { seq: 'asc' },
+   });
+   expect(models).toHaveLength(2);
+   expect((models[0].output as { toolCalls: unknown[] }).toolCalls).toHaveLength(2);
+   expect(models[1].output).toMatchObject({ text: 'Both batch tools completed' });
+   const tools = await db.runStep.findMany({
+    where: { runId, kind: 'tool_call' }, orderBy: { seq: 'asc' },
+   });
+   expect(tools).toHaveLength(2);
+   expect(tools.map(step => step.status)).toEqual(['succeeded', 'succeeded']);
+   expect(tools.map(step => (step.output as { text: string }).text)).toEqual(['one', 'two']);
+   const coreEvents = await new PrismaRuntimeEventStore(db).read(runId);
+   expect(coreEvents.filter(event => event.type === 'tool.proposed')).toHaveLength(2);
+   expect(coreEvents.filter(event => event.type === 'tool.prepared')).toHaveLength(2);
+   expect(coreEvents.filter(event => event.type === 'tool.settled')).toHaveLength(2);
+  } finally { worker.stop(); }
+ }, 20000);
+
  it('persists Stop hook feedback and completes a second model turn through the real queue', async () => {
   const hookFile = resolve(policyHome, 'hooks.json');
   const marker = resolve(policyHome, 'stop-once');
@@ -610,12 +653,21 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
    const response = await request(app.getHttpServer()).post('/api/runs').auth(auth(), { type: 'bearer' })
     .send({ space: { id: spaceId, type: 'work' }, input: 'Stop hook continuation' }).expect(201);
    const runId = response.body.run?.id ?? response.body.id;
-   worker.start(); await waitFor(runId, 'succeeded'); worker.stop();
+   worker.start(); await waitFor(runId, 'succeeded');
+   // The terminal Run status commits before the Worker acknowledges its
+   // outbox message. Wait for the independent durable ack before asserting,
+   // instead of stopping the Worker while the second ack is still in flight.
+   const ackDeadline = Date.now() + 5000;
+   let processed = await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } });
+   while (processed < 2 && Date.now() < ackDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 25));
+    processed = await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } });
+   }
+   expect(processed).toBe(2);
    const steps = await db.runStep.findMany({ where: { runId, kind: 'model_call' }, orderBy: { seq: 'asc' } });
    expect(steps).toHaveLength(2);
    expect(steps[0].output).toMatchObject({ hookFeedback: 'verify before stopping' });
    expect(steps[1]).toMatchObject({ status: 'succeeded' });
-   expect(await db.outboxEvent.count({ where: { aggregateId: runId, status: 'processed' } })).toBe(2);
   } finally { worker.stop(); writeFileSync(hookFile, JSON.stringify({ trustedSpaces: [spaceId], hooks: {} })); }
  }, 20000);
 

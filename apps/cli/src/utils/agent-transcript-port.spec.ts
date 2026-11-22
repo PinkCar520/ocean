@@ -21,4 +21,19 @@ describe('CLI SessionStore Agent Core adapter', () => {
   await expect(adapter.append(session.id, 0, [{ role: 'assistant', content: 'bad' }]))
    .rejects.toThrow('revision conflict');
  });
+ it('allows exactly one competing append and does not silently drop messages', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-agent-session-')); roots.push(root);
+  const store = new SessionStore(join(root, 'sessions'));
+  const session = await store.create(root);
+  const adapter = new SessionTranscriptPort(store, root);
+  await adapter.append(session.id, 0, [{ role: 'user', content: 'start' }]);
+  const results = await Promise.allSettled([
+   adapter.append(session.id, 1, [{ role: 'assistant', content: 'writer A' }]),
+   adapter.append(session.id, 1, [{ role: 'assistant', content: 'writer B' }]),
+  ]);
+  expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+  expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+  expect(await adapter.load(session.id)).toHaveLength(2);
+ });
+
 });

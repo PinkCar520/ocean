@@ -164,5 +164,10 @@ export function discoverSkills(workspace: string, home = homedir()): LoadedSkill
     }
   }
   const resolved = resolveSkills(entries.map(entry => entry.descriptor));
-  return resolved.map(descriptor => entries.find(entry => entry.descriptor.id === descriptor.id)!.skill);
+  return resolved.map(descriptor => {
+    const skill = entries.find(entry => entry.descriptor.id === descriptor.id)!.skill;
+    // Do not spread the getter-backed skill: full instructions must remain lazy.
+    skill.source = descriptor.source;
+    return skill;
+  });
 }

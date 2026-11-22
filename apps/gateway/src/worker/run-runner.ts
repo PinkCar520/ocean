@@ -3,10 +3,11 @@ import { policyForRun, permitsSubagentTool, type SubagentPolicy } from '../run/s
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { claimRun, verifyRun, LostRunOwnership } from './run-ownership';
 import { GatewayHooks } from './gateway-hooks';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { countTextTokens } from '@ocean/core';
+import { countTextTokens, validateCompaction, ContextBudgetError, validateAgentModelDecision } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -69,11 +70,11 @@ const DELTA_FLUSH_CHARS = 64;
  * - 执行 model_call 步骤：通过 ModelGateway 流式调用模型，把文本增量
  *   投影为 run.output_delta 事件；步骤状态（started/succeeded/failed）
  *   落 run_step 表，并发出 run.step_started / run.step_completed 事件。
- * - 工具循环：模型返回 tool_use 时，把首个工具调用提交为 outbox
- *   `tool.requested` 消息（幂等：同 toolCallId 已有步骤或 pending 消息则不重复
- *   提交），Run → queued 等工具执行；工具完成后 ToolExecutor 重投
- *   `run.requested`，本 Runner 从 run_step 重建 messages（含 tool_result）
- *   继续下一轮模型调用，直到模型输出无 tool_use 的最终消息。
+ * - 工具循环：模型返回 tool_use 时持久化完整工具批次，仅把首个工具
+ *   调用提交为 outbox `tool.requested`。每次工具完成后由
+ *   ToolExecutor 重投 `run.requested`，Runner 先分发尚未完成的批次成员，
+ *   全部结果持久化后才重建 messages（含 tool_result）调用模型。
+ *   幂等检查确保同 toolCallId 不会重复提交外部操作。
  * - 完成/失败：succeeded 或 failed（不可重试）/ queued（可重试，等 Worker 放回队列）。
  *
  * 崩溃语义：
@@ -92,6 +93,7 @@ export class RunRunner {
     private readonly registry: ToolRegistry,
     private readonly metrics: MetricsService,
     private readonly hooks: GatewayHooks = GatewayHooks.load(),
+    @Optional() private readonly core?: GatewayCoreLifecycle,
   ) {}
 
   private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
@@ -200,6 +202,12 @@ export class RunRunner {
         };
       }
 
+      // A prior model decision may have proposed several tools. After one
+      // tool settles, dispatch the next durable sibling before calling the
+      // model again; the provider transcript must contain all tool results.
+      if (await this.dispatchRemainingModelTool(runId, userId, takeover.priority))
+        return { jobId: job.id, runId, status: 'succeeded' };
+
       const promptHook = await this.hooks.run('UserPromptSubmit', {
         prompt: takeover.input,
         run_id: runId,
@@ -249,6 +257,12 @@ export class RunRunner {
       // 3) model_call 步骤：started（崩溃续跑复用 started 步骤，不重复写事件）
       const step = await this.ensureStepStarted(runId, takeover.input);
       if (!step) return { jobId: job.id, runId, status: 'succeeded' };
+      // Production Worker uses the shared Agent state machine. The same fenced
+      // DB transaction protects Core events and the legacy RunStep owner.
+      if (this.core) await this.fencedTransaction(tx => this.core!.startModel(
+        tx, runId,
+        typeof takeover.settings?.sessionId === 'string' ? takeover.settings.sessionId : undefined,
+      ));
 
       // 4) 模型调用 → 文本增量投影 run.output_delta，同时收集 tool_use
       let buffer = '';
@@ -311,8 +325,19 @@ export class RunRunner {
         await this.flushDelta(runId, buffer);
       }
 
+      // Gateway's durable worker and CLI share the Core's model decision
+      // contract before either host schedules tools or completes a turn.
+      validateAgentModelDecision(toolCalls.length
+        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })) }
+        : { kind: 'complete', text: fullText });
+
       // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
       if (toolCalls.length > 0) {
+        // Inquiry/delegation have dedicated asynchronous protocols. Refuse a
+        // mixed batch rather than silently dropping any model-declared call.
+        if (toolCalls.length > 1 && toolCalls.some(call =>
+          call.name === RUN_INQUIRY_TOOL || call.name === 'delegate_task'))
+          throw new Error('Mixed inquiry/delegation tool batches require separate model turns');
         const first = toolCalls[0];
         const toolCall: ToolCall = {
           id: first.id,
@@ -330,11 +355,10 @@ export class RunRunner {
           takeover.priority,
           step,
           toolCall,
-          // Persist only the call submitted to the outbox in this turn. This
-          // keeps the transcript valid for providers that require a result for
-          // every assistant tool call; remaining work is requested on a later
-          // model turn instead of leaving orphan tool-call IDs in history.
-          { text: fullText, toolCalls: [first], ...(providerUsage ? { usage: providerUsage } : {}), ...(contextBreakdown && { contextBreakdown }) },
+          // The complete tool decision is durable before any side effect.
+          // Queue the first tool now; later siblings are dispatched from
+          // this model step after preceding tool results have committed.
+          { text: fullText, toolCalls, ...(providerUsage ? { usage: providerUsage } : {}), ...(contextBreakdown && { contextBreakdown }) },
           reasoning,
         );
         return { jobId: job.id, runId, status: 'succeeded' };
@@ -357,6 +381,7 @@ export class RunRunner {
             completedAt: new Date(),
           },
         });
+        if (this.core) await this.core.finishModel(tx, runId, !stopHook.blocked);
         if (!stopHook.blocked) this.metrics.inc('run.terminal', { status: 'succeeded' });
         await this.appendEvent(tx, runId, {
           id: randomUUID(),
@@ -433,21 +458,25 @@ export class RunRunner {
     if (!Number.isSafeInteger(configured) || configured < 8192) throw new Error('Invalid WORKER_CHAT_CONTEXT_TOKENS');
     // Reserve space for model output, tool definitions and the current tool loop.
     const historyBudget = Math.max(0, Math.floor(configured / 2) - countTextTokens(input));
-    const cached = metadata.chatCompaction;
-    if (cached && typeof cached === 'object' && !Array.isArray(cached) &&
-        typeof cached.boundary === 'number' && Number.isSafeInteger(cached.boundary) &&
-        cached.boundary > 0 && cached.boundary <= history.length && typeof cached.summary === 'string') {
-      const rows = history.slice(cached.boundary);
-      return { rows, summary: cached.summary,
-        toolBudget: Math.max(0, historyBudget - countTextTokens(JSON.stringify(rows)) - countTextTokens(cached.summary)) };
-    }
-    // A previous Run is reusable only if its compressed prefix is identical
-    // to the selected Session branch, including message IDs and content.
+    // Summaries belong to a specific immutable Session history prefix.
+    // Never reuse them after a conversation edit, fork or context-budget change.
     const fingerprint = (boundary: number) => createHash('sha256')
       .update(JSON.stringify(history.slice(0, boundary).map(row =>
         row && typeof row === 'object' && !Array.isArray(row)
           ? [row.id, row.parentId, row.role, row.text, row.runId] : null,
       ))).digest('hex');
+    const cached = metadata.chatCompaction;
+    if (cached && typeof cached === 'object' && !Array.isArray(cached) &&
+        typeof cached.boundary === 'number' && Number.isSafeInteger(cached.boundary) &&
+        cached.boundary > 0 && cached.boundary <= history.length &&
+        typeof cached.summary === 'string' && Boolean(cached.summary) &&
+        cached.fingerprint === fingerprint(cached.boundary)) {
+      const rows = history.slice(cached.boundary);
+      const after = countTextTokens(JSON.stringify(rows)) + countTextTokens(cached.summary);
+      if (after < historyBudget && after < countTextTokens(JSON.stringify(history))) {
+        return { rows, summary: cached.summary, toolBudget: historyBudget - after };
+      }
+    }
     let previousBoundary = 0;
     let previousSummary = '';
     const previousReply = [...history].reverse().find(row => row && typeof row === 'object' &&
@@ -517,14 +546,27 @@ export class RunRunner {
           if (countTextTokens(summary) > 1024) summary = previousSummary || summary.slice(0, 720);
         }
       }
+    }
+    const afterTokens = countTextTokens(JSON.stringify(rows)) + countTextTokens(summary);
+    const beforeTokens = countTextTokens(JSON.stringify(history));
+    // The current user prompt and system policy are outside chatHistory and
+    // must never be discarded as a side effect of summarizing older turns.
+    if (boundary > 0) {
+      validateCompaction({
+        beforeTokens, afterTokens, budgetTokens: historyBudget,
+        summaryValid: Boolean(summary?.trim()),
+        toolPairsClosed: true, // History rows contain turns; paired tools are rebuilt separately.
+        preservesRequiredContext: typeof input === 'string' && input.trim().length > 0,
+      });
       await this.fencedTransaction(async tx => {
         await tx.agentRun.update({ where: { id: runId }, data: {
           metadata: { ...metadata, chatCompaction: { boundary, summary, fingerprint: fingerprint(boundary), ...(summaryUsage && { usage: summaryUsage }) } } as Prisma.InputJsonValue,
         } });
       });
+    } else if (afterTokens >= historyBudget) {
+      throw new ContextBudgetError('Gateway conversation context exceeds budget without a safe compaction boundary');
     }
-    return { rows, ...(summary && { summary }),
-      toolBudget: Math.max(0, historyBudget - countTextTokens(JSON.stringify(rows)) - countTextTokens(summary)) };
+    return { rows, ...(summary && { summary }), toolBudget: historyBudget - afterTokens };
   }
 
   private async restoreChatHistory(
@@ -687,6 +729,73 @@ export class RunRunner {
   }
 
   /**
+   * Resume one not-yet-claimed sibling of a previously persisted model tool
+   * decision. The existing RunStep identity and Outbox state are authoritative;
+   * no model request and no external tool execution happen in this method.
+   */
+  private async dispatchRemainingModelTool(
+    runId: string, userId: string, priority: string,
+  ): Promise<boolean> {
+    return this.fencedTransaction(async tx => {
+      const modelStep = await tx.runStep.findFirst({
+        where: { runId, kind: 'model_call', status: 'succeeded' },
+        orderBy: { seq: 'desc' },
+        select: { seq: true, output: true },
+      });
+      const calls = (modelStep?.output as { toolCalls?: ModelToolCall[] } | null)?.toolCalls;
+      if (!modelStep || !Array.isArray(calls) || calls.length < 2) return false;
+      const steps = await tx.runStep.findMany({
+        where: { runId, kind: 'tool_call', seq: { gt: modelStep.seq } },
+        select: { input: true },
+      });
+      const claimed = new Set(steps.flatMap(step => {
+        const input = step.input as { id?: unknown } | null;
+        return typeof input?.id === 'string' ? [input.id] : [];
+      }));
+      // A claimed sibling may still be executing or awaiting approval. The
+      // durable batch is sequential: never dispatch another side-effecting
+      // tool while an earlier invocation lacks a terminal RunStep result.
+      const unfinished = await tx.runStep.findFirst({
+        where: { runId, kind: 'tool_call', seq: { gt: modelStep.seq },
+          status: { notIn: ['succeeded', 'failed', 'cancelled'] } },
+        select: { id: true },
+      });
+      if (unfinished) {
+        // Unknown/abandoned effects cannot be resumed as if the earlier
+        // sibling succeeded. Surface the unsafe journal state to the Run
+        // failure handler rather than leaving a running Run without work.
+        throw new Error('Gateway tool batch has an unresolved earlier invocation; reconciliation required');
+      }
+      const next = calls.find(call => !claimed.has(call.id));
+      if (!next) return false;
+      const pending = await tx.outboxEvent.findMany({
+        where: { aggregateId: runId, topic: 'tool.requested', status: 'pending' },
+        select: { payload: true },
+      });
+      const alreadyQueued = pending.some(row => {
+        const payload = row.payload as { toolCall?: { id?: unknown } } | null;
+        return payload?.toolCall?.id === next.id;
+      });
+      if (!alreadyQueued) {
+        const toolCall: ToolCall = { id: next.id, name: next.name, input: next.input, idempotencyKey: next.id };
+        await this.outbox.enqueueToolRequested(tx, toolRequestedMessageSchema.parse({
+          version: 1, runId, userId, toolCall,
+        }), priorityRankOf(priority));
+        await this.appendEvent(tx, runId, {
+          id: randomUUID(), runId, sequence: await this.nextSequence(tx, runId),
+          occurredAt: new Date().toISOString(), type: 'tool.requested', toolCall,
+        });
+      }
+      await tx.agentRun.update({ where: { id: runId }, data: { status: 'queued' } });
+      await this.appendEvent(tx, runId, {
+        id: randomUUID(), runId, sequence: await this.nextSequence(tx, runId),
+        occurredAt: new Date().toISOString(), type: 'run.status_changed', status: 'queued',
+      });
+      return true;
+    });
+  }
+
+  /**
    * 提交工具调用（最小 Agent Loop）：model_call 步骤 succeeded + 事件，
    * 幂等投递 outbox `tool.requested`（同 toolCallId 已有工具步骤或 pending 消息
    * 则不重复提交），Run → queued 等待 ToolExecutor 执行后回喂续跑。
@@ -759,6 +868,8 @@ export class RunRunner {
           output,
         }),
       });
+      if (this.core && toolCall.name !== RUN_INQUIRY_TOOL && toolCall.name !== 'delegate_task')
+        await this.core.queueTools(tx, runId, output.toolCalls);
       if (toolCall.name !== RUN_INQUIRY_TOOL) {
         await this.outbox.enqueueToolRequested(tx, message, priorityRankOf(priority));
       }
@@ -886,6 +997,7 @@ export class RunRunner {
           });
         }
 
+        if (this.core) await this.core.modelFailed(tx, runId, retryable);
         if (retryable) {
           // 瞬时失败：Run 回到 queued，由 Worker 对 outbox 消息退避重试后再取
           await tx.agentRun.update({

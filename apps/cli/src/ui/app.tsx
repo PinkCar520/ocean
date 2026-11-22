@@ -7,6 +7,10 @@ import type { ModelMessage } from 'ai';
 import type { CliConfig, LoadedSkill, ModelProvider, ToolContext } from '../types.js';
 import { createModelRouter } from '../llm/model-router.js';
 import { buildSystemPrompt, runChatLoop } from '../llm/chat.js';
+import { runOceanCoreLocal } from '../llm/core-local-runtime.js';
+import { createCliToolAuthorization } from '../tools/core-tool-authorization.js';
+import { compactContext } from '../llm/compaction.js';
+import { randomUUID } from 'node:crypto';
 import { toAgentToolSet } from '../tools/index.js';
 import { discoverSkills } from '../skills/loader.js';
 import { McpClientManager } from '../mcp/client.js';
@@ -136,55 +140,120 @@ export function InkApp(props: InkAppProps) {
       const allMessages = [...messages, userMsg];
       await props.sessionStore.save(props.activeSession.session.id, props.workspace, allMessages);
 
-      const result = await runChatLoop(allMessages, {
-        journal: { store: props.sessionStore, sessionId: props.activeSession.session.id, workspace: props.workspace },
-        delegation: { workspace: props.workspace, permissions: { mode: props.toolContext.getPermissionMode } },
-        hooks: LifecycleHooks.load(props.workspace),
-        model,
-
-        compaction: {
-          previous: props.activeSession.session.compaction,
-          usage: props.activeSession.session.usage,
-          persist: async (snapshot) => {
-            props.activeSession.session = await props.sessionStore.saveCompaction(props.activeSession.session.id, props.workspace, snapshot);
+      let nextMessages: ModelMessage[];
+      if (process.env.OCEAN_AGENT_CORE === 'legacy') {
+        const result = await runChatLoop(allMessages, {
+          journal: { store: props.sessionStore, sessionId: props.activeSession.session.id, workspace: props.workspace },
+          delegation: { workspace: props.workspace, permissions: { mode: props.toolContext.getPermissionMode } },
+          hooks: LifecycleHooks.load(props.workspace),
+          model,
+          compaction: {
+            previous: props.activeSession.session.compaction,
+            usage: props.activeSession.session.usage,
+            persist: async snapshot => {
+              props.activeSession.session = await props.sessionStore.saveCompaction(props.activeSession.session.id, props.workspace, snapshot);
+            },
           },
-        },
-        systemPrompt: props.systemPrompt,
-        tools: props.tools,
-        approvalHandler: props.approvalHandler,
-        approvalOptions: {
-          getPolicyVersion: props.getPolicyVersion,
-          sessionId: () => props.activeSession.session.id,
-          workspace: props.workspace,
-        },
-        signal: abortController.signal,
-        onText: (text: string) => {
-          setStreamingText(prev => prev + text);
-        },
-        onToolCall: (toolName: string, args: any) => {
-          setCurrentToolCalls(prev => [...prev, { name: toolName, args }]);
-        },
-        onToolResult: (toolName: string, toolResult: any) => {
-          setCurrentToolResults(prev => [...prev, { name: toolName, result: toolResult }]);
-        },
-      });
-
-      const nextMessages = [...allMessages, ...result.responseMessages];
-      // Update the view in one batch before awaiting disk writes; otherwise the
-      // assistant reply renders twice (from messages and streamingText) and the
-      // intermediate frame looks like a visible refresh.
+          systemPrompt: props.systemPrompt,
+          tools: props.tools,
+          approvalHandler: props.approvalHandler,
+          approvalOptions: {
+            getPolicyVersion: props.getPolicyVersion,
+            sessionId: () => props.activeSession.session.id,
+            workspace: props.workspace,
+          },
+          signal: abortController.signal,
+          onText: text => setStreamingText(prev => prev + text),
+          onToolCall: (toolName, args) => setCurrentToolCalls(prev => [...prev, { name: toolName, args }]),
+          onToolResult: (toolName, toolResult) => setCurrentToolResults(prev => [...prev, { name: toolName, result: toolResult }]),
+        });
+        nextMessages = [...allMessages, ...result.responseMessages];
+        props.activeSession.session = await props.sessionStore.save(
+          props.activeSession.session.id, props.workspace, nextMessages,
+        );
+        if (result.usage) {
+          props.activeSession.session = await props.sessionStore.saveUsage(
+            props.activeSession.session.id, props.workspace, result.usage,
+          );
+        }
+      } else {
+        const hooks = LifecycleHooks.load(props.workspace);
+        const sessionId = props.activeSession.session.id;
+        const authorization = createCliToolAuthorization(
+          permissionPolicy,
+          async context => {
+            const decision = await props.approvalHandler({
+              toolName: context.toolName,
+              toolCallId: context.invocationId,
+              args: context.input as Record<string, unknown>,
+              sessionId, workspace: props.workspace,
+              policyVersion: props.getPolicyVersion(),
+              signal: abortController.signal,
+            });
+            if (decision.persistUpdates) await decision.persistUpdates();
+            return decision.kind === 'approved' && !decision.interrupt && !decision.updatedInput;
+          },
+          props.tools,
+        );
+        let stopFeedback: string | undefined;
+        await runOceanCoreLocal({
+          sessionStore: props.sessionStore,
+          sessionId, runId: randomUUID(), workspace: props.workspace,
+          model, tools: props.tools, skills: props.skills, systemPrompt: props.systemPrompt,
+          authorization, streaming: true, signal: abortController.signal,
+          completion: {
+            verify: async (_, text) => {
+              if (!text.trim()) return [];
+              const stop = await hooks.run('Stop', { last_assistant_message: text }, abortController.signal);
+              if (stop.blocked) {
+                stopFeedback = stop.reason || 'Continue working before stopping.';
+                return [];
+              }
+              return ['Stop hook accepted'];
+            },
+            onIncomplete: async () => stopFeedback
+              ? { role: 'user', content: `Stop hook feedback: ${stopFeedback}` }
+              : undefined,
+          },
+          prepareContext: async request => compactContext([...request], {
+            model, systemPrompt: props.systemPrompt, signal: abortController.signal,
+            scope: sessionId, previous: props.activeSession.session.compaction,
+            usage: props.activeSession.session.usage,
+            persist: async snapshot => {
+              props.activeSession.session = await props.sessionStore.saveCompaction(sessionId, props.workspace, snapshot);
+            },
+          }),
+          beforeToolUse: async (name, input, callId) => {
+            const verdict = await hooks.run('PreToolUse', {
+              tool_name: name, tool_input: input, tool_use_id: callId,
+            }, abortController.signal);
+            return verdict.blocked ? verdict.reason || 'PreToolUse hook blocked execution.' : undefined;
+          },
+          afterToolUse: async (name, input, callId, output) => {
+            const verdict = await hooks.run('PostToolUse', {
+              tool_name: name, tool_input: input, tool_use_id: callId, tool_response: output,
+            }, abortController.signal);
+            return verdict.blocked ? { result: output, hookFeedback: verdict.reason } : output;
+          },
+          onToolFailure: async (name, input, callId, error) => {
+            await hooks.run('ToolUseFailure', {
+              tool_name: name, tool_input: input, tool_use_id: callId, error: String(error),
+            }, abortController.signal);
+          },
+          onText: text => setStreamingText(prev => prev + text),
+          onToolCall: (toolName, args) => setCurrentToolCalls(prev => [...prev, { name: toolName, args }]),
+          onToolResult: (toolName, toolResult) => setCurrentToolResults(prev => [...prev, { name: toolName, result: toolResult }]),
+        });
+        const persisted = await props.sessionStore.load(sessionId, props.workspace);
+        if (!persisted) throw new Error('Shared Agent Core completed without a persisted session');
+        props.activeSession.session = persisted;
+        nextMessages = persisted.messages;
+      }
+      // Commit the view after the durable transcript has been loaded.
       setMessages(nextMessages);
       setStreamingText('');
       setCurrentToolCalls([]);
       setCurrentToolResults([]);
-      props.activeSession.session = await props.sessionStore.save(
-        props.activeSession.session.id,
-        props.workspace,
-        nextMessages,
-      );
-      if (result.usage) {
-        props.activeSession.session = await props.sessionStore.saveUsage(props.activeSession.session.id, props.workspace, result.usage);
-      }
     } catch (err: any) {
       setError(abortController.signal.aborted ? 'Stopped current turn.' : (err.message || 'Unknown error occurred'));
       setStreamingText('');

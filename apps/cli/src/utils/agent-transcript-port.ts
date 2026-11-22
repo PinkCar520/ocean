@@ -7,13 +7,11 @@ export class SessionTranscriptPort implements AgentTranscriptPort<ModelMessage> 
   constructor(private readonly sessions: SessionStore, private readonly workspace: string) {}
 
   async load(sessionId: string): Promise<readonly ModelMessage[]> {
-    const session = await this.sessions.load(sessionId, this.workspace);
+    const session = await this.sessions.loadPersisted(sessionId, this.workspace);
     return structuredClone(session.messages);
   }
 
   async append(sessionId: string, expectedLength: number, messages: readonly ModelMessage[]): Promise<void> {
-    const session = await this.sessions.load(sessionId, this.workspace);
-    if (session.messages.length !== expectedLength) throw new Error('Agent transcript revision conflict');
-    await this.sessions.save(sessionId, this.workspace, [...session.messages, ...structuredClone(messages)]);
+    await this.sessions.appendMessages(sessionId, this.workspace, expectedLength, messages);
   }
 }

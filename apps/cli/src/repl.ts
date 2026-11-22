@@ -9,10 +9,14 @@ import { LifecycleHooks } from './utils/lifecycle-hooks.js';
 import type { ModelMessage } from 'ai';
 import type { CliConfig, LoadedSkill, ToolContext } from './types.js';
 import { createModelRouter } from './llm/model-router.js';
+import { runOceanCoreLocal } from './llm/core-local-runtime.js';
+import { createCliToolAuthorization } from './tools/core-tool-authorization.js';
+import { compactContext } from './llm/compaction.js';
 import {
   buildSystemPrompt,
   TurnInterruptedError,
   runChatLoop,
+  normalizeApprovalHandler,
   runChatLoopViaGateway,
   type OceanPromptEvent,
 } from './llm/chat.js';
@@ -28,6 +32,7 @@ import { PermissionPolicy, defaultSessionPermissionGrants } from './utils/permis
 import { runInkApp } from './ui/app.js';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import chalk from 'chalk';
 import readline from 'node:readline';
 import { z } from 'zod';
@@ -61,7 +66,7 @@ interface ReplOptions {
 
 /**
  * Run the interactive REPL
- * - Single query mode: legacy text-based approach
+ * - Single query mode: shared durable Agent Core (legacy opt-out supported)
  * - Interactive mode: Ink UI if TTY, otherwise readline fallback
  */
 export async function runRepl(options: ReplOptions) {
@@ -500,7 +505,10 @@ async function runSingleQuery(
   // Load skills
   const skills: LoadedSkill[] = discoverSkills(options.workspace);
 
-  const sessionStore = options.print && options.persistSession !== false ? new SessionStore() : undefined;
+  // Default local execution uses a durable session regardless of output mode.
+  // --no-persist/legacy remains available for explicitly ephemeral scripting.
+  const sessionStore = options.persistSession !== false &&
+    (options.print || process.env.OCEAN_AGENT_CORE !== 'legacy') ? new SessionStore() : undefined;
   let session = sessionStore && (
     options.continueSession
       ? options.forkSession
@@ -609,6 +617,85 @@ async function runSingleQuery(
       : gatewayApproval;
     let streamedText = '';
     if (sessionStore && sessionId) session = await sessionStore.save(sessionId, options.workspace, messages);
+
+    // Local CLI requests use the shared portable Agent ExecutionEngine.
+    // Ephemeral and explicitly opted-out legacy requests retain compatibility.
+    if (sessionStore && sessionId && process.env.OCEAN_AGENT_CORE !== 'legacy') {
+      const handler = approvalHandler ? normalizeApprovalHandler(approvalHandler) : undefined;
+      const authorization = createCliToolAuthorization(approvalPolicy,
+        handler ? async context => {
+          const decision = await handler({
+            toolName: context.toolName,
+            toolCallId: context.invocationId,
+            args: context.input as Record<string, unknown>,
+            sessionId,
+            workspace: options.workspace,
+            policyVersion: approvalPolicy.getPolicyVersion(),
+            signal,
+          });
+          if (decision.persistUpdates) await decision.persistUpdates();
+          // Updated inputs require validation and a new approval; never reuse
+          // a verdict for mutated parameters or an interrupted turn.
+          return decision.kind === 'approved' && !decision.interrupt && !decision.updatedInput;
+        } : undefined,
+        tools,
+      );
+      let stopFeedback: string | undefined;
+      await runOceanCoreLocal({
+        sessionStore, sessionId, runId: randomUUID(), workspace: options.workspace,
+        model, tools, skills, systemPrompt, authorization, streaming: true, signal,
+        maxSteps: options.maxTurns,
+        completion: {
+          verify: async (_, text) => {
+            if (!text.trim()) return [];
+            const stop = await hooks.run('Stop', { last_assistant_message: text }, signal);
+            if (stop.blocked) {
+              stopFeedback = stop.reason || 'Continue working before stopping.';
+              return [];
+            }
+            return ['Stop hook accepted'];
+          },
+          onIncomplete: async () => stopFeedback
+            ? { role: 'user', content: `Stop hook feedback: ${stopFeedback}` }
+            : undefined,
+        },
+        prepareContext: async request => compactContext([...request], {
+          model, systemPrompt, signal,
+          scope: sessionId,
+          previous: session?.compaction,
+          usage: session?.usage,
+          persist: async snapshot => {
+            session = await sessionStore.saveCompaction(sessionId, options.workspace, snapshot);
+          },
+        }),
+        beforeToolUse: async (name, input, callId) => {
+          const result = await hooks.run('PreToolUse', {
+            tool_name: name, tool_input: input, tool_use_id: callId,
+          }, signal);
+          return result.blocked ? result.reason || 'PreToolUse hook blocked execution.' : undefined;
+        },
+        afterToolUse: async (name, input, callId, output) => {
+          const result = await hooks.run('PostToolUse', {
+            tool_name: name, tool_input: input, tool_use_id: callId, tool_response: output,
+          }, signal);
+          return result.blocked ? { result: output, hookFeedback: result.reason } : output;
+        },
+        onToolFailure: async (name, input, callId, error) => {
+          await hooks.run('ToolUseFailure', {
+            tool_name: name, tool_input: input, tool_use_id: callId, error: String(error),
+          }, signal);
+        },
+        onToolCall: (name, input) => onEvent?.({ type: 'tool_call', name, input }),
+        onToolResult: (name, result) => onEvent?.({ type: 'tool_result', name, result }),
+        onText: text => {
+          if (!streamedText) spinner?.stop();
+          onText(text);
+          streamedText += text;
+        },
+      });
+      if (!options.print && streamedText) process.stdout.write('\\n');
+      return sessionId;
+    }
 
     const result = await runChatLoop(messages, {
       ...(options.toolNames && !options.toolNames.has('delegate_task') ? {} : {
@@ -784,39 +871,109 @@ async function runReadlineRepl(options: ReplOptions) {
       try {
         const model = modelRouter.getModel();
         let streamedText = '';
-        const result = await runChatLoop(messages, {
-      delegation: { workspace: options.workspace },
-      hooks: LifecycleHooks.load(options.workspace),
-      model, systemPrompt, tools, approvalHandler,
-      approvalOptions: {
-        getPolicyVersion: () => approvalPolicy.getPolicyVersion(),
-        sessionId: () => activeSession.session.id,
-        workspace: options.workspace,
-      },
-        compaction: {
-          previous: activeSession.session.compaction,
-          usage: activeSession.session.usage,
-          persist: async (snapshot) => {
-            activeSession.session = await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
-          },
-        },
-
-          onText: (text: string) => {
-            if (!streamedText) spinner.stop();
-            process.stdout.write(text);
-            streamedText += text;
-          },
-        });
-        if (streamedText) process.stdout.write('\n');
-        messages.push(...result.responseMessages);
-        activeSession.session = await sessionStore.save(
-          activeSession.session.id,
-          options.workspace,
-          messages,
-        );
-        if (result.usage) {
-          activeSession.session = await sessionStore.saveUsage(activeSession.session.id, options.workspace, result.usage);
+        if (process.env.OCEAN_AGENT_CORE === 'legacy') {
+          const result = await runChatLoop(messages, {
+            delegation: { workspace: options.workspace },
+            hooks: LifecycleHooks.load(options.workspace),
+            model, systemPrompt, tools, approvalHandler,
+            approvalOptions: {
+              getPolicyVersion: () => approvalPolicy.getPolicyVersion(),
+              sessionId: () => activeSession.session.id,
+              workspace: options.workspace,
+            },
+            compaction: {
+              previous: activeSession.session.compaction,
+              usage: activeSession.session.usage,
+              persist: async (snapshot) => {
+                activeSession.session = await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
+              },
+            },
+            onText: (text: string) => {
+              if (!streamedText) spinner.stop();
+              process.stdout.write(text);
+              streamedText += text;
+            },
+          });
+          messages.push(...result.responseMessages);
+          activeSession.session = await sessionStore.save(activeSession.session.id, options.workspace, messages);
+          if (result.usage) {
+            activeSession.session = await sessionStore.saveUsage(activeSession.session.id, options.workspace, result.usage);
+          }
+        } else {
+          const hooks = LifecycleHooks.load(options.workspace);
+          const handler = approvalHandler ? normalizeApprovalHandler(approvalHandler) : undefined;
+          const authorization = createCliToolAuthorization(
+            approvalPolicy,
+            handler ? async context => {
+              const decision = await handler({
+                toolName: context.toolName,
+                toolCallId: context.invocationId,
+                args: context.input as Record<string, unknown>,
+                sessionId: activeSession.session.id,
+                workspace: options.workspace,
+                policyVersion: approvalPolicy.getPolicyVersion(),
+              });
+              if (decision.persistUpdates) await decision.persistUpdates();
+              return decision.kind === 'approved' && !decision.interrupt && !decision.updatedInput;
+            } : undefined,
+            tools,
+          );
+          let stopFeedback: string | undefined;
+          await runOceanCoreLocal({
+            sessionStore,
+            sessionId: activeSession.session.id,
+            runId: randomUUID(),
+            workspace: options.workspace,
+            model, tools, skills, systemPrompt, authorization, streaming: true,
+            completion: {
+              verify: async (_, text) => {
+                if (!text.trim()) return [];
+                const stop = await hooks.run('Stop', { last_assistant_message: text });
+                if (stop.blocked) {
+                  stopFeedback = stop.reason || 'Continue working before stopping.';
+                  return [];
+                }
+                return ['Stop hook accepted'];
+              },
+              onIncomplete: async () => stopFeedback
+                ? { role: 'user', content: `Stop hook feedback: ${stopFeedback}` }
+                : undefined,
+            },
+            prepareContext: async request => compactContext([...request], {
+              model, systemPrompt, scope: activeSession.session.id,
+              previous: activeSession.session.compaction,
+              usage: activeSession.session.usage,
+              persist: async snapshot => {
+                activeSession.session = await sessionStore.saveCompaction(activeSession.session.id, options.workspace, snapshot);
+              },
+            }),
+            beforeToolUse: async (name, input, callId) => {
+              const verdict = await hooks.run('PreToolUse', {
+                tool_name: name, tool_input: input, tool_use_id: callId,
+              });
+              return verdict.blocked ? verdict.reason || 'PreToolUse hook blocked execution.' : undefined;
+            },
+            afterToolUse: async (name, input, callId, output) => {
+              const verdict = await hooks.run('PostToolUse', {
+                tool_name: name, tool_input: input, tool_use_id: callId, tool_response: output,
+              });
+              return verdict.blocked ? { result: output, hookFeedback: verdict.reason } : output;
+            },
+            onToolFailure: async (name, input, callId, error) => {
+              await hooks.run('ToolUseFailure', {
+                tool_name: name, tool_input: input, tool_use_id: callId, error: String(error),
+              });
+            },
+            onText: text => {
+              if (!streamedText) spinner.stop();
+              process.stdout.write(text);
+              streamedText += text;
+            },
+          });
+          activeSession.session = await sessionStore.load(activeSession.session.id, options.workspace) ?? activeSession.session;
+          messages.splice(0, messages.length, ...activeSession.session.messages);
         }
+        if (streamedText) process.stdout.write('\\n');
       } catch (err: any) {
         spinner.stop();
         console.error(chalk.red(`\n✗ Error: ${err.message}`));

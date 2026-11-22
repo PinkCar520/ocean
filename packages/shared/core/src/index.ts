@@ -171,11 +171,11 @@ export { RUNTIME_STATES, canTransition, replayRuntime } from './runtime-contract
 export type { RuntimeIdentity, RuntimeState, RuntimeEvent, RuntimeSnapshot, RuntimeEventStore, RuntimeHost, ToolInvocation, ToolExecutionRecord } from './runtime-contract.js';
 export { MemoryRuntimeEventStore } from './runtime-memory-store.js';
 export { AgentRuntime } from './agent-runtime.js';
-export { ToolRuntime } from './tool-runtime.js';
+export { ToolRuntime, normalizeToolOutput } from './tool-runtime.js';
 export type { ToolDescriptor, ToolAuthorization, ToolPolicyContext } from './tool-runtime.js';
 export { assembleContext, validateCompaction, ContextBudgetError } from './context-engine.js';
 export type { ContextLayers, ContextBudgetEvidence } from './context-engine.js';
 export { resolveSkills, skillAllowedTools } from './skills-runtime.js';
 export type { SkillDescriptor, SkillActivation } from './skills-runtime.js';
-export { AgentExecutionEngine } from './agent-execution-engine.js';
+export { AgentExecutionEngine, validateAgentModelDecision } from './agent-execution-engine.js';
 export type { AgentModelDecision, AgentModelPort, AgentTranscriptPort, AgentCompletionPort, AgentExecutionPorts, AgentExecutionResult } from './agent-execution-engine.js';

@@ -16,11 +16,12 @@ export interface RuntimeIdentity {
 export type RuntimeEvent = (
   | { type: 'run.created'; runId: string; at: string; sessionId?: string; schemaVersion?: 1 }
   | { type: 'run.transitioned'; runId: string; at: string; from: RuntimeState; to: RuntimeState }
+  | { type: 'tool.proposed'; runId: string; at: string; invocationId: string; toolName: string; inputDigest: string }
   | { type: 'tool.prepared'; runId: string; at: string; invocation: ToolInvocation }
   | { type: 'tool.settled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed' | 'unknown'; result?: unknown }
   | { type: 'tool.reconciled'; runId: string; at: string; invocationId: string; outcome: 'succeeded' | 'failed'; result?: unknown }
   | { type: 'run.completion_verified'; runId: string; at: string; checks: readonly string[] }
-  | { type: 'skill.activated'; runId: string; at: string; skillId: string; source: 'plugin' | 'user' | 'project' }
+  | { type: 'skill.activated'; runId: string; at: string; skillId: string; source: 'plugin' | 'user' | 'project'; allowedTools?: readonly string[] }
   | { type: 'tool.rejected'; runId: string; at: string; invocationId: string; toolName: string; reason: 'policy' | 'approval' | 'input' }
 ) & { schemaVersion?: 1 };
 export interface ToolInvocation {
@@ -44,8 +45,11 @@ export interface RuntimeSnapshot {
   state: RuntimeState;
   revision: number;
   pendingTools: Readonly<Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'>>;
+  queuedTools: Readonly<Record<string, { toolName: string; inputDigest: string }>>;
   completionVerified: boolean;
   activeSkills: readonly string[];
+  /** Null means the skill imposes no additional tool constraints. */
+  skillToolConstraints: Readonly<Record<string, readonly string[] | null>>;
 }
 export interface RuntimeEventStore {
   append(runId: string, expectedRevision: number, events: readonly RuntimeEvent[]): Promise<number>;
@@ -57,7 +61,7 @@ export interface RuntimeHost {
 const transitions: Readonly<Record<RuntimeState, readonly RuntimeState[]>> = {
   created: ['preparing_context', 'cancelled', 'interrupted'],
   preparing_context: ['calling_model', 'failed', 'cancelled', 'interrupted'],
-  calling_model: ['validating_tools', 'completed', 'failed', 'cancelled', 'interrupted'],
+  calling_model: ['validating_tools', 'persisting_results', 'completed', 'failed', 'cancelled', 'interrupted'],
   validating_tools: ['awaiting_approval', 'executing_tools', 'failed', 'cancelled', 'interrupted'],
   awaiting_approval: ['executing_tools', 'cancelled', 'interrupted'],
   executing_tools: ['persisting_results', 'failed', 'cancelled', 'interrupted'],
@@ -71,12 +75,14 @@ export function canTransition(from: RuntimeState, to: RuntimeState): boolean {
 /** Pure replay: the event stream is the authority, not the last UI message. */
 export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): RuntimeSnapshot {
   const pendingTools: Record<string, 'prepared' | 'succeeded' | 'failed' | 'unknown'> = {};
+  const queuedTools: Record<string, { toolName: string; inputDigest: string }> = {};
   let state: RuntimeState = 'created';
   let revision = 0;
   let created = false;
   let sessionId: string | undefined;
   let completionVerified = false;
   const activeSkills = new Set<string>();
+  const skillToolConstraints: Record<string, readonly string[] | null> = {};
   for (const event of events) {
     if (event.runId !== runId) throw new Error('Runtime event belongs to another run');
     if (event.schemaVersion !== undefined && event.schemaVersion !== 1) throw new Error('Unsupported runtime event schema');
@@ -89,28 +95,53 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       throw new Error('Runtime event stream missing creation');
     } else if (event.type === 'run.transitioned') {
       if (event.from !== state || !canTransition(state, event.to)) throw new Error('Invalid runtime transition');
-      if (event.to === 'completed' && Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
+      if (event.to === 'completed' && (Object.keys(queuedTools).some(id => !Object.hasOwn(pendingTools, id)) || Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown')))
         throw new Error('Cannot complete with unsettled tools');
       if (event.to === 'completed' && !completionVerified) throw new Error('Completion requires independent verification');
       if (event.to !== 'completed') completionVerified = false;
       state = event.to;
+    } else if (event.type === 'tool.proposed') {
+      if (state !== 'validating_tools' || !event.invocationId.trim() ||
+          !event.toolName.trim() || !/^[a-f0-9]{64}$/.test(event.inputDigest) ||
+          Object.hasOwn(queuedTools, event.invocationId) ||
+          Object.hasOwn(pendingTools, event.invocationId))
+        throw new Error('Invalid queued tool proposal');
+      queuedTools[event.invocationId] = { toolName: event.toolName, inputDigest: event.inputDigest };
     } else if (event.type === 'tool.prepared') {
-      if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
+      const invocation = event.invocation;
+      if (state !== 'executing_tools' || invocation.runId !== runId ||
+          !invocation.id?.trim() || !invocation.toolName?.trim() ||
+          (invocation.host !== 'local' && invocation.host !== 'remote') ||
+          Object.hasOwn(pendingTools, invocation.id))
         throw new Error('Invalid tool preparation');
-      if (createHash('sha256').update(JSON.stringify(event.invocation.input)).digest('hex') !== event.invocation.inputDigest)
+      // Model-driven runs must only execute a tool from their durable batch.
+      // Standalone Gateway jobs may have no proposals at all.
+      if (Object.keys(queuedTools).length && !Object.hasOwn(queuedTools, invocation.id))
+        throw new Error('Tool invocation is not the queued model proposal');
+      const serialized = JSON.stringify(invocation.input);
+      if (serialized === undefined ||
+          createHash('sha256').update(serialized).digest('hex') !== invocation.inputDigest)
         throw new Error('Tool invocation digest mismatch');
+      if (queuedTools[invocation.id] && queuedTools[invocation.id].toolName !== invocation.toolName)
+        throw new Error('Queued tool name mismatch');
       completionVerified = false;
-      pendingTools[event.invocation.id] = 'prepared';
+      pendingTools[invocation.id] = 'prepared';
     } else if (event.type === 'tool.rejected') {
       if (!event.invocationId.trim() || !event.toolName.trim()) throw new Error('Invalid tool rejection event');
     } else if (event.type === 'skill.activated') {
       if (!event.skillId.trim() || state === 'completed' || state === 'failed' || state === 'cancelled')
         throw new Error('Invalid skill activation identity');
+      if (event.allowedTools !== undefined &&
+          (!Array.isArray(event.allowedTools) ||
+           event.allowedTools.some(tool => typeof tool !== 'string' || !tool.trim())))
+        throw new Error('Invalid skill tool constraints');
       activeSkills.add(event.skillId);
+      skillToolConstraints[event.skillId] = event.allowedTools === undefined
+        ? null : [...new Set(event.allowedTools)];
     } else if (event.type === 'run.completion_verified') {
       if ((state !== 'calling_model' && state !== 'persisting_results') ||
           completionVerified || !event.checks.length || event.checks.some(check => !check.trim()) ||
-          Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
+          (Object.keys(queuedTools).some(id => !Object.hasOwn(pendingTools, id)) || Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown')))
         throw new Error('Invalid completion verification');
       completionVerified = true;
     } else if (event.type === 'tool.settled') {
@@ -123,5 +154,5 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     revision++;
   }
   if (!created) throw new Error('Runtime event stream missing creation');
-  return { runId, sessionId, state, revision, pendingTools, completionVerified, activeSkills: [...activeSkills] };
+  return { runId, sessionId, state, revision, pendingTools, queuedTools, completionVerified, activeSkills: [...activeSkills], skillToolConstraints };
 }

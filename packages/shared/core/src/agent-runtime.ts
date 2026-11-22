@@ -45,10 +45,14 @@ export class AgentRuntime {
     return this.transition(runId, 'interrupted');
   }
 
-  async activateSkill(runId: string, skillId: string, source: 'plugin' | 'user' | 'project'): Promise<RuntimeSnapshot> {
+  async activateSkill(
+    runId: string, skillId: string, source: 'plugin' | 'user' | 'project',
+    allowedTools?: readonly string[],
+  ): Promise<RuntimeSnapshot> {
     const current = await this.snapshot(runId);
     await this.store.append(runId, current.revision, [{
       type: 'skill.activated', runId, at: stamp(), skillId, source,
+      ...(allowedTools === undefined ? {} : { allowedTools: [...allowedTools] }),
     }]);
     return this.snapshot(runId);
   }
@@ -77,27 +81,83 @@ export class AgentRuntime {
     return this.snapshot(runId);
   }
 
-  async executeTool(runId: string, id: string, toolName: string, input: unknown, host: ToolInvocation['host']): Promise<unknown> {
+  /** Persist the entire model tool decision before any host side effect.
+   * Proposals are not execution claims or approvals. Queue-backed hosts may
+   * dispatch later; inline hosts continue through ToolRuntime.
+   */
+  async proposeTools(
+    runId: string,
+    calls: readonly { id: string; name: string; input: unknown }[],
+  ): Promise<RuntimeSnapshot> {
+    const current = await this.snapshot(runId);
+    if (current.state !== 'validating_tools' || !calls.length)
+      throw new Error('Tool proposals require a validating runtime state and nonempty batch');
+    const seen = new Set<string>();
+    const events: RuntimeEvent[] = calls.map(call => {
+      if (!call.id?.trim() || !call.name?.trim() || seen.has(call.id) ||
+          Object.hasOwn(current.queuedTools, call.id) || Object.hasOwn(current.pendingTools, call.id))
+        throw new Error('Invalid or duplicate tool proposal identity');
+      seen.add(call.id);
+      const serialized = JSON.stringify(call.input);
+      if (serialized === undefined) throw new Error('Tool proposal input is not serializable');
+      return {
+        type: 'tool.proposed', runId, at: stamp(), invocationId: call.id,
+        toolName: call.name, inputDigest: createHash('sha256').update(serialized).digest('hex'),
+      };
+    });
+    await this.store.append(runId, current.revision, events);
+    return this.snapshot(runId);
+  }
+
+  /** Distributed hosts may enqueue an invocation only after this durable claim.
+   * The same protocol is used by the inline CLI host.
+   */
+  async prepareTool(runId: string, invocation: ToolInvocation): Promise<RuntimeSnapshot> {
     const current = await this.snapshot(runId);
     if (current.state !== 'executing_tools') throw new Error('Runtime is not executing tools');
-    if (Object.hasOwn(current.pendingTools, id)) throw new Error('Tool invocation already claimed; replay prohibited');
-    const capturedInput = structuredClone(input);
-    const invocation: ToolInvocation = { id, runId, toolName, input: capturedInput, inputDigest: digest(capturedInput), host };
+    if (invocation.runId !== runId || !invocation.id.trim())
+      throw new Error('Invalid tool invocation identity');
+    if (Object.hasOwn(current.pendingTools, invocation.id))
+      throw new Error('Tool invocation already claimed; replay prohibited');
     await this.store.append(runId, current.revision, [
       { type: 'tool.prepared', runId, at: stamp(), invocation },
     ]);
+    return this.snapshot(runId);
+  }
+
+  /** Persist the result independently from dispatch; used by queue-backed hosts.
+   * A failed persistence leaves the claim unresolved and forbids automatic replay.
+   */
+  async settlePreparedTool(
+    runId: string,
+    invocationId: string,
+    outcome: 'succeeded' | 'failed' | 'unknown',
+    result?: unknown,
+  ): Promise<RuntimeSnapshot> {
+    const current = await this.snapshot(runId);
+    if (current.pendingTools[invocationId] !== 'prepared')
+      throw new Error('Tool settlement without preparation');
+    const event: RuntimeEvent = {
+      type: 'tool.settled', runId, at: stamp(), invocationId, outcome, result,
+    };
+    await this.store.append(runId, current.revision, [event]);
+    return this.snapshot(runId);
+  }
+
+  async executeTool(runId: string, id: string, toolName: string, input: unknown, host: ToolInvocation['host']): Promise<unknown> {
+    const capturedInput = structuredClone(input);
+    const invocation: ToolInvocation = { id, runId, toolName, input: capturedInput, inputDigest: digest(capturedInput), host };
+    await this.prepareTool(runId, invocation);
     let result: unknown;
     let outcome: 'succeeded' | 'failed' | 'unknown' = 'unknown';
     try {
       result = await this.host.execute(invocation);
-      outcome = 'succeeded';
+      outcome = result && typeof result === 'object' && 'error' in result ? 'failed' : 'succeeded';
     } catch (error) {
-      // A thrown error does not prove the external side effect was rolled back.
+      // An exception cannot prove a remote side effect was rolled back.
       result = { error: error instanceof Error ? error.message : String(error) };
     }
-    const after = await this.snapshot(runId);
-    const event: RuntimeEvent = { type: 'tool.settled', runId, at: stamp(), invocationId: id, outcome, result };
-    await this.store.append(runId, after.revision, [event]);
+    await this.settlePreparedTool(runId, id, outcome, result);
     if (outcome === 'unknown') throw new Error('Tool execution outcome unknown; manual reconciliation required');
     return result;
   }
