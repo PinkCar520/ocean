@@ -63,6 +63,7 @@ export default function OceanCodePage() {
               ['Setup and README', repository + '#readme'],
               ['Releases', repository + '/releases'],
               ['Issues and feedback', repository + '/issues'],
+              ['Contributing', repository + '/blob/main/CONTRIBUTING.md'],
             ].map(([label, href]) => <a key={label} href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between rounded-2xl border border-[#e7e1dc] bg-white px-6 py-5 font-medium hover:border-[#e9561b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">{label}<span aria-hidden="true">↗</span></a>)}
           </div>
         </section>
