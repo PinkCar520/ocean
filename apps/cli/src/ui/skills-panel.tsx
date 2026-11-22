@@ -34,7 +34,7 @@ export function SkillsPanel({ skills, enabled, onToggle, onClose }: {
   const visible = Math.max(1, size.rows - 10);
   const start = Math.max(0, Math.min(index - visible + 1, list.length - visible));
   useInput((input, key) => {
-    if (key.escape) { if (searching) setSearching(false); else onClose(); return; }
+    if (key.escape) { if (searching || query) { setQuery(''); setSearching(false); } else onClose(); return; }
     if (key.upArrow || key.downArrow) {
       if (list.length) setSelected(skillKey(list[(index + (key.upArrow ? -1 : 1) + list.length) % list.length]));
       return;
@@ -42,22 +42,22 @@ export function SkillsPanel({ skills, enabled, onToggle, onClose }: {
     if (searching) {
       if (key.return) setSearching(false);
       else if (key.backspace || key.delete) setQuery(q => Array.from(q).slice(0,-1).join(''));
-      else if (!key.ctrl && !key.meta && input && !/[\x00-\x1f\x7f]/.test(input)) setQuery(q => q + input);
+      else if (input !== '/' && !key.ctrl && !key.meta && input && !/[\x00-\x1f\x7f]/.test(input)) setQuery(q => q + input);
       return;
     }
-    if (input === '/') setSearching(true);
+    if (input === '/') { setSearching(true); return; }
     else if (input === 't') setSort(s => sorts[(sorts.indexOf(s)+1)%sorts.length]);
     else if ((key.return || input === ' ') && active) { setSelected(skillKey(active)); onToggle(active); }
   });
   const wide = size.cols >= 42;
-  const nameWidth = Math.max(4, Math.min(34, size.cols - (wide ? 25 : 8)));
+  const nameWidth = Math.max(4, Math.min(24, Math.max(12, ...skills.map(s => s.manifest.name.length + 2)), size.cols - (wide ? 25 : 8)));
   return <Box flexDirection="column">
     <Text color="cyan">{'─'.repeat(Math.max(1,size.cols-1))}</Text>
     <Box flexDirection="column" paddingX={1}>
       <Text color="cyan" bold>Skills</Text>
-      <Text dimColor>{skills.length} skills · enter/space to cycle, / to search, t to sort, Esc to close</Text>
+      <Text dimColor>{searching || query ? `${list.length}/${skills.length} skills` : `${skills.length} skills`} · {searching ? 'type to filter · ↓/enter to select · Esc to clear' : 'enter/space to cycle, / to search, t to sort, Esc to close'}</Text>
       <Box borderStyle="round" borderColor={searching ? 'cyan' : 'gray'} marginTop={1} paddingX={1}>
-        <Text wrap="truncate-end" dimColor={!query}>⌕ {query || 'Search skills…'}{searching ? ' ▏' : ''}</Text>
+        <Text wrap="truncate-end">⌕ {query ? <Text>{query}</Text> : <Text dimColor>Search skills…</Text>}{searching ? <Text inverse>{' '}</Text> : null}</Text>
       </Box>
       {list.slice(start,start+visible).map(s => {
         const current = s === active;
