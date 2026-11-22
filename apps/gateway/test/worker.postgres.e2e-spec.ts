@@ -316,7 +316,12 @@ integration('HTTP -> PostgreSQL Outbox -> production Worker', () => {
  async function waitFor(runId: string, status: string) {
   const deadline = Date.now() + 12000;
   while ((await db.agentRun.findUniqueOrThrow({ where: { id: runId } })).status !== status) {
-   if (Date.now() > deadline) throw new Error(`Run ${runId} never reached ${status}`);
+   if (Date.now() > deadline) {
+    const run = await db.agentRun.findUniqueOrThrow({ where: { id: runId } });
+    const steps = await db.runStep.findMany({ where: { runId }, orderBy: { seq: 'asc' },
+     select: { kind: true, status: true, error: true } });
+    throw new Error(`Run ${runId} never reached ${status}; actual=${run.status}; steps=${JSON.stringify(steps)}`);
+   }
    await new Promise(resolve => setTimeout(resolve, 100));
   }
  }
