@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { AgentExecutionEngine, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
+import { AgentExecutionEngine, planAgentExecutionResume, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -784,11 +784,14 @@ export class RunRunner {
         const payload = row.payload as { toolCall?: { id?: unknown } } | null;
         return payload?.toolCall?.id;
       });
-      if (pendingIds.some(id => typeof id !== 'string' || !calls.some(call => call.id === id)))
+      if (pendingIds.some(id => typeof id !== 'string'))
         throw new Error('Unidentifiable pending tool delivery; reconciliation required');
-      if (pendingIds.length > 0 || unfinished) return true;
-      // Core owns batch validation, ordering and fail-closed recovery policy.
-      const nextDecision = AgentExecutionEngine.planDurableDecision({ kind: 'tools', calls }, claimed, false);
+      // Core owns journal ordering, pending-delivery fencing and resumption.
+      const nextDecision = planAgentExecutionResume(
+        { kind: 'tools', calls }, claimed,
+        { unfinishedTool: Boolean(unfinished), pendingDeliveryIds: pendingIds as string[] },
+      );
+      if (nextDecision.kind === 'wait_for_host') return true;
       const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
       if (!next) return false;
       {
