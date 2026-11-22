@@ -773,19 +773,25 @@ export class RunRunner {
           status: { notIn: ['succeeded', 'failed', 'cancelled'] } },
         select: { id: true },
       });
-      // Core owns batch validation, ordering and fail-closed recovery policy.
-      const nextDecision = AgentExecutionEngine.planDurableDecision({ kind: 'tools', calls }, claimed, Boolean(unfinished));
-      const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
-      if (!next) return false;
+      // A pending outbox delivery is an outstanding side effect, even before
+      // ToolExecutor creates its RunStep. Never advance a sibling or call the
+      // model while the earlier delivery is unresolved.
       const pending = await tx.outboxEvent.findMany({
         where: { aggregateId: runId, topic: 'tool.requested', status: 'pending' },
         select: { payload: true },
       });
-      const alreadyQueued = pending.some(row => {
+      const pendingIds = pending.map(row => {
         const payload = row.payload as { toolCall?: { id?: unknown } } | null;
-        return payload?.toolCall?.id === next.id;
+        return payload?.toolCall?.id;
       });
-      if (!alreadyQueued) {
+      if (pendingIds.some(id => typeof id !== 'string' || !calls.some(call => call.id === id)))
+        throw new Error('Unidentifiable pending tool delivery; reconciliation required');
+      if (pendingIds.length > 0 || unfinished) return true;
+      // Core owns batch validation, ordering and fail-closed recovery policy.
+      const nextDecision = AgentExecutionEngine.planDurableDecision({ kind: 'tools', calls }, claimed, false);
+      const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
+      if (!next) return false;
+      {
         const message = toolRequestedMessageSchema.parse({
           version: 1, runId, userId,
           toolCall: { id: next.id, name: next.name, input: next.input, idempotencyKey: next.id },
