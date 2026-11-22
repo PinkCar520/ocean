@@ -36,7 +36,7 @@ export default function OceanCodePage() {
         <div id="code-capabilities" className="mt-24 grid scroll-mt-24 gap-5 md:grid-cols-3" aria-label="Ocean Code capabilities and deployment considerations">
           {[
             { title: 'Work in a repository', body: 'Use the terminal host to explore code and work on development tasks, subject to configured tool permissions.' },
-            { title: 'Continue a session', body: 'The shared runtime is designed around persistent sessions. Check the deployment and current implementation for supported recovery behavior.' },
+            { title: 'Continue a session', body: 'The shared runtime is designed around persistent sessions. Session persistence and recovery depend on the host and current implementation. Verify behavior in your deployment.' },
             { title: 'Extend your tools', body: 'Discover Skills and MCP integrations, then configure and approve connections before they are used.' },
           ].map(item => <article key={item.title} className="rounded-3xl border border-[#e7e1dc] bg-white p-7"><h2 className="text-xl font-semibold">{item.title}</h2><p className="mt-4 leading-7 text-[#6f6a65]">{item.body}</p></article>)}
         </div>
