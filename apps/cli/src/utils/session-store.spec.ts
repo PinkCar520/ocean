@@ -257,3 +257,45 @@ it('ignores forged terminal journals with mismatched filenames or absent outputs
   expect(restored.messages).toEqual([{ role: 'user', content: 'safe recovery' }]);
  } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+it('rejects a terminal journal whose persisted input no longer matches its digest', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-journal-digest-'));
+ try {
+  const store = new SessionStore(root); const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'run' }] as any);
+  await store.executeToolCall(session.id, root, 'digest-call', 'file_write', { path: 'safe.txt' }, async () => ({ ok: true }));
+  const journalName = (await readdir(root)).find(name => name.startsWith('journal-') && name.endsWith('.json'))!;
+  const journal = JSON.parse(await readFile(path.join(root, journalName), 'utf8'));
+  journal.input = { path: 'tampered.txt' };
+  await writeFile(path.join(root, journalName), JSON.stringify(journal));
+  expect((await new SessionStore(root).load(session.id, root)).messages).toEqual([{ role: 'user', content: 'run' }]);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it('refuses to reuse a corrupted terminal result without executing the side effect', async () => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'ocean-terminal-reuse-'));
+ try {
+  const store = new SessionStore(root);
+  const session = await store.create(root);
+  await store.save(session.id, root, [{ role: 'user', content: 'write once' }] as any);
+  const input = { path: 'safe.txt' };
+  await store.executeToolCall(session.id, root, 'terminal-call', 'file_write', input, async () => ({ ok: true }));
+  const journalName = (await readdir(root)).find(name => name.startsWith('journal-') && name.endsWith('.json'))!;
+  const journalPath = path.join(root, journalName);
+  const journal = JSON.parse(await readFile(journalPath, 'utf8'));
+  let executions = 0;
+  for (const tampered of [
+   { ...journal, output: undefined },
+   { ...journal, input: { path: 'changed.txt' } },
+   { ...journal, workspace: '/untrusted/workspace' },
+  ]) {
+   await writeFile(journalPath, JSON.stringify(tampered));
+   await expect(store.executeToolCall(session.id, root, 'terminal-call', 'file_write', input, async () => {
+    executions++;
+    return { ok: false };
+   })).rejects.toThrow('Invalid terminal tool journal');
+  }
+  expect(executions).toBe(0);
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
