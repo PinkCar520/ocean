@@ -1,10 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// Top-level shell of the iPhone body. A 5-tab navigation surfaces the
-/// seven brief pages: Home, Voice, Agent Activity, Memory, Settings live
-/// as tabs; World and Actions are entered from Home (NavigationStack) so
-/// the bar stays uncluttered while every page exists.
+/// Top-level shell of the iPhone body. Voice, Activity, Memory and Settings
+/// are the four primary destinations. World lives under Settings and
+/// Actions under Activity; the ambient Home view is not a tab.
 struct RootShell: View {
     @Environment(OLOCenter.self) private var center
     @Environment(\.modelContext) private var modelContext
@@ -12,9 +11,6 @@ struct RootShell: View {
     var body: some View {
         NavigationStack {
             TabView {
-                Tab("Home", systemImage: "circle.fill") {
-                    HomeView()
-                }
                 Tab("Voice", systemImage: "mic") {
                     VoiceView()
                 }
