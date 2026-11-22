@@ -53,6 +53,17 @@ export default function OceanCodePage() {
           <p className="mt-5 max-w-3xl leading-8 text-[#d4cec8]">Model access, file changes, shell execution and external integrations depend on how your installation is configured. Review commands and approvals before granting access to sensitive projects.</p>
           <a href={repository + '/issues'} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block font-semibold text-[#ffad87] underline underline-offset-4">Report an issue on GitHub</a>
         </section>
+        <section aria-labelledby="code-resources" className="mt-24 border-t border-black/10 pt-20">
+          <h2 id="code-resources" className="text-3xl font-semibold">Developer resources</h2>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {[
+              ['Source repository', repository],
+              ['Setup and README', repository + '#readme'],
+              ['Releases', repository + '/releases'],
+              ['Issues and feedback', repository + '/issues'],
+            ].map(([label, href]) => <a key={label} href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between rounded-2xl border border-[#e7e1dc] bg-white px-6 py-5 font-medium hover:border-[#e9561b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">{label}<span aria-hidden="true">↗</span></a>)}
+          </div>
+        </section>
       </section>
     </main>
   );
