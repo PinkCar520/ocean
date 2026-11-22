@@ -84,6 +84,18 @@ export function nextDurableToolCall(
   validateAgentModelDecision({ kind: 'tools', calls });
   if (hasUnresolvedInvocation)
     throw new Error('Gateway tool batch has an unresolved earlier invocation; reconciliation required');
+  // A durable sequential batch may only claim a prefix. A later claimed
+  // sibling with an earlier missing claim means the journal is inconsistent;
+  // never replay the earlier tool or skip over the missing effect.
+  let seenMissing = false;
+  for (const call of calls) {
+    if (!settledOrClaimedIds.has(call.id)) seenMissing = true;
+    else if (seenMissing)
+      throw new Error('Non-contiguous durable tool claims require journal reconciliation');
+  }
+  const knownIds = new Set(calls.map(call => call.id));
+  if ([...settledOrClaimedIds].some(id => !knownIds.has(id)))
+    throw new Error('Durable tool claim is absent from the model decision');
   return calls.find(call => !settledOrClaimedIds.has(call.id));
 }
 
