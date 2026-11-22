@@ -1,6 +1,7 @@
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { PrismaRuntimeEventStore } from '../run/runtime-event-store';
 import type { Prisma } from '@prisma/client';
+import { AgentRuntime, MemoryRuntimeEventStore } from '@ocean/core';
 
 function fixture() {
   const rows: Array<{ sequence: number; payload: unknown }> = [];
@@ -35,6 +36,40 @@ describe('Gateway Worker shares the Agent Runtime state machine', () => {
   expect((await events.read('run')).map(e => e.type)).toContain('tool.proposed');
   expect((await events.read('run')).map(e => e.type)).toContain('tool.prepared');
   expect((await events.read('run')).map(e => e.type)).toContain('tool.settled');
+ });
+ it('matches the inline CLI Agent Runtime event lifecycle for one model/tool continuation', async () => {
+  const localStore = new MemoryRuntimeEventStore();
+  let localEffects = 0;
+  const local = new AgentRuntime(localStore, {
+   execute: async () => { localEffects++; return { ok: true }; },
+  });
+  await local.create('local', 'session');
+  await local.transition('local', 'preparing_context');
+  await local.transition('local', 'calling_model');
+  await local.transition('local', 'validating_tools');
+  await local.proposeTools('local', [{ id: 'call', name: 'echo', input: {} }]);
+  await local.transition('local', 'executing_tools');
+  expect(await local.executeTool('local', 'call', 'echo', {}, 'local')).toEqual({ ok: true });
+  await local.transition('local', 'persisting_results');
+  await local.transition('local', 'preparing_context');
+  await local.transition('local', 'calling_model');
+  await local.verifyCompletion('local', ['CLI transcript verified']);
+  expect((await local.transition('local', 'completed')).state).toBe('completed');
+
+  const { core, tx, events } = fixture();
+  await core.startModel(tx, 'gateway', 'session');
+  await core.queueTool(tx, 'gateway', { id: 'call', name: 'echo', input: {} });
+  await core.prepareToolExecution(tx, 'gateway', { id: 'call', name: 'echo', input: {} });
+  await core.settleQueuedTool(tx, 'gateway', 'call', 'succeeded', { ok: true }, false);
+  await core.startModel(tx, 'gateway', 'session');
+  expect((await core.finishModel(tx, 'gateway', true)).state).toBe('completed');
+
+  const localEvents = await localStore.read('local');
+  const gatewayEvents = await events.read('gateway');
+  expect(gatewayEvents.map(event => event.type)).toEqual(localEvents.map(event => event.type));
+  expect(gatewayEvents.filter(event => event.type === 'tool.settled'))
+   .toMatchObject([{ invocationId: 'call', outcome: 'succeeded', result: { ok: true } }]);
+  expect(localEffects).toBe(1);
  });
  it('blocks model replay when queued work has not produced a persisted result', async () => {
   const { core, tx } = fixture();
