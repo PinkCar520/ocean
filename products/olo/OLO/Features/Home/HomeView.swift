@@ -140,6 +140,10 @@ struct HomeView: View {
                     if pressActivated {
                         pressActivated = false
                         finishListening()
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(120))
+                            suppressNextTap = false
+                        }
                     }
                 }
         )
