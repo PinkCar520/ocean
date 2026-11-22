@@ -136,8 +136,8 @@ describe('RunRunner', () => {
       return null;
     });
     tx.runStep.findMany.mockResolvedValue([{ input: { id: 'first' } }]);
-    const deferred = await (runner as any).dispatchRemainingModelTool('run_1', 'user_1', 'normal');
-    expect(deferred).toBe(true);
+    await expect((runner as any).dispatchRemainingModelTool('run_1', 'user_1', 'normal'))
+      .rejects.toThrow('reconciliation required');
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
     expect(tx.agentRun.update).not.toHaveBeenCalled();
   });
