@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, History, Menu, Terminal, X } from 'lucide-react';
 
 const repository = 'https://github.com/PinkCar520/ocean';
 const documentation = `${repository}#readme`;
@@ -18,7 +18,7 @@ const navigationGroups = [
     { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }] },
   ] },
   { label: 'Resources', columns: [
-    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'GitHub repository', href: repository }] },
+    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }] },
     { heading: 'Get started', links: [{ label: 'Open workspace', href: '/app' }, { label: 'Sign in', href: '/auth' }] },
   ] },
 ];
@@ -91,7 +91,6 @@ export function LandingPage() {
                 {group.label}<ChevronDown size={14} className={activeMenu === group.label ? 'rotate-180 transition-transform' : 'transition-transform'}/>
               </button>
             ))}
-            <a href={repository} target="_blank" rel="noopener noreferrer" onMouseEnter={() => setActiveMenu(null)} className="inline-flex items-center gap-1.5 hover:text-[#e9561b]">GitHub <ArrowRight size={14}/></a>
           </div>
           <div className="hidden items-center gap-3 md:flex">
             <Link href="/auth" className="rounded-full px-4 py-2.5 text-sm font-medium hover:bg-black/5">Log in</Link>
@@ -142,7 +141,6 @@ export function LandingPage() {
                 </div>}
               </div>
             ))}
-            <a href={repository} className="py-3">GitHub</a>
             <Link href="/auth" className="py-3">Log in</Link>
             <Link href="/app" className="rounded-xl bg-[#1c1b1b] px-4 py-3 text-center text-white">Open Ocean</Link>
           </div>
@@ -170,7 +168,6 @@ export function LandingPage() {
           </form>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href="/app" className="rounded-full border border-[#e8e2dd] bg-white px-5 py-2.5 text-sm font-medium hover:border-[#e9561b]">Explore Ocean <ArrowRight className="ml-1 inline" size={14}/></Link>
-            <a href={repository} target="_blank" rel="noopener noreferrer" className="rounded-full px-5 py-2.5 text-sm font-medium hover:bg-black/5"><GitBranch className="mr-2 inline" size={16}/>View source</a>
           </div>
         </section>
 
@@ -198,7 +195,6 @@ export function LandingPage() {
               <h2 className="mt-5 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Built to be extended.</h2>
               <p className="mt-6 max-w-lg leading-8 text-[#77716c]">Explore the CLI, web host, shared runtime, and integration work in the open-source repository. Feature availability depends on your deployment and configuration.</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a href={repository} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#1c1b1b] px-6 py-3 text-sm font-semibold text-white hover:bg-[#e9561b]"><GitBranch size={17}/> Explore GitHub</a>
                 <a href={documentation} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#ded8d3] px-6 py-3 text-sm font-semibold hover:bg-white"><BookOpen size={17}/> Read docs</a>
               </div>
             </div>
@@ -249,7 +245,6 @@ export function LandingPage() {
           <div className="flex flex-col gap-6 pt-7 text-xs text-[#99938d] md:flex-row md:items-center md:justify-between">
             <span>© {new Date().getFullYear()} Ocean. Open-source project.</span>
             <div className="flex flex-wrap items-center gap-5">
-              <a href={repository} target="_blank" rel="noopener noreferrer" className="hover:text-white">GitHub</a>
               <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white">Feedback & issues</a>
               <div className="relative">
                 <button type="button" onClick={() => setLanguageOpen(!languageOpen)} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50">
