@@ -87,6 +87,43 @@ describe('CLI Core interrupted-run recovery', () => {
   expect((await runtimeEvents.read('recovery-run')).filter(e => e.type === 'tool.prepared')).toHaveLength(1);
   expect((await runtimeEvents.read('recovery-run')).filter(e => e.type === 'tool.settled')).toHaveLength(1);
  });
+ it('never replays a partial model tool batch after the first side effect was committed', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'ocean-local-partial-batch-')); roots.push(root);
+  const sessions = new SessionStore(join(root, 'sessions'));
+  const session = await sessions.create(root);
+  await sessions.save(session.id, root, [{ role: 'user', content: 'run both once' }]);
+  next.mockResolvedValueOnce({ kind: 'tools', calls: [
+   { id: 'first-effect', name: 'echo', input: { message: 'first' } },
+   { id: 'second-effect', name: 'echo', input: { message: 'second' } },
+  ] });
+  const execute = vi.fn(async (input: { message: string }) => ({ text: input.message }));
+  const append = vi.spyOn(sessions, 'appendMessages').mockImplementationOnce(async () => {
+   throw new Error('crash after first effect, before transcript append');
+  });
+  const options = {
+   sessionStore: sessions, sessionId: session.id, runId: 'partial-run',
+   workspace: root, runtimeDirectory: join(root, 'events'),
+   model: {} as any, systemPrompt: 'test',
+   tools: { echo: { inputSchema: z.object({ message: z.string() }), execute } },
+   authorization: { evaluate: async () => 'allow' as const },
+   completion: { verify: async () => ['verified'] },
+  };
+  await expect(runOceanCoreLocal(options)).rejects.toThrow('crash after first effect');
+  append.mockRestore();
+  const store = new FileRuntimeEventStore(join(root, 'events'));
+  const events = await store.read('partial-run');
+  const snapshot = replayRuntime('partial-run', events);
+  expect(snapshot.state).toBe('interrupted');
+  expect(Object.keys(snapshot.queuedTools)).toEqual(['first-effect', 'second-effect']);
+  expect(snapshot.pendingTools).toEqual({ 'first-effect': 'succeeded' });
+  expect(events.filter(event => event.type === 'tool.proposed')).toHaveLength(2);
+  expect(events.filter(event => event.type === 'tool.prepared')).toHaveLength(1);
+  expect(await sessions.readToolCallJournal(session.id, root, 'first-effect')).toBeTruthy();
+  await expect(runOceanCoreLocal({ ...options, resume: true }))
+   .rejects.toThrow('Unfinished model tool batch');
+  expect(execute).toHaveBeenCalledOnce();
+  expect(next).toHaveBeenCalledOnce();
+ });
  it('refuses to retry an unknown outcome even if the model produces another tool call', async () => {
   const root = await mkdtemp(join(tmpdir(), 'ocean-local-unknown-')); roots.push(root);
   const sessions = new SessionStore(join(root, 'sessions'));
