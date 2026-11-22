@@ -9,8 +9,8 @@ const documentation = `${repository}#readme`;
 
 const navigationGroups = [
   { label: 'Product', columns: [
-    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/#ocean-code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
-    { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Ocean Code', href: '/#ocean-code' }, { label: 'Capabilities', href: '/#features' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
+    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
+    { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Ocean Code', href: '/code' }, { label: 'Capabilities', href: '/#features' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
     { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Capability explorer', href: '/#features' }, { label: 'What you can do', href: '/#use-cases' }, { label: 'Architecture', href: '/#developers' }] },
   ] },
   { label: 'Developers', columns: [
@@ -86,7 +86,7 @@ const useCases = [
 ];
 
 const productSurfaces = [
-  { name: 'Ocean Code', tag: 'TERMINAL', title: 'Work directly in your codebase.', description: 'Explore the terminal agent, its configuration and available commands in the open-source repository.', href: documentation, action: 'Explore CLI setup', icon: Terminal },
+  { name: 'Ocean Code', tag: 'TERMINAL', title: 'Work directly in your codebase.', description: 'Explore the terminal agent, its configuration and available commands in the open-source repository.', href: '/code', action: 'Explore Ocean Code', icon: Terminal },
   { name: 'Ocean Workspace', tag: 'WEB', title: 'A home for conversations and projects.', description: 'Move from a question to an ongoing conversation, with access to projects and the features enabled on your host.', href: '/app', action: 'Open workspace', icon: MessagesSquare },
   { name: 'Skills & MCP', tag: 'EXTENSIONS', title: 'Extend the agent on your terms.', description: 'Discover supported Skills and integrations. Configure connections and review permissions before use.', href: '/app/integrations', action: 'Explore integrations', icon: PlugZap },
 ] as const;
