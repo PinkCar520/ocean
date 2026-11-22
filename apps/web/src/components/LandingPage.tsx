@@ -258,7 +258,7 @@ export function LandingPage() {
           </div>
           <form onSubmit={openWorkspace} className="mt-5 w-full max-w-2xl rounded-[26px] border border-[#e8e2dd] bg-white p-4 text-left shadow-[0_18px_70px_rgba(39,26,16,0.07)] focus-within:border-[#e9561b]/50">
             <label htmlFor="ocean-prompt" className="sr-only">Your task for Ocean</label>
-            <textarea id="ocean-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
+            <textarea id="ocean-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
             <div className="flex items-center justify-between gap-3 pt-2">
               <span className="pl-2 text-xs text-[#99918a]">Continue in the Ocean workspace</span>
               <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b]"><ArrowUp size={21}/></button>
