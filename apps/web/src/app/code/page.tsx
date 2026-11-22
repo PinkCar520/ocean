@@ -37,7 +37,7 @@ export default function OceanCodePage() {
           {[
             { title: 'Work in a repository', body: 'Use the terminal host to explore code and work on development tasks, subject to configured tool permissions.' },
             { title: 'Continue a session', body: 'The shared runtime is designed around persistent sessions. Session persistence and recovery depend on the host and current implementation. Verify behavior in your deployment.' },
-            { title: 'Extend your tools', body: 'Discover Skills and MCP integrations, then configure and approve connections before they are used.' },
+            { title: 'Extend your tools', body: 'Discover Skills and MCP integrations, then configure and explicitly authorize connections before use.' },
           ].map(item => <article key={item.title} className="rounded-3xl border border-[#e7e1dc] bg-white p-7"><h2 className="text-xl font-semibold">{item.title}</h2><p className="mt-4 leading-7 text-[#6f6a65]">{item.body}</p></article>)}
         </div>
         <section id="code-architecture" aria-labelledby="code-architecture-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
