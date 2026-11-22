@@ -74,6 +74,11 @@ export default function OceanCodePage() {
             ].map(([question, answer]) => <details key={question} className="group py-5"><summary className="cursor-pointer rounded font-semibold focus-visible:outline-2 focus-visible:outline-[#e9561b]">{question}</summary><p className="mt-4 max-w-3xl leading-7 text-[#6f6a65]">{answer}</p></details>)}
           </div>
         </section>
+        <section className="mt-24 rounded-3xl bg-[#f0ebe5] p-8 md:p-12">
+          <h2 className="text-3xl font-semibold tracking-tight">Ready to explore Ocean?</h2>
+          <p className="mt-4 max-w-2xl leading-7 text-[#6f6a65]">Start with the open-source CLI or open the Ocean web workspace.</p>
+          <div className="mt-7 flex flex-wrap gap-3"><a href={repository + '#readme'} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1c1b1b] px-6 py-3 font-semibold text-white hover:bg-[#e9561b]">CLI documentation</a><Link href="/app" className="rounded-full border border-black/20 px-6 py-3 font-semibold hover:border-[#e9561b]">Open workspace</Link></div>
+        </section>
       </section>
     </main>
   );
