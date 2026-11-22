@@ -1,7 +1,7 @@
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { PrismaRuntimeEventStore } from '../run/runtime-event-store';
 import type { Prisma } from '@prisma/client';
-import { AgentRuntime, MemoryRuntimeEventStore } from '@ocean/core';
+import { AgentExecutionEngine, MemoryRuntimeEventStore, type AgentModelDecision } from '@ocean/core';
 
 function fixture() {
   const rows: Array<{ sequence: number; payload: unknown }> = [];
@@ -37,24 +37,28 @@ describe('Gateway Worker shares the Agent Runtime state machine', () => {
   expect((await events.read('run')).map(e => e.type)).toContain('tool.prepared');
   expect((await events.read('run')).map(e => e.type)).toContain('tool.settled');
  });
- it('matches the inline CLI Agent Runtime event lifecycle for one model/tool continuation', async () => {
+ it('matches the inline CLI AgentExecutionEngine lifecycle for one model/tool continuation', async () => {
   const localStore = new MemoryRuntimeEventStore();
   let localEffects = 0;
-  const local = new AgentRuntime(localStore, {
-   execute: async () => { localEffects++; return { ok: true }; },
+  const decisions: AgentModelDecision[] = [
+   { kind: 'tools', calls: [{ id: 'call', name: 'echo', input: {} }] },
+   { kind: 'complete', text: 'done' },
+  ];
+  const transcript: unknown[] = [];
+  const local = new AgentExecutionEngine<unknown>({
+   events: localStore,
+   host: { execute: async () => { localEffects++; return { ok: true }; } },
+   model: { next: async () => decisions.shift()! },
+   transcript: {
+    load: async () => transcript,
+    append: async (_sessionId, _expectedLength, messages) => { transcript.push(...messages); },
+   },
+   authorization: { evaluate: async () => 'allow' },
+   resolveTool: name => ({ name, host: 'local', validate: input => input }),
+   toMessage: (decision, result) => ({ decision, result }),
+   completion: { verify: async () => ['CLI transcript verified'] },
   });
-  await local.create('local', 'session');
-  await local.transition('local', 'preparing_context');
-  await local.transition('local', 'calling_model');
-  await local.transition('local', 'validating_tools');
-  await local.proposeTools('local', [{ id: 'call', name: 'echo', input: {} }]);
-  await local.transition('local', 'executing_tools');
-  expect(await local.executeTool('local', 'call', 'echo', {}, 'local')).toEqual({ ok: true });
-  await local.transition('local', 'persisting_results');
-  await local.transition('local', 'preparing_context');
-  await local.transition('local', 'calling_model');
-  await local.verifyCompletion('local', ['CLI transcript verified']);
-  expect((await local.transition('local', 'completed')).state).toBe('completed');
+  expect((await local.run('session', 'local')).snapshot.state).toBe('completed');
 
   const { core, tx, events } = fixture();
   await core.startModel(tx, 'gateway', 'session');

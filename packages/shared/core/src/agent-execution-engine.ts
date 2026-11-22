@@ -1,6 +1,7 @@
 import { AgentRuntime } from './agent-runtime.js';
 import { ToolRuntime, type ToolAuthorization, type ToolDescriptor } from './tool-runtime.js';
-import type { RuntimeEventStore, RuntimeHost, RuntimeSnapshot } from './runtime-contract.js';
+import type { RuntimeEventStore, RuntimeHost, RuntimeSnapshot, ToolInvocation } from './runtime-contract.js';
+import { createHash } from 'node:crypto';
 
 export type AgentModelDecision =
   | { kind: 'complete'; text: string }
@@ -84,7 +85,7 @@ export function nextDurableToolCall(
 ): { id: string; name: string; input: unknown } | undefined {
   validateAgentModelDecision({ kind: 'tools', calls });
   if (hasUnresolvedInvocation)
-    throw new Error('Gateway tool batch has an unresolved earlier invocation; reconciliation required');
+    throw new Error('Durable tool batch has an unresolved earlier invocation; reconciliation required');
   // A durable sequential batch may only claim a prefix. A later claimed
   // sibling with an earlier missing claim means the journal is inconsistent;
   // never replay the earlier tool or skip over the missing effect.
@@ -118,7 +119,153 @@ export function planDurableModelDecision(
 }
 
 export class AgentExecutionEngine<Message> {
-  constructor(private readonly ports: AgentExecutionPorts<Message>) {}
+  constructor(private readonly ports: AgentExecutionPorts<Message> | RuntimeEventStore) {}
+
+  /** A queue-backed host uses the same Engine in durable execution segments.
+   * The event store is normally scoped to the host's ownership-fenced transaction.
+   */
+  static durable<Message = never>(events: RuntimeEventStore): AgentExecutionEngine<Message> {
+    return new AgentExecutionEngine<Message>(events);
+  }
+
+  static planDurableDecision(
+    ...args: Parameters<typeof planDurableModelDecision>
+  ): ReturnType<typeof planDurableModelDecision> {
+    return planDurableModelDecision(...args);
+  }
+
+  private executionPorts(): AgentExecutionPorts<Message> {
+    if (!('model' in this.ports)) throw new Error('Inline Agent execution requires model and transcript ports');
+    return this.ports;
+  }
+
+  private durableRuntime(): AgentRuntime {
+    if (!('read' in this.ports)) throw new Error('Durable Agent execution requires a transaction-scoped event store');
+    return new AgentRuntime(this.ports, {
+      execute: async () => { throw new Error('Durable tools must execute through the host Worker'); },
+    });
+  }
+
+  private async durableSnapshot(runId: string): Promise<RuntimeSnapshot | undefined> {
+    if (!('read' in this.ports)) throw new Error('Durable Agent execution requires a transaction-scoped event store');
+    const events = await this.ports.read(runId);
+    if (!events.length) return undefined;
+    return this.durableRuntime().snapshot(runId);
+  }
+
+  /** Begin an initial or recovered model segment without replaying unsettled effects. */
+  async startDurableModel(runId: string, sessionId?: string): Promise<RuntimeSnapshot> {
+    const runtime = this.durableRuntime();
+    let current = await this.durableSnapshot(runId);
+    if (!current) current = await runtime.create(runId, sessionId || runId);
+    if (sessionId && current.sessionId !== sessionId)
+      throw new Error('Durable runtime session identity mismatch');
+    if (Object.values(current.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
+      throw new Error('Durable recovery requires tool journal reconciliation; automatic replay prohibited');
+    const captured = current;
+    if (Object.keys(captured.queuedTools).some(id => !Object.hasOwn(captured.pendingTools, id)))
+      throw new Error('Durable queued tool has not executed; model replay prohibited');
+
+    if (current.state === 'executing_tools') {
+      current = await runtime.transition(runId, 'persisting_results');
+    } else if (current.state === 'calling_model' || current.state === 'validating_tools' ||
+               current.state === 'awaiting_approval') {
+      current = await runtime.markInterrupted(runId);
+    }
+    if (current.state === 'created' || current.state === 'persisting_results' || current.state === 'interrupted')
+      current = await runtime.transition(runId, 'preparing_context');
+    if (current.state !== 'preparing_context')
+      throw new Error(`Durable cannot begin model call in state ${current.state}`);
+    return runtime.transition(runId, 'calling_model');
+  }
+
+  /** Persist the complete model batch before any Worker side effect. */
+  async queueDurableTools(
+    runId: string,
+    calls: readonly { id: string; name: string; input: unknown }[],
+  ): Promise<RuntimeSnapshot> {
+    const runtime = this.durableRuntime();
+    const snapshot = await runtime.snapshot(runId);
+    if (snapshot.state !== 'calling_model' || !calls.length)
+      throw new Error('Durable queued tools must originate from a model call');
+    await runtime.transition(runId, 'validating_tools');
+    return runtime.proposeTools(runId, calls);
+  }
+
+  /** Claim exactly one already-proposed call in the Worker's fenced transaction. */
+  async prepareDurableTool(
+    runId: string,
+    call: { id: string; name: string; input: unknown },
+  ): Promise<RuntimeSnapshot> {
+    const runtime = this.durableRuntime();
+    let snapshot = await this.durableSnapshot(runId);
+    if (!snapshot) {
+      snapshot = await runtime.create(runId, runId);
+      await runtime.transition(runId, 'preparing_context');
+      await runtime.transition(runId, 'calling_model');
+      snapshot = await runtime.transition(runId, 'validating_tools');
+    }
+    if (snapshot.pendingTools[call.id])
+      throw new Error('Durable tool call already claimed; replay prohibited');
+    const proposed = snapshot.queuedTools[call.id];
+    if (Object.keys(snapshot.queuedTools).length && !proposed)
+      throw new Error('Tool invocation is not the queued model proposal');
+    if (proposed && proposed.toolName !== call.name)
+      throw new Error('Queued tool name mismatch');
+    if (snapshot.state === 'validating_tools' || snapshot.state === 'awaiting_approval')
+      snapshot = await runtime.transition(runId, 'executing_tools');
+    if (snapshot.state !== 'executing_tools')
+      throw new Error('Durable tool claim has invalid runtime state');
+    const serialized = JSON.stringify(call.input);
+    if (serialized === undefined) throw new Error('Tool input is not serializable');
+    const invocation: ToolInvocation = {
+      id: call.id, runId, toolName: call.name, input: call.input,
+      inputDigest: createHash('sha256').update(serialized).digest('hex'), host: 'remote',
+    };
+    return runtime.prepareTool(runId, invocation);
+  }
+
+  /** Settle a Worker result and resume only after every proposed sibling is durable. */
+  async settleDurableTool(
+    runId: string,
+    invocationId: string,
+    outcome: 'succeeded' | 'failed' | 'unknown',
+    result: unknown,
+    completed: boolean,
+  ): Promise<RuntimeSnapshot> {
+    const runtime = this.durableRuntime();
+    const current = await runtime.snapshot(runId);
+    if (current.state !== 'executing_tools' || current.pendingTools[invocationId] !== 'prepared')
+      throw new Error('Durable tool execution has no matching persisted claim');
+    const settled = await runtime.settlePreparedTool(runId, invocationId, outcome, result);
+    if (Object.keys(settled.queuedTools).some(id => !Object.hasOwn(settled.pendingTools, id)) ||
+        Object.values(settled.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
+      return settled;
+    await runtime.transition(runId, 'persisting_results');
+    if (completed) {
+      await runtime.verifyCompletion(runId, ['Durable tool result committed to RunStep']);
+      return runtime.transition(runId, 'completed');
+    }
+    return runtime.snapshot(runId);
+  }
+
+  async finishDurableModel(runId: string, verified: boolean): Promise<RuntimeSnapshot> {
+    const runtime = this.durableRuntime();
+    if (!verified) return runtime.transition(runId, 'persisting_results');
+    await runtime.verifyCompletion(runId, ['Model response persisted and Stop hook accepted']);
+    return runtime.transition(runId, 'completed');
+  }
+
+  async failDurableModel(runId: string, retryable: boolean): Promise<void> {
+    const runtime = this.durableRuntime();
+    const snapshot = await this.durableSnapshot(runId);
+    if (!snapshot || ['completed', 'failed', 'cancelled'].includes(snapshot.state)) return;
+    if (retryable) await runtime.markInterrupted(runId);
+    else if (snapshot.state === 'created') {
+      await runtime.markInterrupted(runId);
+      await runtime.transition(runId, 'failed');
+    } else await runtime.transition(runId, 'failed');
+  }
 
   async resume(sessionId: string, runId: string, maxSteps = 30, signal?: AbortSignal): Promise<AgentExecutionResult> {
     return this.execute(sessionId, runId, maxSteps, signal, true);
@@ -130,9 +277,10 @@ export class AgentExecutionEngine<Message> {
 
   private async execute(sessionId: string, runId: string, maxSteps: number, signal: AbortSignal | undefined, resume: boolean): Promise<AgentExecutionResult> {
     if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid agent step limit');
-    const runtime = new AgentRuntime(this.ports.events, this.ports.host);
-    const baseAuthorization = this.ports.authorization;
-    const tools = new ToolRuntime(this.ports.events, this.ports.host, {
+    const ports = this.executionPorts();
+    const runtime = new AgentRuntime(ports.events, ports.host);
+    const baseAuthorization = ports.authorization;
+    const tools = new ToolRuntime(ports.events, ports.host, {
       evaluate: async context => {
         const snapshot = await runtime.snapshot(runId);
         if (Object.values(snapshot.skillToolConstraints).some(allowed =>
@@ -147,7 +295,7 @@ export class AgentExecutionEngine<Message> {
       }),
     });
     if (resume) {
-      const events = await this.ports.events.read(runId);
+      const events = await ports.events.read(runId);
       const snapshot = await runtime.snapshot(runId);
       if (snapshot.sessionId !== sessionId || snapshot.state !== 'interrupted') throw new Error('Run is not resumable for this session');
       // Transcript reconciliation is host-specific. Never resume a run with
@@ -155,23 +303,23 @@ export class AgentExecutionEngine<Message> {
       if (Object.keys(snapshot.queuedTools).some(id => !Object.hasOwn(snapshot.pendingTools, id)))
         throw new Error('Unfinished model tool batch requires journal reconciliation before resume');
       if (events.some(event => event.type === 'tool.prepared')) {
-        if (!this.ports.reconcileRecovery)
+        if (!ports.reconcileRecovery)
           throw new Error('Tool journal reconciliation required before resume');
-        await this.ports.reconcileRecovery(sessionId, runId, events);
+        await ports.reconcileRecovery(sessionId, runId, events);
         // A host may repair the transcript, but unresolved tool effects must
         // never be retried by the model on the strength of a callback alone.
         const recovered = await runtime.snapshot(runId);
         if (Object.values(recovered.pendingTools).some(outcome => outcome === 'prepared' || outcome === 'unknown'))
           throw new Error('Unresolved tool effects require manual reconciliation');
-        if (!this.ports.verifyToolJournal || !await this.ports.verifyToolJournal(sessionId, runId, await this.ports.events.read(runId)))
+        if (!ports.verifyToolJournal || !await ports.verifyToolJournal(sessionId, runId, await ports.events.read(runId)))
           throw new Error('Tool journal and transcript verification required before resume');
-      } else if (!this.ports.verifyTranscript || !await this.ports.verifyTranscript(sessionId, runId, events)) {
+      } else if (!ports.verifyTranscript || !await ports.verifyTranscript(sessionId, runId, events)) {
         throw new Error('Transcript verification required before resume');
       }
     } else {
       await runtime.create(runId, sessionId);
       try {
-        for (const skill of await this.ports.restoreSkills?.(sessionId) ?? [])
+        for (const skill of await ports.restoreSkills?.(sessionId) ?? [])
           await runtime.activateSkill(runId, skill.id, skill.source, skill.allowedTools);
       } catch (error) {
         await runtime.markInterrupted(runId);
@@ -179,7 +327,7 @@ export class AgentExecutionEngine<Message> {
         throw error;
       }
     }
-    let messages = [...await this.ports.transcript.load(sessionId)];
+    let messages = [...await ports.transcript.load(sessionId)];
     for (let step = 0; step < maxSteps; step++) {
       if (signal?.aborted) {
         await runtime.transition(runId, 'cancelled');
@@ -191,22 +339,22 @@ export class AgentExecutionEngine<Message> {
       await runtime.transition(runId, 'calling_model');
       let decision: AgentModelDecision;
       try {
-        const context = this.ports.prepareContext ? await this.ports.prepareContext(messages, signal) : messages;
-        decision = validateAgentModelDecision(await this.ports.model.next(context, signal));
+        const context = ports.prepareContext ? await ports.prepareContext(messages, signal) : messages;
+        decision = validateAgentModelDecision(await ports.model.next(context, signal));
       } catch (error) {
         await runtime.transition(runId, signal?.aborted ? 'cancelled' : 'failed');
         throw error;
       }
       if (decision.kind === 'complete') {
         let checks: readonly string[];
-        try { checks = await this.ports.completion.verify(messages, decision.text); }
+        try { checks = await ports.completion.verify(messages, decision.text); }
         catch (error) { await runtime.transition(runId, 'failed'); throw error; }
         if (!checks.length) {
-          const feedback = await this.ports.completion.onIncomplete?.(decision.text);
+          const feedback = await ports.completion.onIncomplete?.(decision.text);
           if (feedback !== undefined) {
-            const assistant = this.ports.toMessages?.(decision) ?? [this.ports.toMessage(decision)];
+            const assistant = ports.toMessages?.(decision) ?? [ports.toMessage(decision)];
             try {
-              await this.ports.transcript.append(sessionId, messages.length, [...assistant, feedback]);
+              await ports.transcript.append(sessionId, messages.length, [...assistant, feedback]);
             } catch (error) {
               await runtime.markInterrupted(runId);
               throw error;
@@ -218,11 +366,11 @@ export class AgentExecutionEngine<Message> {
           await runtime.transition(runId, 'failed');
           throw new Error('Agent completion verification failed');
         }
-        const next = this.ports.toMessages?.(decision) ?? [this.ports.toMessage(decision)];
+        const next = ports.toMessages?.(decision) ?? [ports.toMessage(decision)];
         // The final response is only committed after host verification; if
         // transcript persistence fails, the run must remain recoverable.
         try {
-          await this.ports.transcript.append(sessionId, messages.length, next);
+          await ports.transcript.append(sessionId, messages.length, next);
         } catch (error) {
           await runtime.markInterrupted(runId);
           throw error;
@@ -239,7 +387,7 @@ export class AgentExecutionEngine<Message> {
       let prepared: Array<{ call: (typeof decision.calls)[number]; descriptor: ToolDescriptor }>;
       try {
         prepared = decision.calls.map(call => {
-          const descriptor = this.ports.resolveTool(call.name);
+          const descriptor = ports.resolveTool(call.name);
           if (!descriptor) throw new Error(`Unknown tool: ${call.name}`);
           return { call, descriptor };
         });
@@ -259,16 +407,16 @@ export class AgentExecutionEngine<Message> {
       try {
         for (const [callIndex, { call, descriptor }] of prepared.entries()) {
           signal?.throwIfAborted();
-          try { this.ports.onToolCall?.(call.name, call.input); } catch { /* telemetry cannot affect execution */ }
+          try { ports.onToolCall?.(call.name, call.input); } catch { /* telemetry cannot affect execution */ }
           const result = await tools.invoke(runId, call.id, descriptor, call.input);
-          try { this.ports.onToolResult?.(call.name, result); } catch { /* telemetry cannot affect execution */ }
-          const activated = this.ports.activatedSkill?.(call.name, result);
+          try { ports.onToolResult?.(call.name, result); } catch { /* telemetry cannot affect execution */ }
+          const activated = ports.activatedSkill?.(call.name, result);
           const toolDecision: AgentModelDecision = {
             kind: 'tools', calls: [call],
             text: callIndex === 0 ? decision.text : undefined,
           };
-          const next = this.ports.toMessages?.(toolDecision, result) ?? [this.ports.toMessage(toolDecision, result)];
-          await this.ports.transcript.append(sessionId, messages.length, next);
+          const next = ports.toMessages?.(toolDecision, result) ?? [ports.toMessage(toolDecision, result)];
+          await ports.transcript.append(sessionId, messages.length, next);
           messages.push(...next);
           // An activated skill must only enter durable Runtime state after its
           // invocation/result pair is committed to the Session transcript.

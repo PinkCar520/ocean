@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { countTextTokens, validateCompaction, ContextBudgetError, planDurableModelDecision } from '@ocean/core';
+import { AgentExecutionEngine, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -62,8 +62,9 @@ function priorityRankOf(priority: string): number {
 const DELTA_FLUSH_CHARS = 64;
 
 /**
- * RunRunner —— 单个 Run 的执行器（Phase 4 第 2 项：纯文本模型调用迁入 Run；
- * 最小 Agent Loop：模型请求工具 → 提交 tool.requested → 工具完成后回喂续跑）。
+ * RunRunner —— 单个 Run 的 Gateway Host 执行入口。
+ * AgentExecutionEngine 拥有模型决策、持久化工具批次和状态转换；本类只负责
+ * 所有权、ModelGateway/Outbox/RunStep 适配以及错误边界，不维护第二套状态机。
  *
  * 职责边界（对应 docs/architecture/v2/worker-design-reference.md 5.2）：
  * - 接管 Run：queued → running，写入 RunEvent（与状态变更同一事务）。
@@ -327,7 +328,7 @@ export class RunRunner {
 
       // Gateway's durable worker and CLI share the Core's model decision
       // contract before either host schedules tools or completes a turn.
-      const modelDecision = planDurableModelDecision(toolCalls.length
+      const modelDecision = AgentExecutionEngine.planDurableDecision(toolCalls.length
         ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
         : { kind: 'complete', text: fullText });
 
@@ -339,13 +340,18 @@ export class RunRunner {
           call.name === RUN_INQUIRY_TOOL || call.name === 'delegate_task'))
           throw new Error('Mixed inquiry/delegation tool batches require separate model turns');
         const first = modelDecision.call;
-        const toolCall: ToolCall = {
-          id: first.id,
-          name: first.name,
-          input: first.input,
-          // 模型 toolCallId 跨轮唯一，兼作幂等键：重复投递不产生二次执行
-          idempotencyKey: first.id,
-        };
+        const toolCall = toolRequestedMessageSchema.parse({
+          version: 1,
+          runId,
+          userId,
+          toolCall: {
+            id: first.id,
+            name: first.name,
+            input: first.input,
+            // 模型 toolCallId 跨轮唯一，兼作幂等键：重复投递不产生二次执行
+            idempotencyKey: first.id,
+          },
+        }).toolCall;
         if (first.name === RUN_INQUIRY_TOOL && (!tools.some(tool => tool.name === RUN_INQUIRY_TOOL) || !runInquirySchema.safeParse(first.input).success)) {
           throw new Error('Invalid user inquiry');
         }
@@ -768,7 +774,7 @@ export class RunRunner {
         select: { id: true },
       });
       // Core owns batch validation, ordering and fail-closed recovery policy.
-      const nextDecision = planDurableModelDecision({ kind: 'tools', calls }, claimed, Boolean(unfinished));
+      const nextDecision = AgentExecutionEngine.planDurableDecision({ kind: 'tools', calls }, claimed, Boolean(unfinished));
       const next = nextDecision.kind === 'dispatch' ? nextDecision.call : undefined;
       if (!next) return false;
       const pending = await tx.outboxEvent.findMany({
@@ -780,10 +786,12 @@ export class RunRunner {
         return payload?.toolCall?.id === next.id;
       });
       if (!alreadyQueued) {
-        const toolCall: ToolCall = { id: next.id, name: next.name, input: next.input, idempotencyKey: next.id };
-        await this.outbox.enqueueToolRequested(tx, toolRequestedMessageSchema.parse({
-          version: 1, runId, userId, toolCall,
-        }), priorityRankOf(priority));
+        const message = toolRequestedMessageSchema.parse({
+          version: 1, runId, userId,
+          toolCall: { id: next.id, name: next.name, input: next.input, idempotencyKey: next.id },
+        });
+        const toolCall = message.toolCall;
+        await this.outbox.enqueueToolRequested(tx, message, priorityRankOf(priority));
         await this.appendEvent(tx, runId, {
           id: randomUUID(), runId, sequence: await this.nextSequence(tx, runId),
           occurredAt: new Date().toISOString(), type: 'tool.requested', toolCall,
