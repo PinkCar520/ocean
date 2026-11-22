@@ -87,7 +87,7 @@
       "id": "CAP-APPROVAL-BINDING",
       "title": "Approval bound to tool call input, identity, policy and expiry",
       "priority": "P0",
-      "status": "partial",
+      "status": "equivalent",
       "aEvidence": [
         "restored-src/src/hooks/useCanUseTool.tsx",
         "restored-src/src/hooks/toolPermission/handlers/interactiveHandler.ts",
@@ -120,13 +120,14 @@
       ],
       "testResult": "2026-11-16: CLI approval create/lookup pin fresh local policyVersion; policy changes during polling reject execution. Gateway stores the fingerprint and only reuses exact-version external grants. Real HTTP/PostgreSQL acceptance covers version mismatch and cleanup. ApprovalMaintenanceService expires approved session grants every minute and removes expired/superseded rows after configured retention. Full isolated acceptance: Gateway 47 suites / 299 tests, E2E 23, CLI 174; zero skipped. CLI/Gateway typechecks, 21 migrations, Prisma validate, diff check passed. Final targeted checks: 24 Gateway approval tests and 17 CLI binding/journal tests passed. 2026-11-21: Isolated PostgreSQL 14 with pgvector 0.8.2 applied all 32 migrations, including approval binding and tool idempotency. The three explicitly enabled PostgreSQL suites (ownership, tool idempotency, device RPC) passed all 7 tests.",
       "gaps": [],
-      "notes": "Approvals now bind tool+args digest, policy version/rule and optional session scope. A policy change supersedes the old approval and requests a fresh one; session approvals cover only the same session/tool/args and expire with the approval TTL. CLI and Web both offer/session-consume the grant path."
+      "notes": "Approvals now bind tool+args digest, policy version/rule and optional session scope. A policy change supersedes the old approval and requests a fresh one; session approvals cover only the same session/tool/args and expire with the approval TTL. CLI and Web both offer/session-consume the grant path. Re-audited 2026-11-22: no recorded remaining gaps; accepted within this bounded contract, with CI success on PR #10 (run 44931551024).",
+      "scope": "Exact tool/arguments/policy-version/session-bound approvals, expiry, revocation and supersession across CLI, Gateway and HTTP/PostgreSQL paths. No claim of broader policy authoring parity."
     },
     {
       "id": "CAP-RUN-OWNERSHIP",
       "title": "Single execution owner per Run with lease fencing",
       "priority": "P0",
-      "status": "partial",
+      "status": "equivalent",
       "aEvidence": [
         "restored-src/src/Task.ts",
         "restored-src/src/tasks/stopTask.ts",
@@ -152,7 +153,8 @@
       ],
       "testResult": "2026-11-16: isolated pgvector PG16 full acceptance passed: all 21 migrations applied; Gateway 44 suites / 289 tests, E2E 2 suites / 18 tests, CLI 28 files / 170 tests; zero skipped. CLI/Gateway typechecks, Prisma validate and diff check passed. Two independent Worker processes compete for the same non-idempotent tool; after the owner is SIGKILLed following a filesystem side effect, the survivor acquires the expired lease and marks the original step unknown without replaying the effect. 2026-11-16: actual PG transaction pg_sleep fault injection reproduced stale NOW() lease acceptance; lease comparisons now use clock_timestamp(). Delayed verification after expiry rejects and transaction does not mutate Run. PG-enabled regression passed. 2026-11-21: Isolated PostgreSQL 14 with pgvector 0.8.2 applied all 32 migrations, including approval binding and tool idempotency. The three explicitly enabled PostgreSQL suites (ownership, tool idempotency, device RPC) passed all 7 tests.",
       "gaps": [],
-      "notes": "Both RunRunner and ToolExecutor now use claimRun/verifyRun fencing. Stale recovery clears executionToken/executionJobId/executionAttempt before requeueing, and a competing executor acks without executing."
+      "notes": "Both RunRunner and ToolExecutor now use claimRun/verifyRun fencing. Stale recovery clears executionToken/executionJobId/executionAttempt before requeueing, and a competing executor acks without executing. Re-audited 2026-11-22: no recorded remaining gaps; accepted within this bounded contract, with CI success on PR #10 (run 44931551024).",
+      "scope": "Run claim/verify fencing, expired-lease takeover, competing Worker rejection and SIGKILL recovery for the tested PostgreSQL/Worker execution paths; excludes untested distributed infrastructure outside these paths."
     },
     {
       "id": "CAP-TOOL-IDEMPOTENCY",
