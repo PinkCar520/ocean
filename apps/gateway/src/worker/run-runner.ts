@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { AgentExecutionEngine, planAgentExecutionResume, planAgentCompletion, planAgentFailure, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
+import { AgentExecutionDriver, AgentExecutionEngine, countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -96,6 +96,8 @@ export class RunRunner {
     private readonly hooks: GatewayHooks = GatewayHooks.load(),
     @Optional() private readonly core?: GatewayCoreLifecycle,
   ) {}
+
+  private readonly executionDriver = new AgentExecutionDriver();
 
   private readonly ownership = new AsyncLocalStorage<{ job: LeasedRunJob; token: string; leaseMs: number }>();
 
@@ -328,7 +330,7 @@ export class RunRunner {
 
       // Gateway's durable worker and CLI share the Core's model decision
       // contract before either host schedules tools or completes a turn.
-      const modelDecision = AgentExecutionEngine.planDurableDecision(toolCalls.length
+      const modelDecision = this.executionDriver.decide(toolCalls.length
         ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })), text: fullText }
         : { kind: 'complete', text: fullText });
 
@@ -374,10 +376,10 @@ export class RunRunner {
         run_id: runId, user_id: userId, space_id: takeover.spaceId,
         last_assistant_message: fullText,
       }, { spaceId: takeover.spaceId });
-      const completionDirective = planAgentCompletion({
-        accepted: !stopHook.blocked,
-        feedback: stopHook.blocked ? stopHook.reason || 'Continue working before stopping.' : undefined,
-      });
+      const completionDirective = this.executionDriver.completion(
+        !stopHook.blocked,
+        stopHook.blocked ? stopHook.reason || 'Continue working before stopping.' : undefined,
+      );
       // 6) 无工具 → 完成：step succeeded + step_completed + run succeeded（同一事务）
       await this.fencedTransaction(async (tx) => {
         const active = await tx.agentRun.updateMany({ where: { id: runId, status: 'running' }, data: { status: 'running' } });
@@ -791,7 +793,7 @@ export class RunRunner {
       if (pendingIds.some(id => typeof id !== 'string'))
         throw new Error('Unidentifiable pending tool delivery; reconciliation required');
       // Core owns journal ordering, pending-delivery fencing and resumption.
-      const nextDecision = planAgentExecutionResume(
+      const nextDecision = this.executionDriver.resume(
         { kind: 'tools', calls }, claimed,
         { unfinishedTool: Boolean(unfinished), pendingDeliveryIds: pendingIds as string[] },
       );
@@ -1005,7 +1007,7 @@ export class RunRunner {
   ): Promise<RunExecutionResult> {
     const { runId } = job.payload;
     const message = error instanceof Error ? error.message : String(error);
-    const failureDirective = planAgentFailure(error instanceof RetryableError);
+    const failureDirective = this.executionDriver.failure(error instanceof RetryableError);
     const retryable = failureDirective.kind === 'retry';
     let ignored = false;
 

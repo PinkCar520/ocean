@@ -198,6 +198,32 @@ export function planAgentFailure(retryable: boolean): AgentFailureDirective {
   return retryable ? { kind: 'retry', state: 'queued' } : { kind: 'terminate', state: 'failed' };
 }
 
+/**
+ * Host-neutral driver for a model turn. Both inline and durable workers call
+ * this before any transcript mutation, RunStep or Outbox side effect.
+ */
+export class AgentExecutionDriver {
+  decide(decision: AgentModelDecision): AgentExecutionDirective {
+    return nextAgentExecutionDirective(decision);
+  }
+
+  resume(
+    decision: AgentModelDecision,
+    claimedIds: ReadonlySet<string>,
+    inFlight: { unfinishedTool: boolean; pendingDeliveryIds: readonly string[] },
+  ): AgentExecutionDirective | { kind: 'wait_for_host' } {
+    return planAgentExecutionResume(decision, claimedIds, inFlight);
+  }
+
+  completion(accepted: boolean, feedback?: string): AgentTerminalDirective {
+    return planAgentCompletion({ accepted, feedback });
+  }
+
+  failure(retryable: boolean): AgentFailureDirective {
+    return planAgentFailure(retryable);
+  }
+}
+
 export class AgentExecutionEngine<Message> {
   constructor(private readonly ports: AgentExecutionPorts<Message> | RuntimeEventStore) {}
 
@@ -358,6 +384,7 @@ export class AgentExecutionEngine<Message> {
   private async execute(sessionId: string, runId: string, maxSteps: number, signal: AbortSignal | undefined, resume: boolean): Promise<AgentExecutionResult> {
     if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error('Invalid agent step limit');
     const ports = this.executionPorts();
+    const driver = new AgentExecutionDriver();
     const runtime = new AgentRuntime(ports.events, ports.host);
     const baseAuthorization = ports.authorization;
     const tools = new ToolRuntime(ports.events, ports.host, {
@@ -431,7 +458,7 @@ export class AgentExecutionEngine<Message> {
         catch (error) { await runtime.transition(runId, 'failed'); throw error; }
         if (!checks.length) {
           const feedback = await ports.completion.onIncomplete?.(decision.text);
-          const completion = planAgentCompletion({ accepted: false, feedback: typeof feedback === 'string' ? feedback : feedback === undefined ? undefined : 'host-feedback' });
+          const completion = driver.completion(false, typeof feedback === 'string' ? feedback : feedback === undefined ? undefined : 'host-feedback');
           if (completion.kind === 'continue_model' && feedback !== undefined) {
             const assistant = ports.toMessages?.(decision) ?? [ports.toMessage(decision)];
             try {
@@ -488,7 +515,7 @@ export class AgentExecutionEngine<Message> {
       try {
         const claimed = new Set<string>();
         for (let callIndex = 0; callIndex < prepared.length; callIndex++) {
-          const directive = nextAgentExecutionDirective(decision, { claimedIds: claimed });
+          const directive = driver.resume(decision, claimed, { unfinishedTool: false, pendingDeliveryIds: [] });
           if (directive.kind !== 'dispatch')
             throw new Error('Shared execution protocol expected a tool dispatch');
           const { call } = directive;

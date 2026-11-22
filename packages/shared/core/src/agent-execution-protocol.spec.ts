@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume, planAgentCompletion, planAgentFailure } from './agent-execution-engine.js';
+import { AgentExecutionDriver, nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume, planAgentCompletion, planAgentFailure } from './agent-execution-engine.js';
 
 const calls = [
   { id: 'a', name: 'read', input: { path: 'one' } },
@@ -7,6 +7,21 @@ const calls = [
 ];
 
 describe('shared inline/durable execution protocol', () => {
+  it('uses one production driver for inline and durable model turns', () => {
+    const driver = new AgentExecutionDriver();
+    const decision = { kind: 'tools' as const, calls };
+    expect(driver.decide(decision)).toMatchObject({ kind: 'dispatch', call: calls[0] });
+    expect(driver.resume(decision, new Set(['a']), {
+      unfinishedTool: false, pendingDeliveryIds: [],
+    })).toMatchObject({ kind: 'dispatch', call: calls[1] });
+    expect(driver.resume(decision, new Set(['a']), {
+      unfinishedTool: true, pendingDeliveryIds: [],
+    })).toEqual({ kind: 'wait_for_host' });
+    expect(driver.completion(true)).toEqual({ kind: 'commit_completion' });
+    expect(driver.completion(false, 'continue')).toEqual({ kind: 'continue_model', feedback: 'continue' });
+    expect(driver.failure(true)).toEqual({ kind: 'retry', state: 'queued' });
+    expect(driver.failure(false)).toEqual({ kind: 'terminate', state: 'failed' });
+  });
   it('completes text without tools in either driver', () => {
     const decision = { kind: 'complete' as const, text: 'ok' };
     expect(nextAgentExecutionDirective(decision)).toEqual(planDurableModelDecision(decision));

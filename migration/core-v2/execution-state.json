@@ -2,7 +2,7 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M01-shared-agent-execution-protocol",
+    "id": "M02-inline-durable-execution-driver",
     "status": "implemented_unverified",
     "codePaths": [
       "packages/shared/core/src/agent-execution-engine.ts",
@@ -10,9 +10,9 @@
       "packages/shared/core/src/agent-execution-protocol.spec.ts",
       "apps/gateway/src/worker/run-runner.ts"
     ],
-    "evidence": "Core protocol used by inline and Gateway for model decisions, completion and retry, with contract tests. No test pass established."
+    "evidence": "Inline and Gateway production paths invoke shared AgentExecutionDriver; contract tests committed, not executed."
   },
-  "nextTask": "M02 Inline / Durable Execution Driver: converge real model and tool execution paths, recovery and cancellation",
+  "nextTask": "M03 Gateway Host Adapter Integration: ensure Core is mandatory in production and all RunStep/outbox state changes share fenced transactions",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -53,10 +53,21 @@
         "packages/shared/core/src/agent-execution-protocol.spec.ts",
         "apps/gateway/src/worker/run-runner.ts"
       ],
-      "verification": "Not executed; no CI workflow available at previous head"
+      "verification": "Not executed; no CI workflow available at previous head",
+      "implementationStatus": "implemented",
+      "verificationStatus": "not_run"
     },
     "M02": {
-      "status": "pending"
+      "status": "implemented_unverified",
+      "implementationStatus": "implemented",
+      "verificationStatus": "not_run",
+      "description": "Shared execution driver invoked from CLI Engine and Gateway model dispatch, durable sibling recovery, Stop completion and retry boundaries",
+      "codePaths": [
+        "packages/shared/core/src/agent-execution-engine.ts",
+        "packages/shared/core/src/index.ts",
+        "packages/shared/core/src/agent-execution-protocol.spec.ts",
+        "apps/gateway/src/worker/run-runner.ts"
+      ]
     },
     "M03": {
       "status": "pending"
