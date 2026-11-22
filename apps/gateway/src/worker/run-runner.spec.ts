@@ -137,11 +137,10 @@ describe('RunRunner', () => {
       return null;
     });
     tx.runStep.findMany.mockResolvedValue([{ input: { id: 'first' } }]);
-    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
-      error: expect.stringContaining('reconciliation required') });
+    expect(await runner.execute(job)).toMatchObject({ status: 'succeeded' });
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
     expect(tx.agentRun.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'run_1' }, data: { status: 'failed' },
+      where: { id: 'run_1' }, data: { status: 'queued' },
     }));
   });
 

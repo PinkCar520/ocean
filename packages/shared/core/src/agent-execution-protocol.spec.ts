@@ -7,6 +7,15 @@ const calls = [
 ];
 
 describe('shared inline/durable execution protocol', () => {
+  it('rejects missing or blank session identifiers for durable resume', async () => {
+    const { AgentExecutionEngine } = await import('./agent-execution-engine.js');
+    const { MemoryRuntimeEventStore } = await import('./runtime-memory-store.js');
+    const engine = AgentExecutionEngine.durable(new MemoryRuntimeEventStore());
+    await expect(engine.assertDurableSession('run', '')).rejects.toThrow(/required/);
+    await engine.startDurableModel('run', 'session-a');
+    await expect(engine.assertDurableSession('run', 'session-b')).rejects.toThrow(/mismatch/);
+    await expect(engine.assertDurableSession('run', 'session-a')).resolves.toBeUndefined();
+  });
   it('uses one production driver for inline and durable model turns', () => {
     const driver = new AgentExecutionDriver();
     const decision = { kind: 'tools' as const, calls };

@@ -259,12 +259,23 @@ export class AgentExecutionEngine<Message> {
     return this.durableRuntime().snapshot(runId);
   }
 
+  /** Resolve the immutable Session identity for an existing durable Run.
+   * A missing sessionId may be supplied for legacy runs, but a different
+   * session must never take over the event stream.
+   */
+  async assertDurableSession(runId: string, sessionId: string): Promise<void> {
+    if (!sessionId.trim()) throw new Error('Durable session identity is required');
+    const snapshot = await this.durableSnapshot(runId);
+    if (snapshot?.sessionId && snapshot.sessionId !== sessionId)
+      throw new Error('Durable runtime session identity mismatch');
+  }
+
   /** Begin an initial or recovered model segment without replaying unsettled effects. */
   async startDurableModel(runId: string, sessionId?: string): Promise<RuntimeSnapshot> {
     const runtime = this.durableRuntime();
     let current = await this.durableSnapshot(runId);
     if (!current) current = await runtime.create(runId, sessionId || runId);
-    if (sessionId && current.sessionId !== sessionId)
+    if (sessionId && current.sessionId && current.sessionId !== sessionId)
       throw new Error('Durable runtime session identity mismatch');
     if (Object.values(current.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
       throw new Error('Durable recovery requires tool journal reconciliation; automatic replay prohibited');

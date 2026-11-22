@@ -2,15 +2,16 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M03-gateway-host-adapter-integration",
-    "status": "implemented_unverified",
+    "id": "M04-persistent-session-lifecycle",
+    "status": "partial",
     "codePaths": [
-      "apps/gateway/src/worker/run-runner.ts",
+      "packages/shared/core/src/agent-execution-engine.ts",
+      "packages/shared/core/src/agent-execution-protocol.spec.ts",
       "apps/gateway/src/worker/run-runner.spec.ts"
     ],
-    "evidence": "Gateway production worker uses shared driver; pending outbox integration test added; CI unverified"
+    "evidence": "Session identity checks and M03 regression expectation correction; full lifecycle unimplemented"
   },
-  "nextTask": "M04 Persistent Session Lifecycle: verify stable session ownership, append and resume semantics",
+  "nextTask": "Finish M04 session transcript append/replay and persistently reconcile Gateway session ownership; M05–M08 pending",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -78,7 +79,15 @@
       ]
     },
     "M04": {
-      "status": "pending"
+      "status": "partial",
+      "implementationStatus": "partial",
+      "verificationStatus": "not_run",
+      "description": "Durable session identity assertion and legacy compatibility; full persistent transcript/session lifecycle pending",
+      "codePaths": [
+        "packages/shared/core/src/agent-execution-engine.ts",
+        "packages/shared/core/src/agent-execution-protocol.spec.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts"
+      ]
     },
     "M05": {
       "status": "pending"
