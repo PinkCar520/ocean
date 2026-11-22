@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextAgentExecutionDirective, planDurableModelDecision } from './agent-execution-engine.js';
+import { nextAgentExecutionDirective, planDurableModelDecision, planAgentExecutionResume } from './agent-execution-engine.js';
 
 const calls = [
   { id: 'a', name: 'read', input: { path: 'one' } },
@@ -27,6 +27,27 @@ describe('shared inline/durable execution protocol', () => {
   });
   it('blocks dispatch while an earlier external effect is unresolved', () => {
     expect(() => nextAgentExecutionDirective({ kind: 'tools', calls }, { claimedIds: new Set(['a']), unresolved: true })).toThrow(/unresolved/);
+  });
+  it('does not dispatch a sibling while its predecessor is pending in outbox', () => {
+    const decision = { kind: 'tools' as const, calls };
+    expect(planAgentExecutionResume(decision, new Set(), {
+      unfinishedTool: false, pendingDeliveryIds: ['a'],
+    })).toEqual({ kind: 'wait_for_host' });
+    expect(planAgentExecutionResume(decision, new Set(['a']), {
+      unfinishedTool: true, pendingDeliveryIds: [],
+    })).toEqual({ kind: 'wait_for_host' });
+    expect(planAgentExecutionResume(decision, new Set(['a']), {
+      unfinishedTool: false, pendingDeliveryIds: [],
+    })).toMatchObject({ kind: 'dispatch', call: calls[1] });
+  });
+  it('fails closed for inconsistent pending delivery or non-prefix journal', () => {
+    const decision = { kind: 'tools' as const, calls };
+    expect(() => planAgentExecutionResume(decision, new Set(), {
+      unfinishedTool: false, pendingDeliveryIds: ['unrelated'],
+    })).toThrow(/reconciliation/);
+    expect(() => planAgentExecutionResume(decision, new Set(['b']), {
+      unfinishedTool: true, pendingDeliveryIds: [],
+    })).toThrow(/Non-contiguous/);
   });
   it('cannot declare completion with outstanding claims', () => {
     expect(() => nextAgentExecutionDirective({ kind: 'complete', text: 'done' }, { claimedIds: new Set(['a']) })).toThrow(/Cannot complete/);
