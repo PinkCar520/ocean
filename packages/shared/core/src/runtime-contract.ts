@@ -95,7 +95,7 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
       throw new Error('Runtime event stream missing creation');
     } else if (event.type === 'run.transitioned') {
       if (event.from !== state || !canTransition(state, event.to)) throw new Error('Invalid runtime transition');
-      if (event.to === 'completed' && Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
+      if (event.to === 'completed' && (Object.keys(queuedTools).some(id => !Object.hasOwn(pendingTools, id)) || Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown')))
         throw new Error('Cannot complete with unsettled tools');
       if (event.to === 'completed' && !completionVerified) throw new Error('Completion requires independent verification');
       if (event.to !== 'completed') completionVerified = false;
@@ -131,7 +131,7 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
     } else if (event.type === 'run.completion_verified') {
       if ((state !== 'calling_model' && state !== 'persisting_results') ||
           completionVerified || !event.checks.length || event.checks.some(check => !check.trim()) ||
-          Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown'))
+          (Object.keys(queuedTools).some(id => !Object.hasOwn(pendingTools, id)) || Object.values(pendingTools).some(value => value === 'prepared' || value === 'unknown')))
         throw new Error('Invalid completion verification');
       completionVerified = true;
     } else if (event.type === 'tool.settled') {
