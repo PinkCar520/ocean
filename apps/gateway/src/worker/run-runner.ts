@@ -749,8 +749,9 @@ export class RunRunner {
         select: { input: true },
       });
       const claimed = new Set(steps.flatMap(step => {
-        const input = step.input as { id?: unknown } | null;
-        return typeof input?.id === 'string' ? [input.id] : [];
+        const input = step.input as { id?: unknown; toolCall?: { id?: unknown } } | null;
+        const id = typeof input?.id === 'string' ? input.id : input?.toolCall?.id;
+        return typeof id === 'string' ? [id] : [];
       }));
       // A claimed sibling may still be executing or awaiting approval. The
       // durable batch is sequential: never dispatch another side-effecting
