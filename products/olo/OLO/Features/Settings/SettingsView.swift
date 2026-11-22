@@ -40,6 +40,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 hero
                 identityCard
+                connectedWorldCard
                 voiceCard
                 privacyCard
                 wakeValidationCard
@@ -150,6 +151,30 @@ struct SettingsView: View {
         case .powerOff: .gray
         case .error: .red
         }
+    }
+
+    // MARK: - Connected World
+
+    private var connectedWorldCard: some View {
+        NavigationLink {
+            WorldView()
+        } label: {
+            HStack(spacing: 12) {
+                iconBadge("globe")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Connected World").font(.subheadline.bold())
+                    Text("管理 OLO 可连接的设备与现实世界能力。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .padding(18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("world.entry")
     }
 
     // MARK: - 2. Voice
