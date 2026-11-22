@@ -62,7 +62,6 @@
 		98A6DFCF0AB7602EDE5ECA7F /* MemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF302B98D7C62992FB12299 /* MemoryView.swift */; };
 		9C7A02B8EBC894E040458C07 /* OLOWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3408B0CEFBC848A760FC9DA2 /* OLOWatchApp.swift */; };
 		A013DBCA50CFC66F1FE973DC /* WakeRecordStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E23B18D9AF6CFFCB837F5D2 /* WakeRecordStore.swift */; };
-		A3EB38E291DE4D4AD219E84B /* VoiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 148B4BDA7CDF5CF9DB364AA3 /* VoiceView.swift */; };
 		A45D183B077C3A6B66B6BE5B /* PlaceholderPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 055A0CBC6A27AD8D987AF2BE /* PlaceholderPage.swift */; };
 		A77528CFE20A8982332B41CC /* ReminderExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A86A28AC4AC0AB5F9391B9C /* ReminderExecutor.swift */; };
 		ABFED5DAC759F8C593B73C73 /* WakeAlarmService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD16B7229047BB409BFD158 /* WakeAlarmService.swift */; };
@@ -118,7 +117,6 @@
 		0FA3C5F84BE69C21EAD9F380 /* MemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStore.swift; sourceTree = "<group>"; };
 		10D030866EF5D651D809C703 /* WakePhoneCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakePhoneCoordinator.swift; sourceTree = "<group>"; };
 		1405B8463438DF45E0207403 /* WakePlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakePlannerView.swift; sourceTree = "<group>"; };
-		148B4BDA7CDF5CF9DB364AA3 /* VoiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceView.swift; sourceTree = "<group>"; };
 		162A6B9BBF9DD4DA56AE9825 /* AgentTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTask.swift; sourceTree = "<group>"; };
 		163728D45EA30EA5E6B42DF0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		253B662CF806C50DA2D59B52 /* ConversationTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTurn.swift; sourceTree = "<group>"; };
@@ -337,7 +335,6 @@
 		87E8BD1C0FC3D36E8DEA54C9 /* Voice */ = {
 			isa = PBXGroup;
 			children = (
-				148B4BDA7CDF5CF9DB364AA3 /* VoiceView.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -700,7 +697,6 @@
 				8BD82B51F34769534FE7E87D /* ToolExecution.swift in Sources */,
 				222046C9D58B69DDB4BEEECC /* ToolRegistry.swift in Sources */,
 				FD196949C650A57FECF33296 /* VoiceService.swift in Sources */,
-				A3EB38E291DE4D4AD219E84B /* VoiceView.swift in Sources */,
 				ABFED5DAC759F8C593B73C73 /* WakeAlarmService.swift in Sources */,
 				3D54AD2B0BA5D778915A0991 /* WakeCalendarService.swift in Sources */,
 				BC3DA0E5C79A738F13B71A3F /* WakeCompanionController.swift in Sources */,
