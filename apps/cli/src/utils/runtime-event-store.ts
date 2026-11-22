@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { replayRuntime, type RuntimeEvent, type RuntimeEventStore } from '@ocean/core';
@@ -17,18 +18,29 @@ export class FileRuntimeEventStore implements RuntimeEventStore {
 
   async read(runId: string): Promise<readonly RuntimeEvent[]> {
     const file = this.file(runId);
-    let stat;
-    try { stat = await fs.lstat(file); }
-    catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    // Open once with O_NOFOLLOW and read through the same descriptor. A
+    // lstat(path) followed by readFile(path) can be redirected to a symlink
+    // between those two operations by another process.
+    let handle: fs.FileHandle;
+    try {
+      handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') return [];
+      if (code === 'ELOOP') throw new Error('Unsafe runtime event file');
       throw error;
     }
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_EVENTS_BYTES)
-      throw new Error('Unsafe runtime event file');
-    const parsed: unknown = JSON.parse(await fs.readFile(file, 'utf8'));
-    if (!Array.isArray(parsed)) throw new Error('Malformed runtime event stream');
-    replayRuntime(runId, parsed as RuntimeEvent[]);
-    return parsed as RuntimeEvent[];
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile() || stat.size > MAX_EVENTS_BYTES)
+        throw new Error('Unsafe runtime event file');
+      const parsed: unknown = JSON.parse(await handle.readFile('utf8'));
+      if (!Array.isArray(parsed)) throw new Error('Malformed runtime event stream');
+      replayRuntime(runId, parsed as RuntimeEvent[]);
+      return parsed as RuntimeEvent[];
+    } finally {
+      await handle.close();
+    }
   }
 
   async append(runId: string, expectedRevision: number, events: readonly RuntimeEvent[]): Promise<number> {
