@@ -21,7 +21,7 @@ export default function OceanCodePage() {
         </nav>
       </header>
       <section id="main-content" tabIndex={-1} aria-labelledby="code-hero-title" className="mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <nav aria-label="Breadcrumb" className="mb-8 text-sm text-[#6f6a65]"><Link href="/" className="underline underline-offset-4 hover:text-[#e9561b]">Home</Link><span aria-hidden="true"> / </span><span aria-current="page">Ocean Code</span></nav>
+        <nav aria-label="Breadcrumb" className="mb-8 text-sm text-[#6f6a65]"><Link href="/" className="underline underline-offset-4 hover:text-[#e9561b] focus-visible:outline-2 focus-visible:outline-[#e9561b]">Home</Link><span aria-hidden="true"> / </span><span aria-current="page">Ocean Code</span></nav>
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#e9561b]">Ocean Code · Terminal agent</p>
         <h1 id="code-hero-title" className="mt-6 max-w-4xl text-4xl font-semibold tracking-[-0.06em] sm:text-5xl md:text-7xl">Bring an agent into your codebase.</h1>
         <p className="mt-8 max-w-2xl text-lg leading-8 text-[#6f6a65]">Explore Ocean Code, the terminal interface to the Ocean agent platform. Review the source and setup requirements before running it in your environment.</p>
