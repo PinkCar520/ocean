@@ -10,7 +10,7 @@ describe('skill availability', () => {
   it('persists disabling and updates existing activation tool and catalog without reading body', async () => {
     const root = mkdtempSync(join(tmpdir(), 'ocean-skills-'));
     try {
-      const skill: LoadedSkill = { manifest: {name:'demo',description:'Demo'}, sourcePath:root, get content(){throw Error('lazy body');} };
+      const skill: LoadedSkill = { manifest: {name:'demo',description:'Demo'}, sourcePath:root, get content(): string { throw new Error('lazy body'); } };
       const state = new SkillAvailability([skill],root,root);
       const tool = createSkillActivationTool(state.enabled);
       expect(catalogTokens(skill)).toBeGreaterThan(0);
