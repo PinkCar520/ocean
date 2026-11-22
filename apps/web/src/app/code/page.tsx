@@ -62,7 +62,7 @@ export default function OceanCodePage() {
           <p className="mt-5 max-w-3xl leading-8 text-[#d4cec8]">Model access, file changes, shell execution and external integrations depend on how your installation is configured. Review commands and approvals before granting access to sensitive projects.</p>
           <a href={repository + '/issues'} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block font-semibold text-[#ffad87] underline underline-offset-4">Report an issue on GitHub</a>
         </section>
-        <section id="code-resources" aria-labelledby="code-resources-title" className="mt-24 border-t border-black/10 pt-20">
+        <section id="code-resources" aria-labelledby="code-resources-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
           <h2 id="code-resources-title" className="text-3xl font-semibold">Developer resources</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {[
