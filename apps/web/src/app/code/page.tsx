@@ -35,6 +35,7 @@ export default function OceanCodePage() {
           <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-capabilities">Capabilities</a>
           <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-architecture">Architecture</a>
           <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-start">Getting started</a>
+          <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-commands">CLI commands</a>
           <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-resources">Resources</a>
           <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-faq">FAQ</a>
         </nav>
