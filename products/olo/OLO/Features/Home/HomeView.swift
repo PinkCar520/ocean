@@ -29,27 +29,6 @@ struct HomeView: View {
         ScrollView {
             VStack(spacing: 18) {
                 entityStage
-                NavigationLink {
-                    WorldView()
-                } label: {
-                    entryCard(
-                        eyebrow: "OLO World",
-                        title: "身体，是可调用的。",
-                        detail: "OLO One 只是入口。未来它可以把意图交给机器人、汽车和家庭。",
-                        icon: "globe"
-                    )
-                }
-                NavigationLink {
-                    ActionsView()
-                } label: {
-                    entryCard(
-                        eyebrow: "Actions",
-                        title: "最近的事。",
-                        detail: "OLO 已经替你做完的，和正在做的。",
-                        icon: "checkmark.circle"
-                    )
-                }
-                .accessibilityIdentifier("actions.entry")
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 32)
@@ -202,47 +181,6 @@ struct HomeView: View {
         var s = AttributedString(stateName, attributes: bold)
 
         return s
-    }
-
-    // MARK: - Rows / buttons
-
-    private func contextRow(_ icon: String, _ title: String, _ detail: String) -> some View {
-        HStack(spacing: 12) {
-            iconBadge(icon)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.subheadline.bold())
-                Text(detail).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.vertical, 12)
-    }
-
-    private func iconBadge(_ system: String) -> some View {
-        Image(systemName: system)
-            .font(.callout)
-            .frame(width: 32, height: 32)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 11))
-    }
-
-    private func entryCard(eyebrow: String, title: String, detail: String, icon: String) -> some View {
-        HStack(spacing: 12) {
-            iconBadge(icon)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(eyebrow.uppercased())
-                    .font(.caption2)
-                    .tracking(1.4)
-                    .foregroundStyle(.secondary)
-                Text(title).font(.subheadline.bold())
-                Text(detail).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.tertiary)
-        }
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
     }
 
     // MARK: - Gesture dispatch
