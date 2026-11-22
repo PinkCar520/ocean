@@ -1,0 +1,42 @@
+{
+  "phase": "P0 Execution Unification",
+  "completedTasks": [],
+  "currentTask": {
+    "id": "P0-shared-execution-protocol",
+    "status": "implemented",
+    "codePaths": [
+      "packages/shared/core/src/agent-execution-engine.ts",
+      "packages/shared/core/src/index.ts",
+      "packages/shared/core/src/agent-execution-protocol.spec.ts"
+    ],
+    "evidence": "Source committed; CI not yet verified. Inline tool dispatch now uses shared directive planner, durable Gateway uses same planner via planDurableModelDecision. Full orchestration unification remains incomplete."
+  },
+  "nextTask": "Move Gateway model/retry/approval/termination orchestration and CLI completion/recovery to a single Core authority; preserve Worker/Outbox fencing",
+  "acceptance": {
+    "A01": "implemented",
+    "A02": "implemented",
+    "A03": "implemented",
+    "A04": "pending",
+    "A05": "pending",
+    "A06": "pending",
+    "A07": "pending",
+    "A08": "pending",
+    "A09": "pending",
+    "A10": "pending",
+    "A11": "pending",
+    "A12": "pending",
+    "A13": "pending",
+    "A14": "pending",
+    "A15": "pending",
+    "A16": "pending",
+    "A17": "pending",
+    "A18": "pending",
+    "A19": "blocked",
+    "A20": "pending"
+  },
+  "externalBlocks": [
+    "A19 requires live Provider credentials; no credential availability established"
+  ],
+  "verifiedTests": [],
+  "updatedAt": "2026-11-22"
+}
