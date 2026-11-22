@@ -14,11 +14,11 @@ const navigationGroups = [
     { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Capability explorer', href: '/#features' }, { label: 'What you can do', href: '/#use-cases' }, { label: 'Architecture', href: '/#developers' }] },
   ] },
   { label: 'Developers', columns: [
-    { heading: 'Build', links: [{ label: 'Developer overview', href: '/#developers' }, { label: 'Source code', href: repository }, { label: 'Documentation', href: documentation }] },
+    { heading: 'Build', links: [{ label: 'Ocean Code CLI', href: '/#ocean-code' }, { label: 'Developer overview', href: '/#developers' }, { label: 'Source code', href: repository }, { label: 'Documentation', href: documentation }] },
     { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }] },
   ] },
   { label: 'Resources', columns: [
-    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'Source code', href: repository }] },
+    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'Releases', href: `${repository}/releases` }, { label: 'Report an issue', href: `${repository}/issues/new` }, { label: 'Source code', href: repository }] },
     { heading: 'Get started', links: [{ label: 'Open workspace', href: '/app' }, { label: 'Sign in', href: '/auth' }] },
   ] },
 ];
@@ -96,6 +96,8 @@ const taskExamples = [
   { label: 'Debug', prompt: 'Investigate a failing test, identify the root cause, and suggest a minimal fix.', destination: '/app' },
   { label: 'Understand', prompt: 'Explain the architecture of this project and identify its main entry points.', destination: '/app' },
   { label: 'Plan', prompt: 'Break this feature into an implementation plan with testable milestones.', destination: '/app' },
+  { label: 'Review', prompt: 'Review this code change for correctness, security risks, and missing tests.', destination: '/app' },
+  { label: 'Document', prompt: 'Help me write clear documentation for this project, including setup and usage.', destination: '/app' },
 ];
 
 const featureDetails = [
@@ -110,6 +112,8 @@ const commonQuestions = [
   { question: 'Can I use Ocean from the terminal?', answer: 'Ocean includes a CLI. Review the repository README for current setup requirements and supported commands.' },
   { question: 'Do Skills and MCP connections work automatically?', answer: 'No. Extensions must be available, configured and permitted in your environment before they can be used.' },
   { question: 'Will a task started here run immediately?', answer: 'No. The homepage passes your prompt to the workspace. Authentication and actual execution happen there.' },
+  { question: 'Where can I report a problem?', answer: 'Use the public GitHub issue tracker to report reproducible problems and suggest improvements.' },
+  { question: 'Is every capability production ready?', answer: 'No. Review the current source, release notes and deployment configuration to understand which capabilities are available and tested.' },
 ] as const;
 
 const waysToWork = [
@@ -159,14 +163,15 @@ export function LandingPage() {
     // The workspace owns authentication and execution. The landing page never
     // calls a model or simulates a response. A prompt is a navigation hint only.
     const target = prompt.trim()
-      ? `/app?prompt=${encodeURIComponent(prompt.trim())}`
+      ? `/app?prompt=${encodeURIComponent(prompt.trim().slice(0, 8000))}`
       : '/app';
     window.location.assign(target);
   }
 
   return (
     <div className="min-h-screen bg-[#fcfbf9] text-[#1c1b1b] selection:bg-[#ffdfcf]">
-      <header onMouseLeave={() => setActiveMenu(null)} className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#fcfbf9]/90 backdrop-blur-xl">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-5 focus:py-3 focus:shadow-lg">Skip to main content</a>
+      <header onKeyDown={event => { if (event.key === "Escape") { setActiveMenu(null); setMenuOpen(false); setMobileGroup(null); } }} onMouseLeave={() => setActiveMenu(null)} className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#fcfbf9]/90 backdrop-blur-xl">
         <nav className="mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-6 px-6 md:px-10" aria-label="Main navigation">
           <Link href="/" className="text-2xl font-bold tracking-[-0.07em]" aria-label="Ocean home">Ocean<span className="text-[#ed5b20]">.</span></Link>
           <div className="hidden h-full items-center gap-8 text-sm font-medium text-[#4b4947] md:flex">
@@ -185,7 +190,7 @@ export function LandingPage() {
             <Link href="/auth" className="rounded-full px-4 py-2.5 text-sm font-medium hover:bg-black/5">Log in</Link>
             <Link href="/app" className="rounded-full bg-[#1c1b1b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e9561b]">Open Ocean <ArrowRight className="ml-1 inline" size={15}/></Link>
           </div>
-          <button type="button" className="rounded-lg p-2 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen}>
+          <button type="button" className="rounded-lg p-2 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="ocean-mobile-navigation">
             {menuOpen ? <X size={24}/> : <Menu size={24}/>}
           </button>
         </nav>
@@ -216,7 +221,7 @@ export function LandingPage() {
           </div>
         )}
         {menuOpen && (
-          <div className="flex flex-col gap-1 border-t border-black/10 px-6 py-3 text-sm md:hidden">
+          <div id="ocean-mobile-navigation" role="navigation" aria-label="Mobile navigation" className="flex flex-col gap-1 border-t border-black/10 px-6 py-3 text-sm md:hidden">
             {navigationGroups.map(group => (
               <div key={group.label} className="border-b border-black/5">
                 <button type="button" className="flex w-full items-center justify-between py-3 text-left font-medium"
@@ -225,7 +230,7 @@ export function LandingPage() {
                 </button>
                 {mobileGroup === group.label && <div className="flex flex-col gap-3 pb-4 pl-4">
                   {group.columns.flatMap(column => column.links).map(link => (
-                    <a key={link.label} href={link.href} onClick={() => setMenuOpen(false)} className="text-[#77716c]">{link.label}</a>
+                    <a key={link.label} href={link.href} onClick={() => setMenuOpen(false)} className="rounded text-[#77716c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">{link.label}</a>
                   ))}
                 </div>}
               </div>
@@ -236,7 +241,7 @@ export function LandingPage() {
         )}
       </header>
 
-      <main>
+      <main id="main-content">
         <section className="relative mx-auto flex min-h-[680px] max-w-6xl flex-col items-center justify-center px-6 pb-28 pt-28 text-center md:pt-36">
           <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-[#e9e3df] bg-white px-4 py-2 text-xs font-semibold tracking-wide text-[#77716c]">
             <span className="h-2 w-2 rounded-full bg-[#e9561b]"/> THE OCEAN AGENT PLATFORM
@@ -249,7 +254,7 @@ export function LandingPage() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-2" aria-label="Try an example task">
             {taskExamples.map(example => (
-              <button key={example.label} type="button" onClick={() => setPrompt(example.prompt)}
+              <button key={example.label} type="button" aria-pressed={prompt === example.prompt} onClick={() => { setPrompt(example.prompt); document.getElementById("ocean-prompt")?.focus(); }}
                 className="rounded-full border border-[#e8e2dd] bg-white px-4 py-2 text-sm font-medium text-[#5b5550] transition-colors hover:border-[#e9561b] hover:text-[#b34e28] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]">
                 {example.label}
               </button>
@@ -257,12 +262,13 @@ export function LandingPage() {
           </div>
           <form onSubmit={openWorkspace} className="mt-5 w-full max-w-2xl rounded-[26px] border border-[#e8e2dd] bg-white p-4 text-left shadow-[0_18px_70px_rgba(39,26,16,0.07)] focus-within:border-[#e9561b]/50">
             <label htmlFor="ocean-prompt" className="sr-only">Your task for Ocean</label>
-            <textarea id="ocean-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
+            <textarea id="ocean-prompt" aria-describedby="ocean-prompt-hint" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
             <div className="flex items-center justify-between gap-3 pt-2">
-              <span className="pl-2 text-xs text-[#99918a]">Continue in the Ocean workspace</span>
+              <span id="ocean-prompt-hint" aria-live="off" className="pl-2 text-xs text-[#99918a]">Continue in Ocean · {prompt.length.toLocaleString()}/8,000</span>
               <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b]"><ArrowUp size={21}/></button>
             </div>
           </form>
+          <p className="mt-3 max-w-2xl text-xs leading-5 text-[#99918a]">Your draft opens in the Ocean workspace for review. Nothing is sent to a model from this page. Your text remains editable before you send it.</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href="/app" className="rounded-full border border-[#e8e2dd] bg-white px-5 py-2.5 text-sm font-medium hover:border-[#e9561b]">Explore Ocean <ArrowRight className="ml-1 inline" size={14}/></Link>
           </div>
@@ -336,11 +342,11 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="scroll-mt-20 border-t border-[#eee9e5] bg-[#fcfbf9] px-6 py-24 md:py-32">
+        <section id="features" className="scroll-mt-24 border-t border-[#eee9e5] bg-[#fcfbf9] px-6 py-24 md:py-32">
           <div className="mx-auto max-w-6xl">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">Explore capabilities</p>
             <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Discover how Ocean fits your work.</h2>
-            <p className="mt-5 max-w-2xl leading-7 text-[#77716c]">Choose a capability to see a practical path into the workspace. These are product entry points, not simulated AI demos.</p>
+            <p className="mt-5 max-w-2xl leading-7 text-[#77716c]">Choose a capability to see a practical path into the workspace. These are product entry points, not simulated AI demos. Availability depends on deployment and configured permissions.</p>
             <div className="mt-10 flex flex-wrap gap-2" role="tablist" aria-label="Ocean capabilities">
               {featureDetails.map((feature, index) => (
                 <button key={feature.id} id={`feature-tab-${feature.id}`} type="button" role="tab"
@@ -353,7 +359,7 @@ export function LandingPage() {
               ))}
             </div>
             {featureDetails.filter(feature => feature.id === activeFeature).map(feature => (
-              <div key={feature.id} id="feature-panel" role="tabpanel" aria-labelledby={`feature-tab-${feature.id}`}
+              <div key={feature.id} id="feature-panel" role="tabpanel" tabIndex={0} aria-labelledby={`feature-tab-${feature.id}`}
                 className="mt-7 grid gap-10 rounded-[30px] border border-[#e7e1dc] bg-white p-8 md:grid-cols-2 md:p-12">
                 <div>
                   <h3 className="text-3xl font-semibold tracking-[-0.045em]">{feature.heading}</h3>
@@ -425,7 +431,7 @@ export function LandingPage() {
             <div className="mt-10 divide-y divide-[#e9e4df] border-y border-[#e9e4df]">
               {commonQuestions.map(item => (
                 <details key={item.question} className="group py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-base font-semibold marker:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-5 rounded-lg text-base font-semibold marker:hidden focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#e9561b]">
                     {item.question}<ChevronDown size={20} className="shrink-0 text-[#a15c42] transition-transform group-open:rotate-180"/>
                   </summary>
                   <p className="max-w-2xl pb-2 pt-4 text-sm leading-7 text-[#77716c]">{item.answer}</p>
@@ -440,7 +446,7 @@ export function LandingPage() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">For developers</p>
               <h2 className="mt-5 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Built to be extended.</h2>
-              <p className="mt-6 max-w-lg leading-8 text-[#77716c]">Explore the CLI, web host, shared runtime, and integration work in the open-source repository. Feature availability depends on your deployment and configuration.</p>
+              <p className="mt-6 max-w-lg leading-8 text-[#77716c]">Explore the CLI, web host, shared runtime, and integration work in the open-source repository. Feature availability depends on your deployment, installed integrations, and granted permissions.</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href={documentation} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#ded8d3] px-6 py-3 text-sm font-semibold hover:bg-white"><BookOpen size={17}/> Read docs</a>
               </div>
@@ -472,7 +478,7 @@ export function LandingPage() {
                   const className = "inline-flex h-4 w-4 shrink-0 items-center justify-center text-[#d4d0cb] transition-opacity";
                   return profile.url
                     ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:opacity-70`}>{symbol}</a>
-                    : <span key={profile.label} aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
+                    : <span key={profile.label} role="img" aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
                 })}
               </div>
             </div>
@@ -494,14 +500,14 @@ export function LandingPage() {
             <div className="flex flex-wrap items-center gap-5">
               <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white">Feedback & issues</a>
               <div className="relative">
-                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50">
+                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">
                   <Globe2 size={15}/> English <ChevronDown size={14} className={languageOpen ? 'rotate-180' : ''}/>
                 </button>
                 {languageOpen && (
                   <div className="absolute bottom-full right-0 mb-3 w-56 rounded-xl border border-white/15 bg-[#292827] p-2 shadow-xl">
                     <p className="px-3 py-2 text-xs text-[#a8a39e]">Website language</p>
-                    <button type="button" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white">English · Current</button>
-                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">Additional translations are not available yet.</p>
+                    <button type="button" aria-current="true" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">English · Current</button>
+                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Workspace language preferences are managed separately.</p>
                   </div>
                 )}
               </div>
