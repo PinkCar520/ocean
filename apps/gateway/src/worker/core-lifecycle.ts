@@ -37,9 +37,10 @@ export class GatewayCoreLifecycle {
     if (!current) current = await runtime.create(runId, sessionId || runId);
     if (Object.values(current.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
       throw new Error('Gateway recovery requires tool journal reconciliation; automatic replay prohibited');
-    const captured = current;
-    if (current.state === 'validating_tools' &&
-        Object.keys(captured.queuedTools).some(id => captured.pendingTools[id] === undefined))
+    // A proposed call remains authoritative across every state transition.
+    // A partial batch must never be abandoned when a settled sibling moves
+    // the runtime into persisting_results (including after a Worker restart).
+    if (Object.keys(current.queuedTools).some(id => !Object.hasOwn(current.pendingTools, id)))
       throw new Error('Gateway queued tool has not executed; model replay prohibited');
     // A settled side effect may only be followed by another model call if the
     // queued execution has also reached a durable terminal result in RunStep.
