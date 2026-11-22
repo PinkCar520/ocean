@@ -25,6 +25,7 @@ import { gatewayPrintSession } from './llm/gateway-session.js';
 import { toAgentToolSet } from './tools/index.js';
 import { createGatewayApprovalHandler } from './approval/gateway-approval.js';
 import { discoverSkills } from './skills/loader.js';
+import { SkillAvailability } from './skills/availability.js';
 import { McpClientManager } from './mcp/client.js';
 import { SessionStore, type StoredSession } from './utils/session-store.js';
 import { formatTaskPlan } from './utils/task-manager.js';
@@ -503,7 +504,7 @@ async function runSingleQuery(
   const modelRouter = createModelRouter(cliConfig);
 
   // Load skills
-  const skills: LoadedSkill[] = discoverSkills(options.workspace);
+  const skills: LoadedSkill[] = new SkillAvailability(discoverSkills(options.workspace), options.workspace).enabled;
 
   // Default local execution uses a durable session regardless of output mode.
   // --no-persist/legacy remains available for explicitly ephemeral scripting.
@@ -790,7 +791,7 @@ async function runReadlineRepl(options: ReplOptions) {
   console.log(chalk.gray(`[LLM] Available models: ${models.map((m: any) => m.id).join(', ')}`));
 
   // Load skills
-  const skills: LoadedSkill[] = discoverSkills(options.workspace);
+  const skills: LoadedSkill[] = new SkillAvailability(discoverSkills(options.workspace), options.workspace).enabled;
 
   // MCP
   const mcpManager = new McpClientManager(cliConfig);

@@ -212,7 +212,7 @@ export function MessageInput({
     ? 1 + Math.min(MAX_VISIBLE, activeMatches.length - startIndex) + (activeMatches.length > MAX_VISIBLE ? 1 : 0)
     : 0;
 
-  if (frameHeight > 0 && !isThinking) {
+  if (isActive && frameHeight > 0 && !isThinking) {
     const { line, col, totalLines } = locateCursor(value, cursorOffset, inputWidth);
     // 输入行之下：底部边框 + 候选列表 + 外部提示（如 Ctrl-C 提示）
     const rowsBelow = 1 + suggestionRows + rowsBelowInput;
