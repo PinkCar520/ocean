@@ -61,13 +61,22 @@ export interface AgentExecutionResult {
  * synchronous CLI loop, so both hosts reject malformed tool batches alike.
  */
 export function validateAgentModelDecision(decision: AgentModelDecision): AgentModelDecision {
-  if (decision.kind === 'complete') return decision;
-  if (!decision.calls.length) throw new Error('Model returned an empty tool batch');
+  if (decision.kind === 'complete') {
+    if (typeof decision.text !== 'string') throw new Error('Model returned invalid completion text');
+    return decision;
+  }
+  if (!Array.isArray(decision.calls) || !decision.calls.length)
+    throw new Error('Model returned an empty tool batch');
   const ids = new Set<string>();
   for (const call of decision.calls) {
     if (typeof call.id !== 'string' || !call.id.trim() ||
         typeof call.name !== 'string' || !call.name.trim() || ids.has(call.id))
       throw new Error('Model returned invalid or duplicate tool invocation');
+    // A model decision must be replayable after a process restart. Reject
+    // non-JSON inputs before either host persists or dispatches side effects.
+    let encoded: string | undefined;
+    try { encoded = JSON.stringify(call.input); } catch { /* cyclic input */ }
+    if (encoded === undefined) throw new Error('Model returned non-serializable tool input');
     ids.add(call.id);
   }
   return decision;
