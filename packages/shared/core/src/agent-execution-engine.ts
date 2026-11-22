@@ -64,7 +64,8 @@ export function validateAgentModelDecision(decision: AgentModelDecision): AgentM
   if (!decision.calls.length) throw new Error('Model returned an empty tool batch');
   const ids = new Set<string>();
   for (const call of decision.calls) {
-    if (!call.id || !call.name || ids.has(call.id))
+    if (typeof call.id !== 'string' || !call.id.trim() ||
+        typeof call.name !== 'string' || !call.name.trim() || ids.has(call.id))
       throw new Error('Model returned invalid or duplicate tool invocation');
     ids.add(call.id);
   }
