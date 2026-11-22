@@ -50,6 +50,7 @@ private nonisolated func speechPermission() async -> SFSpeechRecognizerAuthoriza
 protocol VoiceCapture {
     func start() throws -> AsyncThrowingStream<VoiceTranscript, Error>
     func stop()
+    func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?)
 }
 
 /// Each start owns a unique token and capture. Old completions cannot stop a new session.
@@ -60,6 +61,12 @@ final class AVVoiceService: VoiceService {
     private var sessionID: UUID?
     private var capture: (any VoiceCapture)?
     private var timeout: Task<Void, Never>?
+    private var levelHandler: (@Sendable (Float) -> Void)?
+
+    func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {
+        levelHandler = handler
+        capture?.setLevelHandler(handler)
+    }
 
     init(permissions: any VoicePermissions = SystemVoicePermissions(),
          makeCapture: @escaping @MainActor () -> any VoiceCapture = { SystemVoiceCapture() }) {
@@ -84,6 +91,7 @@ final class AVVoiceService: VoiceService {
             guard authorization == .granted else { throw VoiceError.unauthorized }
             let newCapture = makeCapture()
             capture = newCapture
+            newCapture.setLevelHandler(levelHandler)
             let source = try newCapture.start()
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
             let relay = Task { [weak self] in
@@ -134,6 +142,11 @@ private final class AudioBridge: @unchecked Sendable {
     private let request: SFSpeechAudioBufferRecognitionRequest
     private let continuation: AsyncThrowingStream<VoiceTranscript, Error>.Continuation
     private var closed = false
+    private var levelHandler: (@Sendable (Float) -> Void)?
+
+    func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {
+        lock.lock(); levelHandler = handler; lock.unlock()
+    }
 
     init(request: SFSpeechAudioBufferRecognitionRequest,
          continuation: AsyncThrowingStream<VoiceTranscript, Error>.Continuation) {
@@ -142,8 +155,18 @@ private final class AudioBridge: @unchecked Sendable {
     }
 
     func append(_ buffer: AVAudioPCMBuffer) {
-        lock.lock(); defer { lock.unlock() }
-        if !closed { request.append(buffer) }
+        lock.lock()
+        guard !closed else { lock.unlock(); return }
+        request.append(buffer)
+        let handler = levelHandler
+        lock.unlock()
+        guard let handler, let channels = buffer.floatChannelData, buffer.frameLength > 0 else { return }
+        let samples = channels[0]
+        let count = Int(buffer.frameLength)
+        var sum: Float = 0
+        for index in 0..<count { sum += samples[index] * samples[index] }
+        let rms = sqrt(sum / Float(count))
+        handler(min(1, rms * 8))
     }
 
     func receive(_ result: SFSpeechRecognitionResult?, error: Error?) {
@@ -187,6 +210,12 @@ private final class SystemVoiceCapture: VoiceCapture {
     private var tapInstalled = false
     private var sessionActive = false
     private var observers: [NSObjectProtocol] = []
+    private var levelHandler: (@Sendable (Float) -> Void)?
+
+    func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {
+        levelHandler = handler
+        bridge?.setLevelHandler(handler)
+    }
 
     func start() throws -> AsyncThrowingStream<VoiceTranscript, Error> {
         guard let recognizer = SFSpeechRecognizer(locale: .current), recognizer.isAvailable else {
@@ -213,6 +242,7 @@ private final class SystemVoiceCapture: VoiceCapture {
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
             let bridge = AudioBridge(request: request, continuation: continuation)
             self.bridge = bridge
+            bridge.setLevelHandler(levelHandler)
             task = recognizer.recognitionTask(with: request, resultHandler: recognitionHandler(bridge))
             input.installTap(onBus: 0, bufferSize: 1024, format: format, block: audioTap(bridge))
             tapInstalled = true
