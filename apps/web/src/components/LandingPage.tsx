@@ -1,253 +1,148 @@
+'use client';
+
+import { FormEvent, useState } from 'react';
 import Link from 'next/link';
+import { ArrowRight, ArrowUp, Blocks, BookOpen, Cpu, Github, History, Menu, Terminal, X } from 'lucide-react';
+
+const repository = 'https://github.com/PinkCar520/ocean';
+const documentation = `${repository}#readme`;
+
+const capabilities = [
+  {
+    title: 'One Agent Core',
+    description: 'A shared execution foundation for the CLI, web experience, and future hosts.',
+    icon: Cpu,
+  },
+  {
+    title: 'Persistent Sessions',
+    description: 'Sessions are designed to survive beyond a single request or interface.',
+    icon: History,
+  },
+  {
+    title: 'Tools & Skills',
+    description: 'Extend Ocean with tools, skills, and MCP integrations.',
+    icon: Blocks,
+  },
+];
 
 export function LandingPage() {
+  const [prompt, setPrompt] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  function openWorkspace(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // The workspace owns authentication and execution. The landing page never
+    // calls a model or simulates a response. A prompt is a navigation hint only.
+    const target = prompt.trim()
+      ? `/app?prompt=${encodeURIComponent(prompt.trim())}`
+      : '/app';
+    window.location.assign(target);
+  }
+
   return (
-    <div className="selection:bg-primary-fixed-dim selection:text-on-primary-fixed bg-surface text-on-surface font-sans min-h-screen">
-      {/* TopNavBar */}
-      <nav className="fixed top-0 z-50 w-full bg-surface/80 py-4 shadow-sm backdrop-blur-xl">
-        <div className="flex justify-between items-center px-8 max-w-7xl mx-auto">
-          <div className="flex items-center gap-12">
-            <a className="font-display text-xl font-bold tracking-tighter text-on-surface" href="#">Ocean</a>
-            <div className="hidden md:flex gap-8 items-center">
-              <a className="font-display text-label-sm tracking-tight text-primary font-bold border-b-2 border-primary pb-1 hover:text-primary transition-colors duration-300" href="#">Platform</a>
-              <a className="font-display text-label-sm tracking-tight text-on-surface-variant hover:text-primary transition-colors duration-300" href="#">Skill Library</a>
-              <a className="font-display text-label-sm tracking-tight text-on-surface-variant hover:text-primary transition-colors duration-300" href="#">Knowledge Graph</a>
-              <a className="font-display text-label-sm tracking-tight text-on-surface-variant hover:text-primary transition-colors duration-300" href="#">Integrations</a>
-            </div>
+    <div className="min-h-screen bg-[#fcfbf9] text-[#1c1b1b] selection:bg-[#ffdfcf]">
+      <header className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#fcfbf9]/90 backdrop-blur-xl">
+        <nav className="mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-6 px-6 md:px-10" aria-label="Main navigation">
+          <Link href="/" className="text-2xl font-bold tracking-[-0.07em]" aria-label="Ocean home">Ocean<span className="text-[#ed5b20]">.</span></Link>
+          <div className="hidden items-center gap-9 text-sm font-medium text-[#4b4947] md:flex">
+            <a href="#product" className="hover:text-[#e9561b]">Product</a>
+            <a href="#developers" className="hover:text-[#e9561b]">Developers</a>
+            <a href={documentation} target="_blank" rel="noopener noreferrer" className="hover:text-[#e9561b]">Docs</a>
+            <a href={repository} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-[#e9561b]">GitHub <ArrowRight size={14}/></a>
           </div>
-          <div className="flex items-center gap-4">
-            <Link className="px-5 py-2 font-display text-label-sm text-primary transition-transform active:scale-95" href="/app">Request Demo</Link>
-            <Link className="kinetic-gradient px-6 py-2.5 rounded-lg text-white font-display text-label-sm font-semibold transition-transform active:scale-95" href="/app">Get Started</Link>
+          <div className="hidden items-center gap-3 md:flex">
+            <Link href="/auth" className="rounded-full px-4 py-2.5 text-sm font-medium hover:bg-black/5">Log in</Link>
+            <Link href="/app" className="rounded-full bg-[#1c1b1b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#e9561b]">Open Ocean <ArrowRight className="ml-1 inline" size={15}/></Link>
           </div>
-        </div>
-      </nav>
-      <main className="pt-24">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden pt-20 pb-32">
-          <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div className="z-10">
-              <span className="inline-block py-1 px-3 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant text-[10px] font-bold uppercase tracking-widest mb-6">Enterprise AI Evolution</span>
-              <h1 className="text-6xl md:text-7xl font-extrabold text-on-surface leading-[1.1] mb-8 font-display tracking-tight">
-                Orchestrate Intelligence with <span className="text-primary">Ocean</span>
-              </h1>
-              <p className="text-xl text-on-surface-variant max-w-lg mb-10 leading-relaxed font-sans">
-                The next-generation AI platform for enterprise workflow automation, knowledge management, and skill orchestration.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Link className="kinetic-gradient px-8 py-4 rounded-lg text-white font-display font-bold text-lg transition-all hover:shadow-xl hover:shadow-primary/20 active:scale-95" href="/app">Get Started</Link>
-                <button className="bg-surface-container-high px-8 py-4 rounded-lg text-on-surface font-display font-bold text-lg flex items-center gap-2 hover:bg-surface-container-highest transition-colors active:scale-95">
-                  <span className="material-symbols-outlined text-[20px]">play_circle</span>
-                  Watch Demo
-                </button>
-              </div>
+          <button type="button" className="rounded-lg p-2 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen}>
+            {menuOpen ? <X size={24}/> : <Menu size={24}/>}
+          </button>
+        </nav>
+        {menuOpen && (
+          <div className="flex flex-col gap-1 border-t border-black/10 px-6 py-3 text-sm md:hidden">
+            <a href="#product" onClick={() => setMenuOpen(false)} className="py-3">Product</a>
+            <a href="#developers" onClick={() => setMenuOpen(false)} className="py-3">Developers</a>
+            <a href={documentation} className="py-3">Docs</a>
+            <a href={repository} className="py-3">GitHub</a>
+            <Link href="/auth" className="py-3">Log in</Link>
+            <Link href="/app" className="rounded-xl bg-[#1c1b1b] px-4 py-3 text-center text-white">Open Ocean</Link>
+          </div>
+        )}
+      </header>
+
+      <main>
+        <section className="relative mx-auto flex min-h-[680px] max-w-6xl flex-col items-center justify-center px-6 pb-28 pt-28 text-center md:pt-36">
+          <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-[#e9e3df] bg-white px-4 py-2 text-xs font-semibold tracking-wide text-[#77716c]">
+            <span className="h-2 w-2 rounded-full bg-[#e9561b]"/> THE OCEAN AGENT PLATFORM
+          </div>
+          <h1 className="max-w-5xl text-[clamp(3.25rem,7vw,6.5rem)] font-semibold leading-[1.06] tracking-[-0.065em]">
+            One Agent.<br/><span className="text-[#e9561b]">Every Environment.</span>
+          </h1>
+          <p className="mt-8 max-w-2xl text-lg leading-8 text-[#77716c] md:text-xl">
+            One shared intelligence across your tools and interfaces. Build, execute, and continue your work with Ocean.
+          </p>
+          <form onSubmit={openWorkspace} className="mt-12 w-full max-w-2xl rounded-[26px] border border-[#e8e2dd] bg-white p-4 text-left shadow-[0_18px_70px_rgba(39,26,16,0.07)] focus-within:border-[#e9561b]/50">
+            <label htmlFor="ocean-prompt" className="sr-only">Your task for Ocean</label>
+            <textarea id="ocean-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <span className="pl-2 text-xs text-[#99918a]">Continue in the Ocean workspace</span>
+              <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b]"><ArrowUp size={21}/></button>
             </div>
-            <div className="relative group">
-              <div className="absolute -inset-4 bg-primary-fixed/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
-              <img alt="Ocean Hero Visual" className="relative z-10 w-full h-auto rounded-2xl hero-mask" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKZkAWUyqtLYgvh8b0nX6eaa6XUyABuVyl8l9b5resxWZ3OadG4TwoVnd344pbOf13cRFBmoln28m_XW4cgGh6L95ZPmUSFAvtdAdI8WoFOVcarIzlGXEX-zk2BFkoLeVxWOK33K2BRIL6FzQ1JlooAtyzmU69N9DeXj350Xby2z6n9JAWjFk4njj54NWrjiTp9hLXmpLgY9VX2uPzd2dpg2Ll77gQ2g-ujsibHYMixL3dISPrhDDY1lehVcejP-UgGDO4439xJuo" />
+          </form>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/app" className="rounded-full border border-[#e8e2dd] bg-white px-5 py-2.5 text-sm font-medium hover:border-[#e9561b]">Explore Ocean <ArrowRight className="ml-1 inline" size={14}/></Link>
+            <a href={repository} target="_blank" rel="noopener noreferrer" className="rounded-full px-5 py-2.5 text-sm font-medium hover:bg-black/5"><Github className="mr-2 inline" size={16}/>View source</a>
+          </div>
+        </section>
+
+        <section id="product" className="border-t border-[#eee9e5] bg-white px-6 py-28 scroll-mt-20">
+          <div className="mx-auto max-w-6xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">The platform</p>
+            <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">One core. Multiple ways to work.</h2>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-[#77716c]">Ocean brings execution, sessions, and extensibility into a shared architecture—not a collection of disconnected demos.</p>
+            <div className="mt-14 grid gap-4 md:grid-cols-3">
+              {capabilities.map(({title, description, icon: Icon}) => (
+                <article key={title} className="rounded-3xl border border-[#ece8e5] bg-[#fcfbf9] p-8">
+                  <div className="mb-12 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff0e9] text-[#e9561b]"><Icon size={24}/></div>
+                  <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-[#77716c]">{description}</p>
+                </article>
+              ))}
             </div>
           </div>
         </section>
-        {/* Feature: Workflow Orchestration */}
-        <section className="py-32 bg-surface-container-low">
-          <div className="max-w-7xl mx-auto px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-              <div className="order-2 lg:order-1">
-                <img alt="Autonomous Workflows Visualization" className="w-full h-auto rounded-2xl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiBAh1L2CCulYTlHohbSKC6MgrFypOXgLNPGM8ROoRTf3QkK7egbgpQgiMxh_iH6dgJLiE4noj7bCVM-aNubUUxELggUZTaFejYzKHCgR1yCXvPnzfX7gyrtcVccItq4VeECeHx-5g7Lazs8-Bpr3NwlAzHa4uVVOawtb9V7YuwMDs3Y9dYe5BdSOrn5FWqQ4u8jF6_KujDhxx6GH0m39I6R8UgnwNZ0O5pbB_CqPaSbHKRFmCD2_K0O-bm_txoRz55AmvchS8fR0" />
-              </div>
-              <div className="order-1 lg:order-2">
-                <h2 className="text-4xl md:text-5xl font-bold mb-8 text-on-surface font-display tracking-tight">Autonomous Workflows</h2>
-                <p className="text-lg text-on-surface-variant leading-relaxed mb-8 font-sans">
-                  Transform fragmented development cycles into high-velocity engines. Ocean bridges the gap between your core tools, creating seamless AI-driven pipelines that manage complexity so your team can focus on innovation.
-                </p>
-                <ul className="space-y-6">
-                  <li className="flex items-start gap-4">
-                    <div className="bg-primary/10 p-2 rounded-lg">
-                      <span className="material-symbols-outlined text-primary">hub</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-on-surface mb-1 font-display">Tool Chain Synergy</h4>
-                      <p className="text-sm text-on-surface-variant font-sans">Connect ZenTao project management, Jenkins CI/CD, and GitLab repositories into a single unified logic flow.</p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-4">
-                    <div className="bg-primary/10 p-2 rounded-lg">
-                      <span className="material-symbols-outlined text-primary">auto_mode</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-on-surface mb-1 font-display">Dynamic Escalation</h4>
-                      <p className="text-sm text-on-surface-variant font-sans">AI agents autonomously detect blockers in GitLab and trigger immediate regression tests in Jenkins.</p>
-                    </div>
-                  </li>
-                </ul>
+
+        <section id="developers" className="px-6 py-28 scroll-mt-20">
+          <div className="mx-auto grid max-w-6xl gap-12 md:grid-cols-2 md:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">For developers</p>
+              <h2 className="mt-5 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Built to be extended.</h2>
+              <p className="mt-6 max-w-lg leading-8 text-[#77716c]">Explore the CLI, web host, shared runtime, and integration work in the open-source repository. Feature availability depends on your deployment and configuration.</p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a href={repository} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#1c1b1b] px-6 py-3 text-sm font-semibold text-white hover:bg-[#e9561b]"><Github size={17}/> Explore GitHub</a>
+                <a href={documentation} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#ded8d3] px-6 py-3 text-sm font-semibold hover:bg-white"><BookOpen size={17}/> Read docs</a>
               </div>
             </div>
-          </div>
-        </section>
-        {/* Feature: Knowledge Graph */}
-        <section className="py-32">
-          <div className="max-w-7xl mx-auto px-8">
-            <div className="text-center max-w-3xl mx-auto mb-20">
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 font-display tracking-tight">Your Global Knowledge, Unified</h2>
-              <p className="text-on-surface-variant text-lg font-sans">Break down information silos. Ocean maps your enterprise's collective intelligence into a living knowledge graph.</p>
-            </div>
-            <div className="relative bg-surface-container-lowest rounded-[2rem] p-8 md:p-16 overflow-hidden">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-                <div>
-                  <img alt="Interconnected Knowledge Graph Visual" className="w-full h-auto" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDX-lO7GyQa7yPJBU6rQxg9gGFmBymTidMtY87nKQSIJzsT4Ci8JN_K8Uk8R6fs5AAUp2a6nk2wrPLCHwBXUWHLqnwx-Aa0fEf8S60PnEx1iLXoGV47KM8I6jP74QUllBP4ceYiJztoTnOcuyGrAvXCo6zu2-V68JG2kRQd2isXLgQXmiOYX7fO3L6rPvDRDyMv2KHHphKkpHV0U2Xg4Gse5HJotCAbp29B7PK83xnlnC1sIiHqIAxIWF_VppGnTiwCTcsX1AKpkIc" />
-                </div>
-                <div className="space-y-10">
-                  <div className="bg-surface-container p-6 rounded-xl border-l-4 border-primary">
-                    <h3 className="text-xl font-bold mb-3 font-display">RAG-Powered Retrieval</h3>
-                    <p className="text-on-surface-variant text-sm font-sans">Advanced Retrieval-Augmented Generation that searches across Confluence pages, Notion workspaces, and Jira tickets with contextual accuracy.</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="p-6 rounded-xl bg-surface">
-                      <span className="material-symbols-outlined text-primary mb-4">analytics</span>
-                      <h4 className="font-bold text-sm mb-2 font-display">Semantic Search</h4>
-                      <p className="text-[12px] text-on-surface-variant font-sans">Find answers by intent, not just keywords, across all documentation.</p>
-                    </div>
-                    <div className="p-6 rounded-xl bg-surface">
-                      <span className="material-symbols-outlined text-primary mb-4">insights</span>
-                      <h4 className="font-bold text-sm mb-2 font-display">Relationship Mapping</h4>
-                      <p className="text-[12px] text-on-surface-variant font-sans">Identify experts and project links automatically from data patterns.</p>
-                    </div>
-                  </div>
-                </div>
+            <div className="rounded-3xl border border-[#302e2b] bg-[#1d1d1c] p-7 text-[#f4f0ec] shadow-xl md:p-10">
+              <div className="mb-8 flex items-center gap-2 text-sm text-[#a9a29c]"><Terminal size={17}/> Ocean architecture</div>
+              <div className="space-y-4 font-mono text-sm">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">CLI <span className="text-[#e9784b]">·</span> Web <span className="text-[#e9784b]">·</span> Other hosts</div>
+                <div className="text-center text-[#e9784b]">↓</div>
+                <div className="rounded-xl border border-[#e9784b]/40 bg-[#e9784b]/10 p-4 text-center">Shared Agent Core</div>
+                <div className="text-center text-[#e9784b]">↓</div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">Sessions <span className="text-[#e9784b]">·</span> Tools <span className="text-[#e9784b]">·</span> Skills</div>
               </div>
-            </div>
-          </div>
-        </section>
-        {/* Integration Section */}
-        <section className="py-24 bg-surface-container-low border-y border-outline-variant/10">
-          <div className="max-w-7xl mx-auto px-8">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-12">
-              <div className="md:w-1/3">
-                <h3 className="text-2xl font-bold mb-4 font-display tracking-tight">Integrated with your tech stack.</h3>
-                <p className="text-on-surface-variant text-sm font-sans">Ocean works where you work, plugging directly into the tools your team already uses daily.</p>
-              </div>
-              <div className="md:w-2/3 grid grid-cols-2 md:grid-cols-4 gap-8">
-                <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
-                    <span className="material-symbols-outlined text-3xl">forum</span>
-                  </div>
-                  <span className="text-xs font-bold font-display uppercase tracking-wider">Slack</span>
-                </div>
-                <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
-                    <span className="material-symbols-outlined text-3xl">terminal</span>
-                  </div>
-                  <span className="text-xs font-bold font-display uppercase tracking-wider">GitLab</span>
-                </div>
-                <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
-                    <span className="material-symbols-outlined text-3xl">settings_applications</span>
-                  </div>
-                  <span className="text-xs font-bold font-display uppercase tracking-wider">Jenkins</span>
-                </div>
-                <div className="flex flex-col items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
-                  <div className="w-16 h-16 bg-card rounded-xl shadow-sm flex items-center justify-center">
-                    <span className="material-symbols-outlined text-3xl">account_tree</span>
-                  </div>
-                  <span className="text-xs font-bold font-display uppercase tracking-wider">ZenTao</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        {/* Skill Library Section */}
-        <section className="py-32">
-          <div className="max-w-7xl mx-auto px-8">
-            <div className="flex justify-between items-end mb-16">
-              <div className="max-w-xl">
-                <span className="text-primary font-bold text-xs uppercase tracking-widest mb-4 block">Expandable Capabilities</span>
-                <h2 className="text-4xl font-bold mb-4 font-display tracking-tight">MCP Skill Library</h2>
-                <p className="text-on-surface-variant font-sans">Equip your AI agents with specialized skills from our Model Context Protocol library. Deploy capabilities in seconds.</p>
-              </div>
-              <button className="text-primary font-bold flex items-center gap-2 hover:translate-x-1 transition-transform">
-                Explore Full Library
-                <span className="material-symbols-outlined">arrow_forward</span>
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Skill Card 1 */}
-              <div className="p-8 rounded-2xl bg-surface-container-lowest shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-                <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary/10 transition-colors">
-                  <span className="material-symbols-outlined text-primary">code</span>
-                </div>
-                <h4 className="text-xl font-bold mb-3 font-display">Python Interpreter</h4>
-                <p className="text-on-surface-variant text-sm mb-6 leading-relaxed font-sans">Execute complex data analysis and math operations directly within the AI workflow environment.</p>
-                <span className="text-[10px] font-bold py-1 px-2 rounded bg-surface-container text-outline">v2.4.0</span>
-              </div>
-              {/* Skill Card 2 */}
-              <div className="p-8 rounded-2xl bg-surface-container-lowest shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-                <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary/10 transition-colors">
-                  <span className="material-symbols-outlined text-primary">database</span>
-                </div>
-                <h4 className="text-xl font-bold mb-3 font-display">SQL Executor</h4>
-                <p className="text-on-surface-variant text-sm mb-6 leading-relaxed font-sans">Safe, read-only query execution across PostgreSQL, MySQL, and Snowflake databases.</p>
-                <span className="text-[10px] font-bold py-1 px-2 rounded bg-surface-container text-outline">v1.1.2</span>
-              </div>
-              {/* Skill Card 3 */}
-              <div className="p-8 rounded-2xl bg-surface-container-lowest shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-                <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary/10 transition-colors">
-                  <span className="material-symbols-outlined text-primary">notifications_active</span>
-                </div>
-                <h4 className="text-xl font-bold mb-3 font-display">Slack Notifier</h4>
-                <p className="text-on-surface-variant text-sm mb-6 leading-relaxed font-sans">Keep your team informed by automatically routing AI insights and alerts to designated Slack channels.</p>
-                <span className="text-[10px] font-bold py-1 px-2 rounded bg-surface-container text-outline">v3.0.1</span>
-              </div>
-            </div>
-          </div>
-        </section>
-        {/* CTA Section */}
-        <section className="py-32 px-8">
-          <div className="max-w-5xl mx-auto kinetic-gradient rounded-[2.5rem] p-12 md:p-24 text-center text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-card/10 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-card/5 blur-[80px] -ml-32 -mb-32 rounded-full"></div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-8 relative z-10 font-display tracking-tight text-white">Ready to Orchestrate?</h2>
-            <p className="text-white/80 text-xl mb-12 max-w-2xl mx-auto relative z-10 font-sans">Join the leaders in AI-driven enterprise efficiency. Start your pilot program with Ocean today.</p>
-            <div className="flex flex-wrap justify-center gap-6 relative z-10">
-              <Link className="bg-card text-primary px-10 py-4 rounded-lg font-bold text-lg hover:bg-surface-bright transition-colors font-display" href="/app">Get Started for Free</Link>
-              <button className="border border-white/30 text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-card/10 transition-colors font-display">Book a Consultation</button>
+              <p className="mt-6 text-xs leading-6 text-[#a9a29c]">Architecture direction; not a claim that every integration is production-ready.</p>
             </div>
           </div>
         </section>
       </main>
-      {/* Footer */}
-      <footer className="bg-surface-container-low w-full py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 px-8 max-w-7xl mx-auto border-t border-outline-variant/10 pt-12">
-          <div className="col-span-1 md:col-span-1">
-            <a className="font-display text-lg font-bold text-on-surface tracking-tighter" href="#">Ocean</a>
-            <p className="mt-4 text-on-surface-variant font-sans text-label-sm max-w-xs leading-relaxed">
-              Unlocking enterprise potential through advanced AI orchestration and autonomous workflows.
-            </p>
-          </div>
-          <div>
-            <h5 className="font-display text-label-sm font-bold mb-6 text-on-surface uppercase tracking-widest">Platform</h5>
-            <ul className="space-y-4">
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">Documentation</a></li>
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">MCP Hub</a></li>
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">API Status</a></li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-display text-label-sm font-bold mb-6 text-on-surface uppercase tracking-widest">Company</h5>
-            <ul className="space-y-4">
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">About Us</a></li>
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">Careers</a></li>
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">Contact</a></li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-display text-label-sm font-bold mb-6 text-on-surface uppercase tracking-widest">Legal</h5>
-            <ul className="space-y-4">
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">Privacy Policy</a></li>
-              <li><a className="font-sans text-label-sm text-on-surface-variant hover:text-primary underline transition-all" href="#">Terms of Service</a></li>
-            </ul>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-8 mt-12 pt-8 border-t border-outline-variant/5">
-          <p className="font-sans text-label-sm text-on-surface-variant">© 2024 Ocean Orchestration. All rights reserved.</p>
+
+      <footer className="border-t border-[#eae5e0] px-6 py-10">
+        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-5 text-sm text-[#77716c] md:flex-row md:items-center">
+          <Link href="/" className="text-lg font-bold tracking-tight text-[#1c1b1b]">Ocean<span className="text-[#e9561b]">.</span></Link>
+          <p>One Agent Core. Multiple Hosts. Persistent Sessions.</p>
+          <div className="flex gap-5"><Link href="/app" className="hover:text-[#e9561b]">Workspace</Link><a href={documentation} className="hover:text-[#e9561b]">Docs</a><a href={repository} className="hover:text-[#e9561b]">GitHub</a></div>
         </div>
       </footer>
     </div>
