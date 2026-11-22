@@ -77,27 +77,46 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
         {/* ── Left Side: Ocean Code brand, aligned with the current product ── */}
         <div className="relative hidden flex-1 overflow-hidden bg-[#1b1b1a] p-12 text-white lg:flex lg:flex-col">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-            {/* The planet's dark hemisphere and its sunlit atmospheric rim share one ellipse. */}
-            <div className="absolute -bottom-[490px] -left-[210px] h-[680px] w-[900px] rounded-[50%] bg-[radial-gradient(ellipse_at_43%_0%,rgba(101,57,43,0.27)_0%,rgba(32,27,29,0.96)_44%,#111116_78%)]" />
+            {/* Earth horizon: a dark planetary silhouette masks the glow beneath the rim. */}
             <svg className="absolute inset-0 h-full w-full" viewBox="0 0 600 720" preserveAspectRatio="none" aria-hidden="true">
               <defs>
-                <linearGradient id="ocean-atmosphere" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#ed744b" stopOpacity="0.25" />
-                  <stop offset="31%" stopColor="#ff9d6b" stopOpacity="0.95" />
-                  <stop offset="51%" stopColor="#ffbb88" stopOpacity="0.65" />
-                  <stop offset="75%" stopColor="#ed744b" stopOpacity="0.15" />
-                  <stop offset="100%" stopColor="#ed744b" stopOpacity="0" />
+                <linearGradient id="ocean-rim-light" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#f47e51" stopOpacity="0.48" />
+                  <stop offset="25%" stopColor="#ffb17d" stopOpacity="0.98" />
+                  <stop offset="43%" stopColor="#ffcfaa" stopOpacity="0.85" />
+                  <stop offset="68%" stopColor="#d46b49" stopOpacity="0.22" />
+                  <stop offset="100%" stopColor="#7a3c36" stopOpacity="0" />
                 </linearGradient>
-                <filter id="ocean-atmosphere-glow" x="-50%" y="-200%" width="200%" height="500%">
-                  <feGaussianBlur stdDeviation="9" />
+                <radialGradient id="ocean-sunrise" cx="37%" cy="80%" r="58%" fx="37%" fy="80%">
+                  <stop offset="0%" stopColor="#ffb17b" stopOpacity="0.64" />
+                  <stop offset="25%" stopColor="#f68b60" stopOpacity="0.25" />
+                  <stop offset="62%" stopColor="#a94d39" stopOpacity="0.045" />
+                  <stop offset="100%" stopColor="#a94d39" stopOpacity="0" />
+                </radialGradient>
+                <radialGradient id="ocean-planet-shade" cx="42%" cy="0%" r="100%">
+                  <stop offset="0%" stopColor="#292123" />
+                  <stop offset="55%" stopColor="#171619" />
+                  <stop offset="100%" stopColor="#101116" />
+                </radialGradient>
+                <filter id="ocean-rim-soft-glow" x="-40%" y="-150%" width="180%" height="400%" colorInterpolationFilters="sRGB">
+                  <feGaussianBlur stdDeviation="8" />
                 </filter>
-                <filter id="ocean-atmosphere-halo" x="-50%" y="-300%" width="200%" height="700%">
-                  <feGaussianBlur stdDeviation="23" />
+                <filter id="ocean-rim-wide-glow" x="-40%" y="-250%" width="180%" height="600%" colorInterpolationFilters="sRGB">
+                  <feGaussianBlur stdDeviation="24" />
                 </filter>
+                <mask id="ocean-sky-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="600" height="720">
+                  <rect width="600" height="720" fill="white" />
+                  <ellipse cx="240" cy="910" rx="450" ry="340" fill="black" />
+                </mask>
               </defs>
-              <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="#ff8654" strokeOpacity="0.22" strokeWidth="28" filter="url(#ocean-atmosphere-halo)" />
-              <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="url(#ocean-atmosphere)" strokeWidth="13" filter="url(#ocean-atmosphere-glow)" />
-              <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="url(#ocean-atmosphere)" strokeWidth="1.7" />
+              {/* The same ellipse drives the silhouette and every atmospheric layer. */}
+              <g mask="url(#ocean-sky-mask)">
+                <rect width="600" height="720" fill="url(#ocean-sunrise)" />
+                <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="url(#ocean-rim-light)" strokeWidth="42" opacity="0.48" filter="url(#ocean-rim-wide-glow)" />
+                <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="url(#ocean-rim-light)" strokeWidth="14" filter="url(#ocean-rim-soft-glow)" />
+              </g>
+              <ellipse cx="240" cy="910" rx="450" ry="340" fill="url(#ocean-planet-shade)" />
+              <ellipse cx="240" cy="910" rx="450" ry="340" fill="none" stroke="url(#ocean-rim-light)" strokeWidth="1.5" />
             </svg>
           </div>
 
