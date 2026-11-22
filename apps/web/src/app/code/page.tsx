@@ -91,7 +91,7 @@ export default function OceanCodePage() {
         <section className="mt-24 rounded-3xl bg-[#f0ebe5] p-8 md:p-12">
           <h2 className="text-3xl font-semibold tracking-tight">Ready to explore Ocean?</h2>
           <p className="mt-4 max-w-2xl leading-7 text-[#6f6a65]">Start with the open-source CLI or open the Ocean web workspace.</p>
-          <div className="mt-7 flex flex-wrap gap-3"><a href={repository + '#readme'} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1c1b1b] px-6 py-3 font-semibold text-white hover:bg-[#e9561b]">CLI documentation</a><Link href="/app" className="rounded-full border border-black/20 px-6 py-3 font-semibold hover:border-[#e9561b]">Open workspace</Link></div>
+          <div className="mt-7 flex flex-wrap gap-3"><a href={repository + '#readme'} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1c1b1b] px-6 py-3 font-semibold text-white hover:bg-[#e9561b]" aria-label="CLI documentation on GitHub (opens in a new tab)">CLI documentation</a><Link href="/app" className="rounded-full border border-black/20 px-6 py-3 font-semibold hover:border-[#e9561b]">Open workspace</Link></div>
         </section>
         <div className="mt-14 text-right"><a href="#main-content" className="text-sm font-semibold text-[#ba4b20] underline underline-offset-4">Back to top</a></div>
       </section>
