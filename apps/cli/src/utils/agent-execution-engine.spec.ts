@@ -466,3 +466,16 @@ describe('durable journal prefix invariants', () => {
    .toMatchObject({ kind: 'dispatch', call: calls[2] });
  });
 });
+
+
+describe('runtime model decision boundary validation', () => {
+ it.each([
+  { id: 42, name: 'shell', input: {} },
+  { id: ' ', name: 'shell', input: {} },
+  { id: 'valid', name: 5, input: {} },
+  { id: 'valid', name: ' ', input: {} },
+ ])('rejects malformed tool identifiers before dispatch', (call) => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls: [call as never] }))
+   .toThrow('invalid or duplicate tool invocation');
+ });
+});
