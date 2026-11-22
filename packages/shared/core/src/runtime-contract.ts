@@ -108,14 +108,24 @@ export function replayRuntime(runId: string, events: readonly RuntimeEvent[]): R
         throw new Error('Invalid queued tool proposal');
       queuedTools[event.invocationId] = { toolName: event.toolName, inputDigest: event.inputDigest };
     } else if (event.type === 'tool.prepared') {
-      if (state !== 'executing_tools' || event.invocation.runId !== runId || pendingTools[event.invocation.id])
+      const invocation = event.invocation;
+      if (state !== 'executing_tools' || invocation.runId !== runId ||
+          !invocation.id?.trim() || !invocation.toolName?.trim() ||
+          (invocation.host !== 'local' && invocation.host !== 'remote') ||
+          Object.hasOwn(pendingTools, invocation.id))
         throw new Error('Invalid tool preparation');
-      if (createHash('sha256').update(JSON.stringify(event.invocation.input)).digest('hex') !== event.invocation.inputDigest)
+      // Model-driven runs must only execute a tool from their durable batch.
+      // Standalone Gateway jobs may have no proposals at all.
+      if (Object.keys(queuedTools).length && !Object.hasOwn(queuedTools, invocation.id))
+        throw new Error('Tool invocation is not the queued model proposal');
+      const serialized = JSON.stringify(invocation.input);
+      if (serialized === undefined ||
+          createHash('sha256').update(serialized).digest('hex') !== invocation.inputDigest)
         throw new Error('Tool invocation digest mismatch');
-      if (queuedTools[event.invocation.id] && queuedTools[event.invocation.id].toolName !== event.invocation.toolName)
+      if (queuedTools[invocation.id] && queuedTools[invocation.id].toolName !== invocation.toolName)
         throw new Error('Queued tool name mismatch');
       completionVerified = false;
-      pendingTools[event.invocation.id] = 'prepared';
+      pendingTools[invocation.id] = 'prepared';
     } else if (event.type === 'tool.rejected') {
       if (!event.invocationId.trim() || !event.toolName.trim()) throw new Error('Invalid tool rejection event');
     } else if (event.type === 'skill.activated') {
