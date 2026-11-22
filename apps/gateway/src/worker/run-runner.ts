@@ -746,6 +746,15 @@ export class RunRunner {
         const input = step.input as { id?: unknown } | null;
         return typeof input?.id === 'string' ? [input.id] : [];
       }));
+      // A claimed sibling may still be executing or awaiting approval. The
+      // durable batch is sequential: never dispatch another side-effecting
+      // tool while an earlier invocation lacks a terminal RunStep result.
+      const unfinished = await tx.runStep.findFirst({
+        where: { runId, kind: 'tool_call', seq: { gt: modelStep.seq },
+          status: { notIn: ['succeeded', 'failed', 'cancelled'] } },
+        select: { id: true },
+      });
+      if (unfinished) return true;
       const next = calls.find(call => !claimed.has(call.id));
       if (!next) return false;
       const pending = await tx.outboxEvent.findMany({
