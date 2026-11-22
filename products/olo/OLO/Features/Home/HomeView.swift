@@ -38,7 +38,6 @@ struct HomeView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .background(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.87)], startPoint: .top, endPoint: .bottom))
         .scrollIndicators(.hidden)
         .overlay(alignment: .top) {
             OLOToast(text: toastText, isShown: $toastShown)
@@ -96,22 +95,6 @@ struct HomeView: View {
 
     private var entityStage: some View {
         ZStack {
-            RadialGradient(
-                colors: [Color.white, Color(white: 0.88), Color(white: 0.80)],
-                center: .center,
-                startRadius: 10,
-                endRadius: 200
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 34))
-            // ground shadow under the orb — matches prototype stage:after
-            .overlay(alignment: .bottom) {
-                Ellipse()
-                    .fill(.black.opacity(0.14))
-                    .frame(width: 250, height: 35)
-                    .blur(radius: 18)
-                    .offset(y: -10)
-            }
-
             VStack(spacing: 18) {
                 OLOEntityView()
                 stateLabel
