@@ -332,7 +332,7 @@ describe('durable model tool batch', () => {
     { id: 'duplicate', name: 'shell', input: { command: 'second' } },
    ] },
   ]);
-  await expect(engine.run('session', 'duplicate-batch')).rejects.toThrow('duplicate tool proposal');
+  await expect(engine.run('session', 'duplicate-batch')).rejects.toThrow('duplicate tool invocation');
   expect(calls()).toBe(0);
   expect((await events.snapshot('duplicate-batch')).state).toBe('failed');
   expect((await events.read('duplicate-batch')).filter(event => event.type === 'tool.proposed')).toHaveLength(0);
