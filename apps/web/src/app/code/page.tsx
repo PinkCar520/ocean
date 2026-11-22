@@ -33,7 +33,7 @@ export default function OceanCodePage() {
           <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-resources">Resources</a>
           <a className="hover:text-[#e9561b] focus-visible:underline" href="#code-faq">FAQ</a>
         </nav>
-        <div id="code-capabilities" className="mt-24 grid scroll-mt-24 gap-5 md:grid-cols-3" aria-label="Ocean Code capabilities">
+        <div id="code-capabilities" className="mt-24 grid scroll-mt-24 gap-5 md:grid-cols-3" aria-label="Ocean Code capabilities and deployment considerations">
           {[
             { title: 'Work in a repository', body: 'Use the terminal host to explore code and work on development tasks, subject to configured tool permissions.' },
             { title: 'Continue a session', body: 'The shared runtime is designed around persistent sessions. Check the deployment and current implementation for supported recovery behavior.' },
