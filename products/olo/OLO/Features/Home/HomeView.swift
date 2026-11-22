@@ -7,7 +7,7 @@ import AVFoundation
 /// NOT a chat UI. The page is built around the OLO entity first; conversation
 /// and controls come second. Gesture model matches the OLO One physical
 /// prototype exactly: tap starts a conversation, long press wakes the agent,
-/// double-tap returns to standby; Privacy is the explicit software equivalent
+/// long press uses push-to-talk; Privacy is the explicit software equivalent
 /// of physically flipping OLO One over.
 struct HomeView: View {
     @Environment(OLOCenter.self) private var center
@@ -26,14 +26,9 @@ struct HomeView: View {
     @State private var toastShown = false
     @State private var listenTask: Task<Void, Never>?
     @Environment(\.scenePhase) private var scenePhase
-    // tap vs double-tap disambiguation — 350 ms matches the prototype
-    @State private var tapCount = 0
-    @State private var tapDebounce: Task<Void, Never>?
-    // long-press tracking
-    @State private var longPressFired = false
-    @State private var pressStartedAt: Date?
+    // Single tap is immediate; long press is a separate 350 ms gesture.
     @State private var pressActivated = false
-    @State private var pressActivationTask: Task<Void, Never>?
+    @State private var suppressNextTap = false
     @State private var pushToTalk = false
     @State private var capturedSpeech = ""
     @State private var listenGeneration = UUID()
@@ -68,9 +63,7 @@ struct HomeView: View {
             microphoneLevel = 0
             voiceMode = false
             speech.stop()
-            pressActivationTask?.cancel()
             listenGeneration = UUID()
-            tapDebounce?.cancel()
             listenTask?.cancel()
             Task { await center.voiceService?.stop() }
         }
@@ -128,22 +121,27 @@ struct HomeView: View {
         .frame(height: 460)
         .accessibilityIdentifier("olo.entity")
         .contentShape(Rectangle())
+        .onTapGesture {
+            guard !suppressNextTap else {
+                suppressNextTap = false
+                return
+            }
+            startConversation()
+        }
         .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in beginPressIfNeeded() }
-                .onEnded { _ in endPress() }
-        )
-        .highPriorityGesture(
-            TapGesture(count: 2)
-                .onEnded {
-                    tapDebounce?.cancel()
-                    tapCount = 0
-                    standby()
+            LongPressGesture(minimumDuration: 0.35, maximumDistance: 20)
+                .onEnded { _ in
+                    pressActivated = true
+                    suppressNextTap = true
+                    startConversation(pushToTalk: true)
                 }
-        )
-        .highPriorityGesture(
-            TapGesture(count: 1)
-                .onEnded { enqueueSingleTap() }
+                .sequenced(before: DragGesture(minimumDistance: 0))
+                .onEnded { _ in
+                    if pressActivated {
+                        pressActivated = false
+                        finishListening()
+                    }
+                }
         )
     }
 
@@ -218,24 +216,6 @@ struct HomeView: View {
     }
 
     // MARK: - Gesture dispatch
-
-    /// Disambiguate single- vs double-tap. First tap increments the counter
-    /// and waits 350 ms; if a second tap arrives in that window the counter
-    /// hits 2 and we cancel the pending single-tap action (the double-tap
-    /// gesture already fired independently via highPriorityGesture).
-    @MainActor
-    private func enqueueSingleTap() {
-        guard !longPressFired, !pressActivated else { longPressFired = false; return }
-        tapCount += 1
-        tapDebounce?.cancel()
-        tapDebounce = Task {
-            try? await Task.sleep(until: .now + .milliseconds(350), clock: .continuous)
-            if Task.isCancelled { return }
-            let count = tapCount
-            tapCount = 0
-            if count == 1 { startConversation() }
-        }
-    }
 
     /// Tap — start listening; if already listening, stop and settle.
     /// Falls back to text input when the voice service is not attached
@@ -328,34 +308,6 @@ struct HomeView: View {
         }
     }
 
-    /// Press-and-hold to talk. A hold only activates after 600ms.
-    @MainActor
-    private func beginPressIfNeeded() {
-        guard pressStartedAt == nil else { return }
-        pressStartedAt = .now
-        pressActivated = false
-        pressActivationTask?.cancel()
-        pressActivationTask = Task {
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled, pressStartedAt != nil else { return }
-            pressActivated = true
-            longPressFired = true
-            tapDebounce?.cancel()
-            tapCount = 0
-            startConversation(pushToTalk: true)
-        }
-    }
-
-    @MainActor
-    private func endPress() {
-        pressStartedAt = nil
-        pressActivationTask?.cancel()
-        pressActivationTask = nil
-        guard pressActivated else { return }
-        pressActivated = false
-        finishListening()
-    }
-
     @MainActor
     private func finishListening() {
         guard center.state == .listening || center.state == .needYou else { return }
@@ -435,14 +387,11 @@ struct HomeView: View {
         voiceMode = false
         microphoneLevel = 0
         center.voiceService?.setLevelHandler(nil)
-        pressActivationTask?.cancel()
-        pressActivationTask = nil
-        pressStartedAt = nil
         pressActivated = false
+        suppressNextTap = false
         pushToTalk = false
         capturedSpeech = ""
         listenGeneration = UUID()
-        tapDebounce?.cancel(); tapCount = 0
         listenTask?.cancel(); listenTask = nil
         Task { await center.voiceService?.stop() }
         center.liveTranscript = ""
