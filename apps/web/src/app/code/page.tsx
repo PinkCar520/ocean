@@ -55,7 +55,7 @@ export default function OceanCodePage() {
         <section id="code-commands" aria-labelledby="code-commands-title" className="mt-24 scroll-mt-24 rounded-3xl bg-[#1c1b1b] p-8 text-white md:p-12">
           <p className="text-xs font-bold uppercase tracking-widest text-[#ff9c70]">Local development</p>
           <h2 id="code-commands-title" className="mt-3 text-3xl font-semibold">Try Ocean Code locally.</h2>
-          <p className="mt-4 max-w-3xl leading-7 text-[#d4cec8]">From a checked-out Ocean repository with dependencies and environment configured, use the CLI development command documented in the README.</p>
+          <p className="mt-4 max-w-3xl leading-7 text-[#d4cec8]">Run these commands from the root of a checked-out Ocean repository. Configure your model provider and any required services before starting the CLI.</p>
           <ol className="mt-7 space-y-4">
             {[
               { label: '1. Install workspace dependencies', command: 'pnpm install' },
