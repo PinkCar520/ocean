@@ -132,12 +132,13 @@ describe('RunRunner', () => {
           { id: 'second', name: 'local_notebook_edit', input: {} },
         ] },
       };
+      if (where?.kind === 'tool_call' && where?.status === 'started') return null;
       if (where?.kind === 'tool_call') return { id: 'unfinished-step' };
       return null;
     });
     tx.runStep.findMany.mockResolvedValue([{ input: { id: 'first' } }]);
-    await expect((runner as any).dispatchRemainingModelTool('run_1', 'user_1', 'normal'))
-      .rejects.toThrow('reconciliation required');
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('reconciliation required') });
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
     expect(tx.agentRun.update).not.toHaveBeenCalled();
   });
