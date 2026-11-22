@@ -102,7 +102,13 @@ export function validateContextBoundary(
   const calls = new Set<string>();
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i];
-    if (message.role === 'tool_call' && message.toolCallId) calls.add(message.toolCallId);
+    if ((message.role === 'tool_call' || message.role === 'tool_result') && !message.toolCallId)
+      throw new ContextBudgetError('Tool history event missing invocation identity');
+    if (message.role === 'tool_call' && message.toolCallId) {
+      if (calls.has(message.toolCallId))
+        throw new ContextBudgetError('Duplicate unsettled tool invocation');
+      calls.add(message.toolCallId);
+    }
     if (message.role === 'tool_result' && message.toolCallId) {
       if (!calls.has(message.toolCallId))
         throw new ContextBudgetError('Tool result has no matching invocation');

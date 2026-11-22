@@ -20,6 +20,15 @@ describe('Core v2 cross-host context contract', () => {
     expect(() => validateContextBoundary(rows, 3)).not.toThrow();
     expect(() => validateContextBoundary(rows, 5)).toThrow(ContextBudgetError);
   });
+  it('rejects missing identities, duplicate outstanding calls and orphan results', () => {
+    expect(() => validateContextBoundary([{ role: 'tool_call' }], 0)).toThrow(/missing invocation identity/);
+    expect(() => validateContextBoundary([
+      { role: 'tool_call', toolCallId: 'a' }, { role: 'tool_call', toolCallId: 'a' },
+      { role: 'tool_result', toolCallId: 'a' },
+    ], 0)).toThrow(/Duplicate unsettled/);
+    expect(() => validateContextBoundary([{ role: 'tool_result', toolCallId: 'a' }], 0))
+      .toThrow(/no matching invocation/);
+  });
   it('rejects compaction that does not reduce actual token count', () => {
     expect(() => validateCompaction({
       beforeTokens: 300, afterTokens: 300, budgetTokens: 1000,
