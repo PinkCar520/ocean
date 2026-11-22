@@ -39,9 +39,9 @@ export default function OceanCodePage() {
           <p className="mt-5 max-w-3xl leading-8 text-[#6f6a65]">Ocean Code is the CLI host. Ocean Workspace is the web host. Both are part of the project&apos;s shared runtime architecture; feature parity and production integration should be verified against the current source and tests.</p>
           <Link href="/#developers" className="mt-5 inline-block font-semibold text-[#ba4b20] underline underline-offset-4">Explore the architecture</Link>
         </section>
-        <section aria-labelledby="code-start" className="mt-24 border-t border-black/10 pt-20">
+        <section id="code-start" aria-labelledby="code-start-title" className="mt-24 scroll-mt-24 border-t border-black/10 pt-20">
           <p className="text-xs font-bold uppercase tracking-widest text-[#e9561b]">Getting started</p>
-          <h2 id="code-start" className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">Start from the source.</h2>
+          <h2 id="code-start-title" className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">Start from the source.</h2>
           <ol className="mt-8 grid gap-5 md:grid-cols-3">
             {[
               ['01', 'Review requirements', 'Read the repository documentation for supported Node.js versions, package management and host configuration.'],
