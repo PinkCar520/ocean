@@ -821,8 +821,11 @@ export class RunRunner {
         select: { input: true },
       });
       const hasStep = steps.some((s) => {
-        const stepInput = (s.input ?? {}) as { toolCall?: { id?: string } };
-        return stepInput.toolCall?.id === toolCall.id;
+        // ToolExecutor persists the ToolCall itself as RunStep.input;
+        // older rows may contain the nested envelope. Both must prevent
+        // a duplicate outbox delivery after a Worker restart.
+        const stepInput = (s.input ?? {}) as { id?: string; toolCall?: { id?: string } };
+        return stepInput.id === toolCall.id || stepInput.toolCall?.id === toolCall.id;
       });
       let hasPending = false;
       if (!hasStep) {
