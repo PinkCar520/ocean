@@ -76,8 +76,8 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
         {/* ── Left Side: Ocean Code brand, aligned with the current product ── */}
         <div className="relative hidden flex-1 overflow-hidden bg-[#1b1b1a] p-12 text-white lg:flex lg:flex-col">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -bottom-[490px] -left-[210px] h-[680px] w-[900px] rounded-[50%] border-2 border-white/10" />
             <div className="absolute -bottom-[490px] -left-[210px] h-[680px] w-[900px] rounded-[50%] border border-[#ed744b]/55 bg-[radial-gradient(ellipse_at_50%_0%,rgba(233,86,27,0.12),transparent_56%)] shadow-[0_-12px_52px_-30px_rgba(233,86,27,0.45)]" />
-            <div className="absolute -bottom-[505px] -left-[195px] h-[680px] w-[900px] rounded-[50%] border border-white/5" />
           </div>
 
           <div className="relative z-10 flex h-full flex-col">
