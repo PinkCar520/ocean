@@ -3,15 +3,15 @@
   "completedTasks": [],
   "currentTask": {
     "id": "M04-persistent-session-lifecycle",
-    "status": "partial",
+    "status": "implemented_unverified",
     "codePaths": [
-      "packages/shared/core/src/agent-execution-engine.ts",
-      "packages/shared/core/src/agent-execution-protocol.spec.ts",
-      "apps/gateway/src/worker/run-runner.spec.ts"
+      "apps/gateway/src/worker/run-runner.ts",
+      "apps/gateway/src/worker/run-runner.spec.ts",
+      "packages/shared/core/src/agent-execution-engine.ts"
     ],
-    "evidence": "Session identity checks and M03 regression expectation correction; full lifecycle unimplemented"
+    "evidence": "Session ownership/parent validation and duplicate-safe transcript commit integrated; tests added but not run"
   },
-  "nextTask": "Finish M04 session transcript append/replay and persistently reconcile Gateway session ownership; M05–M08 pending",
+  "nextTask": "M05 Context Lifecycle: unify context budget and transcript compaction through Core ports",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -79,14 +79,14 @@
       ]
     },
     "M04": {
-      "status": "partial",
-      "implementationStatus": "partial",
+      "status": "implemented_unverified",
+      "implementationStatus": "implemented",
       "verificationStatus": "not_run",
-      "description": "Durable session identity assertion and legacy compatibility; full persistent transcript/session lifecycle pending",
+      "description": "Gateway durable session and parent-message ownership checks, Core stable session identity, idempotent assistant transcript append under Session row lock, regression tests",
       "codePaths": [
-        "packages/shared/core/src/agent-execution-engine.ts",
-        "packages/shared/core/src/agent-execution-protocol.spec.ts",
-        "apps/gateway/src/worker/run-runner.spec.ts"
+        "apps/gateway/src/worker/run-runner.ts",
+        "apps/gateway/src/worker/run-runner.spec.ts",
+        "packages/shared/core/src/agent-execution-engine.ts"
       ]
     },
     "M05": {

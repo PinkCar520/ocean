@@ -162,6 +162,29 @@ export class RunRunner {
           });
           return { ok: false as const, reason: message };
         }
+        // Bind the durable Run to an existing, owned Session before any
+        // model call, transcript read or external tool dispatch.
+        const sessionMetadata = run.metadata && typeof run.metadata === 'object' && !Array.isArray(run.metadata)
+          ? run.metadata as { sessionId?: unknown; chatUserMessageId?: unknown }
+          : undefined;
+        if (sessionMetadata?.sessionId !== undefined) {
+          if (typeof sessionMetadata.sessionId !== 'string' || !sessionMetadata.sessionId.trim())
+            return { ok: false as const, reason: 'Invalid durable session identity' };
+          const session = await tx.session.findFirst({
+            where: { id: sessionMetadata.sessionId, userId, status: 'active' },
+            select: { id: true },
+          });
+          if (!session) return { ok: false as const, reason: 'Durable session is unavailable or not owned by run user' };
+          if (sessionMetadata.chatUserMessageId !== undefined) {
+            if (typeof sessionMetadata.chatUserMessageId !== 'string' || !sessionMetadata.chatUserMessageId.trim())
+              return { ok: false as const, reason: 'Invalid chat parent message identity' };
+            const parent = await tx.message.findFirst({
+              where: { id: sessionMetadata.chatUserMessageId, sessionId: session.id, role: 'user' },
+              select: { id: true },
+            });
+            if (!parent) return { ok: false as const, reason: 'Chat parent message is not in the owned session' };
+          }
+        }
         const claimed = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
         if (!claimed.count) return { ok: false as const, ignored: true as const };
 
@@ -435,11 +458,24 @@ export class RunRunner {
                 ? output.text : '',
             ).join('');
             if (content) {
-              await tx.message.create({ data: {
-                sessionId, parentId, role: 'assistant', content,
-                parts: [{ type: 'text', text: content, completedRunId: runId }],
-              } });
-              await tx.session.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
+              // A recovered worker must never append the same completed Run
+              // twice. The Session row is locked by the fenced transaction.
+              await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${sessionId} FOR UPDATE`;
+              const siblings = await tx.message.findMany({
+                where: { sessionId, parentId, role: 'assistant' },
+                select: { parts: true },
+              });
+              const alreadyCommitted = siblings.some(({ parts }) =>
+                Array.isArray(parts) && parts.some(part =>
+                  part !== null && typeof part === 'object' && !Array.isArray(part) &&
+                  (part as { completedRunId?: unknown }).completedRunId === runId));
+              if (!alreadyCommitted) {
+                await tx.message.create({ data: {
+                  sessionId, parentId, role: 'assistant', content,
+                  parts: [{ type: 'text', text: content, completedRunId: runId }],
+                } });
+                await tx.session.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
+              }
             }
           }
         }

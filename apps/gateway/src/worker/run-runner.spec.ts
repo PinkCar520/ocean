@@ -36,8 +36,8 @@ function createTxMock(
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
     },
-    message: { findFirst: jest.fn(), create: jest.fn() },
-    session: { update: jest.fn() },
+    message: { findFirst: jest.fn().mockResolvedValue({ id: 'parent_1' }), findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+    session: { update: jest.fn(), findFirst: jest.fn().mockResolvedValue({ id: 'session_1' }) },
     outboxEvent: {
       findMany: jest.fn().mockResolvedValue([]),
     },
@@ -195,6 +195,28 @@ describe('RunRunner', () => {
     expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
       error: expect.stringContaining(error) });
     expect(outbox.enqueueToolRequested).not.toHaveBeenCalled();
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
+  it('refuses to execute a Run bound to a missing or foreign Session', async () => {
+    const { runner, tx, gateway } = createRunner({
+      id: 'run_1', userId: 'user_1', status: 'queued', input: 'hello',
+      metadata: { sessionId: 'foreign-session', chatUserMessageId: 'parent_1' },
+    } as never);
+    tx.session.findFirst.mockResolvedValue(null);
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('not owned') });
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
+  it('refuses a chat parent outside its durable Session', async () => {
+    const { runner, tx, gateway } = createRunner({
+      id: 'run_1', userId: 'user_1', status: 'queued', input: 'hello',
+      metadata: { sessionId: 'session_1', chatUserMessageId: 'wrong-parent' },
+    } as never);
+    tx.message.findFirst.mockResolvedValue(null);
+    expect(await runner.execute(job)).toMatchObject({ status: 'failed', retryable: false,
+      error: expect.stringContaining('parent message') });
     expect(gateway.generate).not.toHaveBeenCalled();
   });
 
