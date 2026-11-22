@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUp, Blocks, BookOpen, Cpu, Github, History, Menu, Terminal, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, Blocks, BookOpen, Cpu, GitBranch, History, Menu, Terminal, X } from 'lucide-react';
 
 const repository = 'https://github.com/PinkCar520/ocean';
 const documentation = `${repository}#readme`;
@@ -91,7 +91,7 @@ export function LandingPage() {
           </form>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href="/app" className="rounded-full border border-[#e8e2dd] bg-white px-5 py-2.5 text-sm font-medium hover:border-[#e9561b]">Explore Ocean <ArrowRight className="ml-1 inline" size={14}/></Link>
-            <a href={repository} target="_blank" rel="noopener noreferrer" className="rounded-full px-5 py-2.5 text-sm font-medium hover:bg-black/5"><Github className="mr-2 inline" size={16}/>View source</a>
+            <a href={repository} target="_blank" rel="noopener noreferrer" className="rounded-full px-5 py-2.5 text-sm font-medium hover:bg-black/5"><GitBranch className="mr-2 inline" size={16}/>View source</a>
           </div>
         </section>
 
@@ -119,7 +119,7 @@ export function LandingPage() {
               <h2 className="mt-5 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Built to be extended.</h2>
               <p className="mt-6 max-w-lg leading-8 text-[#77716c]">Explore the CLI, web host, shared runtime, and integration work in the open-source repository. Feature availability depends on your deployment and configuration.</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a href={repository} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#1c1b1b] px-6 py-3 text-sm font-semibold text-white hover:bg-[#e9561b]"><Github size={17}/> Explore GitHub</a>
+                <a href={repository} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#1c1b1b] px-6 py-3 text-sm font-semibold text-white hover:bg-[#e9561b]"><GitBranch size={17}/> Explore GitHub</a>
                 <a href={documentation} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#ded8d3] px-6 py-3 text-sm font-semibold hover:bg-white"><BookOpen size={17}/> Read docs</a>
               </div>
             </div>
