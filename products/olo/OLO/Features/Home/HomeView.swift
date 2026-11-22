@@ -26,12 +26,17 @@ struct HomeView: View {
     @State private var longPressFired = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                entityStage
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    entityStage
+                        .frame(maxWidth: 520)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: geometry.size.height, alignment: .center)
+                .padding(.horizontal, 18)
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 32)
+            .scrollBounceBehavior(.basedOnSize)
         }
         .background(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.87)], startPoint: .top, endPoint: .bottom))
         .scrollIndicators(.hidden)
