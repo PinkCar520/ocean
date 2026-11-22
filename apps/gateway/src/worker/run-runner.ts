@@ -7,7 +7,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { GatewayCoreLifecycle } from './core-lifecycle';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import { countTextTokens, validateCompaction, ContextBudgetError } from '@ocean/core';
+import { countTextTokens, validateCompaction, ContextBudgetError, validateAgentModelDecision } from '@ocean/core';
 import {
   reasoningEffortSchema,
   runEventSchema,
@@ -324,6 +324,12 @@ export class RunRunner {
       if (buffer.length > 0) {
         await this.flushDelta(runId, buffer);
       }
+
+      // Gateway's durable worker and CLI share the Core's model decision
+      // contract before either host schedules tools or completes a turn.
+      validateAgentModelDecision(toolCalls.length
+        ? { kind: 'tools', calls: toolCalls.map(call => ({ id: call.id, name: call.name, input: call.input })) }
+        : { kind: 'complete', text: fullText });
 
       // 5) 模型请求了工具 → 提交首个工具调用（幂等）→ Run queued 等待工具执行
       if (toolCalls.length > 0) {
