@@ -225,7 +225,7 @@ export function LandingPage() {
               <p className="mt-5 max-w-xs text-sm leading-7 text-[#a8a39e]">One Agent Core.<br/>Multiple Hosts.<br/>Persistent Sessions.</p>
               <div className="mt-8 flex flex-wrap items-center gap-3" aria-label="Ocean social media">
                 {socialProfiles.map(profile => {
-                  const symbol = <img src={`/icons/social/${profile.slug}.svg`} alt="" aria-hidden="true" width={19} height={19} className="h-[19px] w-[19px] invert" />;
+                  const symbol = <img src={`/icons/social/${profile.slug}.svg`} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 invert" />;
                   const className = "flex h-10 w-10 items-center justify-center text-[#d4d0cb] transition-opacity";
                   return profile.url
                     ? <a key={profile.label} href={profile.url} target="_blank" rel="noopener noreferrer" aria-label={profile.label} title={profile.label} className={`${className} hover:opacity-70`}>{symbol}</a>
