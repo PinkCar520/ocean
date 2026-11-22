@@ -23,6 +23,7 @@ class VoiceTurn:
 class AgentReply:
     text: str
     session_id: str
+    task_id: str | None = None
 
 
 class SpeechRecognizer(Protocol):
