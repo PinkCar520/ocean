@@ -25,7 +25,15 @@ describe('Core v2 cross-host context contract', () => {
     expect(() => validateContextBoundary([
       { role: 'tool_call', toolCallId: 'a' }, { role: 'tool_call', toolCallId: 'a' },
       { role: 'tool_result', toolCallId: 'a' },
-    ], 0)).toThrow(/Duplicate unsettled/);
+    ], 0)).toThrow(/Duplicate tool invocation/);
+    expect(() => validateContextBoundary([
+      { role: 'tool_call', toolCallId: 'a' }, { role: 'tool_result', toolCallId: 'a' },
+      { role: 'tool_call', toolCallId: 'a' }, { role: 'tool_result', toolCallId: 'a' },
+    ], 0)).toThrow(/Duplicate tool invocation/);
+    expect(() => validateContextBoundary([
+      { role: 'tool_call', toolCallId: 'a' }, { role: 'tool_result', toolCallId: 'a' },
+      { role: 'tool_result', toolCallId: 'a' },
+    ], 0)).toThrow(/Duplicate tool result/);
     expect(() => validateContextBoundary([{ role: 'tool_result', toolCallId: 'a' }], 0))
       .toThrow(/no matching invocation/);
   });

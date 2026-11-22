@@ -100,18 +100,24 @@ export function validateContextBoundary(
   if (!Number.isSafeInteger(boundary) || boundary < 0 || boundary > messages.length)
     throw new ContextBudgetError('Invalid compaction boundary');
   const calls = new Set<string>();
+  const seenCalls = new Set<string>();
+  const seenResults = new Set<string>();
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i];
     if ((message.role === 'tool_call' || message.role === 'tool_result') && !message.toolCallId)
       throw new ContextBudgetError('Tool history event missing invocation identity');
     if (message.role === 'tool_call' && message.toolCallId) {
-      if (calls.has(message.toolCallId))
-        throw new ContextBudgetError('Duplicate unsettled tool invocation');
+      if (seenCalls.has(message.toolCallId))
+        throw new ContextBudgetError('Duplicate tool invocation identity');
+      seenCalls.add(message.toolCallId);
       calls.add(message.toolCallId);
     }
     if (message.role === 'tool_result' && message.toolCallId) {
+      if (seenResults.has(message.toolCallId))
+        throw new ContextBudgetError('Duplicate tool result identity');
       if (!calls.has(message.toolCallId))
         throw new ContextBudgetError('Tool result has no matching invocation');
+      seenResults.add(message.toolCallId);
       calls.delete(message.toolCallId);
     }
     if (i === boundary - 1 && calls.size)
