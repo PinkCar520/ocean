@@ -291,6 +291,21 @@ export function ChatSession({
     sessionIdRef, setIsLocalThinking, userScrolledUpRef, isLoading
   });
 
+  // Prefill a new conversation from the public homepage without automatically sending it.
+  // Only consume the URL hint once, so normal editing and session changes are unaffected.
+  const homepagePromptConsumed = useRef(false);
+  useEffect(() => {
+    if (homepagePromptConsumed.current || sessionId || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const suggestedPrompt = params.get('prompt');
+    if (!suggestedPrompt) return;
+    homepagePromptConsumed.current = true;
+    setLocalInput(suggestedPrompt.slice(0, 8000));
+    params.delete('prompt');
+    const remaining = params.toString();
+    window.history.replaceState(window.history.state, '', window.location.pathname + (remaining ? '?' + remaining : '') + window.location.hash);
+  }, [sessionId, setLocalInput]);
+
   // ── Local UI State ──
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<{ name: string; contentType: string; url: string } | null>(null);
