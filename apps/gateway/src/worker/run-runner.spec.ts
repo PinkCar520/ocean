@@ -419,7 +419,10 @@ describe('RunRunner', () => {
     expect(stepUpdate?.[0].data.output).toEqual({
       text: '我来查：',
       reasoning: 'provider continuation',
-      toolCalls: [{ id: 'tc_1', name: 'echo', input: { text: '查一下' } }],
+      toolCalls: [
+        { id: 'tc_1', name: 'echo', input: { text: '查一下' } },
+        { id: 'tc_2', name: 'echo', input: { text: '再查一次' } },
+      ],
     });
     const emitted = tx.runEvent.create.mock.calls
       .map(call => call[0].data.payload)
