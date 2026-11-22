@@ -265,7 +265,7 @@ export function LandingPage() {
             <textarea id="ocean-prompt" aria-describedby="ocean-prompt-hint" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} placeholder="What would you like to build?" rows={3} className="w-full resize-none bg-transparent px-2 py-1 text-base text-[#1c1b1b] outline-none placeholder:text-[#a7a19c]" />
             <div className="flex items-center justify-between gap-3 pt-2">
               <span id="ocean-prompt-hint" aria-live="off" className="pl-2 text-xs text-[#99918a]">Continue in Ocean · {prompt.length.toLocaleString()}/8,000</span>
-              <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b]"><ArrowUp size={21}/></button>
+              <button type="submit" aria-label="Continue to Ocean workspace" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1c1b1b] text-white transition-colors hover:bg-[#e9561b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9561b]"><ArrowUp size={21}/></button>
             </div>
           </form>
           <p className="mt-3 max-w-2xl text-xs leading-5 text-[#99918a]">Your draft opens in the Ocean workspace for review. Nothing is sent to a model from this page. Your text remains editable before you send it.</p>
