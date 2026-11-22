@@ -9,8 +9,8 @@ const documentation = `${repository}#readme`;
 
 const navigationGroups = [
   { label: 'Product', columns: [
-    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
-    { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Capabilities', href: '/#features' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
+    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/#ocean-code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
+    { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Ocean Code', href: '/#ocean-code' }, { label: 'Capabilities', href: '/#features' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
     { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Capability explorer', href: '/#features' }, { label: 'What you can do', href: '/#use-cases' }, { label: 'Architecture', href: '/#developers' }] },
   ] },
   { label: 'Developers', columns: [
@@ -84,6 +84,12 @@ const useCases = [
     action: 'Explore integrations',
   },
 ];
+
+const productSurfaces = [
+  { name: 'Ocean Code', tag: 'TERMINAL', title: 'Work directly in your codebase.', description: 'Explore the terminal agent, its configuration and available commands in the open-source repository.', href: documentation, action: 'Explore CLI setup', icon: Terminal },
+  { name: 'Ocean Workspace', tag: 'WEB', title: 'A home for conversations and projects.', description: 'Move from a question to an ongoing conversation, with access to projects and the features enabled on your host.', href: '/app', action: 'Open workspace', icon: MessagesSquare },
+  { name: 'Skills & MCP', tag: 'EXTENSIONS', title: 'Extend the agent on your terms.', description: 'Discover supported Skills and integrations. Configure connections and review permissions before use.', href: '/app/integrations', action: 'Explore integrations', icon: PlugZap },
+] as const;
 
 const taskExamples = [
   { label: 'Build', prompt: 'Help me plan and implement a small web application, starting with the project structure.', destination: '/app' },
@@ -259,6 +265,34 @@ export function LandingPage() {
           </form>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href="/app" className="rounded-full border border-[#e8e2dd] bg-white px-5 py-2.5 text-sm font-medium hover:border-[#e9561b]">Explore Ocean <ArrowRight className="ml-1 inline" size={14}/></Link>
+          </div>
+        </section>
+
+        <section id="ocean-code" className="scroll-mt-20 border-t border-[#eee9e5] bg-[#171716] px-6 py-24 text-[#f7f4f0] md:py-32">
+          <div className="mx-auto max-w-6xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff9c70]">Meet Ocean</p>
+            <div className="mt-5 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <h2 className="max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">One platform. The tools you already use.</h2>
+              <p className="max-w-sm text-sm leading-7 text-[#b5ada6]">Discover the real product surfaces behind Ocean, from terminal workflows to the web workspace.</p>
+            </div>
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {productSurfaces.map(({name, tag, title, description, href, action, icon: Icon}) => (
+                <article key={name} className="flex flex-col rounded-[28px] border border-white/15 bg-white/[0.045] p-7 transition-colors hover:border-[#ed865b]/50">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-[#ff9c70]"><Icon size={23}/></span>
+                    <span className="text-[11px] font-semibold tracking-[0.16em] text-[#a9a29c]">{tag}</span>
+                  </div>
+                  <p className="mt-9 text-sm font-semibold text-[#ff9c70]">{name}</p>
+                  <h3 className="mt-3 text-2xl font-semibold leading-tight tracking-[-0.04em]">{title}</h3>
+                  <p className="mt-4 flex-1 text-sm leading-7 text-[#b5ada6]">{description}</p>
+                  <a href={href} className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-white hover:text-[#ff9c70]">{action}<ArrowRight size={16}/></a>
+                </article>
+              ))}
+            </div>
+            <div className="mt-8 rounded-[24px] border border-white/10 bg-[#222120] px-6 py-5 md:flex md:items-center md:justify-between md:gap-6">
+              <div><p className="text-sm font-semibold">Built in the open</p><p className="mt-1 text-xs leading-6 text-[#b5ada6]">Review the source and development status before adopting a capability.</p></div>
+              <a href={repository} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#ff9c70] hover:underline md:mt-0">View on GitHub <ArrowRight size={16}/></a>
+            </div>
           </div>
         </section>
 
