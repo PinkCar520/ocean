@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AgentExecutionEngine, MemoryRuntimeEventStore, type AgentExecutionPorts } from '@ocean/core';
+import { AgentExecutionEngine, MemoryRuntimeEventStore, nextDurableToolCall, type AgentExecutionPorts } from '@ocean/core';
 
 type Message = { role: string; content: string };
 function fixture(decisions: Array<{ kind: 'complete'; text: string } | { kind: 'tools'; calls: Array<{ id: string; name: string; input: unknown }> }>) {
@@ -393,5 +393,25 @@ describe('Skill scopes constrain shared ToolRuntime authorization', () => {
   ports.authorization = { evaluate: async () => 'deny' };
   await expect(engine.run('session', 'host-denied')).rejects.toThrow('denied by policy');
   expect(calls()).toBe(0);
+ });
+});
+
+
+describe('shared durable tool batch scheduling', () => {
+ const calls = [
+  { id: 'a', name: 'shell', input: { cmd: 'one' } },
+  { id: 'b', name: 'shell', input: { cmd: 'two' } },
+ ];
+ it('selects only the next unclaimed sibling and ends after the batch', () => {
+  expect(nextDurableToolCall(calls, new Set(), false)?.id).toBe('a');
+  expect(nextDurableToolCall(calls, new Set(['a']), false)?.id).toBe('b');
+  expect(nextDurableToolCall(calls, new Set(['a', 'b']), false)).toBeUndefined();
+ });
+ it('fails closed when an earlier invocation is unresolved', () => {
+  expect(() => nextDurableToolCall(calls, new Set(['a']), true)).toThrow('reconciliation required');
+ });
+ it('rejects duplicate identities even if they appear claimed', () => {
+  expect(() => nextDurableToolCall([calls[0], calls[0]], new Set(['a']), false))
+   .toThrow('duplicate tool invocation');
  });
 });
