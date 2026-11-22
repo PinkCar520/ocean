@@ -115,6 +115,7 @@ export default function OceanCodePage() {
               ['Where should API keys go?', 'Follow the repository environment configuration guidance. Never commit provider keys or local environment files to source control.'],
               ['Is Ocean Code a model?', 'No. It is a terminal agent interface. Configure a supported model provider and credentials separately.'],
               ['Are Skills and MCP servers enabled by default?', 'Not necessarily. Their availability depends on installation, configuration and permissions.'],
+              ['What is the difference between CLI and Workspace?', 'Ocean Code runs as a terminal host; Ocean Workspace is the web interface. They target shared runtime capabilities but may expose different workflows.'],
               ['Does Ocean Code share everything with the web workspace?', 'The architecture aims to share an Agent Core. Cross-host parity is an architecture goal, not a blanket guarantee. Verify behavior against the current implementation and tests.'],
             ].map(([question, answer]) => <details key={question} className="group py-5"><summary className="cursor-pointer rounded font-semibold focus-visible:outline-2 focus-visible:outline-[#e9561b]">{question}</summary><p className="mt-4 max-w-3xl leading-7 text-[#6f6a65]">{answer}</p></details>)}
           </div>
