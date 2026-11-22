@@ -454,8 +454,8 @@ struct HomeView: View {
         Task { await center.voiceService?.stop() }
         center.liveTranscript = ""
         showingAgentSheet = false
-        withAnimation { center.state = .idle }
-        showToast("已回到待机")
+        withAnimation { center.state = center.privacyMode ? .privacy : .idle }
+        if !center.privacyMode { showToast("已回到待机") }
     }
 
     @MainActor
