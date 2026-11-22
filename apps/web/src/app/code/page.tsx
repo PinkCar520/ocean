@@ -22,6 +22,7 @@ export default function OceanCodePage() {
         <h1 className="mt-6 max-w-4xl text-5xl font-semibold tracking-[-0.06em] md:text-7xl">Bring an agent into your codebase.</h1>
         <p className="mt-8 max-w-2xl text-lg leading-8 text-[#6f6a65]">Explore Ocean Code, the terminal interface to the Ocean agent platform. Review the source and setup requirements before running it in your environment.</p>
         <div className="mt-10 flex flex-wrap gap-3">
+          <a href="#code-start" className="rounded-full border border-[#e9561b] px-6 py-3 font-semibold text-[#ba4b20] hover:bg-[#fff0e8]">Getting started</a>
           <a href={repository} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1c1b1b] px-6 py-3 font-semibold text-white hover:bg-[#e9561b]">Explore source code</a>
           <a href={repository + '#readme'} target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/20 px-6 py-3 font-semibold hover:border-[#e9561b]">Read setup guide</a>
         </div>
