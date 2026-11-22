@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, History, Menu, Terminal, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, Blocks, BookOpen, ChevronDown, Globe2, Cpu, History, Menu, Terminal, X, FolderKanban, MessagesSquare, PlugZap, ShieldCheck } from 'lucide-react';
 
 const repository = 'https://github.com/PinkCar520/ocean';
 const documentation = `${repository}#readme`;
@@ -11,7 +11,7 @@ const navigationGroups = [
   { label: 'Product', columns: [
     { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
     { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
-    { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Architecture', href: '/#developers' }] },
+    { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'What you can do', href: '/#use-cases' }, { label: 'Architecture', href: '/#developers' }] },
   ] },
   { label: 'Developers', columns: [
     { heading: 'Build', links: [{ label: 'Developer overview', href: '/#developers' }, { label: 'Source code', href: repository }, { label: 'Documentation', href: documentation }] },
@@ -55,6 +55,57 @@ const capabilities = [
     title: 'Tools & Skills',
     description: 'Extend Ocean with tools, skills, and MCP integrations.',
     icon: Blocks,
+  },
+];
+
+const useCases = [
+  {
+    eyebrow: 'BUILD',
+    title: 'Turn an idea into working code.',
+    description: 'Bring a task into the Ocean workspace, then continue the work in a conversation. Explore the CLI and its source in the open repository.',
+    icon: Terminal,
+    href: '/app',
+    action: 'Open workspace',
+  },
+  {
+    eyebrow: 'ORGANIZE',
+    title: 'Keep work in context.',
+    description: 'Use conversations and projects to organize ongoing work rather than treating every task as a fresh start.',
+    icon: FolderKanban,
+    href: '/app/projects',
+    action: 'Explore projects',
+  },
+  {
+    eyebrow: 'EXTEND',
+    title: 'Connect the tools you need.',
+    description: 'Discover Skills and integrations in the workspace. Available connections depend on your deployment and configuration.',
+    icon: PlugZap,
+    href: '/app/integrations',
+    action: 'Explore integrations',
+  },
+];
+
+const waysToWork = [
+  {
+    title: 'Talk through a task',
+    description: 'Start with a question, refine the request, and keep the discussion in a conversation.',
+    icon: MessagesSquare,
+    href: '/app/chats',
+    action: 'Conversations',
+  },
+  {
+    title: 'Give Ocean more capabilities',
+    description: 'Find Skills and integration settings without leaving the workspace.',
+    icon: Blocks,
+    href: '/app/skills',
+    action: 'Explore Skills',
+  },
+  {
+    title: 'Understand the system',
+    description: 'Review the architecture, source code, and project status before relying on a capability.',
+    icon: ShieldCheck,
+    href: documentation,
+    action: 'Read documentation',
   },
 ];
 
@@ -182,6 +233,47 @@ export function LandingPage() {
                   <div className="mb-12 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff0e9] text-[#e9561b]"><Icon size={24}/></div>
                   <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
                   <p className="mt-3 text-sm leading-7 text-[#77716c]">{description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="use-cases" className="scroll-mt-20 border-t border-[#eee9e5] bg-[#f5f2ee] px-6 py-24 md:py-32">
+          <div className="mx-auto max-w-6xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">What you can do</p>
+            <div className="mt-5 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <h2 className="max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Less setup. More progress.</h2>
+              <p className="max-w-sm text-sm leading-7 text-[#77716c]">Start with the work you want to do. Find the right Ocean surface as you go.</p>
+            </div>
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {useCases.map(({ eyebrow, title, description, icon: Icon, href, action }) => (
+                <article key={title} className="flex flex-col rounded-[28px] border border-[#e7e1dc] bg-white p-8 shadow-[0_10px_30px_rgba(30,20,12,0.025)]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold tracking-[0.15em] text-[#a15c42]">{eyebrow}</span>
+                    <Icon size={24} className="text-[#e9561b]" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-14 text-2xl font-semibold leading-tight tracking-[-0.04em]">{title}</h3>
+                  <p className="mt-4 flex-1 text-sm leading-7 text-[#77716c]">{description}</p>
+                  <Link href={href} className="mt-10 inline-flex w-fit items-center gap-2 text-sm font-semibold text-[#b34e28] hover:underline">{action}<ArrowRight size={16} /></Link>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="ways-to-work" className="scroll-mt-20 bg-white px-6 py-24 md:py-28">
+          <div className="mx-auto max-w-6xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">Make it yours</p>
+            <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Work your way with Ocean.</h2>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-[#77716c]">From the first conversation to a longer-running project, discover the workspace features and developer tools.</p>
+            <div className="mt-12 grid gap-6 md:grid-cols-3">
+              {waysToWork.map(({ title, description, icon: Icon, href, action }) => (
+                <article key={title} className="border-t border-[#ddd7d1] pt-7">
+                  <Icon size={23} className="text-[#e9561b]" aria-hidden="true" />
+                  <h3 className="mt-7 text-xl font-semibold tracking-tight">{title}</h3>
+                  <p className="mt-3 min-h-[84px] text-sm leading-7 text-[#77716c]">{description}</p>
+                  <a href={href} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold hover:text-[#e9561b]">{action}<ArrowRight size={16} /></a>
                 </article>
               ))}
             </div>
