@@ -50,3 +50,5 @@ jobs:
         run: pnpm --filter web typecheck
       - name: Build web
         run: pnpm --filter web build
+      - name: Smoke test built website
+        run: node apps/web/scripts/smoke.mjs
