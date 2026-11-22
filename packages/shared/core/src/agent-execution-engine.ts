@@ -137,6 +137,29 @@ export function nextAgentExecutionDirective(
 }
 
 /**
+ * The queue-backed host cannot advance the model or the next sibling while
+ * a previous tool claim or outbox delivery is still in flight.
+ * In-process hosts use the same sequential dispatch contract, but settle
+ * each invocation before requesting the next directive.
+ */
+export function planAgentExecutionResume(
+  decision: AgentModelDecision,
+  claimedIds: ReadonlySet<string>,
+  inFlight: { unfinishedTool: boolean; pendingDeliveryIds: readonly string[] },
+): AgentExecutionDirective | { kind: 'wait_for_host' } {
+  validateAgentModelDecision(decision);
+  if (decision.kind === 'complete') return nextAgentExecutionDirective(decision, { claimedIds });
+  const known = new Set(decision.calls.map(call => call.id));
+  if (inFlight.pendingDeliveryIds.some(id => !known.has(id)))
+    throw new Error('Pending delivery absent from model decision; reconciliation required');
+  // Check journal ordering even when blocked by a pending delivery.
+  nextDurableToolCall(decision.calls, claimedIds, false);
+  if (inFlight.unfinishedTool || inFlight.pendingDeliveryIds.length)
+    return { kind: 'wait_for_host' };
+  return nextAgentExecutionDirective(decision, { claimedIds });
+}
+
+/**
  * A single scheduling contract for both the initial model decision and
  * subsequent queue-backed resumptions. The host persists the entire model
  * decision before enqueueing the returned invocation.
