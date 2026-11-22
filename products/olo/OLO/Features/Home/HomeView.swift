@@ -248,7 +248,7 @@ struct HomeView: View {
                         return
                     }
                 }
-                await finishVoice(partial)
+                if listenGeneration == generation && !pushToTalk { await finishVoice(partial) }
             } catch is CancellationError {
                 return
             } catch VoiceError.unauthorized {
@@ -313,6 +313,7 @@ struct HomeView: View {
         listenTask?.cancel()
         listenTask = nil
         pushToTalk = false
+        withAnimation { center.state = .thinking }
         Task {
             await center.voiceService?.stop()
             await finishVoice(finalText)
