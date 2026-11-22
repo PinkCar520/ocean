@@ -176,4 +176,4 @@ async def capture_voice_turn(
         ))
     except RepositoryConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
-    return {"sessionId": reply.session_id, "status": "captured", "message": reply.text}
+    return {"sessionId": reply.session_id, "taskId": reply.task_id, "status": "captured", "message": reply.text}
