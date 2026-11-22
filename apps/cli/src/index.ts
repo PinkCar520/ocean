@@ -54,6 +54,7 @@ const execAsync = promisify(exec);
 // Import submodules (will be created)
 import { runPrintStream, runRepl } from './repl.js';
 import { runDaemon } from './daemon.js';
+import { registerMcpCommands } from './commands/mcp.js';
 import { registerTaskCommands } from './commands/tasks.js';
 import { registerPluginCommands } from './commands/plugins.js';
 import { registerVoiceCommands } from './commands/voice.js';
@@ -564,6 +565,7 @@ program
     }
   });
 
+registerMcpCommands(program);
 registerTaskCommands(program);
 registerPluginCommands(program);
 registerVoiceCommands(program);

@@ -3,6 +3,8 @@ import { collectMcpTools } from '@ocean/core';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
 import type { JsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/types.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { configFile, mutateServers } from './config-store.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { homedir } from 'node:os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -14,7 +16,8 @@ export interface McpServerEntry {
   id: string;
   name: string;
   command: string;
-  type?: 'stdio' | 'http';
+  type?: 'stdio' | 'http' | 'sse';
+  headers?: Record<string,string>;
   url?: string;
   args: string[];
   env?: Record<string, string>;
@@ -41,7 +44,7 @@ export class McpClientManager {
   private toolRoutes = new Map<string, { serverId: string; toolName: string }>();
   private validators = new Map<string, JsonSchemaValidator<unknown>>();
   private config: McpConfigFile | null = null;
-  private trustedConfig = false;
+  private origins = new Map<string, { scope: string; file: string; trusted: boolean }>();
   private readonly sdkTransports = new Map<string, () => Transport>();
 
   private readonly diagnostics = new Map<string, { serverId: string; state: string }>();
@@ -60,54 +63,42 @@ export class McpClientManager {
   async loadConfig(configPath?: string) {
     await this.disconnectAll();
     this.config = null;
-    this.trustedConfig = false;
+    this.origins.clear();
     this.diagnostics.clear();
     this.sdkTransports.clear();
     const workspace = path.resolve(this.cliConfig.workspacePath ?? process.cwd());
     const oceanRoot = findRoot(workspace);
-    const pathsToTry = [
-      configPath,
-      path.join(homedir(), '.ocean', 'mcp.json'),
-      path.join(workspace, '.mcp.json'),
-      path.join(workspace, '.claude', 'mcp.json'),
-      path.join(workspace, '.ocean', 'mcp.json'),
-      oceanRoot ? path.join(oceanRoot, '.ocean', 'mcp.json') : null,
-    ].filter(Boolean) as string[];
-
-    for (const p of pathsToTry) {
-      if (fs.existsSync(p!)) {
-        const info = fs.lstatSync(p);
-        if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024) throw new Error('Unsafe MCP configuration');
-        if (path.resolve(p) === path.join(homedir(), '.ocean', 'mcp.json') && (info.mode & 0o077)) throw new Error('Personal MCP credentials require private file permissions');
-        const raw = fs.readFileSync(p!, 'utf-8');
-        this.config = normalizeMcpConfig(JSON.parse(raw));
-        // Repository enabled flags cannot grant trust to executable configuration.
-        this.trustedConfig = Boolean(configPath) || path.resolve(p) === path.join(homedir(), '.ocean', 'mcp.json');
-        if (!this.trustedConfig) {
-          this.config.mcpServers = this.config.mcpServers.map((server) => ({ ...server, enabled: false }));
-        }
-        // Resolve ${OCEAN_ROOT} in paths
-        if (oceanRoot && this.config) {
-          this.config.mcpServers = this.config.mcpServers.map((s: McpServerEntry) => ({
-            ...s,
-            command: replaceEnvVars(s.command, {
-              ...process.env,
-              OCEAN_ROOT: oceanRoot,
-              GATEWAY_ROOT: process.env.GATEWAY_ROOT || path.join(oceanRoot, 'apps', 'gateway'),
-            }),
-            args: s.args.map((arg) => replaceEnvVars(arg, {
-              ...process.env,
-              OCEAN_ROOT: oceanRoot,
-              GATEWAY_ROOT: process.env.GATEWAY_ROOT || path.join(oceanRoot, 'apps', 'gateway'),
-            })),
-          }));
-        }
-        return;
+    const candidates = configPath ? [{ file: configPath, scope: 'Explicit', trusted: true }] : [
+      { file: path.join(homedir(), '.ocean', 'mcp.json'), scope: 'User', trusted: true },
+      { file: path.join(workspace, '.ocean', 'mcp.json'), scope: 'Project', trusted: false },
+      { file: configFile('local', workspace), scope: 'Local', trusted: true },
+    ];
+    const merged = new Map<string, McpServerEntry>();
+    for (const origin of candidates) {
+      if (!fs.existsSync(origin.file)) continue;
+      const info = fs.lstatSync(origin.file);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024) throw new Error('Unsafe MCP configuration');
+      if (origin.trusted && origin.scope !== 'Explicit' && (info.mode & 0o077)) throw new Error('Personal MCP credentials require private file permissions');
+      const config = normalizeMcpConfig(JSON.parse(fs.readFileSync(origin.file, 'utf8')));
+      for (const server of config.mcpServers) {
+        this.origins.set(server.id, origin);
+        merged.set(server.id, { ...server, enabled: origin.trusted && server.enabled === true });
       }
     }
+    this.config = { mcpServers: [...merged.values()] };
+    if (oceanRoot) {
+      const env = { ...process.env, OCEAN_ROOT: oceanRoot, GATEWAY_ROOT: process.env.GATEWAY_ROOT || path.join(oceanRoot, 'apps', 'gateway') };
+      this.config.mcpServers = this.config.mcpServers.map(s => ({ ...s, command: replaceEnvVars(s.command, env), args: s.args.map(a => replaceEnvVars(a, env)) }));
+    }
+  }
 
-    console.error('[MCP] No config file found, using defaults');
-    this.config = { mcpServers: [] };
+  getManagedServers() {
+    return this.getServerStatuses().map(status => {
+      const server = this.config!.mcpServers.find(s => s.id === status.name)!;
+      const origin = this.origins.get(status.name);
+      return { ...status, scope: origin?.scope ?? 'SDK', file: origin?.file ?? '', transport: this.sdkTransports.has(status.name) ? 'sdk' : server.type ?? 'stdio', trusted: origin?.trusted ?? this.sdkTransports.has(status.name),
+        tools: [...this.toolRoutes.entries()].filter(([, route]) => route.serverId === status.name).map(([name]) => name) };
+    });
   }
 
   addSdkServers(names: readonly string[], transport: (name: string) => Transport): void {
@@ -162,9 +153,13 @@ export class McpClientManager {
   async configureServer(id: string, enabled?: boolean): Promise<void> {
     const server = this.config?.mcpServers.find(entry => entry.id === id);
     if (!server) throw new Error(`Unknown MCP server: ${id}`);
-    if (enabled !== false && !this.trustedConfig && !this.sdkTransports.has(id)) throw new Error('The MCP server is configured by an untrusted workspace.');
+    if (enabled !== false && !this.origins.get(id)?.trusted && !this.sdkTransports.has(id)) throw new Error('The MCP server is configured by an untrusted workspace.');
     if (enabled === undefined && server.enabled !== true) throw new Error('Enable the MCP server before reconnecting.');
-    if (enabled !== undefined) server.enabled = enabled;
+    if (enabled !== undefined) {
+      const origin = this.origins.get(id);
+      if (origin?.trusted && origin.scope !== 'Explicit') mutateServers(origin.file, entries => entries.map(entry => entry.id === id ? {...entry, enabled} : entry));
+      server.enabled = enabled;
+    }
     await this.disconnectServer(id);
     this.diagnostics.delete(id);
     if (server.enabled !== true) return;
@@ -221,8 +216,9 @@ export class McpClientManager {
     }
 
     if (this.clients.has(server.id)) return;
-    const transport = this.sdkTransports.get(server.id)?.() ?? (server.type === 'http'
-      ? new StreamableHTTPClientTransport(new URL(server.url!))
+    const headers = Object.fromEntries(Object.entries(server.headers ?? {}).map(([k,v])=>[k,replaceEnvVars(v,process.env)]));
+    const transport = this.sdkTransports.get(server.id)?.() ?? (server.type === 'sse' ? new SSEClientTransport(new URL(server.url!), {requestInit:{headers}}) : server.type === 'http'
+      ? new StreamableHTTPClientTransport(new URL(server.url!), {requestInit:{headers}})
       : new StdioClientTransport({
       command: replaceEnvVars(server.command, process.env),
       args: resolvedArgs,
@@ -375,12 +371,12 @@ export function normalizeMcpConfig(value: unknown): McpConfigFile {
       throw new Error(`MCP server id is invalid or duplicated: ${id}`);
     }
     ids.add(id);
-    if (raw?.type !== undefined && !['stdio', 'http'].includes(raw.type)) throw new Error('Unsupported MCP transport');
-    if (raw?.type === 'http') {
+    if (raw?.type !== undefined && !['stdio', 'http', 'sse', 'streamable-http'].includes(raw.type)) throw new Error('Unsupported MCP transport');
+    if (['http','sse','streamable-http'].includes(raw?.type)) {
       const url = new URL(raw.url);
       if (url.username || url.password || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))) throw new Error('Unsafe MCP HTTP URL');
     }
-    if (raw?.type !== 'http' && (typeof raw?.command !== 'string' || !raw.command.trim())) {
+    if (!['http','sse','streamable-http'].includes(raw?.type) && (typeof raw?.command !== 'string' || !raw.command.trim())) {
       throw new Error(`MCP server ${id} must define a stdio command`);
     }
     if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') {
@@ -394,10 +390,13 @@ export function normalizeMcpConfig(value: unknown): McpConfigFile {
       || Object.values(env).some((item) => typeof item !== 'string')) {
       throw new Error(`MCP server ${id} env must contain string values`);
     }
+    const headers = raw.headers ?? {};
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers) || Object.values(headers).some(v=>typeof v!=='string')) throw new Error('Invalid MCP headers');
     return {
       id,
+      headers,
       name: typeof raw.name === 'string' && raw.name.trim() ? raw.name : id,
-      type: raw.type ?? 'stdio',
+      type: raw.type === 'streamable-http' ? 'http' : raw.type ?? 'stdio',
       url: raw.url,
       command: raw.command ?? '',
       args: raw.args ?? [],
