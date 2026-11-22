@@ -36,7 +36,7 @@ jobs:
         run: node --test scripts/ci-gate.test.mjs
       - name: TypeScript checks
         run: pnpm run ci:typecheck
-      - name: CLI and Gateway unit tests
+      - name: Core, CLI and Gateway unit tests
         run: pnpm run ci:unit
       - name: Gateway HTTP E2E
         run: pnpm run ci:e2e

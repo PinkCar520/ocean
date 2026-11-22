@@ -49,11 +49,13 @@
     "tiktoken": "^1.0.22"
   },
   "scripts": {
-    "build": "pnpm --filter @ocean/contracts build && tsc"
+    "build": "pnpm --filter @ocean/contracts build && tsc",
+    "test": "vitest run src/agent-execution-protocol.spec.ts src/context-engine.spec.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^3.2.6"
   },
   "typesVersions": {
     "*": {

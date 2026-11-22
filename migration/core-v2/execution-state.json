@@ -2,14 +2,15 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M05-context-lifecycle",
-    "status": "partial",
+    "id": "M08-ci-test-wiring",
+    "status": "implemented_unverified",
     "codePaths": [
-      "packages/shared/core/src/context-engine.ts",
-      "apps/gateway/src/worker/run-runner.ts",
-      "packages/shared/core/src/context-engine.spec.ts"
+      "packages/shared/core/package.json",
+      "pnpm-lock.yaml",
+      "package.json",
+      ".github/workflows/ci.yml"
     ],
-    "evidence": "Added context invariants and tests; no CI execution"
+    "evidence": "Vitest dependency, frozen lockfile importer and Core CI test execution wired; await CI"
   },
   "nextTask": "Complete M05 cross-host compaction integration, M06 recovery, M07 acceptance suite, M08 CI and final verification",
   "acceptance": {
@@ -138,6 +139,9 @@
       "workflow_dispatch",
       "workflow_call"
     ],
-    "observation": "Push trigger expanded to feat/core-v2-final-integration; workflow run evidence must be inspected after push"
+    "observation": "Push trigger expanded to feat/core-v2-final-integration; workflow run evidence must be inspected after push",
+    "observedRun": 44978776737,
+    "observedFailure": "TS2307 vitest imports in shared Core specs",
+    "fix": "Declare Vitest in Core devDependencies and lockfile; execute both specs in ci:unit"
   }
 }
