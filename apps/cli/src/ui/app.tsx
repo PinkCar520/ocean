@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { toAgentToolSet } from '../tools/index.js';
 import { discoverSkills } from '../skills/loader.js';
 import { SkillAvailability } from '../skills/availability.js';
+import { McpPanel } from './mcp-panel.js';
 import { SkillsPanel } from './skills-panel.js';
 import { McpClientManager } from '../mcp/client.js';
 import { SessionStore, type StoredSession } from '../utils/session-store.js';
@@ -76,6 +77,7 @@ export function InkApp(props: InkAppProps) {
     [props.workspace, props.toolContext.getPermissionMode],
   );
   const permissionMode = permissionPolicy.getMode();
+  const [mcpOpen, setMcpOpen] = useState(false);
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [, refreshSkills] = useState(0);
   const [commandOutput, setCommandOutput] = useState<string | null>(null);
@@ -128,6 +130,7 @@ export function InkApp(props: InkAppProps) {
     setError(null);
     setStreamingText('');
 
+    if (trimmed.toLowerCase() === '/mcp') { setMcpOpen(true); return; }
     if (trimmed.toLowerCase() === '/skills') { setSkillsOpen(true); return; }
     if (trimmed.startsWith('/') && !props.skills.some((skill) => skill.manifest.name === trimmed.slice(1).split(/\s+/)[0])) {
       handleCommand(trimmed);
@@ -142,6 +145,9 @@ export function InkApp(props: InkAppProps) {
     activeAbortController.current = abortController;
 
     try {
+      const refreshed = await toAgentToolSet(props.toolContext, props.mcpManager, props.skills, props.sessionStore);
+      for (const name of Object.keys(props.tools)) delete props.tools[name];
+      Object.assign(props.tools, refreshed);
       const model = props.modelRouter.getModel(selectedModel);
       const systemPrompt = props.skillAvailability ? buildSystemPrompt(userId, props.skills, props.workspace) : props.systemPrompt;
       const allMessages = [...messages, userMsg];
@@ -295,7 +301,7 @@ export function InkApp(props: InkAppProps) {
           '  /model [name]      - Switch model\n' +
           '  /skills            - List available skills\n' +
           '  /tools             - List available tools\n' +
-          '  /mcp               - List MCP tools\n' +
+          '  /mcp               - Manage MCP servers\n' +
           '  /exit, /quit       - Exit REPL',
         );
         setCommandType('help');
@@ -452,13 +458,7 @@ export function InkApp(props: InkAppProps) {
         break;
 
       case 'mcp':
-        if (props.mcpTools.length === 0) {
-          setCommandOutput('No MCP tools available');
-        } else {
-          const toolList = props.mcpTools.map(t => `  ${t.name} - ${t.description}`).join('\n');
-          setCommandOutput(`▨ MCP Tools:\n${toolList}`);
-        }
-        setCommandType('mcp');
+        setMcpOpen(true);
         break;
 
       case 'exit':
@@ -499,7 +499,7 @@ export function InkApp(props: InkAppProps) {
     if (input === 'd' && key.ctrl) {
       exit();
     }
-  }, { isActive: !skillsOpen });
+  }, { isActive: !skillsOpen && !mcpOpen });
 
   return (
     <Box ref={rootRef} flexDirection="column" width="100%">
@@ -530,13 +530,14 @@ export function InkApp(props: InkAppProps) {
         />
       )}
 
+      {mcpOpen && <McpPanel manager={props.mcpManager} onClose={() => setMcpOpen(false)} />}
       {skillsOpen && <SkillsPanel skills={props.skillAvailability?.catalog ?? props.skills}
         enabled={skill => props.skills.includes(skill)}
         onToggle={skill => {
           try { props.skillAvailability?.toggle(skill); refreshSkills(n => n + 1); }
           catch (err) { setError(String(err)); }
         }} onClose={() => setSkillsOpen(false)} />}
-      <Box display={skillsOpen ? 'none' : 'flex'} flexDirection="column">
+      <Box display={skillsOpen || mcpOpen ? 'none' : 'flex'} flexDirection="column">
       <MessageInput
         key={props.activeSession.session.id}
         history={messages.flatMap((message) => {
@@ -550,7 +551,7 @@ export function InkApp(props: InkAppProps) {
         onSubmit={handleSubmit}
         frameHeight={frameHeight}
         rowsBelowInput={showExitHint ? 1 : 0}
-        isActive={!pendingApproval && !skillsOpen}
+        isActive={!pendingApproval && !skillsOpen && !mcpOpen}
       />
 
       </Box>
