@@ -217,7 +217,7 @@ export function LandingPage() {
           </div>
         )}
         {menuOpen && (
-          <div className="flex flex-col gap-1 border-t border-black/10 px-6 py-3 text-sm md:hidden">
+          <div id="ocean-mobile-navigation" role="navigation" aria-label="Mobile navigation" className="flex flex-col gap-1 border-t border-black/10 px-6 py-3 text-sm md:hidden">
             {navigationGroups.map(group => (
               <div key={group.label} className="border-b border-black/5">
                 <button type="button" className="flex w-full items-center justify-between py-3 text-left font-medium"
