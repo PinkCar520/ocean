@@ -443,3 +443,26 @@ describe('durable model decision planner', () => {
    .toThrow('duplicate tool invocation');
  });
 });
+
+
+describe('durable journal prefix invariants', () => {
+ const calls = [
+  { id: 'a', name: 'shell', input: {} },
+  { id: 'b', name: 'shell', input: {} },
+  { id: 'c', name: 'shell', input: {} },
+ ];
+ it('rejects an out-of-order claimed sibling', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['b'])))
+   .toThrow('Non-contiguous durable tool claims');
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['a', 'c'])))
+   .toThrow('Non-contiguous durable tool claims');
+ });
+ it('rejects claims not belonging to the current model decision', () => {
+  expect(() => planDurableModelDecision({ kind: 'tools', calls }, new Set(['old-run'])))
+   .toThrow('absent from the model decision');
+ });
+ it('allows an ordered prefix and schedules exactly the next invocation', () => {
+  expect(planDurableModelDecision({ kind: 'tools', calls }, new Set(['a', 'b'])))
+   .toMatchObject({ kind: 'dispatch', call: calls[2] });
+ });
+});
