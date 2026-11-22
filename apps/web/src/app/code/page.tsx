@@ -101,6 +101,7 @@ export default function OceanCodePage() {
               ['CLI implementation', repository + '/tree/main/apps/cli'],
               ['Setup and README', repository + '#readme'],
               ['Architecture documents', repository + '/tree/main/docs/architecture/v2'],
+              ['MCP deployment guide', repository + '/blob/main/docs/deployment/DOCKER_MCP_DEPLOYMENT.md'],
               ['Releases', repository + '/releases'],
               ['Issues and feedback', repository + '/issues'],
               ['Contributing', repository + '/blob/main/CONTRIBUTING.md'],
