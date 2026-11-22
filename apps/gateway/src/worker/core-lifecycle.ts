@@ -35,6 +35,8 @@ export class GatewayCoreLifecycle {
     const runtime = this.runtime(tx);
     let current = await this.snapshot(tx, runId);
     if (!current) current = await runtime.create(runId, sessionId || runId);
+    if (sessionId && current.sessionId !== sessionId)
+      throw new Error('Gateway runtime session identity mismatch');
     if (Object.values(current.pendingTools).some(value => value === 'prepared' || value === 'unknown'))
       throw new Error('Gateway recovery requires tool journal reconciliation; automatic replay prohibited');
     // A proposed call remains authoritative across every state transition.
