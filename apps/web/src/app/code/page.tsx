@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   description: 'Explore the Ocean Code terminal agent, source code, runtime architecture, and setup documentation.',
   keywords: ['Ocean Code', 'AI coding agent', 'terminal agent', 'MCP', 'Skills'],
   twitter: { card: 'summary_large_image', title: 'Ocean Code — Terminal agent' },
+  openGraph: { title: 'Ocean Code — Terminal agent', description: 'Bring an agent into your codebase.' },
 };
 
 export default function OceanCodePage() {
