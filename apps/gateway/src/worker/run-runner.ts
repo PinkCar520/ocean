@@ -169,20 +169,20 @@ export class RunRunner {
           : undefined;
         if (sessionMetadata?.sessionId !== undefined) {
           if (typeof sessionMetadata.sessionId !== 'string' || !sessionMetadata.sessionId.trim())
-            return { ok: false as const, reason: 'Invalid durable session identity' };
+            throw new Error('Invalid durable session identity');
           const session = await tx.session.findFirst({
             where: { id: sessionMetadata.sessionId, userId, status: 'active' },
             select: { id: true },
           });
-          if (!session) return { ok: false as const, reason: 'Durable session is unavailable or not owned by run user' };
+          if (!session) throw new Error('Durable session is unavailable or not owned by run user');
           if (sessionMetadata.chatUserMessageId !== undefined) {
             if (typeof sessionMetadata.chatUserMessageId !== 'string' || !sessionMetadata.chatUserMessageId.trim())
-              return { ok: false as const, reason: 'Invalid chat parent message identity' };
+              throw new Error('Invalid chat parent message identity');
             const parent = await tx.message.findFirst({
               where: { id: sessionMetadata.chatUserMessageId, sessionId: session.id, role: 'user' },
               select: { id: true },
             });
-            if (!parent) return { ok: false as const, reason: 'Chat parent message is not in the owned session' };
+            if (!parent) throw new Error('Chat parent message is not in the owned session');
           }
         }
         const claimed = await tx.agentRun.updateMany({ where: { id: runId, userId, status: { in: ['queued', 'running'] } }, data: { status: 'running' } });
@@ -1059,6 +1059,7 @@ export class RunRunner {
   ): Promise<RunExecutionResult> {
     const { runId } = job.payload;
     const message = error instanceof Error ? error.message : String(error);
+    // Ownership and Session integrity violations are terminal, never replayed.
     const failureDirective = this.executionDriver.failure(error instanceof RetryableError);
     const retryable = failureDirective.kind === 'retry';
     let ignored = false;

@@ -2,17 +2,15 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M08-ci-test-wiring",
-    "status": "implemented_unverified",
+    "id": "M06-crash-recovery",
+    "status": "partial",
     "codePaths": [
-      "packages/shared/core/package.json",
-      "pnpm-lock.yaml",
-      "package.json",
-      ".github/workflows/ci.yml"
+      "apps/gateway/src/worker/run-runner.ts",
+      "apps/gateway/src/worker/run-runner.spec.ts"
     ],
-    "evidence": "Vitest dependency, frozen lockfile importer and Core CI test execution wired; await CI"
+    "evidence": "Durable session errors enter terminal persistence; CI pending"
   },
-  "nextTask": "Complete M05 cross-host compaction integration, M06 recovery, M07 acceptance suite, M08 CI and final verification",
+  "nextTask": "Finish M06 recovery tests and M07 cross-host suite, then M08 verification",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -105,7 +103,7 @@
       "status": "partial",
       "implementationStatus": "partial",
       "verificationStatus": "not_run",
-      "description": "Durable recovery ignores stale prior-batch pending outbox deliveries, while preserving unresolved current-batch fences; additional crash cases remain",
+      "description": "Fail closed on durable session corruption by throwing into fenced terminal failure persistence; remaining crash recovery and outbox integration pending",
       "codePaths": [
         "apps/gateway/src/worker/run-runner.ts",
         "apps/gateway/src/worker/run-runner.spec.ts"
