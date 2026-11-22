@@ -518,7 +518,9 @@ export class RunRunner {
         typeof cached.boundary === 'number' && Number.isSafeInteger(cached.boundary) &&
         cached.boundary > 0 && cached.boundary <= history.length &&
         typeof cached.summary === 'string' && Boolean(cached.summary) &&
-        cached.fingerprint === fingerprint(cached.boundary)) {
+        cached.fingerprint === fingerprint(cached.boundary) &&
+        cached.budgetTokens === historyBudget &&
+        cached.sessionId === metadata.sessionId) {
       const rows = history.slice(cached.boundary);
       const after = countTextTokens(JSON.stringify(rows)) + countTextTokens(cached.summary);
       if (after < historyBudget && after < countTextTokens(JSON.stringify(history))) {
@@ -545,7 +547,9 @@ export class RunRunner {
           typeof saved.boundary === 'number' && Number.isSafeInteger(saved.boundary) &&
           saved.boundary > 0 && saved.boundary <= history.length &&
           typeof saved.summary === 'string' && saved.summary &&
-          saved.fingerprint === fingerprint(saved.boundary)) {
+          saved.fingerprint === fingerprint(saved.boundary) &&
+          saved.budgetTokens === historyBudget &&
+          saved.sessionId === metadata.sessionId) {
         previousBoundary = saved.boundary;
         previousSummary = saved.summary;
       }
@@ -610,7 +614,7 @@ export class RunRunner {
       });
       await this.fencedTransaction(async tx => {
         await tx.agentRun.update({ where: { id: runId }, data: {
-          metadata: { ...metadata, chatCompaction: { boundary, summary, fingerprint: fingerprint(boundary), ...(summaryUsage && { usage: summaryUsage }) } } as Prisma.InputJsonValue,
+          metadata: { ...metadata, chatCompaction: { boundary, summary, sessionId: metadata.sessionId, budgetTokens: historyBudget, fingerprint: fingerprint(boundary), ...(summaryUsage && { usage: summaryUsage }) } } as Prisma.InputJsonValue,
         } });
       });
     } else if (afterTokens >= historyBudget) {

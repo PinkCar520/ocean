@@ -71,3 +71,45 @@ export function validateCachedCompaction(
     summaryValid: true, toolPairsClosed: true, preservesRequiredContext: true,
   });
 }
+
+/** Immutable prefix identity: compaction caches are never portable across edits or forks. */
+export interface ContextCacheIdentity {
+  sessionId: string;
+  boundary: number;
+  prefixFingerprint: string;
+  budgetTokens: number;
+}
+export function canReuseContextCache(
+  cached: ContextCacheIdentity,
+  current: ContextCacheIdentity,
+): boolean {
+  return Boolean(current.sessionId && current.prefixFingerprint) &&
+    Number.isSafeInteger(current.boundary) && current.boundary > 0 &&
+    Number.isSafeInteger(current.budgetTokens) && current.budgetTokens > 0 &&
+    cached.sessionId === current.sessionId &&
+    cached.boundary === current.boundary &&
+    cached.prefixFingerprint === current.prefixFingerprint &&
+    cached.budgetTokens === current.budgetTokens;
+}
+
+/** Compaction must preserve complete tool-call/result pairs and active instructions. */
+export function validateContextBoundary(
+  messages: readonly { role: string; toolCallId?: string }[],
+  boundary: number,
+): void {
+  if (!Number.isSafeInteger(boundary) || boundary < 0 || boundary > messages.length)
+    throw new ContextBudgetError('Invalid compaction boundary');
+  const calls = new Set<string>();
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    if (message.role === 'tool_call' && message.toolCallId) calls.add(message.toolCallId);
+    if (message.role === 'tool_result' && message.toolCallId) {
+      if (!calls.has(message.toolCallId))
+        throw new ContextBudgetError('Tool result has no matching invocation');
+      calls.delete(message.toolCallId);
+    }
+    if (i === boundary - 1 && calls.size)
+      throw new ContextBudgetError('Compaction boundary splits a tool invocation and result');
+  }
+  if (calls.size) throw new ContextBudgetError('Unsettled tool invocation in context');
+}

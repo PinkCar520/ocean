@@ -2,19 +2,16 @@
   "phase": "P0 Execution Unification",
   "completedTasks": [],
   "currentTask": {
-    "id": "M05-M08-integrated-change-set",
+    "id": "M05-context-lifecycle",
     "status": "partial",
     "codePaths": [
       "packages/shared/core/src/context-engine.ts",
-      "packages/shared/core/src/index.ts",
       "apps/gateway/src/worker/run-runner.ts",
-      "apps/gateway/src/worker/run-runner.spec.ts",
-      "packages/shared/core/src/agent-execution-protocol.spec.ts",
-      ".github/workflows/ci.yml"
+      "packages/shared/core/src/context-engine.spec.ts"
     ],
-    "evidence": "Context, recovery, contract tests and CI trigger committed together; not verified"
+    "evidence": "Added context invariants and tests; no CI execution"
   },
-  "nextTask": "Run CI and PostgreSQL integration, fix any failures; finish M06-M08 and A01-A20 before acceptance",
+  "nextTask": "Complete M05 cross-host compaction integration, M06 recovery, M07 acceptance suite, M08 CI and final verification",
   "acceptance": {
     "A01": "implemented",
     "A02": "implemented",
@@ -93,14 +90,14 @@
       ]
     },
     "M05": {
-      "status": "implemented_unverified",
-      "implementationStatus": "implemented",
+      "status": "partial",
+      "implementationStatus": "partial",
       "verificationStatus": "not_run",
-      "description": "Core validates compaction boundaries, cached-summary reduction and budget; Gateway applies shared checks before persistent summaries; unit coverage",
+      "description": "Core context cache identity and tool-pair boundary invariants; Gateway cached summaries now tied to session identity and budget. Full cross-host compaction unification remains pending.",
       "codePaths": [
         "packages/shared/core/src/context-engine.ts",
         "apps/gateway/src/worker/run-runner.ts",
-        "packages/shared/core/src/agent-execution-protocol.spec.ts"
+        "packages/shared/core/src/context-engine.spec.ts"
       ]
     },
     "M06": {
