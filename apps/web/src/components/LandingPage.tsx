@@ -426,7 +426,7 @@ export function LandingPage() {
             <div className="mt-10 divide-y divide-[#e9e4df] border-y border-[#e9e4df]">
               {commonQuestions.map(item => (
                 <details key={item.question} className="group py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-base font-semibold marker:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-5 rounded-lg text-base font-semibold marker:hidden focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#e9561b]">
                     {item.question}<ChevronDown size={20} className="shrink-0 text-[#a15c42] transition-transform group-open:rotate-180"/>
                   </summary>
                   <p className="max-w-2xl pb-2 pt-4 text-sm leading-7 text-[#77716c]">{item.answer}</p>
