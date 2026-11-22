@@ -180,7 +180,7 @@ export function LandingPage() {
             {navigationGroups.map(group => (
               <button key={group.label} type="button"
                 className={`flex h-full items-center gap-1.5 border-b-2 transition-colors ${activeMenu === group.label ? 'border-[#e9561b] text-[#e9561b]' : 'border-transparent hover:text-[#e9561b]'}`}
-                aria-expanded={activeMenu === group.label} aria-controls="ocean-mega-menu"
+                aria-expanded={activeMenu === group.label} aria-haspopup="true" aria-controls="ocean-mega-menu"
                 onMouseEnter={() => setActiveMenu(group.label)}
                 onFocus={() => setActiveMenu(group.label)}
                 onClick={() => setActiveMenu(activeMenu === group.label ? null : group.label)}>
