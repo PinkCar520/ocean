@@ -52,7 +52,7 @@ export default function OceanCodePage() {
           <p className="mt-5 max-w-3xl leading-8 text-[#6f6a65]">Ocean Code is the CLI host. Ocean Workspace is the web host. Both are part of the project&apos;s shared runtime architecture; feature parity and production integration should be verified against the current source and tests.</p>
           <Link href="/#developers" className="mt-5 inline-block font-semibold text-[#ba4b20] underline underline-offset-4">Explore the architecture</Link>
         </section>
-        <section id="code-commands" aria-labelledby="code-commands-title" className="mt-24 rounded-3xl bg-[#1c1b1b] p-8 text-white md:p-12">
+        <section id="code-commands" aria-labelledby="code-commands-title" className="mt-24 scroll-mt-24 rounded-3xl bg-[#1c1b1b] p-8 text-white md:p-12">
           <p className="text-xs font-bold uppercase tracking-widest text-[#ff9c70]">Local development</p>
           <h2 id="code-commands-title" className="mt-3 text-3xl font-semibold">Try Ocean Code locally.</h2>
           <p className="mt-4 max-w-3xl leading-7 text-[#d4cec8]">From a checked-out Ocean repository with dependencies and environment configured, use the CLI development command documented in the README.</p>
