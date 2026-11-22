@@ -151,6 +151,36 @@ actor OLOControlPlaneClient {
         }
     }
 
+    /// Optional, explicit opt-in bridge for final Apple Speech transcripts.
+    /// Unlike the durable action outbox, this never persists the credential or
+    /// a personal transcript to disk. Failure does not block local execution.
+    func captureVoiceTranscript(
+        _ transcript: String,
+        subjectID: String,
+        sessionID: String,
+        bodyID: String,
+        token: String
+    ) async throws {
+        let url = baseURL.appending(path: "/v1/voice/turns")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(token, forHTTPHeaderField: "X-OLO-Voice-Token")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "subjectId": subjectID,
+            "sessionId": sessionID,
+            "sourceBodyId": bodyID,
+            "transcript": transcript
+        ])
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw OLOControlPlaneError.invalidResponse
+        }
+        guard http.statusCode == 202 else {
+            throw OLOControlPlaneError.server(statusCode: http.statusCode)
+        }
+    }
+
     func receipt(actionID: String) async throws -> OLOActionReceiptContract {
         let url = baseURL.appending(path: "/v1/actions/\(actionID)/receipt")
         let (data, response) = try await session.data(from: url)
