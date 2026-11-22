@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { 
-  Sparkles, Mail, Lock, User, 
+  Mail, Lock, User, 
   ArrowRight, Globe, CheckCircle2, 
-  AlertCircle, ShieldCheck, Cpu, Database, Fingerprint
+  AlertCircle, Fingerprint
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api-client';
 
 interface AuthPageProps {
@@ -73,43 +73,35 @@ export function AuthPage({ onLoginSuccess, authenticate }: AuthPageProps) {
       <div className="flex min-h-full items-start justify-center px-3 py-4 sm:items-center sm:p-4">
         <div className="relative flex w-full max-w-[1100px] flex-col overflow-hidden rounded-[28px] border border-white/60 bg-card/40 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl lg:h-[720px] lg:flex-row lg:rounded-[40px]">
         
-        {/* ── Left Side: Brand & Visuals ── */}
-        <div className="relative hidden flex-1 overflow-hidden bg-foreground p-12 lg:flex lg:flex-col">
-          {/* Visual Accents */}
-          <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-white/10 rounded-full" />
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] border border-white/10 rounded-full" />
+        {/* ── Left Side: Ocean Code brand, aligned with the current product ── */}
+        <div className="relative hidden flex-1 overflow-hidden bg-[#1b1b1a] p-12 text-white lg:flex lg:flex-col">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -bottom-[380px] -left-[210px] h-[680px] w-[900px] rounded-[50%] border border-[#ed744b]/50 bg-[radial-gradient(ellipse_at_50%_0%,rgba(233,86,27,0.16),transparent_58%)] shadow-[0_-18px_70px_-48px_rgba(233,86,27,0.7)]" />
+            <div className="absolute -bottom-[395px] -left-[195px] h-[680px] w-[900px] rounded-[50%] border border-white/5" />
           </div>
 
-          <div className="relative z-10 flex flex-col h-full">
+          <div className="relative z-10 flex h-full flex-col">
             <div className="flex items-center gap-3">
-              <div className="bg-primary p-2 rounded-[12px] shadow-[0_8px_16px_rgba(236,91,20,0.3)]">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-display font-black text-white tracking-tight">Ocean</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e9561b] text-lg font-bold tracking-[-0.08em]" aria-hidden="true">O.</span>
+              <span className="text-2xl font-semibold tracking-[-0.05em]">Ocean<span className="text-[#e9561b]">.</span></span>
             </div>
 
-            <div className="mt-auto">
-              <h1 className="text-5xl font-display font-extrabold text-white leading-[1.1] tracking-tight mb-6">
-                <Trans i18nKey="auth.hero_title">
-                  Orchestrating <br/> <span className="text-primary">Enterprise AI</span> <br/> Intelligence.
-                </Trans>
+            <div className="mb-auto mt-auto max-w-md pb-24">
+              <p className="mb-5 text-xs font-semibold uppercase tracking-[0.22em] text-[#e9784b]">Ocean Code</p>
+              <h1 className="text-5xl font-semibold leading-[1.13] tracking-[-0.06em]">
+                One Agent Core.<br />
+                <span className="text-[#e9784b]">Multiple Hosts.</span>
               </h1>
-              <p className="text-white/60 text-lg leading-relaxed max-w-sm mb-10 font-medium">
-                {t('auth.hero_desc')}
+              <p className="mt-7 max-w-sm text-base leading-8 text-white/60">
+                Persistent sessions across CLI and Web. Your agent, context, and work in one place.
               </p>
-
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="p-4 bg-card/5 rounded-2xl border border-white/10 backdrop-blur-md">
-                    <ShieldCheck className="w-5 h-5 text-primary mb-2" />
-                    <p className="text-[11px] font-bold text-white uppercase tracking-widest">{t('auth.security')}</p>
-                 </div>
-                 <div className="p-4 bg-card/5 rounded-2xl border border-white/10 backdrop-blur-md">
-                    <Database className="w-5 h-5 text-primary mb-2" />
-                    <p className="text-[11px] font-bold text-white uppercase tracking-widest">{t('auth.knowledge')}</p>
-                 </div>
+              <div className="mt-9 flex flex-wrap gap-2 text-xs text-white/70">
+                <span className="rounded-full border border-white/15 px-3 py-2">Shared Agent Core</span>
+                <span className="rounded-full border border-white/15 px-3 py-2">Persistent Sessions</span>
+                <span className="rounded-full border border-white/15 px-3 py-2">CLI + Web</span>
               </div>
             </div>
+            <p className="relative z-10 text-xs text-white/35">One Agent Core. Multiple Hosts. Persistent Sessions.</p>
           </div>
         </div>
 
