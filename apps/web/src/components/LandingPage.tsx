@@ -14,11 +14,11 @@ const navigationGroups = [
     { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Capability explorer', href: '/#features' }, { label: 'What you can do', href: '/#use-cases' }, { label: 'Architecture', href: '/#developers' }] },
   ] },
   { label: 'Developers', columns: [
-    { heading: 'Build', links: [{ label: 'Ocean Code CLI', href: '/#ocean-code' }, { label: 'Developer overview', href: '/#developers' }, { label: 'Source code', href: repository }, { label: 'Documentation', href: documentation }] },
-    { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }] },
+    { heading: 'Build', links: [{ label: 'Ocean Code CLI', href: '/code' }, { label: 'Developer overview', href: '/#developers' }, { label: 'CLI setup', href: '/code#code-commands' }, { label: 'Source code', href: repository }, { label: 'Documentation', href: documentation }, { label: 'CLI documentation', href: '/code#code-resources' }] },
+    { heading: 'Architecture', links: [{ label: 'Shared Agent Core', href: '/#product' }, { label: 'CLI and Web hosts', href: '/#developers' }, { label: 'CLI permissions', href: '/code#code-permissions-section' }] },
   ] },
   { label: 'Resources', columns: [
-    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'Releases', href: `${repository}/releases` }, { label: 'Report an issue', href: `${repository}/issues/new` }, { label: 'Source code', href: repository }] },
+    { heading: 'Learn', links: [{ label: 'Documentation', href: documentation }, { label: 'FAQ', href: '/#faq' }, { label: 'CLI FAQ', href: '/code#code-faq' }, { label: 'Releases', href: `${repository}/releases` }, { label: 'Report an issue', href: `${repository}/issues/new` }, { label: 'Contributing guide', href: `${repository}/blob/main/CONTRIBUTING.md` }, { label: 'Source code', href: repository }] },
     { heading: 'Get started', links: [{ label: 'Open workspace', href: '/app' }, { label: 'Sign in', href: '/auth' }] },
   ] },
 ];
@@ -34,9 +34,9 @@ const socialProfiles = [
 ];
 
 const footerGroups = [
-  { heading: 'Product', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
-  { heading: 'Platform', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Architecture', href: '/#developers' }, { label: 'Workflows', href: '/app/workflows' }, { label: 'Integrations', href: '/app/integrations' }] },
-  { heading: 'Developers', links: [{ label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }, { label: 'Issues', href: `${repository}/issues` }, { label: 'Releases', href: `${repository}/releases` }] },
+  { heading: 'Product', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
+  { heading: 'Platform', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Architecture', href: '/#developers' }, { label: 'Workflows', href: '/app/workflows' }, { label: 'Integrations', href: '/app/integrations' }, { label: 'Ocean Code', href: '/code' }] },
+  { heading: 'Developers', links: [{ label: 'Ocean Code setup', href: '/code#code-commands' }, { label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }, { label: 'Issues', href: `${repository}/issues` }, { label: 'Releases', href: `${repository}/releases` }] },
   { heading: 'Resources', links: [{ label: 'Get started', href: '/#get-started' }, { label: 'FAQ', href: '/#faq' }, { label: 'Sign in', href: '/auth' }, { label: 'README', href: documentation }, { label: 'Contribute', href: `${repository}/blob/main/CONTRIBUTING.md` }] },
 ];
 
@@ -483,7 +483,7 @@ export function LandingPage() {
                     : <span key={profile.label} role="img" aria-label={`${profile.label} — coming soon`} title={`${profile.label} · Coming soon`} className={`${className} cursor-default opacity-60`}>{symbol}</span>;
                 })}
               </div>
-              <p className="mt-3 text-xs text-[#a8a39e]">Other social channels are coming soon.</p>
+              <p className="mt-3 text-xs text-[#a8a39e]">X, YouTube, LinkedIn, Instagram and Discord are planned channels; links are not active yet.</p>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-4">
               {footerGroups.map(group => (
@@ -491,7 +491,7 @@ export function LandingPage() {
                   <h2 className="mb-6 text-xs font-semibold uppercase tracking-[0.12em] text-[#85817d]">{group.heading}</h2>
                   <ul className="space-y-4">
                     {group.links.map(link => (
-                      <li key={link.label}><a href={link.href} className="text-sm leading-6 text-[#e6e2dd] transition-colors hover:text-[#f27b4a]">{link.label}</a></li>
+                      <li key={link.label}><a href={link.href} className="rounded text-sm leading-6 text-[#e6e2dd] transition-colors hover:text-[#f27b4a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">{link.label}</a></li>
                     ))}
                   </ul>
                 </div>
@@ -501,16 +501,16 @@ export function LandingPage() {
           <div className="flex flex-col gap-6 pt-7 text-xs text-[#99938d] md:flex-row md:items-center md:justify-between">
             <span>© {new Date().getFullYear()} Ocean. Open-source project.</span>
             <div className="flex flex-wrap items-center gap-5">
-              <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white">Feedback & issues (GitHub)</a>
+              <a href={`${repository}/issues`} target="_blank" rel="noopener noreferrer" className="hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">Feedback & issues (opens GitHub)</a>
               <div className="relative">
-                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} onKeyDown={event => { if (event.key === "Escape") setLanguageOpen(false); }} aria-expanded={languageOpen} aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">
+                <button type="button" onClick={() => setLanguageOpen(!languageOpen)} onKeyDown={event => { if (event.key === "Escape") setLanguageOpen(false); }} aria-expanded={languageOpen} aria-controls="ocean-language-menu" aria-label="Website language" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-[#e6e2dd] hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">
                   <Globe2 size={15}/> English <ChevronDown size={14} className={languageOpen ? 'rotate-180' : ''}/>
                 </button>
                 {languageOpen && (
-                  <div className="absolute bottom-full right-0 mb-3 w-56 rounded-xl border border-white/15 bg-[#292827] p-2 shadow-xl">
-                    <p className="px-3 py-2 text-xs text-[#a8a39e]">Website language</p>
+                  <div id="ocean-language-menu" aria-labelledby="ocean-language-title" onKeyDown={event => { if (event.key === "Escape") setLanguageOpen(false); }} className="absolute bottom-full right-0 mb-3 w-56 rounded-xl border border-white/15 bg-[#292827] p-2 shadow-xl">
+                    <p id="ocean-language-title" className="px-3 py-2 text-xs text-[#a8a39e]">Website language</p>
                     <button type="button" aria-current="true" aria-label="English, current website language" onClick={() => setLanguageOpen(false)} className="w-full rounded-lg bg-white/10 px-3 py-2.5 text-left text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff9c70]">English · Current</button>
-                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Other languages are planned; workspace language preferences are separate.</p>
+                    <p className="px-3 py-2 text-xs leading-5 text-[#a8a39e]">This public website is currently in English. Other website languages are planned; workspace language preferences are separate.</p>
                   </div>
                 )}
               </div>
