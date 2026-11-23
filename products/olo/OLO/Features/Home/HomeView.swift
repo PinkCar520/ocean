@@ -48,18 +48,26 @@ struct HomeView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .scrollIndicators(.hidden)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+        // Render the profile entry directly in the Voice surface. A toolbar
+        // attached inside TabView's outer NavigationStack is not reliable.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Spacer()
                 Button {
                     showingSettings = true
                 } label: {
                     Image(systemName: "person.crop.circle")
-                        .font(.system(size: 23, weight: .regular))
-                        .accessibilityHidden(true)
+                        .font(.system(size: 27, weight: .regular))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("Profile and settings")
                 .accessibilityIdentifier("olo.voice.settings")
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
         }
         .sheet(isPresented: $showingSettings) {
             NavigationStack {
