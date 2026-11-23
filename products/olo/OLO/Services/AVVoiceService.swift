@@ -216,22 +216,12 @@ private actor RecordingAudioSession {
 
     func activate() async throws {
         let session = AVAudioSession.sharedInstance()
-        if #available(iOS 27.0, *) {
-            guard try await session.activate() else {
-                throw VoiceError.audioEngineFailed("无法激活音频会话")
-            }
-        } else {
-            try session.setActive(true)
-        }
+        try session.setActive(true)
     }
 
     func deactivate() async throws {
         let session = AVAudioSession.sharedInstance()
-        if #available(iOS 27.0, *) {
-            _ = try await session.deactivate()
-        } else {
-            try session.setActive(false, options: .notifyOthersOnDeactivation)
-        }
+        try session.setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 
