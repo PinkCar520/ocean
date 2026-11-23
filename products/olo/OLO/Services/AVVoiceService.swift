@@ -48,8 +48,8 @@ private nonisolated func speechPermission() async -> SFSpeechRecognizerAuthoriza
 
 @MainActor
 protocol VoiceCapture {
-    func start() throws -> AsyncThrowingStream<VoiceTranscript, Error>
-    func stop()
+    func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error>
+    func stop() async
     func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?)
 }
 
@@ -92,7 +92,9 @@ final class AVVoiceService: VoiceService {
             let newCapture = makeCapture()
             capture = newCapture
             newCapture.setLevelHandler(levelHandler)
-            let source = try newCapture.start()
+            let source = try await newCapture.start()
+            try Task.checkCancellation()
+            guard sessionID == id else { throw CancellationError() }
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
             let relay = Task { [weak self] in
                 do {
@@ -103,11 +105,11 @@ final class AVVoiceService: VoiceService {
                     }
                     continuation.finish()
                 } catch { continuation.finish(throwing: error) }
-                self?.stop(id: id)
+                await await self?.stop(id: id)
             }
             continuation.onTermination = { @Sendable [weak self] _ in
                 relay.cancel()
-                Task { @MainActor in self?.stop(id: id) }
+                Task { @MainActor in await self?.stop(id: id) }
             }
             timeout = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }
@@ -116,22 +118,23 @@ final class AVVoiceService: VoiceService {
             }
             return stream
         } catch {
-            stop(id: id)
+            await stop(id: id)
             throw error
         }
     }
 
     func stop() async {
-        if let sessionID { stop(id: sessionID) }
+        if let sessionID { await stop(id: sessionID) }
     }
 
-    private func stop(id: UUID) {
+    private func stop(id: UUID) async {
         guard sessionID == id else { return }
         sessionID = nil
         timeout?.cancel()
         timeout = nil
-        capture?.stop()
+        let oldCapture = capture
         capture = nil
+        await oldCapture?.stop()
     }
 }
 
@@ -217,7 +220,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         bridge?.setLevelHandler(handler)
     }
 
-    func start() throws -> AsyncThrowingStream<VoiceTranscript, Error> {
+    func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error> {
         guard let recognizer = SFSpeechRecognizer(locale: .current), recognizer.isAvailable else {
             throw VoiceError.unavailable("当前语言的语音识别不可用")
         }
@@ -227,8 +230,10 @@ private final class SystemVoiceCapture: VoiceCapture {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.record, mode: .measurement)
-            try session.setActive(true)
+            let activated = try await session.activate()
+            guard activated else { throw VoiceError.audioEngineFailed("无法激活音频会话") }
             sessionActive = true
+            try Task.checkCancellation()
             let engine = AVAudioEngine()
             self.engine = engine
             let input = engine.inputNode
@@ -255,12 +260,12 @@ private final class SystemVoiceCapture: VoiceCapture {
             try engine.start()
             return stream
         } catch {
-            stop()
+            await stop()
             throw error
         }
     }
 
-    func stop() {
+    func stop() async {
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
         engine?.stop()
@@ -272,7 +277,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         task = nil
         engine = nil
         if sessionActive {
-            do { try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+            do { _ = try await AVAudioSession.sharedInstance().deactivate() }
             catch { NSLog("OLO audio session deactivation failed: %@", error.localizedDescription) }
         }
         sessionActive = false
