@@ -155,7 +155,14 @@ struct HomeView: View {
     @MainActor
     private func handleSystemVoiceLaunch() {
         guard systemVoiceLaunch.consume() else { return }
-        startConversation()
+        // RootShell installs AVVoiceService asynchronously during cold launch.
+        // Do not prematurely fall back to text while that bootstrap is running.
+        Task { @MainActor in
+            for _ in 0..<20 where center.voiceService == nil {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            startConversation()
+        }
     }
 
     // MARK: - Sections
