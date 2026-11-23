@@ -27,6 +27,12 @@ struct OLOApp: App {
                         .task { await bootstrapPersistentContainer() }
                 }
             }
+            .onOpenURL { url in
+                guard url.scheme?.lowercased() == "olo",
+                      url.host?.lowercased() == "talk",
+                      url.path.isEmpty || url.path == "/" else { return }
+                OLOVoiceLaunch.shared.request()
+            }
         }
     }
 
