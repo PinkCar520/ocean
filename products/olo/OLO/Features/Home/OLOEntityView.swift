@@ -14,6 +14,8 @@ struct OLOEntityView: View {
     @State private var flash = false
     @State private var eyeBlink = false
     @State private var eyeBlinkTask: Task<Void, Never>?
+    @State private var faceYaw: Double = 0
+    @State private var facePitch: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Real microphone amplitude, forwarded by the Voice host.
     var audioLevel: Float = 0
@@ -22,15 +24,7 @@ struct OLOEntityView: View {
     var body: some View {
         ZStack {
             orb
-            logo
-            if showsLuminousPresence {
-                OLOLuminousPresence(level: audioLevel, state: center.state, responding: isResponding)
-                    .frame(width: 112, height: 48)
-                    .offset(y: 64)
-                    .transition(.opacity)
-            } else {
-                highlightBar
-            }
+            spatialFace
             if !center.privacyMode { cameraDot }
         }
         .animation(.easeInOut(duration: 0.35), value: showsLuminousPresence)
@@ -42,7 +36,21 @@ struct OLOEntityView: View {
         .overlay(flashOverlay)
         .scaleEffect(currentScale)
         .offset(x: shakeOffset)
-        .rotation3DEffect(.degrees(center.privacyMode ? 180 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+        .contentShape(Circle())
+        .gesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { value in
+                    guard !center.privacyMode, !reduceMotion else { return }
+                    faceYaw = min(55, max(-55, Double(value.translation.width) * 0.55))
+                    facePitch = min(30, max(-30, -Double(value.translation.height) * 0.4))
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.9, dampingFraction: 0.78)) {
+                        faceYaw = 0
+                        facePitch = 0
+                    }
+                }
+        )
         .onChange(of: center.state) { old, new in
             startAnimations(for: new)
             if old != new { blinkEye() }
@@ -63,6 +71,27 @@ struct OLOEntityView: View {
     }
 
     // MARK: - Parts
+
+    /// The orb stays stationary. Eye and mouth share a single rotating face plane.
+    /// Dragging the orb previews attention direction; no sound-source tracking yet.
+    private var spatialFace: some View {
+        ZStack {
+            logo
+            if showsLuminousPresence {
+                OLOLuminousPresence(level: audioLevel, state: center.state, responding: isResponding)
+                    .frame(width: 112, height: 48)
+                    .offset(y: 64)
+                    .transition(.opacity)
+            } else {
+                highlightBar
+            }
+        }
+        .frame(width: 205, height: 205)
+        .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0.65)
+        .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0.65)
+        .opacity(center.privacyMode ? 0 : 1)
+        .accessibilityHint("拖动以预览 OLO 面部的空间转向")
+    }
 
     private var orb: some View {
         Circle()
@@ -127,7 +156,6 @@ struct OLOEntityView: View {
             }
             .rotationEffect(.degrees(-35))
             .offset(x: -25, y: -35)
-            .opacity(center.privacyMode ? 0 : 1)
             .accessibilityHidden(true)
         }
     }
