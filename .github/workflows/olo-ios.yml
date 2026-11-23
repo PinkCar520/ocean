@@ -1,0 +1,36 @@
+name: OLO iOS validation
+
+on:
+  pull_request:
+    paths:
+      - 'products/olo/**'
+      - '.github/workflows/olo-ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: products/olo
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: |
+          touch project.local.yml
+          xcodegen generate --spec project.yml
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild -project OLO.xcodeproj -scheme OLO -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+      - name: Run OLO unit tests
+        run: |
+          xcrun simctl list devices available
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin)["devices"]; print(next((d["udid"] for group in data.values() for d in group if d["name"].startswith("iPhone") and d["state"] in ("Booted","Shutdown")), ""))')
+          test -n "$DEVICE_ID"
+          xcodebuild -project OLO.xcodeproj -scheme OLO -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE_ID" -only-testing:OLOTests CODE_SIGNING_ALLOWED=NO test
