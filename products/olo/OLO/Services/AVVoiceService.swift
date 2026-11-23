@@ -114,7 +114,7 @@ final class AVVoiceService: VoiceService {
             timeout = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }
                 continuation.finish(throwing: VoiceError.timeout)
-                self?.stop(id: id)
+                await self?.stop(id: id)
             }
             return stream
         } catch {
