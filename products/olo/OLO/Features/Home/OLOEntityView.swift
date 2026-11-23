@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(RiveRuntime)
+import RiveRuntime
+#endif
 
 /// OLO's visible presence on a body. Renders the seven `OLOState`s as
 /// motion — the same identity expresses itself the same way on any body.
@@ -18,6 +21,7 @@ struct OLOEntityView: View {
     @State private var facePitch: Double = 0
     @State private var gazeYaw: Double = 0
     @State private var gazePitch: Double = 0
+    @State private var preferRiveEye = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Real microphone amplitude, forwarded by the Voice host.
     var audioLevel: Float = 0
@@ -101,7 +105,7 @@ struct OLOEntityView: View {
 
     private var projectedEye: some View {
         let pose = FaceProjection.project(x: -25, y: -35, yaw: faceYaw, pitch: facePitch)
-        return logo
+        return ambientEye
             .offset(x: pose.x + 25, y: pose.y + 35)
             .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0)
             .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0)
@@ -123,6 +127,19 @@ struct OLOEntityView: View {
         .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0)
         .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0)
         .opacity(pose.visibility)
+    }
+
+    @ViewBuilder
+    private var ambientEye: some View {
+        #if canImport(RiveRuntime)
+        if preferRiveEye, Bundle.main.url(forResource: "olo_ambient_eye", withExtension: "riv") != nil {
+            OLOAnimatedRiveEye()
+        } else {
+            logo
+        }
+        #else
+        logo
+        #endif
     }
 
     private var orb: some View {
@@ -384,3 +401,19 @@ private struct OLOLuminousPresence: View {
         .allowsHitTesting(false)
     }
 }
+
+#if canImport(RiveRuntime)
+private struct OLOAnimatedRiveEye: View {
+    @StateObject private var model = RiveViewModel(
+        fileName: "olo_ambient_eye",
+        stateMachineName: "AmbientEye"
+    )
+
+    var body: some View {
+        model.view()
+            .frame(width: 205, height: 205)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+#endif
