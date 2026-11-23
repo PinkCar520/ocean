@@ -66,12 +66,27 @@ struct OLOEntityView: View {
             )
     }
 
+    /// Soft, tilted elliptical Ambient Eye replaces the OLO wordmark.
+    /// Preserve the existing orb, light bar, camera dot and voice states.
     private var logo: some View {
-        Text("OLO")
-            .font(.system(size: 29, weight: .bold))
-            .foregroundStyle(.white)
-            .kerning(-2)
+        Ellipse()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        Color(red: 0.91, green: 0.98, blue: 1.0).opacity(0.95),
+                        Color(red: 0.73, green: 0.88, blue: 1.0).opacity(0.78),
+                        Color(red: 0.65, green: 0.82, blue: 1.0).opacity(0.28)
+                    ],
+                    center: UnitPoint(x: 0.42, y: 0.38),
+                    startRadius: 2,
+                    endRadius: 65
+                )
+            )
+            .frame(width: 84, height: 48)
+            .rotationEffect(.degrees(-35))
+            .offset(x: -25, y: -35)
             .opacity(center.privacyMode ? 0 : 1)
+            .accessibilityHidden(true)
     }
 
     private var highlightBar: some View {
