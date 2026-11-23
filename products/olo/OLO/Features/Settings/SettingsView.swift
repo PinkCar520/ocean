@@ -35,23 +35,89 @@ struct SettingsView: View {
     @State private var toastShown = false
     @State private var requestingVoice = false
 
+    @State private var showDeveloperTools = false
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                hero
-                identityCard
-                connectedWorldCard
-                voiceCard
-                privacyCard
-                wakeValidationCard
-                debugCard
-                aboutCard
+        List {
+            Section {
+                HStack(spacing: 14) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 46))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("个人中心").font(.title2.bold())
+                        Text("你的 OLO 与个人设置")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 12)
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 32)
+            Section {
+                NavigationLink {
+                    tuningPage
+                } label: {
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("调教 OLO").font(.headline)
+                            Text("认识你的 OLO，管理它的行为边界")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(.blue)
+                    }
+                    .padding(.vertical, 6)
+                }
+                .accessibilityIdentifier("olo.profile.tuning")
+            }
+            Section("连接与数据") {
+                NavigationLink {
+                    WorldView()
+                } label: {
+                    Label("连接与设备", systemImage: "globe")
+                }
+                NavigationLink {
+                    memoryInformationPage
+                } label: {
+                    Label("记忆与个人上下文", systemImage: "brain.head.profile")
+                }
+            }
+            Section("系统设置") {
+                NavigationLink {
+                    permissionsPage
+                } label: {
+                    Label("隐私与权限", systemImage: "hand.raised")
+                }
+                NavigationLink {
+                    aboutPage
+                } label: {
+                    Label("关于 OLO", systemImage: "info.circle")
+                }
+            }
+            Section {
+                Button("开发者工具") { showDeveloperTools = true }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .background(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.87)], startPoint: .top, endPoint: .bottom))
-        .scrollIndicators(.hidden)
+        .listStyle(.insetGrouped)
+        .navigationTitle("个人中心")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showDeveloperTools) {
+            NavigationStack {
+                List {
+                    Section("验证") { wakeValidationCard }
+                    Section("数据调试") { debugCard }
+                }
+                .navigationTitle("开发者工具")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") { showDeveloperTools = false }
+                    }
+                }
+            }
+        }
         .overlay(alignment: .top) {
             OLOToast(text: toastText, isShown: $toastShown)
                 .padding(.top, 8)
@@ -65,10 +131,57 @@ struct SettingsView: View {
             Button("清空记忆与任务历史", role: .destructive, action: resetEverything)
             Button("取消", role: .cancel) {}
         } message: {
-            Text("这会删除 \(memoryCount) 条长期记忆与 \(taskCount) 条任务历史。OLO Identity 不受影响。不可撤销。")
+            Text("这会删除 \\(memoryCount) 条长期记忆与 \\(taskCount) 条任务历史。OLO Identity 不受影响。不可撤销。")
         }
         .task { await refreshAll() }
         .onChange(of: scenePhase) { _, _ in refreshPermissions() }
+    }
+
+    private var tuningPage: some View {
+        List {
+            Section("你的 OLO") {
+                identityCard
+            }
+            Section {
+                Text("交流风格、主动性等能力将在接入真实 Agent 偏好后开放。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("调教 OLO")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var permissionsPage: some View {
+        List {
+            Section("语音权限") { voiceCard }
+            Section("隐私") { privacyCard }
+        }
+        .navigationTitle("隐私与权限")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var memoryInformationPage: some View {
+        List {
+            Section("本机数据") {
+                LabeledContent("长期记忆", value: "\\(memoryCount)")
+                LabeledContent("任务历史", value: "\\(taskCount)")
+            }
+            Section {
+                Text("这里展示当前设备存储的数据概况。数据清理操作位于开发者工具。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("记忆与个人上下文")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var aboutPage: some View {
+        List {
+            Section { aboutCard }
+        }
+        .navigationTitle("关于 OLO")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - Hero
