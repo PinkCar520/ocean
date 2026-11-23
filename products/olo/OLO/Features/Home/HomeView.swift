@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var speech = OLOSpeechResponder()
     @State private var motionManager = CMMotionManager()
     @State private var faceDownSince: Date?
+    @State private var systemVoiceLaunch = OLOVoiceLaunch.shared
     @State private var microphoneLevel: Float = 0
     @State private var isSpeaking = false
     @State private var voiceMode = false
@@ -24,6 +25,7 @@ struct HomeView: View {
     @State private var showingAgentSheet = false
     @State private var showingTextInput = false
     @State private var showingWakePlanner = false
+    @State private var showingSettings = false
     @State private var typedInput = ""
     @State private var toastText = ""
     @State private var toastShown = false
@@ -50,27 +52,67 @@ struct HomeView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .scrollIndicators(.hidden)
+        // Render the profile entry directly in the Voice surface. A toolbar
+        // attached inside TabView's outer NavigationStack is not reliable.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Spacer()
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 27, weight: .regular))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Profile and settings")
+                .accessibilityIdentifier("olo.voice.settings")
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+        }
+        .sheet(isPresented: $showingSettings) {
+            NavigationStack {
+                SettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button {
+                                showingSettings = false
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .accessibilityLabel("关闭")
+                            .accessibilityIdentifier("olo.settings.dismiss")
+                        }
+                    }
+            }
+            .presentationDetents([.fraction(0.7)])
+            .presentationDragIndicator(.visible)
+        }
         .overlay(alignment: .top) {
             OLOToast(text: toastText, isShown: $toastShown)
                 .padding(.top, 8)
                 .allowsHitTesting(false)
         }
-        .onAppear { startFaceDownMonitoring() }
+        .onAppear { handleSystemVoiceLaunch(); startFaceDownMonitoring() }
+        .onChange(of: systemVoiceLaunch.requestID) { _, _ in
+            handleSystemVoiceLaunch()
+        }
+        .onChange(of: center.voiceService != nil) { _, ready in
+            if ready { handleSystemVoiceLaunch() }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { startFaceDownMonitoring() }
-            else {
-                stopFaceDownMonitoring()
-                if phase == .background { standby() }
-            }
+            else { stopFaceDownMonitoring(); if phase == .background { standby() } }
         }
         .onChange(of: center.privacyMode) { _, enabled in
-            if enabled {
-                speech.stop()
-                standby()
-                center.state = .privacy
-            } else if center.state == .privacy {
-                center.state = .idle
-            }
+            if enabled { speech.stop(); standby(); center.state = .privacy }
+            else if center.state == .privacy { center.state = .idle }
         }
         .onDisappear {
             stopFaceDownMonitoring()
@@ -119,9 +161,16 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - iPhone face-down privacy
-    // Only monitor while Voice is visible and the app is active. Turning the
-    // phone face-up never silently re-enables microphone access.
+    @MainActor
+    private func handleSystemVoiceLaunch() {
+        // An App Intent may arrive before RootShell has installed the voice
+        // service during a cold launch. Keep the one-shot request pending until
+        // the service is actually ready; do not guess readiness with a timer.
+        guard center.voiceService != nil else { return }
+        guard systemVoiceLaunch.consume() else { return }
+        startConversation()
+    }
+
     @MainActor
     private func startFaceDownMonitoring() {
         guard scenePhase == .active, motionManager.isDeviceMotionAvailable,
@@ -133,18 +182,12 @@ struct HomeView: View {
             Task { @MainActor in
                 guard scenePhase == .active else { return }
                 let gravity = motion.gravity
-                // z is positive when the screen faces downward on a table.
                 let faceDown = gravity.z > 0.85
                     && abs(gravity.x) < 0.45 && abs(gravity.y) < 0.45
-                guard faceDown else {
-                    faceDownSince = nil
-                    return
-                }
+                guard faceDown else { faceDownSince = nil; return }
                 if faceDownSince == nil { faceDownSince = .now }
-                guard !center.privacyMode,
-                      let since = faceDownSince,
+                guard !center.privacyMode, let since = faceDownSince,
                       Date().timeIntervalSince(since) >= 0.8 else { return }
-                // Set the privacy gate synchronously before stopping audio.
                 center.privacyMode = true
                 faceDownSince = nil
                 showToast("已翻转进入隐私模式 · 请在设置中手动关闭")
@@ -163,12 +206,8 @@ struct HomeView: View {
     private var entityStage: some View {
         ZStack {
             VStack(spacing: 18) {
-                OLOEntityView()
+                OLOEntityView(audioLevel: microphoneLevel, isResponding: isSpeaking)
                 stateLabel
-                if voiceMode && !center.privacyMode {
-                    voiceWaveform
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                }
             }
             .animation(.easeInOut(duration: 0.25), value: voiceMode)
         }
@@ -201,30 +240,6 @@ struct HomeView: View {
                     }
                 }
         )
-    }
-
-    private var voiceWaveform: some View {
-        VStack(spacing: 10) {
-            HStack(alignment: .center, spacing: 4) {
-                ForEach(0..<27, id: \.self) { index in
-                    let phase = abs(sin(Double(index) * 0.73))
-                    let amplitude = center.state == .listening
-                        ? Double(microphoneLevel)
-                        : (isSpeaking ? 0.36 : 0.08)
-                    Capsule()
-                        .fill(Color.primary.opacity(0.35 + phase * 0.5))
-                        .frame(width: 3, height: 5 + 35 * amplitude * (0.25 + phase * 0.75))
-                }
-            }
-            .frame(height: 45)
-            .animation(.easeOut(duration: 0.12), value: microphoneLevel)
-            Text(isSpeaking ? "正在回应" : center.state == .listening ? "正在聆听 · 点击结束" :
-                 center.state == .thinking ? "正在思考" : "点击 OLO 继续对话")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("olo.voice.waveform")
     }
 
     private var stateLabel: some View {

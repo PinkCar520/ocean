@@ -7,10 +7,12 @@ import SwiftData
 struct OLOApp: App {
     @State private var center: OLOCenter
     @State private var modelContainer: ModelContainer?
+    @State private var firstEncounter: FirstEncounterSession
 
     init() {
         let c = OLOCenter()
         self._center = State(initialValue: c)
+        self._firstEncounter = State(initialValue: FirstEncounterSession())
         self._modelContainer = State(initialValue: nil)
     }
 
@@ -18,14 +20,23 @@ struct OLOApp: App {
         WindowGroup {
             ZStack {
                 if let modelContainer {
-                    RootShell()
-                        .environment(center)
-                        .modelContainer(modelContainer)
+                    Group {
+                        if firstEncounter.isFinished {
+                            RootShell()
+                        } else {
+                            FirstEncounterView(session: firstEncounter)
+                        }
+                    }
+                    .environment(center)
+                    .modelContainer(modelContainer)
                 } else {
                     Color.black.ignoresSafeArea()
                         .overlay { ProgressView() }
                         .task { await bootstrapPersistentContainer() }
                 }
+            }
+            .onOpenURL { url in
+                OLOVoiceLaunch.shared.request(for: url)
             }
         }
     }

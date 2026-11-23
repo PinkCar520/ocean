@@ -30,28 +30,73 @@ struct SettingsView: View {
     @State private var speechStatus: SFSpeechRecognizerAuthorizationStatus = SFSpeechRecognizer.authorizationStatus()
     @State private var memoryCount: Int = 0
     @State private var taskCount: Int = 0
+    @State private var hasEncounterMemory = false
     @State private var showResetConfirmation = false
     @State private var toastText = ""
     @State private var toastShown = false
     @State private var requestingVoice = false
 
+    @State private var showDeveloperTools = false
+    @State private var showEditProfile = false
+    @AppStorage("olo.profile.displayName") private var profileDisplayName = ""
+
+
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                hero
-                identityCard
-                connectedWorldCard
-                voiceCard
-                privacyCard
-                wakeValidationCard
-                debugCard
-                aboutCard
+                profileHero
+                navigationCard(
+                    title: "调教 OLO",
+                    detail: "认识你的 OLO，管理它的行为边界",
+                    icon: "sparkles"
+                ) { tuningPage }
+                sectionHeading("连接与数据")
+                navigationCard(title: "连接与设备", detail: "管理 OLO 可连接的设备", icon: "globe") {
+                    WorldView()
+                }
+                navigationCard(title: "记忆与个人上下文", detail: "查看本机记忆与任务", icon: "brain.head.profile") {
+                    memoryInformationPage
+                }
+                sectionHeading("系统设置")
+                navigationCard(title: "隐私与权限", detail: "麦克风、语音识别与隐私模式", icon: "hand.raised") {
+                    permissionsPage
+                }
+                navigationCard(title: "关于 OLO", detail: "产品介绍与版本信息", icon: "info.circle") {
+                    aboutPage
+                }
+                Button {
+                    showDeveloperTools = true
+                } label: {
+                    Text("开发者工具")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 32)
         }
-        .background(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.87)], startPoint: .top, endPoint: .bottom))
         .scrollIndicators(.hidden)
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showDeveloperTools) {
+            NavigationStack {
+                settingsScroll {
+                    sectionHeading("验证")
+                    wakeValidationCard
+                    sectionHeading("数据调试")
+                    debugCard
+                }
+                .navigationTitle("开发者工具")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") { showDeveloperTools = false }
+                    }
+                }
+            }
+        }
         .overlay(alignment: .top) {
             OLOToast(text: toastText, isShown: $toastShown)
                 .padding(.top, 8)
@@ -65,23 +110,173 @@ struct SettingsView: View {
             Button("清空记忆与任务历史", role: .destructive, action: resetEverything)
             Button("取消", role: .cancel) {}
         } message: {
-            Text("这会删除 \(memoryCount) 条长期记忆与 \(taskCount) 条任务历史。OLO Identity 不受影响。不可撤销。")
+            Text("这会删除长期记忆、首次相遇回答与任务历史。OLO Identity 不受影响。不可撤销。")
         }
         .task { await refreshAll() }
         .onChange(of: scenePhase) { _, _ in refreshPermissions() }
+    }
+
+    private var profileHero: some View {
+        Button {
+            showEditProfile = true
+        } label: {
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 0.70, green: 0.81, blue: 0.91),
+                                         Color(red: 0.49, green: 0.55, blue: 0.76)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Text(profileInitials)
+                        .font(.system(size: 44, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 112, height: 112)
+                .accessibilityHidden(true)
+
+                Text(profileDisplayName.isEmpty ? "设置你的名字" : profileDisplayName)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 24)
+            .padding(.bottom, 24)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("编辑个人资料")
+        .accessibilityIdentifier("olo.profile.header")
+        .sheet(isPresented: $showEditProfile) {
+            NavigationStack {
+                Form {
+                    Section("用户名称") {
+                        TextField("输入你的名字", text: $profileDisplayName)
+                            .textContentType(.nickname)
+                            .autocorrectionDisabled()
+                    }
+                }
+                .navigationTitle("编辑个人资料")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") { showEditProfile = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
+    }
+
+    private var profileInitials: String {
+        let name = profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return "?" }
+        return String(name.prefix(2)).uppercased()
+    }
+
+    private func sectionHeading(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.caption2)
+            .tracking(1.4)
+            .foregroundStyle(.secondary)
+            .padding(.leading, 4)
+            .padding(.top, 4)
+    }
+
+    private func navigationCard<Destination: View>(
+        title: String,
+        detail: String,
+        icon: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 12) {
+                iconBadge(icon)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.subheadline.bold()).foregroundStyle(.primary)
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func settingsScroll<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18, content: content)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 20)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var tuningPage: some View {
+        settingsScroll {
+            sectionHeading("你的 OLO")
+            identityCard
+            Text("交流风格、主动性等能力将在接入真实 Agent 偏好后开放。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+        }
+        .navigationTitle("调教 OLO")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var permissionsPage: some View {
+        settingsScroll {
+            sectionHeading("语音权限")
+            voiceCard
+            sectionHeading("隐私")
+            privacyCard
+        }
+        .navigationTitle("隐私与权限")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var memoryInformationPage: some View {
+        settingsScroll {
+            sectionHeading("首次相遇")
+            MemoryView()
+            sectionHeading("本机数据")
+            VStack(spacing: 0) {
+                countRow(icon: "brain.head.profile", title: "长期记忆", count: memoryCount)
+                Divider().opacity(0.5)
+                countRow(icon: "list.bullet.rectangle", title: "任务历史", count: taskCount)
+            }
+            .padding(18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
+        }
+        .navigationTitle("记忆与个人上下文")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var aboutPage: some View {
+        settingsScroll { aboutCard }
+            .navigationTitle("关于 OLO")
+            .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - Hero
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Settings".uppercased())
-                .font(.caption2).tracking(1.4).foregroundStyle(.secondary)
-            Text("调教 OLO。")
-                .font(.largeTitle.bold().lowercaseSmallCaps())
+            Text("调教 OLO")
+                .font(.largeTitle.bold())
                 .kerning(-1.2)
-            Text("身份、语音、权限、隐私与开发调试。")
-                .font(.footnote).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
@@ -336,7 +531,7 @@ struct SettingsView: View {
                 }
             }
             .buttonStyle(.plain)
-            .disabled(memoryCount == 0 && taskCount == 0)
+            .disabled(memoryCount == 0 && taskCount == 0 && !hasEncounterMemory)
             .padding(.vertical, 6)
         }
         .padding(18)
@@ -426,6 +621,7 @@ struct SettingsView: View {
     @MainActor
     private func refreshAll() async {
         refreshPermissions()
+        hasEncounterMemory = FirstEncounterMemoryStore().load() != nil
         await refreshCounts()
     }
 
@@ -487,6 +683,11 @@ struct SettingsView: View {
             try modelContext.delete(model: MemoryRecord.self)
             try modelContext.delete(model: AgentTaskRecord.self)
             try modelContext.save()
+            guard FirstEncounterMemoryStore().delete() else {
+                showToast("任务与普通记忆已清空，但首次相遇记忆删除失败")
+                return
+            }
+            hasEncounterMemory = false
             memoryCount = 0
             taskCount = 0
             showToast("已清空")

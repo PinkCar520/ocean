@@ -12,22 +12,66 @@ struct OLOEntityView: View {
     @State private var breathing = false
     @State private var pulsing = false
     @State private var flash = false
+    @State private var eyeBlink = false
+    @State private var eyeBlinkTask: Task<Void, Never>?
+    @State private var faceYaw: Double = 0
+    @State private var facePitch: Double = 0
+    @State private var gazeYaw: Double = 0
+    @State private var gazePitch: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Real microphone amplitude, forwarded by the Voice host.
+    var audioLevel: Float = 0
+    var isResponding: Bool = false
 
     var body: some View {
         ZStack {
             orb
-            logo
-            highlightBar
+            spatialFace
             if !center.privacyMode { cameraDot }
         }
+        .animation(.easeInOut(duration: 0.35), value: showsLuminousPresence)
         .frame(width: 205, height: 205)
-        .overlay(Circle().stroke(borderColor, lineWidth: 7))
+        .overlay {
+            Circle().stroke(borderColor, lineWidth: 7)
+        }
         .shadow(color: .black.opacity(0.32), radius: 28, y: 22)
         .overlay(flashOverlay)
         .scaleEffect(currentScale)
         .offset(x: shakeOffset)
-        .rotation3DEffect(.degrees(center.privacyMode ? 180 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-        .onChange(of: center.state) { _, new in startAnimations(for: new) }
+        .contentShape(Circle())
+        .gesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { value in
+                    guard !center.privacyMode, !reduceMotion else { return }
+                    let targetYaw = min(55, max(-55, Double(value.translation.width) * 0.55))
+                    let targetPitch = min(30, max(-30, -Double(value.translation.height) * 0.4))
+                    // The light core anticipates the slower face movement.
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        gazeYaw = targetYaw
+                        gazePitch = targetPitch
+                    }
+                    withAnimation(.spring(response: 0.48, dampingFraction: 0.82)) {
+                        faceYaw = targetYaw
+                        facePitch = targetPitch
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.9, dampingFraction: 0.78)) {
+                        faceYaw = 0
+                        facePitch = 0
+                        gazeYaw = 0
+                        gazePitch = 0
+                    }
+                }
+        )
+        .onChange(of: center.state) { old, new in
+            startAnimations(for: new)
+            if old != new { blinkEye() }
+        }
+        .onChange(of: isResponding) { old, new in
+            if old != new { blinkEye() }
+        }
+        .onDisappear { eyeBlinkTask?.cancel() }
         .onChange(of: center.privacyMode) { _, _ in
             withAnimation(.easeInOut(duration: 0.35)) {}
         }
@@ -35,7 +79,51 @@ struct OLOEntityView: View {
         .onAppear { startAnimations(for: center.state) }
     }
 
+    private var showsLuminousPresence: Bool {
+        !center.privacyMode && (center.state == .listening || center.state == .thinking || isResponding)
+    }
+
     // MARK: - Parts
+
+    /// Fixed shell with a curved, independently oriented face.
+    /// Face parts are projected from spherical coordinates instead of rotating
+    /// one flat 205pt card. No physical shell or camera movement.
+    private var spatialFace: some View {
+        ZStack {
+            projectedEye
+            projectedMouth
+        }
+        .frame(width: 205, height: 205)
+        .clipShape(Circle())
+        .opacity(center.privacyMode ? 0 : 1)
+        .accessibilityHint("拖动以预览 OLO 面部的空间转向")
+    }
+
+    private var projectedEye: some View {
+        let pose = FaceProjection.project(x: -25, y: -35, yaw: faceYaw, pitch: facePitch)
+        return logo
+            .offset(x: pose.x + 25, y: pose.y + 35)
+            .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0)
+            .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0)
+            .opacity(pose.visibility)
+    }
+
+    private var projectedMouth: some View {
+        let pose = FaceProjection.project(x: 0, y: 64, yaw: faceYaw, pitch: facePitch)
+        return Group {
+            if showsLuminousPresence {
+                OLOLuminousPresence(level: audioLevel, state: center.state, responding: isResponding)
+                    .frame(width: 112, height: 48)
+                    .transition(.opacity)
+            } else {
+                mouthBar
+            }
+        }
+        .offset(x: pose.x, y: pose.y)
+        .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0)
+        .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0)
+        .opacity(pose.visibility)
+    }
 
     private var orb: some View {
         Circle()
@@ -49,15 +137,74 @@ struct OLOEntityView: View {
             )
     }
 
+    /// Dual-layer Ambient Eye: stable soft-gray outer eye and a smaller
+    /// luminous white core. Attention is expressed by light, not eyelids.
     private var logo: some View {
-        Text("OLO")
-            .font(.system(size: 29, weight: .bold))
-            .foregroundStyle(.white)
-            .kerning(-2)
-            .opacity(center.privacyMode ? 0 : 1)
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+            let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate * (2 * Double.pi / 3.6)
+            let breath = reduceMotion ? 0 : (sin(phase) + 1) * 0.5
+            let microphone = center.state == .listening
+                ? min(1, max(0, Double(audioLevel))) : 0
+            let thinking = center.state == .thinking
+
+            ZStack {
+                // Preserve the original soft radial-gradient outer eye.
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.96),
+                                Color(white: 0.88).opacity(0.80),
+                                Color(white: 0.68).opacity(0.22)
+                            ],
+                            center: UnitPoint(x: 0.42, y: 0.38),
+                            startRadius: 2,
+                            endRadius: 65
+                        )
+                    )
+                    .frame(width: 84, height: 48)
+
+                // Inner light core: a separate, softly graduated oval.
+                // Small optical shifts convey focus without distorting the eye.
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white, Color(white: 0.97), Color(white: 0.89)],
+                            center: UnitPoint(x: 0.42, y: 0.38),
+                            startRadius: 1,
+                            endRadius: 28
+                        )
+                    )
+                    .frame(width: 49, height: 29)
+                    .offset(
+                        x: (thinking ? 3 : (reduceMotion ? 0 : CGFloat(sin(phase * 0.5)) * 1.2)) + CGFloat(gazeYaw / 55 * 4),
+                        y: (thinking ? 1 : 0) - CGFloat(gazePitch / 30 * 3)
+                    )
+                    .opacity(min(1, 0.90 + 0.07 * breath + 0.03 * microphone))
+                    .shadow(color: .white.opacity(eyeBlink ? 0.50 : 0.15), radius: eyeBlink ? 9 : 3)
+                    .scaleEffect(eyeBlink ? 1.07 : 1)
+                    .animation(.easeInOut(duration: 0.42), value: thinking)
+                    .animation(.easeInOut(duration: 0.20), value: eyeBlink)
+            }
+            .rotationEffect(.degrees(-35))
+            .offset(x: -25, y: -35)
+            .accessibilityHidden(true)
+        }
     }
 
-    private var highlightBar: some View {
+    /// A brief optical glint on state changes, never a vertical squash.
+    private func blinkEye() {
+        guard !reduceMotion, !center.privacyMode else { return }
+        eyeBlinkTask?.cancel()
+        eyeBlinkTask = Task { @MainActor in
+            withAnimation(.easeInOut(duration: 0.10)) { eyeBlink = true }
+            try? await Task.sleep(for: .milliseconds(110))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.11)) { eyeBlink = false }
+        }
+    }
+
+    private var mouthBar: some View {
         Group {
             if center.privacyMode {
                 Circle()
@@ -70,7 +217,6 @@ struct OLOEntityView: View {
                     .shadow(color: .white.opacity(0.9), radius: glowRadius)
             }
         }
-        .offset(y: 64)
         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: center.state)
         .animation(.spring(response: 0.35), value: center.privacyMode)
     }
@@ -164,5 +310,77 @@ struct OLOEntityView: View {
         try? await Task.sleep(for: .seconds(1.3))
         guard center.state == .done else { return }
         withAnimation { center.state = .idle }
+    }
+}
+
+/// Orthographic projection onto the visible hemisphere of a fixed orb.
+/// Inputs are the original 2D facial anchor coordinates; their depth is
+/// recovered from the sphere before rotating about its center.
+private enum FaceProjection {
+    static func project(x: Double, y: Double, yaw: Double, pitch: Double) -> (x: CGFloat, y: CGFloat, visibility: Double) {
+        let radius = 98.0
+        let z = sqrt(max(0, radius * radius - x * x - y * y))
+        let a = yaw * .pi / 180
+        let b = pitch * .pi / 180
+        let rotatedX = x * cos(a) + z * sin(a)
+        let rotatedZ = z * cos(a) - x * sin(a)
+        let rotatedY = y * cos(b) - rotatedZ * sin(b)
+        let depth = y * sin(b) + rotatedZ * cos(b)
+        // Fade only as the face approaches the rear hemisphere.
+        let visibility = min(1.0, max(0.0, (depth + 8) / 18))
+        return (CGFloat(rotatedX), CGFloat(rotatedY), visibility)
+    }
+}
+
+/// A SwiftUI Canvas light ribbon inspired by the supplied Siri interaction
+/// reference. This is OLO's own rendering, not Apple's proprietary effect.
+/// Lives at the entity's mouth position, replacing its static light bar during voice activity.
+private struct OLOLuminousPresence: View {
+    let level: Float
+    let state: OLOState
+    let responding: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+                let listening = state == .listening
+                let energy = listening ? min(1, max(0.06, Double(level))) : (responding ? 0.36 : 0.16)
+                let centerY = size.height * 0.5
+                let width = size.width
+                let halfWidth = width * 0.46
+                let height = 1.5 + energy * 8
+                let phase = time * (listening ? 4.8 : 2.1)
+                var ribbon = Path()
+                for step in 0...100 {
+                    let fraction = Double(step) / 100
+                    let x = width * 0.5 + (fraction * 2 - 1) * halfWidth
+                    let envelope = pow(max(0, 1 - pow(fraction * 2 - 1, 2)), 1.6)
+                    let wave = sin(fraction * 12.5 - phase) * height * envelope
+                    let secondary = sin(fraction * 6.2 + phase * 0.65) * height * 0.3 * envelope
+                    let point = CGPoint(x: x, y: centerY + wave + secondary)
+                    if step == 0 { ribbon.move(to: point) }
+                    else { ribbon.addLine(to: point) }
+                }
+                let start = CGPoint(x: width * 0.06, y: centerY)
+                let end = CGPoint(x: width * 0.94, y: centerY)
+                context.drawLayer { glow in
+                    glow.addFilter(.blur(radius: 13))
+                    glow.stroke(ribbon, with: .linearGradient(
+                        Gradient(colors: [.clear, Color(white: 0.62).opacity(0.6), .white, Color(white: 0.82).opacity(0.7), .clear]),
+                        startPoint: start, endPoint: end
+                    ), style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                }
+                context.stroke(ribbon, with: .linearGradient(
+                    Gradient(colors: [.clear, Color(white: 0.62).opacity(0.65), .white, Color(white: 0.82).opacity(0.8), .clear]),
+                    startPoint: start, endPoint: end
+                ), style: StrokeStyle(lineWidth: 2.5 + energy * 1.5, lineCap: .round))
+                context.stroke(ribbon, with: .color(.white.opacity(0.9)),
+                               style: StrokeStyle(lineWidth: 0.8, lineCap: .round))
+            }
+        }
+        .accessibilityLabel(state == .listening ? "OLO 正在聆听" : responding ? "OLO 正在回应" : "OLO 正在思考")
+        .accessibilityIdentifier("olo.entity.luminous")
+        .allowsHitTesting(false)
     }
 }
