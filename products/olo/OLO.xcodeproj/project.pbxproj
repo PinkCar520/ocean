@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+
+BB0000000000000000000002 = {isa = PBXBuildFile; fileRef = BB0000000000000000000001; };
+BB0000000000000000000005 = {isa = PBXBuildFile; fileRef = BB0000000000000000000003; };
+BB0000000000000000000006 = {isa = PBXBuildFile; fileRef = BB0000000000000000000004; };
+BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB0000000000000000000013; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		01826F2491DEC0D0F551DA23 /* Tool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E7386FC376FC8CDE4E862AF /* Tool.swift */; };
 		0C6D845D5E7C0C418A1FDE19 /* AgentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A88E4800ACBD5F9B54D0CD3 /* AgentRequest.swift */; };
 		0E962081DE1FAF872829E842 /* OLOAgentControlPlaneSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792F9BA93D25362E444367F8 /* OLOAgentControlPlaneSync.swift */; };
@@ -92,6 +97,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+BB0000000000000000000016 = {isa = PBXContainerItemProxy; containerPortal = 16A9D2BC91889E20B44ADCA2; proxyType = 1; remoteGlobalIDString = BB0000000000000000000008; remoteInfo = OLOControls; };
 		1EEA6EED0B5CC551BA0E0E35 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 16A9D2BC91889E20B44ADCA2 /* Project object */;
@@ -108,7 +114,17 @@
 		};
 /* End PBXContainerItemProxy section */
 
+
+/* Begin PBXCopyFilesBuildPhase section */
+BB0000000000000000000014 = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (BB0000000000000000000015, ); name = "Embed Extensions"; runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+
+BB0000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkToOLOIntent.swift; sourceTree = "<group>"; };
+BB0000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkToOLOControl.swift; sourceTree = "<group>"; };
+BB0000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkToOLOIntent.swift; sourceTree = "<group>"; };
+BB0000000000000000000013 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = OLOControls.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		055A0CBC6A27AD8D987AF2BE /* PlaceholderPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderPage.swift; sourceTree = "<group>"; };
 		05F590785BE06EA5B49BE213 /* ReminderAgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderAgentTests.swift; sourceTree = "<group>"; };
 		06EF256B069BEAE18BDFF787 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -181,6 +197,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+BB0000000000000000000007 /* OLOControls */ = {isa = PBXGroup; children = (BB0000000000000000000003, BB0000000000000000000004, ); path = OLOControls; sourceTree = "<group>"; };
 		0012DA1D851A345F16E3C2E4 /* OLOWatch */ = {
 			isa = PBXGroup;
 			children = (
@@ -240,6 +257,7 @@
 				5970719C9B18D83EDF876546 /* OLOTests */,
 				D9B9ECAA94FACC120ADE0CCD /* OLOUITests */,
 				0012DA1D851A345F16E3C2E4 /* OLOWatch */,
+BB0000000000000000000007 /* OLOControls */,
 				C7EA2302DAA009A4B9C8A0CF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -346,6 +364,7 @@
 				08263E9D09530271E9F20D58 /* ControlledAgentRuntime.swift */,
 				792F9BA93D25362E444367F8 /* OLOAgentControlPlaneSync.swift */,
 				82BFE8355A41534AFFD21FBD /* OLOApp.swift */,
+BB0000000000000000000001 /* TalkToOLOIntent.swift */,
 				E18118C76F1C645B25200C49 /* OLOCenter.swift */,
 				71FD16C0C482E81455D7502F /* RootShell.swift */,
 				10D030866EF5D651D809C703 /* WakePhoneCoordinator.swift */,
@@ -402,6 +421,7 @@
 				601C4D2237A04B03E777064A /* OLOTests.xctest */,
 				DCEF3B67469AF0F54365F04D /* OLOUITests.xctest */,
 				5654AC0E8C9C1FBDBF2E5210 /* OLOWatch.app */,
+BB0000000000000000000013 /* OLOControls.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -491,16 +511,19 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+BB0000000000000000000008 /* OLOControls */ = {isa = PBXNativeTarget; buildConfigurationList = BB0000000000000000000010; buildPhases = (BB0000000000000000000009); buildRules = (); dependencies = (); name = OLOControls; productName = OLOControls; productReference = BB0000000000000000000013; productType = "com.apple.product-type.app-extension"; };
 		0C7B67E36CC7FACC2407560B /* OLO */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0111195F7411F3882C62A902 /* Build configuration list for PBXNativeTarget "OLO" */;
 			buildPhases = (
 				C713BC413AEEFBC215329679 /* Sources */,
 				585F3074FB3B3A92F1F18ABF /* Resources */,
+BB0000000000000000000014 /* Embed Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+BB0000000000000000000017 /* OLOControls */,
 			);
 			name = OLO;
 			packageProductDependencies = (
@@ -609,6 +632,7 @@
 				886BB55C27641F3981C96280 /* OLOTests */,
 				DC168D4037037B185174AC15 /* OLOUITests */,
 				6A98CBF2CC138928CD4D5C65 /* OLOWatch */,
+BB0000000000000000000008 /* OLOControls */,
 			);
 		};
 /* End PBXProject section */
@@ -633,6 +657,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+BB0000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (BB0000000000000000000005, BB0000000000000000000006, ); runOnlyForDeploymentPostprocessing = 0; };
 		682534B67929726E3393A551 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -677,6 +702,7 @@
 				7016198FA59A51E104E7260F /* OLOActionReceiptLedger.swift in Sources */,
 				0E962081DE1FAF872829E842 /* OLOAgentControlPlaneSync.swift in Sources */,
 				871EE63F39B9FDBE2F2EABB7 /* OLOApp.swift in Sources */,
+BB0000000000000000000002 /* TalkToOLOIntent.swift in Sources */,
 				47A196640845C3ECF4392CED /* OLOCenter.swift in Sources */,
 				7E4FE56086D996E8A1A88A54 /* OLOControlPlaneClient.swift in Sources */,
 				290E294DDEA3ACCA84968A52 /* OLOControlPlaneContracts.generated.swift in Sources */,
@@ -744,6 +770,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+BB0000000000000000000017 = {isa = PBXTargetDependency; target = BB0000000000000000000008; targetProxy = BB0000000000000000000016; };
 		A04C1448A9CBC1235C2328D3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 0C7B67E36CC7FACC2407560B /* OLO */;
@@ -757,6 +784,8 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+BB0000000000000000000011 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = 336T6QZLR5; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = OLOControls/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = app.olo.OLO.controls; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+BB0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = 336T6QZLR5; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = OLOControls/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = app.olo.OLO.controls; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
 		0B5C2B1CB587355A09746D90 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1045,6 +1074,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+BB0000000000000000000010 = {isa = XCConfigurationList; buildConfigurations = (BB0000000000000000000011, BB0000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		0111195F7411F3882C62A902 /* Build configuration list for PBXNativeTarget "OLO" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

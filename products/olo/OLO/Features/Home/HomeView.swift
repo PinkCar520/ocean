@@ -13,6 +13,7 @@ struct HomeView: View {
     @Environment(OLOCenter.self) private var center
 
     @State private var speech = OLOSpeechResponder()
+    @State private var systemVoiceLaunch = OLOVoiceLaunch.shared
     @State private var microphoneLevel: Float = 0
     @State private var isSpeaking = false
     @State private var voiceMode = false
@@ -95,6 +96,10 @@ struct HomeView: View {
                 .padding(.top, 8)
                 .allowsHitTesting(false)
         }
+        .onAppear { handleSystemVoiceLaunch() }
+        .onChange(of: systemVoiceLaunch.requestID) { _, _ in
+            handleSystemVoiceLaunch()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { standby() }
         }
@@ -144,6 +149,19 @@ struct HomeView: View {
                         }
                     }
             }
+        }
+    }
+
+    @MainActor
+    private func handleSystemVoiceLaunch() {
+        guard systemVoiceLaunch.consume() else { return }
+        // RootShell installs AVVoiceService asynchronously during cold launch.
+        // Do not prematurely fall back to text while that bootstrap is running.
+        Task { @MainActor in
+            for _ in 0..<20 where center.voiceService == nil {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            startConversation()
         }
     }
 
