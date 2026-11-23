@@ -87,13 +87,18 @@ struct OLOEntityView: View {
             let thinking = center.state == .thinking
 
             ZStack {
-                // The outer eye stays full and readable in every state.
+                // Preserve the original soft radial-gradient outer eye.
                 Ellipse()
                     .fill(
-                        LinearGradient(
-                            colors: [Color(white: 0.83), Color(white: 0.64)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.96),
+                                Color(white: 0.88).opacity(0.80),
+                                Color(white: 0.68).opacity(0.22)
+                            ],
+                            center: UnitPoint(x: 0.42, y: 0.38),
+                            startRadius: 2,
+                            endRadius: 65
                         )
                     )
                     .frame(width: 84, height: 48)
