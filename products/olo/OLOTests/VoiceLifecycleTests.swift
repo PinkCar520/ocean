@@ -14,6 +14,7 @@ private final class Permissions: VoicePermissions {
 private final class Capture: VoiceCapture {
     var starts = 0
     var stops = 0
+    func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {}
     let pair = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
     func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error> { starts += 1; return pair.stream }
     func stop() async { stops += 1; pair.continuation.finish() }
