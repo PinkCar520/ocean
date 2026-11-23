@@ -219,12 +219,12 @@ private struct OLOLuminousPresence: View {
                 context.drawLayer { glow in
                     glow.addFilter(.blur(radius: 13))
                     glow.stroke(ribbon, with: .linearGradient(
-                        Gradient(colors: [.clear, .blue.opacity(0.6), .white, .cyan.opacity(0.7), .clear]),
+                        Gradient(colors: [.clear, Color(white: 0.62).opacity(0.6), .white, Color(white: 0.82).opacity(0.7), .clear]),
                         startPoint: start, endPoint: end
                     ), style: StrokeStyle(lineWidth: 17, lineCap: .round))
                 }
                 context.stroke(ribbon, with: .linearGradient(
-                    Gradient(colors: [.clear, .blue.opacity(0.65), .white, .cyan.opacity(0.8), .clear]),
+                    Gradient(colors: [.clear, Color(white: 0.62).opacity(0.65), .white, Color(white: 0.82).opacity(0.8), .clear]),
                     startPoint: start, endPoint: end
                 ), style: StrokeStyle(lineWidth: 3.2 + energy * 2, lineCap: .round))
                 context.stroke(ribbon, with: .color(.white.opacity(0.9)),
