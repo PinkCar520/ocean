@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var showingAgentSheet = false
     @State private var showingTextInput = false
     @State private var showingWakePlanner = false
+    @State private var showingSettings = false
     @State private var typedInput = ""
     @State private var toastText = ""
     @State private var toastShown = false
@@ -47,6 +48,27 @@ struct HomeView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .scrollIndicators(.hidden)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("olo.voice.settings")
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
+            NavigationStack {
+                SettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showingSettings = false }
+                        }
+                    }
+            }
+        }
         .overlay(alignment: .top) {
             OLOToast(text: toastText, isShown: $toastShown)
                 .padding(.top, 8)
