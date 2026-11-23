@@ -97,6 +97,7 @@ BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB00000000000000000000
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+BB0000000000000000000016 = {isa = PBXContainerItemProxy; containerPortal = 16A9D2BC91889E20B44ADCA2; proxyType = 1; remoteGlobalIDString = BB0000000000000000000008; remoteInfo = OLOControls; };
 		1EEA6EED0B5CC551BA0E0E35 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 16A9D2BC91889E20B44ADCA2 /* Project object */;
@@ -522,6 +523,7 @@ BB0000000000000000000014 /* Embed Extensions */,
 			buildRules = (
 			);
 			dependencies = (
+BB0000000000000000000017 /* OLOControls */,
 			);
 			name = OLO;
 			packageProductDependencies = (
@@ -768,6 +770,7 @@ BB0000000000000000000002 /* TalkToOLOIntent.swift in Sources */,
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+BB0000000000000000000017 = {isa = PBXTargetDependency; target = BB0000000000000000000008; targetProxy = BB0000000000000000000016; };
 		A04C1448A9CBC1235C2328D3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 0C7B67E36CC7FACC2407560B /* OLO */;
