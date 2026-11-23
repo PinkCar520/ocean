@@ -16,6 +16,8 @@ struct OLOEntityView: View {
     @State private var eyeBlinkTask: Task<Void, Never>?
     @State private var faceYaw: Double = 0
     @State private var facePitch: Double = 0
+    @State private var gazeYaw: Double = 0
+    @State private var gazePitch: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Real microphone amplitude, forwarded by the Voice host.
     var audioLevel: Float = 0
@@ -41,13 +43,24 @@ struct OLOEntityView: View {
             DragGesture(minimumDistance: 8)
                 .onChanged { value in
                     guard !center.privacyMode, !reduceMotion else { return }
-                    faceYaw = min(55, max(-55, Double(value.translation.width) * 0.55))
-                    facePitch = min(30, max(-30, -Double(value.translation.height) * 0.4))
+                    let targetYaw = min(55, max(-55, Double(value.translation.width) * 0.55))
+                    let targetPitch = min(30, max(-30, -Double(value.translation.height) * 0.4))
+                    // The light core anticipates the slower face movement.
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        gazeYaw = targetYaw
+                        gazePitch = targetPitch
+                    }
+                    withAnimation(.spring(response: 0.48, dampingFraction: 0.82)) {
+                        faceYaw = targetYaw
+                        facePitch = targetPitch
+                    }
                 }
                 .onEnded { _ in
                     withAnimation(.spring(response: 0.9, dampingFraction: 0.78)) {
                         faceYaw = 0
                         facePitch = 0
+                        gazeYaw = 0
+                        gazePitch = 0
                     }
                 }
         )
@@ -72,25 +85,44 @@ struct OLOEntityView: View {
 
     // MARK: - Parts
 
-    /// The orb stays stationary. Eye and mouth share a single rotating face plane.
-    /// Dragging the orb previews attention direction; no sound-source tracking yet.
+    /// Fixed shell with a curved, independently oriented face.
+    /// Face parts are projected from spherical coordinates instead of rotating
+    /// one flat 205pt card. No physical shell or camera movement.
     private var spatialFace: some View {
         ZStack {
-            logo
+            projectedEye
+            projectedMouth
+        }
+        .frame(width: 205, height: 205)
+        .clipShape(Circle())
+        .opacity(center.privacyMode ? 0 : 1)
+        .accessibilityHint("拖动以预览 OLO 面部的空间转向")
+    }
+
+    private var projectedEye: some View {
+        let pose = FaceProjection.project(x: -25, y: -35, yaw: faceYaw, pitch: facePitch)
+        return logo
+            .offset(x: pose.x + 25, y: pose.y + 35)
+            .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0)
+            .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0)
+            .opacity(pose.visibility)
+    }
+
+    private var projectedMouth: some View {
+        let pose = FaceProjection.project(x: 0, y: 64, yaw: faceYaw, pitch: facePitch)
+        return Group {
             if showsLuminousPresence {
                 OLOLuminousPresence(level: audioLevel, state: center.state, responding: isResponding)
                     .frame(width: 112, height: 48)
-                    .offset(y: 64)
                     .transition(.opacity)
             } else {
-                highlightBar
+                mouthBar
             }
         }
-        .frame(width: 205, height: 205)
-        .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0.65)
-        .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0.65)
-        .opacity(center.privacyMode ? 0 : 1)
-        .accessibilityHint("拖动以预览 OLO 面部的空间转向")
+        .offset(x: pose.x, y: pose.y)
+        .rotation3DEffect(.degrees(faceYaw), axis: (x: 0, y: 1, z: 0), perspective: 0)
+        .rotation3DEffect(.degrees(facePitch), axis: (x: 1, y: 0, z: 0), perspective: 0)
+        .opacity(pose.visibility)
     }
 
     private var orb: some View {
@@ -145,8 +177,8 @@ struct OLOEntityView: View {
                     )
                     .frame(width: 49, height: 29)
                     .offset(
-                        x: thinking ? 3 : (reduceMotion ? 0 : CGFloat(sin(phase * 0.5)) * 1.2),
-                        y: thinking ? 1 : 0
+                        x: (thinking ? 3 : (reduceMotion ? 0 : CGFloat(sin(phase * 0.5)) * 1.2)) + CGFloat(gazeYaw / 55 * 4),
+                        y: (thinking ? 1 : 0) - CGFloat(gazePitch / 30 * 3)
                     )
                     .opacity(min(1, 0.90 + 0.07 * breath + 0.03 * microphone))
                     .shadow(color: .white.opacity(eyeBlink ? 0.50 : 0.15), radius: eyeBlink ? 9 : 3)
@@ -172,7 +204,7 @@ struct OLOEntityView: View {
         }
     }
 
-    private var highlightBar: some View {
+    private var mouthBar: some View {
         Group {
             if center.privacyMode {
                 Circle()
@@ -185,7 +217,6 @@ struct OLOEntityView: View {
                     .shadow(color: .white.opacity(0.9), radius: glowRadius)
             }
         }
-        .offset(y: 64)
         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: center.state)
         .animation(.spring(response: 0.35), value: center.privacyMode)
     }
@@ -279,6 +310,25 @@ struct OLOEntityView: View {
         try? await Task.sleep(for: .seconds(1.3))
         guard center.state == .done else { return }
         withAnimation { center.state = .idle }
+    }
+}
+
+/// Orthographic projection onto the visible hemisphere of a fixed orb.
+/// Inputs are the original 2D facial anchor coordinates; their depth is
+/// recovered from the sphere before rotating about its center.
+private enum FaceProjection {
+    static func project(x: Double, y: Double, yaw: Double, pitch: Double) -> (x: CGFloat, y: CGFloat, visibility: Double) {
+        let radius = 98.0
+        let z = sqrt(max(0, radius * radius - x * x - y * y))
+        let a = yaw * .pi / 180
+        let b = pitch * .pi / 180
+        let rotatedX = x * cos(a) + z * sin(a)
+        let rotatedZ = z * cos(a) - x * sin(a)
+        let rotatedY = y * cos(b) - rotatedZ * sin(b)
+        let depth = y * sin(b) + rotatedZ * cos(b)
+        // Fade only as the face approaches the rear hemisphere.
+        let visibility = min(1.0, max(0.0, (depth + 8) / 18))
+        return (CGFloat(rotatedX), CGFloat(rotatedY), visibility)
     }
 }
 
