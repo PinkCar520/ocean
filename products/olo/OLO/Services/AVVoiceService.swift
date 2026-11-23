@@ -93,8 +93,12 @@ final class AVVoiceService: VoiceService {
             capture = newCapture
             newCapture.setLevelHandler(levelHandler)
             let source = try await newCapture.start()
+            guard sessionID == id else {
+                // Stop may have run while activation was suspended.
+                await newCapture.stop()
+                throw CancellationError()
+            }
             try Task.checkCancellation()
-            guard sessionID == id else { throw CancellationError() }
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
             let relay = Task { [weak self] in
                 do {
