@@ -105,7 +105,7 @@ final class AVVoiceService: VoiceService {
                     }
                     continuation.finish()
                 } catch { continuation.finish(throwing: error) }
-                await await self?.stop(id: id)
+                await self?.stop(id: id)
             }
             continuation.onTermination = { @Sendable [weak self] _ in
                 relay.cancel()
