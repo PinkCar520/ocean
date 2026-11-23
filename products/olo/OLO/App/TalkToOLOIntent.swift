@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import Observation
 
 /// Foreground-only system entry. The app owns microphone permissions and audio.
 struct TalkToOLOIntent: AppIntent {
