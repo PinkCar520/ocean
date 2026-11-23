@@ -88,7 +88,7 @@ struct HomeView: View {
                         }
                     }
             }
-            .presentationDetents([.fraction(0.7), .large])
+            .presentationDetents([.fraction(0.7)])
             .presentationDragIndicator(.visible)
         }
         .overlay(alignment: .top) {
