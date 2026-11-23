@@ -94,6 +94,10 @@ BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB00000000000000000000
 		FD4E401507087B1D12870CD7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84A6BF1E97ABF9159C784399 /* Assets.xcassets */; };
 		FD94162FF472FAC3749C3B16 /* ReminderIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F20AD07EF2AEA9DBA90517 /* ReminderIntent.swift */; };
 		FE233DA1E8A8335F42AEDCAE /* WatchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22B76AE662F1B23C9D02B1D /* WatchHomeView.swift */; };
+		A20000000000000000000001 /* FirstEncounterSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* FirstEncounterSession.swift */; };
+		A20000000000000000000002 /* FirstEncounterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* FirstEncounterView.swift */; };
+		A20000000000000000000003 /* FirstEncounterMemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* FirstEncounterMemoryStore.swift */; };
+		A20000000000000000000004 /* FirstEncounterSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* FirstEncounterSessionTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -194,6 +198,10 @@ BB0000000000000000000013 = {isa = PBXFileReference; explicitFileType = "wrapper.
 		F49255DE1E57C534CF728E48 /* ContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextProvider.swift; sourceTree = "<group>"; };
 		FCE2C897D93BB83CA6D4B29D /* WakeCompanionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeCompanionController.swift; sourceTree = "<group>"; };
 		FF0B743B46BB6FF0C4B7E846 /* WatchVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceService.swift; sourceTree = "<group>"; };
+		A10000000000000000000001 /* FirstEncounterSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterSession.swift; sourceTree = "<group>"; };
+		A10000000000000000000002 /* FirstEncounterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterView.swift; sourceTree = "<group>"; };
+		A10000000000000000000003 /* FirstEncounterMemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterMemoryStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000004 /* FirstEncounterSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterSessionTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -276,6 +284,7 @@ BB0000000000000000000007 /* OLOControls */,
 				05F590785BE06EA5B49BE213 /* ReminderAgentTests.swift */,
 				8DD893CA8C02C1D2FB74E02F /* VoiceLifecycleTests.swift */,
 				EF5F3046784FC1D81556C413 /* WakePlanTests.swift */,
+				A10000000000000000000004 /* FirstEncounterSessionTests.swift */,
 			);
 			path = OLOTests;
 			sourceTree = "<group>";
@@ -309,6 +318,7 @@ BB0000000000000000000007 /* OLOControls */,
 				148A8846A1C7F5C62D6F1F19 /* AgentActivity */,
 				A9AC602933A9ABA82F460BCF /* Home */,
 				A44A468228B10FF49482D8A3 /* Memory */,
+				A30000000000000000000001 /* FirstEncounter */,
 				BF8FE0A86122BB4A1868B028 /* Settings */,
 				87E8BD1C0FC3D36E8DEA54C9 /* Voice */,
 				43AA4467AD6FAD8DC230D443 /* Wake */,
@@ -364,6 +374,7 @@ BB0000000000000000000007 /* OLOControls */,
 				08263E9D09530271E9F20D58 /* ControlledAgentRuntime.swift */,
 				792F9BA93D25362E444367F8 /* OLOAgentControlPlaneSync.swift */,
 				82BFE8355A41534AFFD21FBD /* OLOApp.swift */,
+				A10000000000000000000001 /* FirstEncounterSession.swift */,
 BB0000000000000000000001 /* TalkToOLOIntent.swift */,
 				E18118C76F1C645B25200C49 /* OLOCenter.swift */,
 				71FD16C0C482E81455D7502F /* RootShell.swift */,
@@ -504,8 +515,17 @@ BB0000000000000000000013 /* OLOControls.appex */,
 				269CF8DE2C2199970416EEE3 /* AgentTaskRepository.swift */,
 				D1AAD3B8806C977B8C4F0E0A /* MemoryRecord.swift */,
 				801AC18F1C200BC09DBAB0B1 /* OLOModelContainer.swift */,
+				A10000000000000000000003 /* FirstEncounterMemoryStore.swift */,
 			);
 			path = Persistence;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000001 /* FirstEncounter */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000002 /* FirstEncounterView.swift */,
+			);
+			path = FirstEncounter;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -665,6 +685,7 @@ BB0000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 214748
 				C59132A5A60564ADB94F079F /* ReminderAgentTests.swift in Sources */,
 				DA8EB92975D3AC3F002939CE /* VoiceLifecycleTests.swift in Sources */,
 				294E86CD8625C1761BD5AA08 /* WakePlanTests.swift in Sources */,
+				A20000000000000000000004 /* FirstEncounterSessionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -681,6 +702,9 @@ BB0000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 214748
 			buildActionMask = 2147483647;
 			files = (
 				8725F3CCB9655BBCB660A643 /* AVVoiceService.swift in Sources */,
+				A20000000000000000000001 /* FirstEncounterSession.swift in Sources */,
+				A20000000000000000000002 /* FirstEncounterView.swift in Sources */,
+				A20000000000000000000003 /* FirstEncounterMemoryStore.swift in Sources */,
 				AD836D85A5EB9D949BD0DA8A /* ActionsView.swift in Sources */,
 				75308642A28353CACD71620B /* AgentActivityView.swift in Sources */,
 				8563FB4886170BAB101926A1 /* AgentRequest.swift in Sources */,
