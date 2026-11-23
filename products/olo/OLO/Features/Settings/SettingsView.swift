@@ -36,6 +36,8 @@ struct SettingsView: View {
     @State private var requestingVoice = false
 
     @State private var showDeveloperTools = false
+    @State private var showEditProfile = false
+    @AppStorage("olo.profile.displayName") private var profileDisplayName = ""
 
     var body: some View {
         ScrollView {
@@ -122,13 +124,66 @@ struct SettingsView: View {
     }
 
     private var profileHero: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("个人中心")
-                .font(.largeTitle.bold())
-                .kerning(-1.2)
+        Button {
+            showEditProfile = true
+        } label: {
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 0.70, green: 0.81, blue: 0.91),
+                                         Color(red: 0.49, green: 0.55, blue: 0.76)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Text(profileInitials)
+                        .font(.system(size: 44, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 112, height: 112)
+                .accessibilityHidden(true)
+
+                Text(profileDisplayName.isEmpty ? "设置你的名字" : profileDisplayName)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 24)
+            .padding(.bottom, 24)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 8)
+        .buttonStyle(.plain)
+        .accessibilityLabel("编辑个人资料")
+        .accessibilityIdentifier("olo.profile.header")
+        .sheet(isPresented: $showEditProfile) {
+            NavigationStack {
+                Form {
+                    Section("用户名称") {
+                        TextField("输入你的名字", text: $profileDisplayName)
+                            .textContentType(.nickname)
+                            .autocorrectionDisabled()
+                    }
+                }
+                .navigationTitle("编辑个人资料")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") { showEditProfile = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
+    }
+
+    private var profileInitials: String {
+        let name = profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return "?" }
+        return String(name.prefix(2)).uppercased()
     }
 
     private func sectionHeading(_ title: String) -> some View {
