@@ -129,8 +129,6 @@ struct OLOEntityView: View {
         .opacity(pose.visibility)
     }
 
-    /// Only the Eye is replaceable. The mouth and stationary outer shell stay native.
-    /// Until the real artboard is exported and bundled, use the existing Eye.
     @ViewBuilder
     private var ambientEye: some View {
         #if canImport(RiveRuntime)
@@ -405,10 +403,6 @@ private struct OLOLuminousPresence: View {
 }
 
 #if canImport(RiveRuntime)
-/// Rive runtime adapter for the first Eye-only proof of concept.
-/// The .riv artboard should use a transparent 205×205 canvas with the original
-/// Eye anchored at (-25, -35); the surrounding sphere is never in this asset.
-/// State machine: AmbientEye. Missing assets use the SwiftUI fallback above.
 private struct OLOAnimatedRiveEye: View {
     @StateObject private var model = RiveViewModel(
         fileName: "olo_ambient_eye",

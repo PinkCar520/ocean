@@ -9,7 +9,7 @@ const documentation = `${repository}#readme`;
 
 const navigationGroups = [
   { label: 'Product', columns: [
-    { heading: 'Experience', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
+    { heading: 'Experience', links: [{ label: 'Ocean AI', href: '/product' }, { label: 'Ocean One', href: '/one' }, { label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }] },
     { heading: 'Capabilities', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Ocean Code', href: '/code' }, { label: 'Capabilities', href: '/#features' }, { label: 'Skills', href: '/app/skills' }, { label: 'Workflows', href: '/app/workflows' }] },
     { heading: 'Explore', links: [{ label: 'Platform overview', href: '/#product' }, { label: 'Capability explorer', href: '/#features' }, { label: 'What you can do', href: '/#use-cases' }, { label: 'Architecture', href: '/#developers' }] },
   ] },
@@ -34,7 +34,7 @@ const socialProfiles = [
 ];
 
 const footerGroups = [
-  { heading: 'Product', links: [{ label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
+  { heading: 'Product', links: [{ label: 'Ocean AI', href: '/product' }, { label: 'Ocean One', href: '/one' }, { label: 'Ocean Workspace', href: '/app' }, { label: 'Ocean Code', href: '/code' }, { label: 'Conversations', href: '/app/chats' }, { label: 'Projects', href: '/app/projects' }, { label: 'Skills', href: '/app/skills' }] },
   { heading: 'Platform', links: [{ label: 'Agent Core', href: '/#product' }, { label: 'Architecture', href: '/#developers' }, { label: 'Workflows', href: '/app/workflows' }, { label: 'Integrations', href: '/app/integrations' }, { label: 'Ocean Code', href: '/code' }] },
   { heading: 'Developers', links: [{ label: 'Ocean Code setup', href: '/code#code-commands' }, { label: 'Documentation', href: documentation }, { label: 'Source code', href: repository }, { label: 'Issues', href: `${repository}/issues` }, { label: 'Releases', href: `${repository}/releases` }] },
   { heading: 'Resources', links: [{ label: 'Get started', href: '/#get-started' }, { label: 'FAQ', href: '/#faq' }, { label: 'Sign in', href: '/auth' }, { label: 'README', href: documentation }, { label: 'Contribute', href: `${repository}/blob/main/CONTRIBUTING.md` }] },
@@ -304,7 +304,18 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="product" className="border-t border-[#eee9e5] bg-white px-6 py-28 scroll-mt-20">
+        <section id="ocean-directions" aria-labelledby="ocean-directions-title" className="border-y border-[#e8e2db] bg-[#f7f3ee] px-6 py-24">
+        <div className="mx-auto max-w-6xl">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#bf5227]">Two product directions</p>
+          <h2 id="ocean-directions-title" className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-[#211e1b] md:text-5xl">Build what matters today. Explore what comes next.</h2>
+          <p className="mt-5 max-w-3xl leading-8 text-[#625b55]">Ocean AI develops the everyday agent experience, learning from mature products like Claude. Ocean One explores context-aware, ambient intelligence as a future interaction model.</p>
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            <article className="rounded-3xl border border-[#e8e2db] bg-white p-8 md:p-10"><p className="text-xs font-bold uppercase tracking-widest text-[#bf5227]">Ocean AI · Product</p><h3 className="mt-4 text-3xl font-semibold text-[#211e1b]">Intelligence for work.</h3><p className="mt-4 leading-7 text-[#625b55]">Conversations, workspaces, coding agents, tools and connected context. A practical product line measured against real user needs.</p><Link href="/product" className="mt-7 inline-block rounded-full bg-[#211e1b] px-6 py-3 font-semibold text-white hover:bg-[#c94b1a]">Explore Ocean AI →</Link></article>
+            <article className="rounded-3xl border border-[#e8e2db] bg-[#29221e] p-8 text-white md:p-10"><p className="text-xs font-bold uppercase tracking-widest text-[#ff9c70]">Ocean One · Research concept</p><h3 className="mt-4 text-3xl font-semibold">Intelligence in the environment.</h3><p className="mt-4 leading-7 text-[#ded4cd]">Perceive, understand and act with permission. Exploring the next form of human–AI interaction, not announcing a shipping device.</p><Link href="/one" className="mt-7 inline-block rounded-full bg-[#e9561b] px-6 py-3 font-semibold text-white hover:bg-[#cf4917]">Explore Ocean One →</Link></article>
+          </div>
+        </div>
+      </section>
+      <section id="product" className="border-t border-[#eee9e5] bg-white px-6 py-28 scroll-mt-20">
           <div className="mx-auto max-w-6xl">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e9561b]">The platform</p>
             <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] md:text-5xl">One core. Multiple ways to work.</h2>

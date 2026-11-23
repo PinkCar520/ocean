@@ -24,10 +24,16 @@ settings:
     CODE_SIGNING_ALLOWED: YES
     TARGETED_DEVICE_FAMILY: "1,2"
     GENERATE_INFOPLIST_FILE: NO
+packages:
+  RiveRuntime:
+    url: https://github.com/rive-app/rive-ios
+    from: 6.0.0
 targets:
   OLO:
     type: application
     platform: iOS
+    dependencies:
+      - package: RiveRuntime
     sources:
       # Includes the SR-001 Core, persistence adapter and real system integrations.
       - path: OLO

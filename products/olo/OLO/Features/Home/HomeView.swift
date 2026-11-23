@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import AVFoundation
+import CoreMotion
 
 /// OLO Home — the entry page of the iPhone body.
 ///
@@ -13,6 +14,9 @@ struct HomeView: View {
     @Environment(OLOCenter.self) private var center
 
     @State private var speech = OLOSpeechResponder()
+    @State private var motionManager = CMMotionManager()
+    @State private var faceDownSince: Date?
+    @State private var systemVoiceLaunch = OLOVoiceLaunch.shared
     @State private var microphoneLevel: Float = 0
     @State private var isSpeaking = false
     @State private var voiceMode = false
@@ -95,13 +99,23 @@ struct HomeView: View {
                 .padding(.top, 8)
                 .allowsHitTesting(false)
         }
+        .onAppear { handleSystemVoiceLaunch(); startFaceDownMonitoring() }
+        .onChange(of: systemVoiceLaunch.requestID) { _, _ in
+            handleSystemVoiceLaunch()
+        }
+        .onChange(of: center.voiceService != nil) { _, ready in
+            if ready { handleSystemVoiceLaunch() }
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { standby() }
+            if phase == .active { startFaceDownMonitoring() }
+            else { stopFaceDownMonitoring(); if phase == .background { standby() } }
         }
         .onChange(of: center.privacyMode) { _, enabled in
-            if enabled { speech.stop(); standby() }
+            if enabled { speech.stop(); standby(); center.state = .privacy }
+            else if center.state == .privacy { center.state = .idle }
         }
         .onDisappear {
+            stopFaceDownMonitoring()
             center.voiceService?.setLevelHandler(nil)
             microphoneLevel = 0
             voiceMode = false
@@ -145,6 +159,46 @@ struct HomeView: View {
                     }
             }
         }
+    }
+
+    @MainActor
+    private func handleSystemVoiceLaunch() {
+        // An App Intent may arrive before RootShell has installed the voice
+        // service during a cold launch. Keep the one-shot request pending until
+        // the service is actually ready; do not guess readiness with a timer.
+        guard center.voiceService != nil else { return }
+        guard systemVoiceLaunch.consume() else { return }
+        startConversation()
+    }
+
+    @MainActor
+    private func startFaceDownMonitoring() {
+        guard scenePhase == .active, motionManager.isDeviceMotionAvailable,
+              !motionManager.isDeviceMotionActive else { return }
+        faceDownSince = nil
+        motionManager.deviceMotionUpdateInterval = 0.1
+        motionManager.startDeviceMotionUpdates(to: .main) { motion, error in
+            guard error == nil, let motion else { return }
+            Task { @MainActor in
+                guard scenePhase == .active else { return }
+                let gravity = motion.gravity
+                let faceDown = gravity.z > 0.85
+                    && abs(gravity.x) < 0.45 && abs(gravity.y) < 0.45
+                guard faceDown else { faceDownSince = nil; return }
+                if faceDownSince == nil { faceDownSince = .now }
+                guard !center.privacyMode, let since = faceDownSince,
+                      Date().timeIntervalSince(since) >= 0.8 else { return }
+                center.privacyMode = true
+                faceDownSince = nil
+                showToast("已翻转进入隐私模式 · 请在设置中手动关闭")
+            }
+        }
+    }
+
+    @MainActor
+    private func stopFaceDownMonitoring() {
+        motionManager.stopDeviceMotionUpdates()
+        faceDownSince = nil
     }
 
     // MARK: - Sections
@@ -415,8 +469,8 @@ struct HomeView: View {
         Task { await center.voiceService?.stop() }
         center.liveTranscript = ""
         showingAgentSheet = false
-        withAnimation { center.state = .idle }
-        showToast("已回到待机")
+        withAnimation { center.state = center.privacyMode ? .privacy : .idle }
+        if !center.privacyMode { showToast("已回到待机") }
     }
 
     @MainActor

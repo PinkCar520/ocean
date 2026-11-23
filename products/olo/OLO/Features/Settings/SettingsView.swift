@@ -30,6 +30,7 @@ struct SettingsView: View {
     @State private var speechStatus: SFSpeechRecognizerAuthorizationStatus = SFSpeechRecognizer.authorizationStatus()
     @State private var memoryCount: Int = 0
     @State private var taskCount: Int = 0
+    @State private var hasEncounterMemory = false
     @State private var showResetConfirmation = false
     @State private var toastText = ""
     @State private var toastShown = false
@@ -109,7 +110,7 @@ struct SettingsView: View {
             Button("清空记忆与任务历史", role: .destructive, action: resetEverything)
             Button("取消", role: .cancel) {}
         } message: {
-            Text("这会删除 \(memoryCount) 条长期记忆与 \(taskCount) 条任务历史。OLO Identity 不受影响。不可撤销。")
+            Text("这会删除长期记忆、首次相遇回答与任务历史。OLO Identity 不受影响。不可撤销。")
         }
         .task { await refreshAll() }
         .onChange(of: scenePhase) { _, _ in refreshPermissions() }
@@ -247,6 +248,8 @@ struct SettingsView: View {
 
     private var memoryInformationPage: some View {
         settingsScroll {
+            sectionHeading("首次相遇")
+            MemoryView()
             sectionHeading("本机数据")
             VStack(spacing: 0) {
                 countRow(icon: "brain.head.profile", title: "长期记忆", count: memoryCount)
@@ -271,13 +274,9 @@ struct SettingsView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Settings".uppercased())
-                .font(.caption2).tracking(1.4).foregroundStyle(.secondary)
-            Text("调教 OLO。")
-                .font(.largeTitle.bold().lowercaseSmallCaps())
+            Text("调教 OLO")
+                .font(.largeTitle.bold())
                 .kerning(-1.2)
-            Text("身份、语音、权限、隐私与开发调试。")
-                .font(.footnote).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
@@ -484,7 +483,7 @@ struct SettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("隐私模式").font(.subheadline.bold())
-                    Text("翻转 OLO，立即停止视觉感知。").font(.caption).foregroundStyle(.secondary)
+                    Text("iPhone 屏幕朝下约 0.8 秒自动开启；关闭需手动操作。").font(.caption).foregroundStyle(.secondary)
                 }
             }
             .tint(.primary)
@@ -505,7 +504,7 @@ struct SettingsView: View {
         withAnimation(.easeInOut(duration: 0.35)) {
             center.privacyMode = newValue
         }
-        showToast(newValue ? "视觉感知已关闭" : "隐私模式已关闭")
+        showToast(newValue ? "语音输入已暂停" : "隐私模式已关闭")
     }
 
     // MARK: - 4. Debug / Reset
@@ -532,7 +531,7 @@ struct SettingsView: View {
                 }
             }
             .buttonStyle(.plain)
-            .disabled(memoryCount == 0 && taskCount == 0)
+            .disabled(memoryCount == 0 && taskCount == 0 && !hasEncounterMemory)
             .padding(.vertical, 6)
         }
         .padding(18)
@@ -622,6 +621,7 @@ struct SettingsView: View {
     @MainActor
     private func refreshAll() async {
         refreshPermissions()
+        hasEncounterMemory = FirstEncounterMemoryStore().load() != nil
         await refreshCounts()
     }
 
@@ -683,6 +683,11 @@ struct SettingsView: View {
             try modelContext.delete(model: MemoryRecord.self)
             try modelContext.delete(model: AgentTaskRecord.self)
             try modelContext.save()
+            guard FirstEncounterMemoryStore().delete() else {
+                showToast("任务与普通记忆已清空，但首次相遇记忆删除失败")
+                return
+            }
+            hasEncounterMemory = false
             memoryCount = 0
             taskCount = 0
             showToast("已清空")
