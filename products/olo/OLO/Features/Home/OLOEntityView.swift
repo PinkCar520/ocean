@@ -18,22 +18,22 @@ struct OLOEntityView: View {
 
     var body: some View {
         ZStack {
+            orb
+            logo
             if showsLuminousPresence {
                 OLOLuminousPresence(level: audioLevel, state: center.state, responding: isResponding)
-                    .transition(.opacity.combined(with: .scale(scale: 0.84)))
+                    .frame(width: 112, height: 48)
+                    .offset(y: 64)
+                    .transition(.opacity)
             } else {
-                orb
-                logo
                 highlightBar
-                if !center.privacyMode { cameraDot }
             }
+            if !center.privacyMode { cameraDot }
         }
-        .animation(.easeInOut(duration: 0.45), value: showsLuminousPresence)
+        .animation(.easeInOut(duration: 0.35), value: showsLuminousPresence)
         .frame(width: 205, height: 205)
         .overlay {
-            if !showsLuminousPresence {
-                Circle().stroke(borderColor, lineWidth: 7)
-            }
+            Circle().stroke(borderColor, lineWidth: 7)
         }
         .shadow(color: .black.opacity(0.32), radius: 28, y: 22)
         .overlay(flashOverlay)
@@ -73,9 +73,9 @@ struct OLOEntityView: View {
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(red: 0.91, green: 0.98, blue: 1.0).opacity(0.95),
-                        Color(red: 0.73, green: 0.88, blue: 1.0).opacity(0.78),
-                        Color(red: 0.65, green: 0.82, blue: 1.0).opacity(0.28)
+                        Color.white.opacity(0.96),
+                        Color(white: 0.88).opacity(0.80),
+                        Color(white: 0.68).opacity(0.22)
                     ],
                     center: UnitPoint(x: 0.42, y: 0.38),
                     startRadius: 2,
@@ -201,7 +201,7 @@ struct OLOEntityView: View {
 
 /// A SwiftUI Canvas light ribbon inspired by the supplied Siri interaction
 /// reference. This is OLO's own rendering, not Apple's proprietary effect.
-/// Drawn in the entity itself rather than as a second waveform underneath.
+/// Lives at the entity's mouth position, replacing its static light bar during voice activity.
 private struct OLOLuminousPresence: View {
     let level: Float
     let state: OLOState
@@ -216,7 +216,7 @@ private struct OLOLuminousPresence: View {
                 let centerY = size.height * 0.5
                 let width = size.width
                 let halfWidth = width * 0.46
-                let height = 3.5 + energy * 20
+                let height = 1.5 + energy * 8
                 let phase = time * (listening ? 4.8 : 2.1)
                 var ribbon = Path()
                 for step in 0...100 {
@@ -236,12 +236,12 @@ private struct OLOLuminousPresence: View {
                     glow.stroke(ribbon, with: .linearGradient(
                         Gradient(colors: [.clear, Color(white: 0.62).opacity(0.6), .white, Color(white: 0.82).opacity(0.7), .clear]),
                         startPoint: start, endPoint: end
-                    ), style: StrokeStyle(lineWidth: 17, lineCap: .round))
+                    ), style: StrokeStyle(lineWidth: 9, lineCap: .round))
                 }
                 context.stroke(ribbon, with: .linearGradient(
                     Gradient(colors: [.clear, Color(white: 0.62).opacity(0.65), .white, Color(white: 0.82).opacity(0.8), .clear]),
                     startPoint: start, endPoint: end
-                ), style: StrokeStyle(lineWidth: 3.2 + energy * 2, lineCap: .round))
+                ), style: StrokeStyle(lineWidth: 2.5 + energy * 1.5, lineCap: .round))
                 context.stroke(ribbon, with: .color(.white.opacity(0.9)),
                                style: StrokeStyle(lineWidth: 0.8, lineCap: .round))
             }
