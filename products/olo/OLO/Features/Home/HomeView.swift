@@ -100,6 +100,9 @@ struct HomeView: View {
         .onChange(of: systemVoiceLaunch.requestID) { _, _ in
             handleSystemVoiceLaunch()
         }
+        .onChange(of: center.voiceService != nil) { _, ready in
+            if ready { handleSystemVoiceLaunch() }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { standby() }
         }
@@ -154,15 +157,12 @@ struct HomeView: View {
 
     @MainActor
     private func handleSystemVoiceLaunch() {
+        // An App Intent may arrive before RootShell has installed the voice
+        // service during a cold launch. Keep the one-shot request pending until
+        // the service is actually ready; do not guess readiness with a timer.
+        guard center.voiceService != nil else { return }
         guard systemVoiceLaunch.consume() else { return }
-        // RootShell installs AVVoiceService asynchronously during cold launch.
-        // Do not prematurely fall back to text while that bootstrap is running.
-        Task { @MainActor in
-            for _ in 0..<20 where center.voiceService == nil {
-                try? await Task.sleep(for: .milliseconds(100))
-            }
-            startConversation()
-        }
+        startConversation()
     }
 
     // MARK: - Sections
