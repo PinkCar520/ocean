@@ -29,6 +29,26 @@ final class VoiceLifecycleTests: XCTestCase {
         XCTFail("Authorization was not requested")
     }
 
+    func testSystemVoiceLaunchRequestIsConsumedOnlyOnce() {
+        let launch = OLOVoiceLaunch.shared
+        _ = launch.consume()
+        launch.request()
+        XCTAssertTrue(launch.consume())
+        XCTAssertFalse(launch.consume())
+    }
+
+    func testVoiceLaunchURLRejectsUnexpectedRoutes() {
+        let launch = OLOVoiceLaunch.shared
+        _ = launch.consume()
+        XCTAssertFalse(launch.request(for: URL(string: "https://example.com/talk")!))
+        XCTAssertFalse(launch.request(for: URL(string: "olo://settings")!))
+        XCTAssertFalse(launch.request(for: URL(string: "olo://talk?background=1")!))
+        XCTAssertFalse(launch.request(for: URL(string: "olo://talk/other")!))
+        XCTAssertFalse(launch.consume())
+        XCTAssertTrue(launch.request(for: URL(string: "olo://talk")!))
+        XCTAssertTrue(launch.consume())
+    }
+
     func testStopDuringAuthorizationNeverStartsCapture() async {
         let permission = Permissions(), capture = Capture()
         let voice = AVVoiceService(permissions: permission, makeCapture: { capture })
