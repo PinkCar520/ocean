@@ -1,9 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Top-level shell of the iPhone body. Voice, Activity, Memory and Settings
-/// are the four primary destinations. World lives under Settings and
-/// Actions under Activity; the former Home entity surface is the Voice tab.
+/// Top-level shell of the iPhone body. Voice, Activity and Memory are
+/// primary destinations. Settings is accessed from Voice's top-right toolbar.
 struct RootShell: View {
     @Environment(OLOCenter.self) private var center
     @Environment(\.modelContext) private var modelContext
@@ -19,9 +18,6 @@ struct RootShell: View {
                 }
                 Tab("Memory", systemImage: "brain.head.profile") {
                     MemoryView()
-                }
-                Tab("Settings", systemImage: "gearshape") {
-                    SettingsView()
                 }
             }
             .tint(.primary)
