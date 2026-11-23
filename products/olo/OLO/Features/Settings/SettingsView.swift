@@ -75,13 +75,9 @@ struct SettingsView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Settings".uppercased())
-                .font(.caption2).tracking(1.4).foregroundStyle(.secondary)
-            Text("调教 OLO。")
-                .font(.largeTitle.bold().lowercaseSmallCaps())
+            Text("调教 OLO")
+                .font(.largeTitle.bold())
                 .kerning(-1.2)
-            Text("身份、语音、权限、隐私与开发调试。")
-                .font(.footnote).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
