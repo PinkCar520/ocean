@@ -483,7 +483,7 @@ struct SettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("隐私模式").font(.subheadline.bold())
-                    Text("翻转 OLO，立即停止视觉感知。").font(.caption).foregroundStyle(.secondary)
+                    Text("iPhone 屏幕朝下约 0.8 秒自动开启；关闭需手动操作。").font(.caption).foregroundStyle(.secondary)
                 }
             }
             .tint(.primary)
@@ -504,7 +504,7 @@ struct SettingsView: View {
         withAnimation(.easeInOut(duration: 0.35)) {
             center.privacyMode = newValue
         }
-        showToast(newValue ? "视觉感知已关闭" : "隐私模式已关闭")
+        showToast(newValue ? "语音输入已暂停" : "隐私模式已关闭")
     }
 
     // MARK: - 4. Debug / Reset
