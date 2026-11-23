@@ -209,6 +209,32 @@ private nonisolated func recognitionHandler(_ bridge: AudioBridge)
     { result, error in bridge.receive(result, error: error) }
 }
 
+/// Serializes audio-session transitions off MainActor on iOS 26.
+/// iOS 27 provides native asynchronous activation APIs.
+private actor RecordingAudioSession {
+    static let shared = RecordingAudioSession()
+
+    func activate() async throws {
+        let session = AVAudioSession.sharedInstance()
+        if #available(iOS 27.0, *) {
+            guard try await session.activate() else {
+                throw VoiceError.audioEngineFailed("无法激活音频会话")
+            }
+        } else {
+            try session.setActive(true)
+        }
+    }
+
+    func deactivate() async throws {
+        let session = AVAudioSession.sharedInstance()
+        if #available(iOS 27.0, *) {
+            _ = try await session.deactivate()
+        } else {
+            try session.setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
+}
+
 @MainActor
 private final class SystemVoiceCapture: VoiceCapture {
     private var engine: AVAudioEngine?
@@ -234,8 +260,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.record, mode: .measurement)
-            let activated = try await session.activate()
-            guard activated else { throw VoiceError.audioEngineFailed("无法激活音频会话") }
+            try await RecordingAudioSession.shared.activate()
             sessionActive = true
             try Task.checkCancellation()
             let engine = AVAudioEngine()
@@ -281,7 +306,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         task = nil
         engine = nil
         if sessionActive {
-            do { _ = try await AVAudioSession.sharedInstance().deactivate() }
+            do { try await RecordingAudioSession.shared.deactivate() }
             catch { NSLog("OLO audio session deactivation failed: %@", error.localizedDescription) }
         }
         sessionActive = false
