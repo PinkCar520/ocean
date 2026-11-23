@@ -74,7 +74,17 @@ struct HomeView: View {
                 SettingsView()
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") { showingSettings = false }
+                            Button {
+                                showingSettings = false
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 32, height: 32)
+                                    .background(.quaternary.opacity(0.5), in: Circle())
+                            }
+                            .accessibilityLabel("关闭")
+                            .accessibilityIdentifier("olo.settings.dismiss")
                         }
                     }
             }
