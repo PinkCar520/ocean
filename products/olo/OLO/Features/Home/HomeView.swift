@@ -88,6 +88,8 @@ struct HomeView: View {
                         }
                     }
             }
+            .presentationDetents([.fraction(0.7), .large])
+            .presentationDragIndicator(.visible)
         }
         .overlay(alignment: .top) {
             OLOToast(text: toastText, isShown: $toastShown)
