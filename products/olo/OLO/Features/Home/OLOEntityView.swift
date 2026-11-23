@@ -12,6 +12,9 @@ struct OLOEntityView: View {
     @State private var breathing = false
     @State private var pulsing = false
     @State private var flash = false
+    @State private var eyeBlink = false
+    @State private var eyeBlinkTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Real microphone amplitude, forwarded by the Voice host.
     var audioLevel: Float = 0
     var isResponding: Bool = false
@@ -40,7 +43,14 @@ struct OLOEntityView: View {
         .scaleEffect(currentScale)
         .offset(x: shakeOffset)
         .rotation3DEffect(.degrees(center.privacyMode ? 180 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-        .onChange(of: center.state) { _, new in startAnimations(for: new) }
+        .onChange(of: center.state) { old, new in
+            startAnimations(for: new)
+            if old != new { blinkEye() }
+        }
+        .onChange(of: isResponding) { old, new in
+            if old != new { blinkEye() }
+        }
+        .onDisappear { eyeBlinkTask?.cancel() }
         .onChange(of: center.privacyMode) { _, _ in
             withAnimation(.easeInOut(duration: 0.35)) {}
         }
@@ -66,27 +76,48 @@ struct OLOEntityView: View {
             )
     }
 
-    /// Soft, tilted elliptical Ambient Eye replaces the OLO wordmark.
-    /// Preserve the existing orb, light bar, camera dot and voice states.
+    /// Ambient Eye: restrained breathing, microphone feedback and a single
+    /// brief blink when voice/agent state changes. No cartoon eyelids.
     private var logo: some View {
-        Ellipse()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        Color.white.opacity(0.96),
-                        Color(white: 0.88).opacity(0.80),
-                        Color(white: 0.68).opacity(0.22)
-                    ],
-                    center: UnitPoint(x: 0.42, y: 0.38),
-                    startRadius: 2,
-                    endRadius: 65
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+            let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate * (2 * Double.pi / 3.6)
+            let breath = reduceMotion ? 0 : (sin(phase) + 1) * 0.5
+            let microphone = center.state == .listening
+                ? min(1, max(0, Double(audioLevel))) : 0
+            let thinking = center.state == .thinking
+            let brightness = 0.90 + 0.08 * breath + 0.02 * microphone
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(0.96),
+                            Color(white: 0.88).opacity(0.80),
+                            Color(white: 0.68).opacity(0.22)
+                        ],
+                        center: UnitPoint(x: 0.42, y: 0.38),
+                        startRadius: 2,
+                        endRadius: 65
+                    )
                 )
-            )
-            .frame(width: 84, height: 48)
-            .rotationEffect(.degrees(-35))
-            .offset(x: -25, y: -35)
-            .opacity(center.privacyMode ? 0 : 1)
-            .accessibilityHidden(true)
+                .frame(width: 84, height: 48)
+                .scaleEffect(x: thinking ? 0.96 : 1, y: eyeBlink ? 0.18 : (thinking ? 0.92 : 1))
+                .rotationEffect(.degrees(-35))
+                .offset(x: -25, y: -35)
+                .opacity(center.privacyMode ? 0 : brightness)
+                .animation(.easeInOut(duration: 0.42), value: thinking)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func blinkEye() {
+        guard !reduceMotion, !center.privacyMode else { return }
+        eyeBlinkTask?.cancel()
+        eyeBlinkTask = Task { @MainActor in
+            withAnimation(.easeInOut(duration: 0.10)) { eyeBlink = true }
+            try? await Task.sleep(for: .milliseconds(110))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.11)) { eyeBlink = false }
+        }
     }
 
     private var highlightBar: some View {
