@@ -78,7 +78,6 @@ struct SettingsView: View {
             .padding(.horizontal, 18)
             .padding(.bottom, 32)
         }
-        .background(settingsBackground)
         .scrollIndicators(.hidden)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showDeveloperTools) {
@@ -114,15 +113,6 @@ struct SettingsView: View {
         }
         .task { await refreshAll() }
         .onChange(of: scenePhase) { _, _ in refreshPermissions() }
-    }
-
-    private var settingsBackground: some View {
-        LinearGradient(
-            colors: [Color(white: 0.95), Color(white: 0.87)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
     }
 
     private var profileHero: some View {
@@ -228,7 +218,6 @@ struct SettingsView: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 20)
         }
-        .background(settingsBackground)
         .scrollIndicators(.hidden)
     }
 
