@@ -76,8 +76,8 @@ struct OLOEntityView: View {
             )
     }
 
-    /// Ambient Eye: restrained breathing, microphone feedback and a single
-    /// brief blink when voice/agent state changes. No cartoon eyelids.
+    /// Dual-layer Ambient Eye: stable soft-gray outer eye and a smaller
+    /// luminous white core. Attention is expressed by light, not eyelids.
     private var logo: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
             let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate * (2 * Double.pi / 3.6)
@@ -85,30 +85,49 @@ struct OLOEntityView: View {
             let microphone = center.state == .listening
                 ? min(1, max(0, Double(audioLevel))) : 0
             let thinking = center.state == .thinking
-            let brightness = 0.90 + 0.08 * breath + 0.02 * microphone
-            Ellipse()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(0.96),
-                            Color(white: 0.88).opacity(0.80),
-                            Color(white: 0.68).opacity(0.22)
-                        ],
-                        center: UnitPoint(x: 0.42, y: 0.38),
-                        startRadius: 2,
-                        endRadius: 65
+
+            ZStack {
+                // The outer eye stays full and readable in every state.
+                Ellipse()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(white: 0.83), Color(white: 0.64)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .frame(width: 84, height: 48)
-                .scaleEffect(x: thinking ? 0.96 : 1, y: eyeBlink ? 0.18 : (thinking ? 0.92 : 1))
-                .rotationEffect(.degrees(-35))
-                .offset(x: -25, y: -35)
-                .opacity(center.privacyMode ? 0 : brightness)
-                .animation(.easeInOut(duration: 0.42), value: thinking)
-                .accessibilityHidden(true)
+                    .frame(width: 84, height: 48)
+
+                // Inner light core: a separate, softly graduated oval.
+                // Small optical shifts convey focus without distorting the eye.
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white, Color(white: 0.97), Color(white: 0.89)],
+                            center: UnitPoint(x: 0.42, y: 0.38),
+                            startRadius: 1,
+                            endRadius: 28
+                        )
+                    )
+                    .frame(width: 49, height: 29)
+                    .offset(
+                        x: thinking ? 3 : (reduceMotion ? 0 : CGFloat(sin(phase * 0.5)) * 1.2),
+                        y: thinking ? 1 : 0
+                    )
+                    .opacity(min(1, 0.90 + 0.07 * breath + 0.03 * microphone))
+                    .shadow(color: .white.opacity(eyeBlink ? 0.50 : 0.15), radius: eyeBlink ? 9 : 3)
+                    .scaleEffect(eyeBlink ? 1.07 : 1)
+                    .animation(.easeInOut(duration: 0.42), value: thinking)
+                    .animation(.easeInOut(duration: 0.20), value: eyeBlink)
+            }
+            .rotationEffect(.degrees(-35))
+            .offset(x: -25, y: -35)
+            .opacity(center.privacyMode ? 0 : 1)
+            .accessibilityHidden(true)
         }
     }
 
+    /// A brief optical glint on state changes, never a vertical squash.
     private func blinkEye() {
         guard !reduceMotion, !center.privacyMode else { return }
         eyeBlinkTask?.cancel()
