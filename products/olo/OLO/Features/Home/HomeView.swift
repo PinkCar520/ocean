@@ -53,9 +53,11 @@ struct HomeView: View {
                 Button {
                     showingSettings = true
                 } label: {
-                    Image(systemName: "gearshape")
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 23, weight: .regular))
+                        .accessibilityHidden(true)
                 }
-                .accessibilityLabel("Settings")
+                .accessibilityLabel("Profile and settings")
                 .accessibilityIdentifier("olo.voice.settings")
             }
         }
