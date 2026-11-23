@@ -38,77 +38,52 @@ struct SettingsView: View {
     @State private var showDeveloperTools = false
 
     var body: some View {
-        List {
-            Section {
-                HStack(spacing: 14) {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 46))
-                        .foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("个人中心").font(.title2.bold())
-                        Text("你的 OLO 与个人设置")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 12)
-            }
-            Section {
-                NavigationLink {
-                    tuningPage
-                } label: {
-                    Label {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("调教 OLO").font(.headline)
-                            Text("认识你的 OLO，管理它的行为边界")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "sparkles")
-                            .foregroundStyle(.blue)
-                    }
-                    .padding(.vertical, 6)
-                }
-                .accessibilityIdentifier("olo.profile.tuning")
-            }
-            Section("连接与数据") {
-                NavigationLink {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                profileHero
+                navigationCard(
+                    title: "调教 OLO",
+                    detail: "认识你的 OLO，管理它的行为边界",
+                    icon: "sparkles"
+                ) { tuningPage }
+                sectionHeading("连接与数据")
+                navigationCard(title: "连接与设备", detail: "管理 OLO 可连接的设备", icon: "globe") {
                     WorldView()
-                } label: {
-                    Label("连接与设备", systemImage: "globe")
                 }
-                NavigationLink {
+                navigationCard(title: "记忆与个人上下文", detail: "查看本机记忆与任务", icon: "brain.head.profile") {
                     memoryInformationPage
-                } label: {
-                    Label("记忆与个人上下文", systemImage: "brain.head.profile")
                 }
-            }
-            Section("系统设置") {
-                NavigationLink {
+                sectionHeading("系统设置")
+                navigationCard(title: "隐私与权限", detail: "麦克风、语音识别与隐私模式", icon: "hand.raised") {
                     permissionsPage
-                } label: {
-                    Label("隐私与权限", systemImage: "hand.raised")
                 }
-                NavigationLink {
+                navigationCard(title: "关于 OLO", detail: "产品介绍与版本信息", icon: "info.circle") {
                     aboutPage
-                } label: {
-                    Label("关于 OLO", systemImage: "info.circle")
                 }
+                Button {
+                    showDeveloperTools = true
+                } label: {
+                    Text("开发者工具")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
             }
-            Section {
-                Button("开发者工具") { showDeveloperTools = true }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 32)
         }
-        .listStyle(.insetGrouped)
-        .navigationTitle("个人中心")
+        .background(settingsBackground)
+        .scrollIndicators(.hidden)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showDeveloperTools) {
             NavigationStack {
-                List {
-                    Section("验证") { wakeValidationCard }
-                    Section("数据调试") { debugCard }
+                settingsScroll {
+                    sectionHeading("验证")
+                    wakeValidationCard
+                    sectionHeading("数据调试")
+                    debugCard
                 }
                 .navigationTitle("开发者工具")
                 .toolbar {
@@ -131,57 +106,119 @@ struct SettingsView: View {
             Button("清空记忆与任务历史", role: .destructive, action: resetEverything)
             Button("取消", role: .cancel) {}
         } message: {
-            Text("这会删除 \\(memoryCount) 条长期记忆与 \\(taskCount) 条任务历史。OLO Identity 不受影响。不可撤销。")
+            Text("这会删除 \(memoryCount) 条长期记忆与 \(taskCount) 条任务历史。OLO Identity 不受影响。不可撤销。")
         }
         .task { await refreshAll() }
         .onChange(of: scenePhase) { _, _ in refreshPermissions() }
     }
 
+    private var settingsBackground: some View {
+        LinearGradient(
+            colors: [Color(white: 0.95), Color(white: 0.87)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+
+    private var profileHero: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("个人中心")
+                .font(.largeTitle.bold())
+                .kerning(-1.2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
+    }
+
+    private func sectionHeading(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.caption2)
+            .tracking(1.4)
+            .foregroundStyle(.secondary)
+            .padding(.leading, 4)
+            .padding(.top, 4)
+    }
+
+    private func navigationCard<Destination: View>(
+        title: String,
+        detail: String,
+        icon: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 12) {
+                iconBadge(icon)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.subheadline.bold()).foregroundStyle(.primary)
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func settingsScroll<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18, content: content)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 20)
+        }
+        .background(settingsBackground)
+        .scrollIndicators(.hidden)
+    }
+
     private var tuningPage: some View {
-        List {
-            Section("你的 OLO") {
-                identityCard
-            }
-            Section {
-                Text("交流风格、主动性等能力将在接入真实 Agent 偏好后开放。")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+        settingsScroll {
+            sectionHeading("你的 OLO")
+            identityCard
+            Text("交流风格、主动性等能力将在接入真实 Agent 偏好后开放。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
         }
         .navigationTitle("调教 OLO")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var permissionsPage: some View {
-        List {
-            Section("语音权限") { voiceCard }
-            Section("隐私") { privacyCard }
+        settingsScroll {
+            sectionHeading("语音权限")
+            voiceCard
+            sectionHeading("隐私")
+            privacyCard
         }
         .navigationTitle("隐私与权限")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var memoryInformationPage: some View {
-        List {
-            Section("本机数据") {
-                LabeledContent("长期记忆", value: "\\(memoryCount)")
-                LabeledContent("任务历史", value: "\\(taskCount)")
+        settingsScroll {
+            sectionHeading("本机数据")
+            VStack(spacing: 0) {
+                countRow(icon: "brain.head.profile", title: "长期记忆", count: memoryCount)
+                Divider().opacity(0.5)
+                countRow(icon: "list.bullet.rectangle", title: "任务历史", count: taskCount)
             }
-            Section {
-                Text("这里展示当前设备存储的数据概况。数据清理操作位于开发者工具。")
-                    .font(.footnote).foregroundStyle(.secondary)
-            }
+            .padding(18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
         }
         .navigationTitle("记忆与个人上下文")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var aboutPage: some View {
-        List {
-            Section { aboutCard }
-        }
-        .navigationTitle("关于 OLO")
-        .navigationBarTitleDisplayMode(.inline)
+        settingsScroll { aboutCard }
+            .navigationTitle("关于 OLO")
+            .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - Hero
