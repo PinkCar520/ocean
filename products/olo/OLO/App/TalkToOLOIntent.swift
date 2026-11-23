@@ -34,6 +34,21 @@ final class OLOVoiceLaunch {
     private(set) var requestID = UUID()
     private(set) var pending = false
 
+    /// Accept only the exact voice entry route. Do not interpret arbitrary
+    /// external URLs as requests to activate the microphone.
+    @discardableResult
+    func request(for url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "olo",
+              url.host?.lowercased() == "talk",
+              url.path.isEmpty || url.path == "/",
+              url.user == nil, url.password == nil,
+              url.port == nil, url.query == nil, url.fragment == nil else {
+            return false
+        }
+        request()
+        return true
+    }
+
     func request() {
         pending = true
         requestID = UUID()

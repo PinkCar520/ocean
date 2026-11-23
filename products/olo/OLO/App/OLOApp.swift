@@ -27,6 +27,9 @@ struct OLOApp: App {
                         .task { await bootstrapPersistentContainer() }
                 }
             }
+            .onOpenURL { url in
+                OLOVoiceLaunch.shared.request(for: url)
+            }
         }
     }
 

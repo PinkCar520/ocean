@@ -20,6 +20,15 @@
 	<string>0.1</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.olo.OLO.voice</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>olo</string></array>
+		</dict>
+	</array>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>OLO schedules the wake-up alarm you review and confirm.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
