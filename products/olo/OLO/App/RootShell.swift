@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AVFoundation
 
 /// Top-level shell of the iPhone body. Voice, Activity and Memory are
 /// primary destinations. Settings is accessed from Voice's top-right toolbar.
@@ -67,15 +68,19 @@ struct RootShell: View {
 }
 
 
-/// A first encounter, not a feature tour. The user can meet OLO without
-/// creating an account, granting permissions, or disclosing personal details.
-/// Voice permissions remain contextual to the first actual voice interaction.
+/// First meeting is voice-led. Text entry is deliberately not the default.
+/// A single explicit tap starts listening and triggers iOS permission prompts
+/// in context; OLO never records or listens before that action.
 private struct OLOFirstMeetingView: View {
     @Environment(OLOCenter.self) private var center
     @AppStorage("olo.profile.displayName") private var savedName = ""
     @State private var stage = 0
-    @State private var preferredName = ""
-    @FocusState private var nameFocused: Bool
+    @State private var isListening = false
+    @State private var heard = ""
+    @State private var errorMessage: String?
+    @State private var listenTask: Task<Void, Never>?
+    @State private var speech = AVSpeechSynthesizer()
+    @State private var listenID = UUID()
     let onComplete: () -> Void
 
     var body: some View {
@@ -86,7 +91,7 @@ private struct OLOFirstMeetingView: View {
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .tracking(2.5)
                     Spacer()
-                    Button("跳过") { onComplete() }
+                    Button("稍后再聊") { finish() }
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("olo.onboarding.skip")
@@ -95,62 +100,61 @@ private struct OLOFirstMeetingView: View {
                 .padding(.top, 20)
 
                 Spacer(minLength: 16)
-
-                // The same living entity used on the home screen, not a
-                // separate illustration that would teach the wrong identity.
-                OLOEntityView(audioLevel: 0, isResponding: false)
+                OLOEntityView(audioLevel: 0, isResponding: speech.isSpeaking)
                     .frame(maxWidth: 360)
                     .frame(height: min(proxy.size.height * 0.38, 300))
-                    .accessibilityHidden(true)
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
 
-                VStack(spacing: 16) {
+                VStack(spacing: 14) {
                     Text(stage == 0 ? "你好，我是 OLO。" :
                          stage == 1 ? "我该怎么称呼你？" :
-                         "我们从一件小事开始。")
+                         "很高兴认识你。")
                         .font(.system(size: 30, weight: .medium, design: .rounded))
                         .multilineTextAlignment(.center)
-                        .contentTransition(.opacity)
-
-                    Text(stage == 0
-                         ? "你不需要学习怎样使用我。我们可以慢慢认识。"
-                         : stage == 1
-                         ? "可以留空。以后随时能在设置中修改。"
-                         : "轻触我的眼睛，开始说话；也可以先用文字。")
+                    Text(stage == 0 ? "我们可以从一次简单的对话开始。" :
+                         stage == 1 ? "告诉我你的称呼，或者说「先不用」。" :
+                         "接下来，你可以直接告诉我想做的事。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
 
-                    if stage == 1 {
-                        TextField("你喜欢的称呼（可选）", text: $preferredName)
-                            .textContentType(.nickname)
-                            .textInputAutocapitalization(.words)
-                            .autocorrectionDisabled()
-                            .focused($nameFocused)
-                            .submitLabel(.done)
-                            .onSubmit(advance)
-                            .padding(16)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                            .accessibilityIdentifier("olo.onboarding.name")
-                            .padding(.top, 8)
+                    if isListening {
+                        Label("正在聆听", systemImage: "waveform")
+                            .foregroundStyle(.primary)
+                            .accessibilityIdentifier("olo.onboarding.listening")
                     }
-
-                    if stage == 2 {
-                        Label("麦克风权限仅在你开始语音交流时请求", systemImage: "hand.raised")
-                            .font(.caption)
+                    if !heard.isEmpty {
+                        Text("“\(heard)”")
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
-                            .padding(.top, 8)
+                            .multilineTextAlignment(.center)
+                    }
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                     }
                 }
                 .frame(maxWidth: 400)
                 .padding(.horizontal, 28)
-                .animation(.easeInOut(duration: 0.25), value: stage)
 
                 Spacer(minLength: 24)
-
-                Button(action: advance) {
-                    Text(stage == 2 ? "认识 OLO" : "继续")
+                Button {
+                    if stage == 0 {
+                        stage = 1
+                        speak("我该怎么称呼你？你也可以说，先不用。")
+                    } else if stage == 1 {
+                        if isListening { stopListening() } else { beginListening() }
+                    } else {
+                        finish()
+                    }
+                } label: {
+                    Label(stage == 0 ? "开始认识" :
+                          stage == 1 ? (isListening ? "结束聆听" : "回答 OLO") :
+                          "开始使用 OLO",
+                          systemImage: stage == 1 ? "mic" : "arrow.right")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 17)
@@ -160,11 +164,17 @@ private struct OLOFirstMeetingView: View {
                 .accessibilityIdentifier("olo.onboarding.continue")
                 .padding(.horizontal, 28)
 
-                Text(stage == 2 ? "你的资料由你决定，OLO 不会自动读取其他 App 的内容。" : "无需账号 · 无需预先授权")
+                if stage == 1 {
+                    Button("暂时不告诉你") { advanceWithoutName() }
+                        .font(.subheadline)
+                        .padding(.top, 12)
+                        .accessibilityIdentifier("olo.onboarding.noName")
+                }
+                Text("麦克风与语音识别权限只在你主动回答时请求")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
-                    .padding(.top, 16)
+                    .padding(.top, 14)
                     .padding(.bottom, 28)
                     .padding(.horizontal, 28)
             }
@@ -172,19 +182,99 @@ private struct OLOFirstMeetingView: View {
             .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         }
         .interactiveDismissDisabled()
+        .onAppear { speak("你好，我是 OLO。我们可以慢慢认识。") }
+        .onDisappear { cancelListening(); speech.stopSpeaking(at: .immediate) }
     }
 
-    private func advance() {
-        switch stage {
-        case 0:
-            withAnimation { stage = 1 }
-        case 1:
-            let name = preferredName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !name.isEmpty { savedName = String(name.prefix(60)) }
-            nameFocused = false
-            withAnimation { stage = 2 }
-        default:
-            onComplete()
+    private func speak(_ message: String) {
+        speech.stopSpeaking(at: .immediate)
+        let utterance = AVSpeechUtterance(string: message)
+        utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+        utterance.rate = 0.48
+        speech.speak(utterance)
+    }
+
+    private func beginListening() {
+        guard let voice = center.voiceService else {
+            errorMessage = "语音服务尚未就绪，请稍后重试。"
+            return
         }
+        speech.stopSpeaking(at: .immediate)
+        errorMessage = nil
+        heard = ""
+        isListening = true
+        let id = UUID()
+        listenID = id
+        listenTask = Task {
+            do {
+                let stream = try await voice.start()
+                for try await transcript in stream {
+                    guard listenID == id else { break }
+                    if !transcript.text.isEmpty { heard = transcript.text }
+                    if transcript.isFinal { break }
+                }
+                guard listenID == id else { return }
+                await voice.stop()
+                isListening = false
+                listenTask = nil
+                processResponse()
+            } catch {
+                guard listenID == id else { return }
+                await voice.stop()
+                isListening = false
+                listenTask = nil
+                errorMessage = "没有听清，或者语音权限尚未开启。你可以重试或跳过。"
+            }
+        }
+    }
+
+    private func stopListening() {
+        let old = listenTask
+        listenID = UUID()
+        old?.cancel()
+        listenTask = nil
+        isListening = false
+        Task { await center.voiceService?.stop() }
+        processResponse()
+    }
+
+    private func processResponse() {
+        let answer = heard.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !answer.isEmpty else {
+            errorMessage = "没听清，你可以再说一次。"
+            return
+        }
+        let skipWords = ["先不用", "不用", "跳过", "不告诉", "随便"]
+        if !skipWords.contains(where: { answer.contains($0) }) {
+            let normalized = answer
+                .replacingOccurrences(of: "叫我", with: "")
+                .replacingOccurrences(of: "我叫", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !normalized.isEmpty && normalized.count <= 30 {
+                savedName = normalized
+            }
+        }
+        stage = 2
+        speak(savedName.isEmpty ? "好的，我们慢慢认识。" : "好的，很高兴认识你。")
+    }
+
+    private func advanceWithoutName() {
+        cancelListening()
+        stage = 2
+        speak("没关系，我们可以慢慢认识。")
+    }
+
+    private func cancelListening() {
+        listenID = UUID()
+        listenTask?.cancel()
+        listenTask = nil
+        isListening = false
+        Task { await center.voiceService?.stop() }
+    }
+
+    private func finish() {
+        cancelListening()
+        speech.stopSpeaking(at: .immediate)
+        onComplete()
     }
 }
