@@ -1,5 +1,6 @@
 import SwiftUI
 import FoundationModels
+import UIKit
 
 /// Neutral initialization surface, distinct from the personal agent.
 struct FirstEncounterView: View {
@@ -16,6 +17,9 @@ struct FirstEncounterView: View {
     @State private var speaking = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var voiceError: String?
+    @State private var waiting = false
+    @State private var permissionBlocked = false
+    @State private var retryCount = 0
     @State private var recognition: Task<Void, Never>?
 
     var body: some View {
@@ -24,13 +28,28 @@ struct FirstEncounterView: View {
             VStack(spacing: 26) {
                 Spacer()
                 if case .question(let index) = session.phase {
-                    waveform
-                    if let voiceError {
-                        Text(voiceError)
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                        Button("重试语音") { ask(index) }
-                            .disabled(listening)
+                    Button {
+                        guard waiting, !permissionBlocked else { return }
+                        retryCount = 0
+                        ask(index)
+                    } label: {
+                        waveform
+                            .frame(width: 100, height: 100)
+                            .overlay {
+                                if waiting { Circle().stroke(.white.opacity(0.25), lineWidth: 1) }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!waiting || permissionBlocked)
+                    .accessibilityLabel(waiting ? "轻触恢复语音" : "初始化系统")
+                    if permissionBlocked {
+                        Text("请在系统设置中允许麦克风和语音识别。")
+                            .font(.footnote).foregroundStyle(.white.opacity(0.7))
+                        Button("打开设置") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
                     }
                 } else if session.phase == .awakening {
                     OLOEntityView(audioLevel: 0, isResponding: greeted && !greetingFinished)
@@ -49,7 +68,7 @@ struct FirstEncounterView: View {
             .padding(24)
         }
         .animation(.easeInOut(duration: 0.6), value: session.phase)
-        .onChange(of: session.phase) { _, _ in answer = ""; voiceError = nil }
+        .onChange(of: session.phase) { _, _ in answer = ""; voiceError = nil; retryCount = 0; waiting = false }
         .task(id: session.currentQuestion) {
             if case .question(let index) = session.phase { ask(index) }
         }
@@ -89,16 +108,21 @@ struct FirstEncounterView: View {
                 voice.setLevelHandler(nil)
                 Task { await voice.stop() }
                 speaking = false
-                voiceError = "语音已暂停，请重试。"
+                waiting = true
+            } else if phase == .active, waiting, case .question(let index) = session.phase {
+                permissionBlocked = false
+                retryCount = 0
+                ask(index)
             }
         }
         .onDisappear { speech.stop(); recognition?.cancel(); voice.setLevelHandler(nil); Task { await voice.stop() } }
     }
 
     private func ask(_ index: Int) {
-        guard session.phase == .question(index), !listening,
+        guard session.phase == .question(index), !listening, !speaking, scenePhase == .active,
               let question = session.currentQuestion else { return }
         voiceError = nil
+        waiting = false
         speaking = true
         speech.say(question) {
             speaking = false
@@ -130,24 +154,47 @@ struct FirstEncounterView: View {
                         let text = fragment.text
                         if text.contains("男") && !text.contains("女") { session.chooseVoice(.masculine) }
                         else if text.contains("女") && !text.contains("男") { session.chooseVoice(.feminine) }
-                        else { voiceError = "请选择男性或女性声音。" }
+                        else { recover(index, prompt: "你希望我使用男性声音，还是女性声音？") }
                     } else if ["跳过", "不想回答", "暂时不回答"].contains(answer.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))) {
                         session.skip()
                     } else if !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         session.answer(answer)
                     } else {
-                        voiceError = "没有听清，请重新回答。"
+                        recover(index)
                     }
                     return
                 }
                 await voice.stop()
-                if !Task.isCancelled { voiceError = "没有收到完整回答，请重试。" }
+                if !Task.isCancelled { recover(index) }
             } catch is CancellationError {
                 await voice.stop()
+            } catch VoiceError.unauthorized {
+                await voice.stop()
+                guard !Task.isCancelled else { return }
+                permissionBlocked = true
+                waiting = true
+                speech.say("请允许麦克风和语音识别权限。") {}
             } catch {
                 await voice.stop()
-                voiceError = "语音不可用，请检查麦克风与语音识别权限后重试。"
+                guard !Task.isCancelled else { return }
+                recover(index)
             }
+        }
+    }
+
+    private func recover(_ index: Int, prompt: String = "刚才没有听清，可以再说一次吗？") {
+        guard scenePhase == .active, session.phase == .question(index) else { return }
+        if retryCount >= 1 {
+            waiting = true
+            speech.say("准备好后，轻触波形，我们继续。") {}
+            return
+        }
+        retryCount += 1
+        speaking = true
+        speech.say(prompt) {
+            speaking = false
+            guard scenePhase == .active, session.phase == .question(index) else { return }
+            listen(index)
         }
     }
 
