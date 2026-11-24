@@ -288,8 +288,8 @@ struct OLOEntityView: View {
         center.state == .idle ? 12 : 18
     }
 
-    private var borderColor: Color {
-        center.state == .error ? Color(red: 0.85, green: 0.25, blue: 0.2) : Color(white: 0.67)
+    private var borderColor: SwiftUI.Color {
+        center.state == .error ? SwiftUI.Color(red: 0.85, green: 0.25, blue: 0.2) : SwiftUI.Color(white: 0.67)
     }
 
     private var shakeOffset: CGFloat {
