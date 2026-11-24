@@ -6,6 +6,15 @@ import XCTest
 private final class EncounterMemoryFake: FirstEncounterMemoryStoring {
     var memory: FirstEncounterMemory?
     var shouldSave = true
+    var draft: FirstEncounterDraft?
+    var shouldSaveDraft = true
+    func loadDraft() -> FirstEncounterDraft? { draft }
+    func saveDraft(_ draft: FirstEncounterDraft) -> Bool {
+        guard shouldSaveDraft else { return false }
+        self.draft = draft
+        return true
+    }
+    func deleteDraft() -> Bool { draft = nil; return true }
     func load() -> FirstEncounterMemory? { memory }
     func save(_ memory: FirstEncounterMemory) -> Bool {
         guard shouldSave else { return false }
@@ -17,6 +26,19 @@ private final class EncounterMemoryFake: FirstEncounterMemoryStoring {
 
 @MainActor
 final class FirstEncounterSessionTests: XCTestCase {
+    func testIdentitySurvivesRelaunchAndMemoryDeletion() {
+        let suite = "olo.identity.test.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { XCTFail(); return }
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let birth = Date(timeIntervalSince1970: 12345)
+        let identity = OLOIdentityStore(defaults: defaults).loadOrCreate(now: birth)
+        XCTAssertNotEqual(identity.name, "OLO")
+        XCTAssertEqual(identity.createdAt, birth)
+        let memory = EncounterMemoryFake()
+        XCTAssertTrue(memory.delete())
+        XCTAssertEqual(OLOIdentityStore(defaults: defaults).loadOrCreate(), identity)
+    }
+
     func testThreeQuestionsPersistUserStatementsAndVoice() {
         let suite = "olo.encounter.test.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { XCTFail(); return }
@@ -58,6 +80,31 @@ final class FirstEncounterSessionTests: XCTestCase {
         session.finishAwakening()
         XCTAssertTrue(session.isFinished)
         XCTAssertNil(store.load()?.relationshipsDescription)
+    }
+
+    func testResumeDraftAndPreserveOriginalAnswer() {
+        let suite = "olo.encounter.test.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { XCTFail(); return }
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = EncounterMemoryFake()
+        let first = FirstEncounterSession(defaults: defaults, memoryStore: store)
+        store.shouldSaveDraft = false
+        first.answer("  original  ")
+        XCTAssertEqual(first.phase, .question(0))
+        store.shouldSaveDraft = true
+        first.answer("  original  ")
+        let resumed = FirstEncounterSession(defaults: defaults, memoryStore: store)
+        XCTAssertEqual(resumed.phase, .question(1))
+        resumed.chooseVoice(.feminine)
+        let next = FirstEncounterSession(defaults: defaults, memoryStore: store)
+        XCTAssertEqual(next.phase, .question(2))
+        next.answer("Family")
+        let awakening = FirstEncounterSession(defaults: defaults, memoryStore: store)
+        XCTAssertEqual(awakening.phase, .awakening)
+        awakening.finishAwakening()
+        XCTAssertEqual(store.load()?.selfDescription, "  original  ")
+        XCTAssertNil(store.loadDraft())
+        XCTAssertTrue(awakening.isFinished)
     }
 
     func testDeletingMemoryDoesNotResetEncounterOrVoice() {

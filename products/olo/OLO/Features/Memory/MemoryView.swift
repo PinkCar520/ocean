@@ -3,6 +3,9 @@ import SwiftUI
 struct MemoryView: View {
     @State private var memory: FirstEncounterMemory?
     @State private var confirmDeletion = false
+    @State private var editing = false
+    @State private var selfAnswer = ""
+    @State private var relationshipAnswer = ""
     @State private var errorMessage: String?
 
     var body: some View {
@@ -23,6 +26,11 @@ struct MemoryView: View {
                         if memory.selfDescription == nil && memory.relationshipsDescription == nil {
                             Text("首次相遇时跳过了文字回答。")
                         }
+                        Button("编辑回答") {
+                            selfAnswer = memory.selfDescription ?? ""
+                            relationshipAnswer = memory.relationshipsDescription ?? ""
+                            editing = true
+                        }
                         Button("删除首次相遇记忆", role: .destructive) {
                             confirmDeletion = true
                         }
@@ -42,6 +50,39 @@ struct MemoryView: View {
             .padding(20)
         }
         .onAppear { memory = FirstEncounterMemoryStore().load() }
+        .sheet(isPresented: $editing) {
+            NavigationStack {
+                Form {
+                    Section("关于自己") { TextEditor(text: $selfAnswer).frame(minHeight: 100) }
+                    Section("家人和朋友") { TextEditor(text: $relationshipAnswer).frame(minHeight: 100) }
+                    Text("回答仅用于本机记忆和设备端模型理解。").font(.footnote)
+                    if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+                }
+                .navigationTitle("编辑首次相遇记忆")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("取消") { editing = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("保存") {
+                            guard let original = memory else { return }
+                            let updated = FirstEncounterMemory(
+                                selfDescription: selfAnswer.isEmpty ? nil : selfAnswer,
+                                relationshipsDescription: relationshipAnswer.isEmpty ? nil : relationshipAnswer,
+                                recordedAt: original.recordedAt
+                            )
+                            guard FirstEncounterMemoryStore().save(updated) else {
+                                errorMessage = "保存失败，请重试。"
+                                return
+                            }
+                            memory = updated
+                            errorMessage = nil
+                            editing = false
+                        }
+                    }
+                }
+            }
+        }
         .confirmationDialog("删除首次相遇的回答？",
                             isPresented: $confirmDeletion,
                             titleVisibility: .visible) {
