@@ -37,14 +37,16 @@ struct OLOIdentityStore {
         self.defaults = defaults
     }
 
-    func loadOrCreate(now: Date = .now) -> OLOIdentity {
-        if let data = defaults.data(forKey: key),
-           let identity = try? JSONDecoder().decode(OLOIdentity.self, from: data) {
-            return identity
-        }
+    func load() -> OLOIdentity? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(OLOIdentity.self, from: data)
+    }
+
+    func loadOrCreate(now: Date = .now, name: String? = nil) -> OLOIdentity {
+        if let identity = load() { return identity }
         // A provisional personal name, independent of the OLO product brand.
         let names = ["Aster", "Lumen", "Nova", "Echo", "Iris", "Mira"]
-        let identity = OLOIdentity(name: names.randomElement() ?? "Aster", createdAt: now)
+        let identity = OLOIdentity(name: name ?? names.randomElement() ?? "Aster", createdAt: now)
         if let data = try? JSONEncoder().encode(identity) {
             defaults.set(data, forKey: key)
         }
