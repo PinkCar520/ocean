@@ -10,7 +10,7 @@ struct OLOApp: App {
     @State private var firstEncounter: FirstEncounterSession
 
     init() {
-        let c = OLOCenter()
+        let c = OLOCenter(identity: OLOIdentityStore().loadOrCreate())
         self._center = State(initialValue: c)
         self._firstEncounter = State(initialValue: FirstEncounterSession())
         self._modelContainer = State(initialValue: nil)
