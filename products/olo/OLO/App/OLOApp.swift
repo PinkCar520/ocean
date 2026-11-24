@@ -13,7 +13,6 @@ struct OLOApp: App {
         let c = OLOCenter()
         self._center = State(initialValue: c)
         self._firstEncounter = State(initialValue: FirstEncounterSession())
-        self._firstEncounter = State(initialValue: FirstEncounterSession())
         self._modelContainer = State(initialValue: nil)
     }
 
