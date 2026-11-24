@@ -112,3 +112,18 @@ HTTP + PostgreSQL 探针在已有历史的 Session 中提交不存在的父节�
 ### 远程 Workspace Host 装配
 
 Gateway 的 ToolRegistry 在有 DeviceRpcBroker 时注册本机文件、notebook 和 LSP 工具。请求经过 Worker ToolExecutor 的权限和工具日志，再写入 device.rpc Outbox。HTTP Gateway 的 RpcModule 装配 DeviceRpcDispatcher 和 RpcGateway；按会话快照找到已认证 Host。Broker、Dispatcher、Socket 路由分别核对 Run 归属、快照和设备凭据，其后 Host 的 `createNotebookRpc` 再校验快照、根目录与本地权限。Desktop supervisor 启动独立 utility process，CLI remote 模式可复用同一个 Host connector 和设备执行函数；此设备进程不运行新的模型循环。旧 daemon 和 `RpcGateway.sendToCli/sendWorkspaceTool` 仍提供兼容通道。它们共享部分工具语义，工具批次与审批仍由父 Run／CLI 路径控制。CV2-040 记录设备发送后结果未知的持久收尾缺口。
+
+## R01–R08 设计评审证据索引
+
+| 要求 | 当前判断 | 已有入口与证据 | 尚缺的评审证据 |
+|---|---|---|---|
+| R01 Agent Execution Unification | Partial | CLI Engine.run；Gateway Worker → RunRunner → Core durable。兼容循环 CV2-002/003，模型前决策 CV2-001 | 从实际两端入口证明同一决策契约覆盖工具、审批、取消和终止 |
+| R02 Session Runtime | Partial | CLI Print SIGKILL 后 --resume 实证 CV2-011；Gateway Chat → Session → Run 的分支历史 CV2-035 | 未结工具、审批和 fork 的身份与历史保全 |
+| R03 Context Lifecycle | Duplicate | CLI compactContext 与 Gateway compactChatHistory 共享计数和部分校验，分别控制策略 CV2-013；历史双工具丢失 CV2-033 | 同语料跨端验证缓存、摘要、工具配对及重启 |
+| R04 Durable Recovery | Partial | PG 已复现启动恢复、丢投递、取消和重试分叉 CV2-008/009/027/029。工具未知结果协调 CV2-007 | 真实查询适配器、故障窗口覆盖及 Runtime 与 RunStep 的一致性断言 |
+| R05 Cross-host Acceptance | Partial | 协议级比较与真实 CLI 远程 → Gateway 测试通过，见 06-TEST-EVIDENCE | 同组场景分别跑本地 CLI Core 和 Gateway，核对状态与副作用 |
+| R06 Production Integration | Partial | PG/HTTP 可执行；生产 Compose、回填和发布身份缺口 CV2-004/005/038/039 | 线上部署规格、镜像摘要、迁移历史和实际服务装配 |
+| R07 Legacy Cleanup | Legacy | CLI 和 Gateway 回退仍可达；Gateway inline 工厂仅测试可达 CV2-022 | 兼容消费者及对外导出复核，明确每条路径退出条件 |
+| R08 Final Acceptance | Partial | CI 执行基础验收，三项真实 CLI 用例默认跳过 CV2-019 | 发布门覆盖清单、基线 CI 工件和最终验收映射 |
+
+逐文件台账跟踪生产可达性与待审范围。此表跟踪足以影响设计决策的证据缺口。
