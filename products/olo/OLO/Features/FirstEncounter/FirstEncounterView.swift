@@ -22,9 +22,12 @@ struct FirstEncounterView: View {
     @State private var retryCount = 0
     @State private var recognition: Task<Void, Never>?
 
+    private let accent = SwiftUI.Color(red: 244 / 255, green: 125 / 255, blue: 53 / 255)
+    private let waitingAccent = SwiftUI.Color(red: 215 / 255, green: 181 / 255, blue: 161 / 255)
+
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SwiftUI.Color.white.ignoresSafeArea()
             VStack(spacing: 26) {
                 Spacer()
                 if case .question(let index) = session.phase {
@@ -36,7 +39,7 @@ struct FirstEncounterView: View {
                         waveform
                             .frame(width: 100, height: 100)
                             .overlay {
-                                if waiting { Circle().stroke(.white.opacity(0.25), lineWidth: 1) }
+                                if waiting { Circle().stroke(waitingAccent.opacity(0.65), lineWidth: 1) }
                             }
                     }
                     .buttonStyle(.plain)
@@ -44,7 +47,7 @@ struct FirstEncounterView: View {
                     .accessibilityLabel(waiting ? "轻触恢复语音" : "初始化系统")
                     if permissionBlocked {
                         Text("请在系统设置中允许麦克风和语音识别。")
-                            .font(.footnote).foregroundStyle(.white.opacity(0.7))
+                            .font(.footnote).foregroundStyle(SwiftUI.Color.black.opacity(0.7))
                         Button("打开设置") {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 UIApplication.shared.open(url)
@@ -55,7 +58,7 @@ struct FirstEncounterView: View {
                     OLOEntityView(audioLevel: 0, isResponding: greeted && !greetingFinished)
                         .frame(height: 240)
                         .transition(.opacity)
-                    if naming { ProgressView().tint(.white) }
+                    if naming { ProgressView().tint(accent) }
                     if greetingFinished, session.errorMessage != nil {
                         Button("重试保存") { completeEncounter() }
                     }
@@ -67,6 +70,8 @@ struct FirstEncounterView: View {
             }
             .padding(24)
         }
+        .preferredColorScheme(.light)
+        .tint(accent)
         .animation(.easeInOut(duration: 0.6), value: session.phase)
         .onChange(of: session.phase) { _, _ in answer = ""; voiceError = nil; retryCount = 0; waiting = false }
         .task(id: session.currentQuestion) {
@@ -229,12 +234,12 @@ struct FirstEncounterView: View {
         HStack(spacing: 5) {
             ForEach(0..<7, id: \.self) { index in
                 Capsule()
-                    .fill(.white.opacity(0.8))
+                    .fill(waiting ? waitingAccent : accent)
                     .frame(width: 4, height: CGFloat([14, 25, 37, 44, 37, 25, 14][index]) * (listening ? 0.45 + CGFloat(microphoneLevel) : 1))
             }
         }
         .frame(height: 64)
-        .opacity(speaking || listening ? 1 : 0.45)
+        .opacity(waiting ? 0.75 : 1)
         .animation(.easeInOut(duration: 0.15), value: microphoneLevel)
         .accessibilityLabel(listening ? "正在聆听" : speaking ? "正在说话" : "初始化系统")
     }
