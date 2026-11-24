@@ -34,30 +34,16 @@ struct FirstEncounterView: View {
                             .multilineTextAlignment(.center)
                     }
                     Button(listening ? "停止听取" : "语音回答") {
-                        if listening { recognition?.cancel(); Task { await voice.stop() }; listening = false }
+                        if listening { recognition?.cancel(); Task { await voice.stop() } }
                         else { listen(index) }
                     }
                     .foregroundStyle(.white)
                     if let voiceError { Text(voiceError).font(.footnote).foregroundStyle(.orange) }
-                    if index == 1 {
-                        HStack(spacing: 16) {
-                            Button("男性声音") { session.chooseVoice(.masculine) }
-                            Button("女性声音") { session.chooseVoice(.feminine) }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    } else {
-                        TextField("你的回答", text: $answer, axis: .vertical)
-                            .lineLimit(2...4)
-                            .padding(14)
-                            .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
-                            .foregroundStyle(.white)
-                            .tint(.white)
-                            .accessibilityIdentifier("encounter.answer")
-                        Button("继续") { session.answer(answer) }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        Button("跳过") { session.skip() }
-                            .foregroundStyle(.white.opacity(0.7))
+                    if !answer.isEmpty {
+                        Text(answer)
+                            .foregroundStyle(.white.opacity(0.75))
+                            .multilineTextAlignment(.center)
+                            .accessibilityIdentifier("encounter.transcript")
                     }
                     Text("\(index + 1) / 3")
                         .font(.caption.monospacedDigit())
@@ -128,7 +114,7 @@ struct FirstEncounterView: View {
                 for try await fragment in stream {
                     try Task.checkCancellation()
                     guard session.phase == .question(index) else { break }
-                    if index != 1 { answer = fragment.text }
+                    answer = fragment.text
                     guard fragment.isFinal else { continue }
                     await voice.stop()
                     guard !Task.isCancelled, session.phase == .question(index) else { return }
@@ -137,17 +123,22 @@ struct FirstEncounterView: View {
                         if text.contains("男") && !text.contains("女") { session.chooseVoice(.masculine) }
                         else if text.contains("女") && !text.contains("男") { session.chooseVoice(.feminine) }
                         else { voiceError = "请选择男性或女性声音。" }
+                    } else if ["跳过", "不想回答", "暂时不回答"].contains(answer.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))) {
+                        session.skip()
                     } else if !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         session.answer(answer)
+                    } else {
+                        voiceError = "没有听清，请重新回答。"
                     }
                     return
                 }
                 await voice.stop()
+                if !Task.isCancelled { voiceError = "没有收到完整回答，请重试。" }
             } catch is CancellationError {
                 await voice.stop()
             } catch {
                 await voice.stop()
-                voiceError = "语音不可用，可以使用文字或按钮回答。"
+                voiceError = "语音不可用，请检查麦克风与语音识别权限后重试。"
             }
         }
     }
