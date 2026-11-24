@@ -5,3 +5,7 @@ The HTML reference is the approved browser prototype, independent of the product
 ## Orientation coverage and metrics
 
 Four sizes (390×844, 844×390, 430×932, 932×430) at four phases give 16 distinct comparisons. Each portrait size is rendered again after its landscape counterpart (24 comparisons total), with exact native pixel equality required at the same phase. This checks deterministic resize rendering, not live rotation or audio continuity. Dimensions are asserted independently. Every comparison prints OLO_VISUAL_METRIC and the test retains a metrics attachment. Keep initial thresholds until measured CI values justify calibration. The browser animation avoids PNG encoding during preview; its drawing formula is unchanged.
+
+## Approved portrait amplitude revision
+
+Use min(width,height) for displacement only; center remains height/2. Landscape is unchanged. Portrait amplitude is approximately 46% of the previous value on the tested phone sizes. The user requested this design change; update the independent HTML reference accordingly. RGB threshold 5%, ink coverage deviation 0.5%, pending CI validation of the revised design.

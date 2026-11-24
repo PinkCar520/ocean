@@ -256,17 +256,17 @@ struct EncounterFluidFrame: View {
                 let t = time
                 let h = size.height
                 let w = size.width
-                // Keep the approved prototype amplitude in every state.
-                let activity = 1.0
+                // Short-edge amplitude prevents portrait stretching; landscape is unchanged.
+                let amplitude = Double(min(w, h))
                 for j in 0..<7 {
                     var path = Path()
                     let layer = Double(j)
                     for x in stride(from: 0.0, through: Double(w), by: 2) {
                         let u = x / Double(w)
                         let envelope = 0.12 + 0.88 * pow(max(0, sin(u * .pi)), 1.4)
-                        let displacement = sin(u * 9 + t * 1.4 + layer * 0.23) * Double(h) * 0.16
-                            + cos(u * 12 - t * 0.8 + layer * 0.37) * Double(h) * 0.07
-                        let point = CGPoint(x: x, y: Double(h) / 2 + envelope * displacement * activity)
+                        let displacement = sin(u * 9 + t * 1.4 + layer * 0.23) * amplitude * 0.16
+                            + cos(u * 12 - t * 0.8 + layer * 0.37) * amplitude * 0.07
+                        let point = CGPoint(x: x, y: Double(h) / 2 + envelope * displacement)
                         if x == 0 { path.move(to: point) } else { path.addLine(to: point) }
                     }
                     context.stroke(path, with: .color(accent

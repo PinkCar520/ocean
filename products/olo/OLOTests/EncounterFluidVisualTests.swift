@@ -60,8 +60,8 @@ final class EncounterFluidVisualTests: XCTestCase {
                 let metric = "\(label): normalized RGB=\(error), ink coverage=\(coverage)"
                 print("OLO_VISUAL_METRIC \(metric)")
                 metrics.append(metric)
-                // Initial cross-renderer tolerances; never regenerate the reference from Swift.
-                if error > 0.35 || abs(coverage - 1) > 0.15 {
+                // Calibrated cross-renderer tolerances; never regenerate the reference from Swift.
+                if error > 0.05 || abs(coverage - 1) > 0.005 {
                     for (name, image) in [("browser", reference), ("native", actual)] {
                         let attachment = XCTAttachment(image: image)
                         attachment.name = "\(label)-\(name)"
@@ -69,8 +69,8 @@ final class EncounterFluidVisualTests: XCTestCase {
                         add(attachment)
                     }
                 }
-                XCTAssertLessThanOrEqual(error, 0.35, "\(label): normalized RGB difference")
-                XCTAssertLessThanOrEqual(abs(coverage - 1), 0.15, "\(label): ink coverage")
+                XCTAssertLessThanOrEqual(error, 0.05, "\(label): normalized RGB difference")
+                XCTAssertLessThanOrEqual(abs(coverage - 1), 0.005, "\(label): ink coverage")
             }
         }
         XCTAssertTrue(initialFrames.isEmpty)
