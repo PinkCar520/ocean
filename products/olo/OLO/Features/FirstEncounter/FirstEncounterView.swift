@@ -18,7 +18,7 @@ struct FirstEncounterView: View {
                         .multilineTextAlignment(.center)
                         .accessibilityIdentifier("encounter.question.\(index)")
                     if index == 0 {
-                        Text("回答将在初始化完成后保存在本机，你可以在 Memory 中查看和删除。")
+                        Text("每次提交的回答都将安全保存在本机，退出后可继续。完成后可在 Memory 中查看和删除。")
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.65))
                             .multilineTextAlignment(.center)
