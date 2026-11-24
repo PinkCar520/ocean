@@ -1,0 +1,61 @@
+<Rive version="1" kind="fragment">
+    <Artboard width="205" height="205" name="Ambient Eye" id="0:2"
+              defaultStateMachineId="0:7" viewModelId="0:30" styleId="0:5">
+        <LayoutComponentStyle name="Artboard Style" id="0:5"/>
+        <Node x="77.5" y="67.5" rotation="-0.610865" name="Eye" id="0:35">
+            <Shape name="Light Core" id="0:20" opacity="0.94">
+                <DataBindContext sourcePathIds="0:30-0:31" propertyKey="13" id="0:36"/>
+                <DataBindContext sourcePathIds="0:30-0:32" propertyKey="14" id="0:37"/>
+                <DataBindContext sourcePathIds="0:30-0:33" propertyKey="18" id="0:38"/>
+                <Ellipse width="49" height="29" id="0:39"/>
+                <Fill id="0:40">
+                    <RadialGradient startX="-4" startY="-3" endX="24" endY="-3" id="0:41">
+                        <GradientStop colorValue="FFFFFFFF" position="0" id="0:42"/>
+                        <GradientStop colorValue="FFF7F7F7" position="0.55" id="0:43"/>
+                        <GradientStop colorValue="FFE3E3E3" position="1" id="0:44"/>
+                    </RadialGradient>
+                </Fill>
+            </Shape>
+            <Shape name="Outer Eye" id="0:21" opacity="0.89">
+                <Ellipse width="84" height="48" id="0:45"/>
+                <Fill id="0:46">
+                    <RadialGradient startX="-7" startY="-6" endX="58" endY="-6" id="0:47">
+                        <GradientStop colorValue="F5FFFFFF" position="0" id="0:48"/>
+                        <GradientStop colorValue="CCE0E0E0" position="0.55" id="0:49"/>
+                        <GradientStop colorValue="38ADADAD" position="1" id="0:50"/>
+                    </RadialGradient>
+                </Fill>
+            </Shape>
+        </Node>
+
+        <StateMachine name="AmbientEye" id="0:7">
+            <StateMachineLayer name="Breath" id="0:51">
+                <AnyState x="200" y="-120" id="0:52"/>
+                <ExitState x="400" y="-120" id="0:53"/>
+                <EntryState id="0:54"><StateTransition stateToId="0:12" id="0:55"/></EntryState>
+                <AnimationState x="200" animationId="0:6" id="0:12"/>
+            </StateMachineLayer>
+        </StateMachine>
+
+        <LinearAnimation duration="216" loopValue="loop" name="Breath" id="0:6">
+            <KeyedObject objectId="0:21" id="0:56">
+                <KeyedProperty property="opacity" id="0:57">
+                    <KeyFrameDouble value="0.89" interpolationType="linear" id="0:58"/>
+                    <KeyFrameDouble frame="108" value="0.95" interpolationType="linear" id="0:59"/>
+                    <KeyFrameDouble frame="216" value="0.89" id="0:60"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+    </Artboard>
+
+    <ViewModel name="AmbientEye" id="0:30" defaultInstanceId="0:34">
+        <ViewModelPropertyNumber name="lookX" id="0:31"/>
+        <ViewModelPropertyNumber name="lookY" id="0:32"/>
+        <ViewModelPropertyNumber name="focus" id="0:33"/>
+        <ViewModelInstance exports="true" name="Default" id="0:34">
+            <ViewModelInstanceNumber viewModelPropertyId="0:31" propertyValue="0" id="0:61"/>
+            <ViewModelInstanceNumber viewModelPropertyId="0:32" propertyValue="0" id="0:62"/>
+            <ViewModelInstanceNumber viewModelPropertyId="0:33" propertyValue="0.94" id="0:63"/>
+        </ViewModelInstance>
+    </ViewModel>
+</Rive>

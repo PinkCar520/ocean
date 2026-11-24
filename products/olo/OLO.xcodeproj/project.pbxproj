@@ -7,11 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-
-BB0000000000000000000002 = {isa = PBXBuildFile; fileRef = BB0000000000000000000001; };
-BB0000000000000000000005 = {isa = PBXBuildFile; fileRef = BB0000000000000000000003; };
-BB0000000000000000000006 = {isa = PBXBuildFile; fileRef = BB0000000000000000000004; };
-BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB0000000000000000000013; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		01826F2491DEC0D0F551DA23 /* Tool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E7386FC376FC8CDE4E862AF /* Tool.swift */; };
 		0C6D845D5E7C0C418A1FDE19 /* AgentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A88E4800ACBD5F9B54D0CD3 /* AgentRequest.swift */; };
 		0E962081DE1FAF872829E842 /* OLOAgentControlPlaneSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792F9BA93D25362E444367F8 /* OLOAgentControlPlaneSync.swift */; };
@@ -33,6 +28,7 @@ BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB00000000000000000000
 		3D54AD2B0BA5D778915A0991 /* WakeCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A5FD0091765E2C716B702 /* WakeCalendarService.swift */; };
 		47A196640845C3ECF4392CED /* OLOCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18118C76F1C645B25200C49 /* OLOCenter.swift */; };
 		496E831A7AD43AFD6F76C2D8 /* PermissionLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68A75751A3221EE316DE8F1 /* PermissionLevel.swift */; };
+		4E4113FC2D8B021EF67716BF /* TalkToOLOIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C52A712242669084942D93C /* TalkToOLOIntent.swift */; };
 		5562B3E8E543EF8CE97379F5 /* WakeVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71C7ECE94D34766FA3B7DFBB /* WakeVoiceIntent.swift */; };
 		5B5E44B87D4A247296E24667 /* WakePlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1405B8463438DF45E0207403 /* WakePlannerView.swift */; };
 		5CD9B75183075774860DCB2F /* AgentRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE27990ECD3AFDC44A7C46F /* AgentRuntime.swift */; };
@@ -68,6 +64,7 @@ BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB00000000000000000000
 		9C7A02B8EBC894E040458C07 /* OLOWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3408B0CEFBC848A760FC9DA2 /* OLOWatchApp.swift */; };
 		A013DBCA50CFC66F1FE973DC /* WakeRecordStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E23B18D9AF6CFFCB837F5D2 /* WakeRecordStore.swift */; };
 		A45D183B077C3A6B66B6BE5B /* PlaceholderPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 055A0CBC6A27AD8D987AF2BE /* PlaceholderPage.swift */; };
+		A4FE8D51342924B9ED2170DB /* FirstEncounterSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB772622F0576C5900E7D07 /* FirstEncounterSessionTests.swift */; };
 		A77528CFE20A8982332B41CC /* ReminderExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A86A28AC4AC0AB5F9391B9C /* ReminderExecutor.swift */; };
 		ABFED5DAC759F8C593B73C73 /* WakeAlarmService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD16B7229047BB409BFD158 /* WakeAlarmService.swift */; };
 		AD836D85A5EB9D949BD0DA8A /* ActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC62A25BA78B1C4C04DBDE0F /* ActionsView.swift */; };
@@ -75,6 +72,7 @@ BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB00000000000000000000
 		BBABF6A9A8D330FAB29756AC /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 163728D45EA30EA5E6B42DF0 /* SettingsView.swift */; };
 		BC3DA0E5C79A738F13B71A3F /* WakeCompanionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCE2C897D93BB83CA6D4B29D /* WakeCompanionController.swift */; };
 		C59132A5A60564ADB94F079F /* ReminderAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F590785BE06EA5B49BE213 /* ReminderAgentTests.swift */; };
+		CE4B036931BF98829F9AC97A /* FirstEncounterSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19B3E2654A3C5340EB4A3F7 /* FirstEncounterSession.swift */; };
 		D58F74A48C73CE58C4D64CA1 /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA3C5F84BE69C21EAD9F380 /* MemoryStore.swift */; };
 		D936D14A6FD3A364002CAA3D /* ToolExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C34B716906A8EAC20E0208 /* ToolExecution.swift */; };
 		DA8EB92975D3AC3F002939CE /* VoiceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD893CA8C02C1D2FB74E02F /* VoiceLifecycleTests.swift */; };
@@ -82,10 +80,12 @@ BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB00000000000000000000
 		DD133F3B90C271AF59AD5D31 /* MemoryRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1AAD3B8806C977B8C4F0E0A /* MemoryRecord.swift */; };
 		DD1EFD219A17B7E6EF02E9A3 /* MemoryImportance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55ED4E382B122D707FE3AEE /* MemoryImportance.swift */; };
 		DE2F342F86CBB35E9AD3AD1D /* AgentTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A6B9BBF9DD4DA56AE9825 /* AgentTask.swift */; };
+		DFD1A6752DE23A8B62A786B6 /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 506F1128097157799F06564A /* RiveRuntime */; };
 		E6114A6557244BB32224C251 /* AgentRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE27990ECD3AFDC44A7C46F /* AgentRuntime.swift */; };
 		E6C930499711BF4271A2D962 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 64424B3E872BD4D58F5867D3 /* Assets.xcassets */; };
 		E77A79A7CD4CA35E00FCE712 /* ContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49255DE1E57C534CF728E48 /* ContextProvider.swift */; };
 		F03D0BACD71737F9A90C799D /* AgentUnderstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98921320110E94DF001B9FF3 /* AgentUnderstanding.swift */; };
+		F4AA28ED2A1FDC2F00B4BBF8 /* FirstEncounterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFDA83A47A6FF270FA3F5CF6 /* FirstEncounterView.swift */; };
 		F63D23FAD4C40CA97A381E73 /* OLOIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A36E966DD92ED68A747F749A /* OLOIdentity.swift */; };
 		F9ECAD521EE9601D5491A5EE /* RootShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FD16C0C482E81455D7502F /* RootShell.swift */; };
 		FBFBBB73FD82AB6B7EAFFBA8 /* WakePhoneCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10D030866EF5D651D809C703 /* WakePhoneCoordinator.swift */; };
@@ -94,10 +94,10 @@ BB0000000000000000000015 = {isa = PBXBuildFile; fileRef = BB00000000000000000000
 		FD4E401507087B1D12870CD7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84A6BF1E97ABF9159C784399 /* Assets.xcassets */; };
 		FD94162FF472FAC3749C3B16 /* ReminderIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F20AD07EF2AEA9DBA90517 /* ReminderIntent.swift */; };
 		FE233DA1E8A8335F42AEDCAE /* WatchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22B76AE662F1B23C9D02B1D /* WatchHomeView.swift */; };
+		FECA3A0194E2EFFA777AF1AF /* FirstEncounterMemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 520942DB883021491FC62D25 /* FirstEncounterMemoryStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-BB0000000000000000000016 = {isa = PBXContainerItemProxy; containerPortal = 16A9D2BC91889E20B44ADCA2; proxyType = 1; remoteGlobalIDString = BB0000000000000000000008; remoteInfo = OLOControls; };
 		1EEA6EED0B5CC551BA0E0E35 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 16A9D2BC91889E20B44ADCA2 /* Project object */;
@@ -114,17 +114,7 @@ BB0000000000000000000016 = {isa = PBXContainerItemProxy; containerPortal = 16A9D
 		};
 /* End PBXContainerItemProxy section */
 
-
-/* Begin PBXCopyFilesBuildPhase section */
-BB0000000000000000000014 = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (BB0000000000000000000015, ); name = "Embed Extensions"; runOnlyForDeploymentPostprocessing = 0; };
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
-
-BB0000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkToOLOIntent.swift; sourceTree = "<group>"; };
-BB0000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkToOLOControl.swift; sourceTree = "<group>"; };
-BB0000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkToOLOIntent.swift; sourceTree = "<group>"; };
-BB0000000000000000000013 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = OLOControls.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		055A0CBC6A27AD8D987AF2BE /* PlaceholderPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderPage.swift; sourceTree = "<group>"; };
 		05F590785BE06EA5B49BE213 /* ReminderAgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderAgentTests.swift; sourceTree = "<group>"; };
 		06EF256B069BEAE18BDFF787 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -149,11 +139,14 @@ BB0000000000000000000013 = {isa = PBXFileReference; explicitFileType = "wrapper.
 		3E7386FC376FC8CDE4E862AF /* Tool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tool.swift; sourceTree = "<group>"; };
 		507A4A06894EECA94D3000AC /* WakePlannerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakePlannerController.swift; sourceTree = "<group>"; };
 		513F211D4D2C642FE5A2CDD0 /* TextInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInputSheet.swift; sourceTree = "<group>"; };
+		520942DB883021491FC62D25 /* FirstEncounterMemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterMemoryStore.swift; sourceTree = "<group>"; };
 		544985BD85BA4E12C79BDF02 /* OLOControlPlaneContracts.generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOControlPlaneContracts.generated.swift; sourceTree = "<group>"; };
 		5654AC0E8C9C1FBDBF2E5210 /* OLOWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OLOWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		56A209B7A2042F6E8979374A /* OLOActionReceiptLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOActionReceiptLedger.swift; sourceTree = "<group>"; };
 		5A88E4800ACBD5F9B54D0CD3 /* AgentRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRequest.swift; sourceTree = "<group>"; };
-		601C4D2237A04B03E777064A /* OLOTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OLOTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C52A712242669084942D93C /* TalkToOLOIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkToOLOIntent.swift; sourceTree = "<group>"; };
+		5FB772622F0576C5900E7D07 /* FirstEncounterSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterSessionTests.swift; sourceTree = "<group>"; };
+		601C4D2237A04B03E777064A /* OLOTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OLOTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		64424B3E872BD4D58F5867D3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6521B60511351245AF39FBB6 /* MemoryKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryKind.swift; sourceTree = "<group>"; };
 		6AD16B7229047BB409BFD158 /* WakeAlarmService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeAlarmService.swift; sourceTree = "<group>"; };
@@ -166,7 +159,7 @@ BB0000000000000000000013 = {isa = PBXFileReference; explicitFileType = "wrapper.
 		82BFE8355A41534AFFD21FBD /* OLOApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOApp.swift; sourceTree = "<group>"; };
 		84A6BF1E97ABF9159C784399 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		84A6FA35E50989A4CA35FB87 /* ToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRegistry.swift; sourceTree = "<group>"; };
-		84DA8F79627864CB5461F22C /* OLO.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OLO.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		84DA8F79627864CB5461F22C /* OLO.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OLO.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8DD893CA8C02C1D2FB74E02F /* VoiceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceLifecycleTests.swift; sourceTree = "<group>"; };
 		8FF302B98D7C62992FB12299 /* MemoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryView.swift; sourceTree = "<group>"; };
 		90C40D602E67DCE7B2D203F7 /* ReminderTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderTool.swift; sourceTree = "<group>"; };
@@ -179,14 +172,16 @@ BB0000000000000000000013 = {isa = PBXFileReference; explicitFileType = "wrapper.
 		BAE27990ECD3AFDC44A7C46F /* AgentRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRuntime.swift; sourceTree = "<group>"; };
 		BDDBA1010245E1CD8C38AE90 /* WakeConnectivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeConnectivity.swift; sourceTree = "<group>"; };
 		BF9216124642681838B0C784 /* OLOControlPlaneClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOControlPlaneClient.swift; sourceTree = "<group>"; };
+		BFDA83A47A6FF270FA3F5CF6 /* FirstEncounterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterView.swift; sourceTree = "<group>"; };
 		C0F20AD07EF2AEA9DBA90517 /* ReminderIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderIntent.swift; sourceTree = "<group>"; };
 		C48A5FD0091765E2C716B702 /* WakeCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeCalendarService.swift; sourceTree = "<group>"; };
 		C68A75751A3221EE316DE8F1 /* PermissionLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionLevel.swift; sourceTree = "<group>"; };
+		D19B3E2654A3C5340EB4A3F7 /* FirstEncounterSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstEncounterSession.swift; sourceTree = "<group>"; };
 		D1AAD3B8806C977B8C4F0E0A /* MemoryRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryRecord.swift; sourceTree = "<group>"; };
 		D55ED4E382B122D707FE3AEE /* MemoryImportance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryImportance.swift; sourceTree = "<group>"; };
 		DC62A25BA78B1C4C04DBDE0F /* ActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsView.swift; sourceTree = "<group>"; };
 		DCD9F9527F2C4D7DF5E27B59 /* FoundationModelAgentUnderstanding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationModelAgentUnderstanding.swift; sourceTree = "<group>"; };
-		DCEF3B67469AF0F54365F04D /* OLOUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OLOUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCEF3B67469AF0F54365F04D /* OLOUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OLOUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E18118C76F1C645B25200C49 /* OLOCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLOCenter.swift; sourceTree = "<group>"; };
 		E596E2A0EA6F6FD0395CF0D4 /* AgentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentActivityView.swift; sourceTree = "<group>"; };
 		EF5F3046784FC1D81556C413 /* WakePlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakePlanTests.swift; sourceTree = "<group>"; };
@@ -196,8 +191,18 @@ BB0000000000000000000013 = {isa = PBXFileReference; explicitFileType = "wrapper.
 		FF0B743B46BB6FF0C4B7E846 /* WatchVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		7E0D040DC0B4C8F3071C6273 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DFD1A6752DE23A8B62A786B6 /* RiveRuntime in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
-BB0000000000000000000007 /* OLOControls */ = {isa = PBXGroup; children = (BB0000000000000000000003, BB0000000000000000000004, ); path = OLOControls; sourceTree = "<group>"; };
 		0012DA1D851A345F16E3C2E4 /* OLOWatch */ = {
 			isa = PBXGroup;
 			children = (
@@ -257,7 +262,6 @@ BB0000000000000000000007 /* OLOControls */ = {isa = PBXGroup; children = (BB0000
 				5970719C9B18D83EDF876546 /* OLOTests */,
 				D9B9ECAA94FACC120ADE0CCD /* OLOUITests */,
 				0012DA1D851A345F16E3C2E4 /* OLOWatch */,
-BB0000000000000000000007 /* OLOControls */,
 				C7EA2302DAA009A4B9C8A0CF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -273,6 +277,7 @@ BB0000000000000000000007 /* OLOControls */,
 		5970719C9B18D83EDF876546 /* OLOTests */ = {
 			isa = PBXGroup;
 			children = (
+				5FB772622F0576C5900E7D07 /* FirstEncounterSessionTests.swift */,
 				05F590785BE06EA5B49BE213 /* ReminderAgentTests.swift */,
 				8DD893CA8C02C1D2FB74E02F /* VoiceLifecycleTests.swift */,
 				EF5F3046784FC1D81556C413 /* WakePlanTests.swift */,
@@ -307,10 +312,10 @@ BB0000000000000000000007 /* OLOControls */,
 			children = (
 				ACD838BD298B1FE559BF48FE /* Actions */,
 				148A8846A1C7F5C62D6F1F19 /* AgentActivity */,
+				C444F8863BC0B22A252EB6C4 /* FirstEncounter */,
 				A9AC602933A9ABA82F460BCF /* Home */,
 				A44A468228B10FF49482D8A3 /* Memory */,
 				BF8FE0A86122BB4A1868B028 /* Settings */,
-				87E8BD1C0FC3D36E8DEA54C9 /* Voice */,
 				43AA4467AD6FAD8DC230D443 /* Wake */,
 				CF35B893044CB740EF872E4A /* World */,
 			);
@@ -350,23 +355,17 @@ BB0000000000000000000007 /* OLOControls */,
 			path = Services;
 			sourceTree = "<group>";
 		};
-		87E8BD1C0FC3D36E8DEA54C9 /* Voice */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Voice;
-			sourceTree = "<group>";
-		};
 		8A06C666FE4397B060F6F6A9 /* App */ = {
 			isa = PBXGroup;
 			children = (
 				D46BBB5BA18FE58B29EAC9C7 /* Components */,
 				08263E9D09530271E9F20D58 /* ControlledAgentRuntime.swift */,
+				D19B3E2654A3C5340EB4A3F7 /* FirstEncounterSession.swift */,
 				792F9BA93D25362E444367F8 /* OLOAgentControlPlaneSync.swift */,
 				82BFE8355A41534AFFD21FBD /* OLOApp.swift */,
-BB0000000000000000000001 /* TalkToOLOIntent.swift */,
 				E18118C76F1C645B25200C49 /* OLOCenter.swift */,
 				71FD16C0C482E81455D7502F /* RootShell.swift */,
+				5C52A712242669084942D93C /* TalkToOLOIntent.swift */,
 				10D030866EF5D651D809C703 /* WakePhoneCoordinator.swift */,
 				507A4A06894EECA94D3000AC /* WakePlannerController.swift */,
 			);
@@ -414,6 +413,14 @@ BB0000000000000000000001 /* TalkToOLOIntent.swift */,
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		C444F8863BC0B22A252EB6C4 /* FirstEncounter */ = {
+			isa = PBXGroup;
+			children = (
+				BFDA83A47A6FF270FA3F5CF6 /* FirstEncounterView.swift */,
+			);
+			path = FirstEncounter;
+			sourceTree = "<group>";
+		};
 		C7EA2302DAA009A4B9C8A0CF /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -421,7 +428,6 @@ BB0000000000000000000001 /* TalkToOLOIntent.swift */,
 				601C4D2237A04B03E777064A /* OLOTests.xctest */,
 				DCEF3B67469AF0F54365F04D /* OLOUITests.xctest */,
 				5654AC0E8C9C1FBDBF2E5210 /* OLOWatch.app */,
-BB0000000000000000000013 /* OLOControls.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -502,6 +508,7 @@ BB0000000000000000000013 /* OLOControls.appex */,
 			children = (
 				8114A9547E7E8B65C1973DAC /* AgentTaskRecord.swift */,
 				269CF8DE2C2199970416EEE3 /* AgentTaskRepository.swift */,
+				520942DB883021491FC62D25 /* FirstEncounterMemoryStore.swift */,
 				D1AAD3B8806C977B8C4F0E0A /* MemoryRecord.swift */,
 				801AC18F1C200BC09DBAB0B1 /* OLOModelContainer.swift */,
 			);
@@ -511,22 +518,21 @@ BB0000000000000000000013 /* OLOControls.appex */,
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-BB0000000000000000000008 /* OLOControls */ = {isa = PBXNativeTarget; buildConfigurationList = BB0000000000000000000010; buildPhases = (BB0000000000000000000009); buildRules = (); dependencies = (); name = OLOControls; productName = OLOControls; productReference = BB0000000000000000000013; productType = "com.apple.product-type.app-extension"; };
 		0C7B67E36CC7FACC2407560B /* OLO */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0111195F7411F3882C62A902 /* Build configuration list for PBXNativeTarget "OLO" */;
 			buildPhases = (
 				C713BC413AEEFBC215329679 /* Sources */,
 				585F3074FB3B3A92F1F18ABF /* Resources */,
-BB0000000000000000000014 /* Embed Extensions */,
+				7E0D040DC0B4C8F3071C6273 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-BB0000000000000000000017 /* OLOControls */,
 			);
 			name = OLO;
 			packageProductDependencies = (
+				506F1128097157799F06564A /* RiveRuntime */,
 			);
 			productName = OLO;
 			productReference = 84DA8F79627864CB5461F22C /* OLO.app */;
@@ -593,7 +599,7 @@ BB0000000000000000000017 /* OLOControls */,
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2720;
 				TargetAttributes = {
 					0C7B67E36CC7FACC2407560B = {
 						DevelopmentTeam = 336T6QZLR5;
@@ -623,6 +629,9 @@ BB0000000000000000000017 /* OLOControls */,
 			);
 			mainGroup = 31C484DBE144AA319C8B4284;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FBD2923C2A26B5CF56915B5E /* XCRemoteSwiftPackageReference "rive-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C7EA2302DAA009A4B9C8A0CF /* Products */;
 			projectDirPath = "";
@@ -632,7 +641,6 @@ BB0000000000000000000017 /* OLOControls */,
 				886BB55C27641F3981C96280 /* OLOTests */,
 				DC168D4037037B185174AC15 /* OLOUITests */,
 				6A98CBF2CC138928CD4D5C65 /* OLOWatch */,
-BB0000000000000000000008 /* OLOControls */,
 			);
 		};
 /* End PBXProject section */
@@ -657,11 +665,11 @@ BB0000000000000000000008 /* OLOControls */,
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-BB0000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (BB0000000000000000000005, BB0000000000000000000006, ); runOnlyForDeploymentPostprocessing = 0; };
 		682534B67929726E3393A551 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A4FE8D51342924B9ED2170DB /* FirstEncounterSessionTests.swift in Sources */,
 				C59132A5A60564ADB94F079F /* ReminderAgentTests.swift in Sources */,
 				DA8EB92975D3AC3F002939CE /* VoiceLifecycleTests.swift in Sources */,
 				294E86CD8625C1761BD5AA08 /* WakePlanTests.swift in Sources */,
@@ -692,6 +700,9 @@ BB0000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 214748
 				E77A79A7CD4CA35E00FCE712 /* ContextProvider.swift in Sources */,
 				8DF6C600199C16298B45E216 /* ControlledAgentRuntime.swift in Sources */,
 				6BA3C2733A7F35B649517229 /* ConversationTurn.swift in Sources */,
+				FECA3A0194E2EFFA777AF1AF /* FirstEncounterMemoryStore.swift in Sources */,
+				CE4B036931BF98829F9AC97A /* FirstEncounterSession.swift in Sources */,
+				F4AA28ED2A1FDC2F00B4BBF8 /* FirstEncounterView.swift in Sources */,
 				66CF99E4924EF19FA58EF0D5 /* FoundationModelAgentUnderstanding.swift in Sources */,
 				664F3AA79BF15B0E254BB216 /* HomeView.swift in Sources */,
 				DD1EFD219A17B7E6EF02E9A3 /* MemoryImportance.swift in Sources */,
@@ -702,7 +713,6 @@ BB0000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 214748
 				7016198FA59A51E104E7260F /* OLOActionReceiptLedger.swift in Sources */,
 				0E962081DE1FAF872829E842 /* OLOAgentControlPlaneSync.swift in Sources */,
 				871EE63F39B9FDBE2F2EABB7 /* OLOApp.swift in Sources */,
-BB0000000000000000000002 /* TalkToOLOIntent.swift in Sources */,
 				47A196640845C3ECF4392CED /* OLOCenter.swift in Sources */,
 				7E4FE56086D996E8A1A88A54 /* OLOControlPlaneClient.swift in Sources */,
 				290E294DDEA3ACCA84968A52 /* OLOControlPlaneContracts.generated.swift in Sources */,
@@ -718,6 +728,7 @@ BB0000000000000000000002 /* TalkToOLOIntent.swift in Sources */,
 				969F86583FB6F84D979292B8 /* ReminderTool.swift in Sources */,
 				F9ECAD521EE9601D5491A5EE /* RootShell.swift in Sources */,
 				BBABF6A9A8D330FAB29756AC /* SettingsView.swift in Sources */,
+				4E4113FC2D8B021EF67716BF /* TalkToOLOIntent.swift in Sources */,
 				25FA5F2439976907BA8552B9 /* TextInputSheet.swift in Sources */,
 				01826F2491DEC0D0F551DA23 /* Tool.swift in Sources */,
 				8BD82B51F34769534FE7E87D /* ToolExecution.swift in Sources */,
@@ -770,7 +781,6 @@ BB0000000000000000000002 /* TalkToOLOIntent.swift in Sources */,
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-BB0000000000000000000017 = {isa = PBXTargetDependency; target = BB0000000000000000000008; targetProxy = BB0000000000000000000016; };
 		A04C1448A9CBC1235C2328D3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 0C7B67E36CC7FACC2407560B /* OLO */;
@@ -784,8 +794,6 @@ BB0000000000000000000017 = {isa = PBXTargetDependency; target = BB00000000000000
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-BB0000000000000000000011 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = 336T6QZLR5; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = OLOControls/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = app.olo.OLO.controls; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
-BB0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = 336T6QZLR5; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = OLOControls/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = app.olo.OLO.controls; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
 		0B5C2B1CB587355A09746D90 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -938,6 +946,7 @@ BB0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCA
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -956,6 +965,7 @@ BB0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCA
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -1002,6 +1012,7 @@ BB0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCA
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1027,6 +1038,7 @@ BB0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCA
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -1074,7 +1086,6 @@ BB0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCA
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-BB0000000000000000000010 = {isa = XCConfigurationList; buildConfigurations = (BB0000000000000000000011, BB0000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		0111195F7411F3882C62A902 /* Build configuration list for PBXNativeTarget "OLO" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1121,6 +1132,25 @@ BB0000000000000000000010 = {isa = XCConfigurationList; buildConfigurations = (BB
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FBD2923C2A26B5CF56915B5E /* XCRemoteSwiftPackageReference "rive-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rive-app/rive-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		506F1128097157799F06564A /* RiveRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FBD2923C2A26B5CF56915B5E /* XCRemoteSwiftPackageReference "rive-ios" */;
+			productName = RiveRuntime;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 16A9D2BC91889E20B44ADCA2 /* Project object */;
 }

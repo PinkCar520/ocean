@@ -21,7 +21,6 @@ struct OLOEntityView: View {
     @State private var facePitch: Double = 0
     @State private var gazeYaw: Double = 0
     @State private var gazePitch: Double = 0
-    @State private var preferRiveEye = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Real microphone amplitude, forwarded by the Voice host.
     var audioLevel: Float = 0
@@ -132,7 +131,8 @@ struct OLOEntityView: View {
     @ViewBuilder
     private var ambientEye: some View {
         #if canImport(RiveRuntime)
-        if preferRiveEye, Bundle.main.url(forResource: "olo_ambient_eye", withExtension: "riv") != nil {
+        if !reduceMotion, !center.privacyMode,
+           Bundle.main.url(forResource: "olo_ambient_eye", withExtension: "riv") != nil {
             OLOAnimatedRiveEye()
         } else {
             logo

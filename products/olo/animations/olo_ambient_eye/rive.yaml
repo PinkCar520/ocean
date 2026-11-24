@@ -1,0 +1,7 @@
+name: olo_ambient_eye
+logs:
+  file: build/rive.log
+  problems: build/problems.log
+push:
+  projectId: 2067672
+  fileId: 2746967
