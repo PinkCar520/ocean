@@ -557,11 +557,11 @@ struct HomeView: View {
 
 @MainActor
 @Observable
-private final class OLOSpeechResponder {
+final class OLOSpeechResponder {
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
     @ObservationIgnored private var delegate: SpeechCompletionDelegate?
 
-    func say(_ message: String, onFinish: @escaping @MainActor () -> Void) {
+    func say(_ message: String, voiceChoice: FirstEncounterSession.VoiceChoice? = nil, onFinish: @escaping @MainActor () -> Void) {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
@@ -569,7 +569,10 @@ private final class OLOSpeechResponder {
         delegate = completion
         synthesizer.delegate = completion
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+        let preference = voiceChoice ?? UserDefaults.standard.string(forKey: "olo.encounter.voice.v1").flatMap(FirstEncounterSession.VoiceChoice.init(rawValue:))
+        let gender: AVSpeechSynthesisVoiceGender? = preference.map { $0 == .masculine ? .male : .female }
+        let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "zh-CN" }
+        utterance.voice = voices.first { $0.gender == gender } ?? AVSpeechSynthesisVoice(language: "zh-CN")
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         synthesizer.speak(utterance)
     }
