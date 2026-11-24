@@ -26,6 +26,19 @@ private final class EncounterMemoryFake: FirstEncounterMemoryStoring {
 
 @MainActor
 final class FirstEncounterSessionTests: XCTestCase {
+    func testIdentityIsCreatedAtAwakeningAndNeverRenamedOnResume() {
+        let suite = "olo.identity.test.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { XCTFail(); return }
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = OLOIdentityStore(defaults: defaults)
+        XCTAssertNil(store.load())
+        let birth = Date(timeIntervalSince1970: 12345)
+        let identity = store.loadOrCreate(now: birth, name: "Mira")
+        XCTAssertEqual(identity.name, "Mira")
+        XCTAssertEqual(identity.createdAt, birth)
+        XCTAssertEqual(store.loadOrCreate(name: "Nova"), identity)
+    }
+
     func testIdentitySurvivesRelaunchAndMemoryDeletion() {
         let suite = "olo.identity.test.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { XCTFail(); return }

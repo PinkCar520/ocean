@@ -16,7 +16,7 @@ final class OLOCenter {
     let actionReceiptLedger = OLOActionReceiptLedger()
     let controlPlaneStatus = OLOControlPlaneStatus()
     let wakePlanner: WakePlannerController
-    let identity: OLOIdentity
+    var identity: OLOIdentity
 
     /// Current presentation state of OLO on this body. Drives the entity animation.
     var state: OLOState
