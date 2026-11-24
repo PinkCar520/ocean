@@ -27,22 +27,26 @@ struct FirstEncounterView: View {
     var body: some View {
         ZStack {
             SwiftUI.Color.white.ignoresSafeArea()
-            VStack(spacing: 26) {
-                Spacer()
-                if case .question(let index) = session.phase {
+            if case .question(let index) = session.phase {
+                waveform
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                if waiting && !permissionBlocked {
                     Button {
-                        guard waiting, !permissionBlocked else { return }
                         retryCount = 0
                         ask(index)
                     } label: {
-                        waveform
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .contentShape(Rectangle())
+                        SwiftUI.Color.clear.contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .disabled(!waiting || permissionBlocked)
-                    .accessibilityLabel(waiting ? "轻触恢复语音" : "初始化系统")
-                    .transition(.opacity)
+                    .ignoresSafeArea()
+                    .accessibilityLabel("轻触恢复语音")
+                }
+            }
+            VStack(spacing: 26) {
+                Spacer()
+                if case .question = session.phase {
                     if permissionBlocked {
                         Text("请在系统设置中允许麦克风和语音识别。")
                             .font(.footnote).foregroundStyle(SwiftUI.Color.black.opacity(0.7))
@@ -231,20 +235,21 @@ struct FirstEncounterView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var waveEpoch = Date()
+
     private var waveform: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion)) { timeline in
             Canvas { context, size in
                 guard size.width > 0, size.height > 0 else { return }
-                let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
-                    .truncatingRemainder(dividingBy: 10000)
+                let t = reduceMotion ? 0 : timeline.date.timeIntervalSince(waveEpoch)
                 let h = size.height
                 let w = size.width
-                let activity = waiting ? 0.22 : listening
-                    ? 0.55 + 0.45 * Double(microphoneLevel) : speaking ? 1.0 : 0.35
+                // Keep the approved prototype amplitude in every state.
+                let activity = 1.0
                 for j in 0..<7 {
                     var path = Path()
                     let layer = Double(j)
-                    for x in stride(from: 0.0, through: Double(w) + 2, by: 2) {
+                    for x in stride(from: 0.0, through: Double(w), by: 2) {
                         let u = x / Double(w)
                         let envelope = 0.12 + 0.88 * pow(max(0, sin(u * .pi)), 1.4)
                         let displacement = sin(u * 9 + t * 1.4 + layer * 0.23) * Double(h) * 0.16
@@ -253,7 +258,7 @@ struct FirstEncounterView: View {
                         if x == 0 { path.move(to: point) } else { path.addLine(to: point) }
                     }
                     context.stroke(path, with: .color(accent
-                        .opacity(0.2 + layer * 0.09)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                        .opacity(0.2 + layer * 0.09)), style: StrokeStyle(lineWidth: 1.5, lineCap: .butt, lineJoin: .miter))
                 }
             }
         }
