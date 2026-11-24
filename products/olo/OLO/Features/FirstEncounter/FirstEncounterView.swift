@@ -12,6 +12,9 @@ struct FirstEncounterView: View {
     @State private var greetingFinished = false
     @State private var voice = AVVoiceService()
     @State private var listening = false
+    @State private var microphoneLevel: Float = 0
+    @State private var speaking = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var voiceError: String?
     @State private var recognition: Task<Void, Never>?
 
@@ -22,38 +25,17 @@ struct FirstEncounterView: View {
                 Spacer()
                 if case .question(let index) = session.phase {
                     waveform
-                    Text(session.currentQuestion ?? "")
-                        .font(.system(size: 27, weight: .medium))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("encounter.question.\(index)")
-                    if index == 0 {
-                        Text("每次提交的回答都将安全保存在本机，退出后可继续。完成后可在 Memory 中查看和删除。")
+                    if let voiceError {
+                        Text(voiceError)
                             .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.65))
-                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.orange)
+                        Button("重试语音") { ask(index) }
+                            .disabled(listening)
                     }
-                    Button(listening ? "停止听取" : "语音回答") {
-                        if listening { recognition?.cancel(); Task { await voice.stop() } }
-                        else { listen(index) }
-                    }
-                    .foregroundStyle(.white)
-                    if let voiceError { Text(voiceError).font(.footnote).foregroundStyle(.orange) }
-                    if !answer.isEmpty {
-                        Text(answer)
-                            .foregroundStyle(.white.opacity(0.75))
-                            .multilineTextAlignment(.center)
-                            .accessibilityIdentifier("encounter.transcript")
-                    }
-                    Text("\(index + 1) / 3")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.5))
                 } else if session.phase == .awakening {
                     OLOEntityView(audioLevel: 0, isResponding: greeted && !greetingFinished)
                         .frame(height: 240)
                         .transition(.opacity)
-                    Text("你好。")
-                        .font(.largeTitle).foregroundStyle(.white)
                     if naming { ProgressView().tint(.white) }
                     if greetingFinished, session.errorMessage != nil {
                         Button("重试保存") { completeEncounter() }
@@ -69,7 +51,7 @@ struct FirstEncounterView: View {
         .animation(.easeInOut(duration: 0.6), value: session.phase)
         .onChange(of: session.phase) { _, _ in answer = ""; voiceError = nil }
         .task(id: session.currentQuestion) {
-            if let question = session.currentQuestion { speech.say(question) {} }
+            if case .question(let index) = session.phase { ask(index) }
         }
         .task(id: session.phase == .awakening) {
             guard session.phase == .awakening, !greeted else { return }
@@ -100,15 +82,40 @@ struct FirstEncounterView: View {
                 completeEncounter()
             }
         }
-        .onDisappear { speech.stop(); recognition?.cancel(); Task { await voice.stop() } }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                speech.stop()
+                recognition?.cancel()
+                voice.setLevelHandler(nil)
+                Task { await voice.stop() }
+                speaking = false
+                voiceError = "语音已暂停，请重试。"
+            }
+        }
+        .onDisappear { speech.stop(); recognition?.cancel(); voice.setLevelHandler(nil); Task { await voice.stop() } }
+    }
+
+    private func ask(_ index: Int) {
+        guard session.phase == .question(index), !listening,
+              let question = session.currentQuestion else { return }
+        voiceError = nil
+        speaking = true
+        speech.say(question) {
+            speaking = false
+            guard session.phase == .question(index), scenePhase == .active else { return }
+            listen(index)
+        }
     }
 
     private func listen(_ index: Int) {
         speech.stop()
         listening = true
         voiceError = nil
+        voice.setLevelHandler { level in
+            Task { @MainActor in microphoneLevel = level }
+        }
         recognition = Task {
-            defer { listening = false }
+            defer { listening = false; microphoneLevel = 0; voice.setLevelHandler(nil) }
             do {
                 let stream = try await voice.start()
                 for try await fragment in stream {
@@ -117,6 +124,7 @@ struct FirstEncounterView: View {
                     answer = fragment.text
                     guard fragment.isFinal else { continue }
                     await voice.stop()
+                    listening = false
                     guard !Task.isCancelled, session.phase == .question(index) else { return }
                     if index == 1 {
                         let text = fragment.text
@@ -153,10 +161,12 @@ struct FirstEncounterView: View {
             ForEach(0..<7, id: \.self) { index in
                 Capsule()
                     .fill(.white.opacity(0.8))
-                    .frame(width: 4, height: CGFloat([14, 25, 37, 44, 37, 25, 14][index]))
+                    .frame(width: 4, height: CGFloat([14, 25, 37, 44, 37, 25, 14][index]) * (listening ? 0.45 + CGFloat(microphoneLevel) : 1))
             }
         }
         .frame(height: 64)
-        .accessibilityLabel("初始化系统")
+        .opacity(speaking || listening ? 1 : 0.45)
+        .animation(.easeInOut(duration: 0.15), value: microphoneLevel)
+        .accessibilityLabel(listening ? "正在聆听" : speaking ? "正在说话" : "初始化系统")
     }
 }
