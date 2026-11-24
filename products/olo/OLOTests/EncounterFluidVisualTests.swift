@@ -13,7 +13,9 @@ final class EncounterFluidVisualTests: XCTestCase {
         web.navigationDelegate = loader
         try await loader.load(web, html: String(contentsOf: url, encoding: .utf8)
             .replacingOccurrences(of: "if(!location.search.includes('snapshot'))", with: "if(false)"))
-        for (width, height) in [(390, 844), (430, 932)] {
+        var initialFrames: [String: [UInt8]] = [:]
+        var metrics: [String] = []
+        for (width, height) in [(390, 844), (844, 390), (390, 844), (430, 932), (932, 430), (430, 932)] {
             for seconds in [0.0, 0.5, 2.0, 7.25] {
                 let scale = 2.0
                 let encoded = try await web.evaluateJavaScript("renderFrame(\(width),\(height),\(seconds * 1000),\(scale))")
@@ -25,10 +27,21 @@ final class EncounterFluidVisualTests: XCTestCase {
                 renderer.isOpaque = true
                 let actual = try XCTUnwrap(renderer.uiImage)
                 let label = "\(width)x\(height)-\(seconds)s"
+                XCTAssertEqual(reference.cgImage?.width, width * 2, label)
+                XCTAssertEqual(reference.cgImage?.height, height * 2, label)
+                XCTAssertEqual(actual.cgImage?.width, width * 2, label)
+                XCTAssertEqual(actual.cgImage?.height, height * 2, label)
                 let expectedPixels = try pixels(reference)
                 let actualPixels = try pixels(actual)
                 XCTAssertEqual(expectedPixels.count, actualPixels.count, label)
                 guard expectedPixels.count == actualPixels.count else { continue }
+                if width < height {
+                    if let previous = initialFrames.removeValue(forKey: label) {
+                        XCTAssertTrue(previous == actualPixels, "\(label): same phase after landscape resize")
+                    } else {
+                        initialFrames[label] = actualPixels
+                    }
+                }
                 var difference = 0.0
                 var ink = 0.0
                 var actualInk = 0.0
@@ -44,6 +57,9 @@ final class EncounterFluidVisualTests: XCTestCase {
                 XCTAssertGreaterThan(ink, 0, label)
                 let error = difference / max(ink, 1)
                 let coverage = actualInk / max(ink, 1)
+                let metric = "\(label): normalized RGB=\(error), ink coverage=\(coverage)"
+                print("OLO_VISUAL_METRIC \(metric)")
+                metrics.append(metric)
                 // Initial cross-renderer tolerances; never regenerate the reference from Swift.
                 if error > 0.35 || abs(coverage - 1) > 0.15 {
                     for (name, image) in [("browser", reference), ("native", actual)] {
@@ -57,6 +73,11 @@ final class EncounterFluidVisualTests: XCTestCase {
                 XCTAssertLessThanOrEqual(abs(coverage - 1), 0.15, "\(label): ink coverage")
             }
         }
+        XCTAssertTrue(initialFrames.isEmpty)
+        let report = XCTAttachment(string: metrics.joined(separator: "\n"))
+        report.name = "visual-regression-metrics"
+        report.lifetime = .keepAlways
+        add(report)
     }
 
     private func pixels(_ image: UIImage) throws -> [UInt8] {
