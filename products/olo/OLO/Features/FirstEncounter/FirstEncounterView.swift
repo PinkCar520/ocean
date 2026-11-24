@@ -1,11 +1,14 @@
 import SwiftUI
+import FoundationModels
 
 /// Neutral initialization surface, distinct from the personal agent.
 struct FirstEncounterView: View {
+    @Environment(OLOCenter.self) private var center
     @Bindable var session: FirstEncounterSession
     @State private var answer = ""
     @State private var speech = OLOSpeechResponder()
     @State private var greeted = false
+    @State private var naming = false
 
     var body: some View {
         ZStack {
@@ -53,10 +56,12 @@ struct FirstEncounterView: View {
                         .shadow(color: .white.opacity(0.65), radius: 20)
                     Text("你好。")
                         .font(.largeTitle).foregroundStyle(.white)
-                    Text("你的个人智能体正在苏醒。")
+                    Text(greeted ? center.identity.name : "你的个人智能体正在苏醒。")
                         .font(.footnote).foregroundStyle(.white.opacity(0.6))
+                    if naming { ProgressView().tint(.white) }
                     Button("进入 OLO") { session.finishAwakening() }
                         .buttonStyle(.borderedProminent)
+                        .disabled(naming || !greeted)
                 }
                 if let error = session.errorMessage {
                     Text(error).font(.footnote).foregroundStyle(.orange)
@@ -68,8 +73,29 @@ struct FirstEncounterView: View {
         .onChange(of: session.phase) { _, _ in answer = "" }
         .task(id: session.phase == .awakening) {
             guard session.phase == .awakening, !greeted else { return }
+            naming = true
+            let store = OLOIdentityStore()
+            if let existing = store.load() {
+                center.identity = existing
+            } else {
+                var name: String?
+                if SystemLanguageModel.default.isAvailable {
+                    let model = LanguageModelSession(instructions: "Choose a short personal name for yourself, distinct from OLO. Return only the name, no explanation.")
+                    if let response = try? await model.respond(to: "Choose your own name.") {
+                        let candidate = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if (1...24).contains(candidate.count),
+                           candidate.allSatisfy({ $0.isLetter || $0 == " " }),
+                           candidate.lowercased() != "olo" {
+                            name = candidate
+                        }
+                    }
+                }
+                guard !Task.isCancelled else { naming = false; return }
+                center.identity = store.loadOrCreate(name: name)
+            }
+            naming = false
             greeted = true
-            speech.say("你好。", voiceChoice: session.voiceChoice) {}
+            speech.say("你好。我叫\(center.identity.name)。", voiceChoice: session.voiceChoice) {}
         }
         .onDisappear { speech.stop() }
     }
