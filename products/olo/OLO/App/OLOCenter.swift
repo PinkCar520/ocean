@@ -17,6 +17,7 @@ final class OLOCenter {
     let controlPlaneStatus = OLOControlPlaneStatus()
     let wakePlanner: WakePlannerController
     var identity: OLOIdentity
+    var pendingFirstConversation = false
 
     /// Current presentation state of OLO on this body. Drives the entity animation.
     var state: OLOState
