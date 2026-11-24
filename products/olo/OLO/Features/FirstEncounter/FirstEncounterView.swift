@@ -37,17 +37,17 @@ struct FirstEncounterView: View {
                         ask(index)
                     } label: {
                         waveform
-                            .frame(width: 100, height: 100)
-                            .overlay {
-                                if waiting { Circle().stroke(waitingAccent.opacity(0.65), lineWidth: 1) }
-                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(!waiting || permissionBlocked)
                     .accessibilityLabel(waiting ? "轻触恢复语音" : "初始化系统")
+                    .transition(.opacity)
                     if permissionBlocked {
                         Text("请在系统设置中允许麦克风和语音识别。")
                             .font(.footnote).foregroundStyle(SwiftUI.Color.black.opacity(0.7))
+                            .padding(.horizontal, 24)
                         Button("打开设置") {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 UIApplication.shared.open(url)
@@ -68,7 +68,7 @@ struct FirstEncounterView: View {
                 }
                 Spacer()
             }
-            .padding(24)
+            .padding(.vertical, 24)
         }
         .preferredColorScheme(.light)
         .tint(accent)
@@ -230,17 +230,34 @@ struct FirstEncounterView: View {
         if session.isFinished { center.pendingFirstConversation = true }
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var waveform: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<7, id: \.self) { index in
-                Capsule()
-                    .fill(waiting ? waitingAccent : accent)
-                    .frame(width: 4, height: CGFloat([14, 25, 37, 44, 37, 25, 14][index]) * (listening ? 0.45 + CGFloat(microphoneLevel) : 1))
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion)) { timeline in
+            Canvas { context, size in
+                guard size.width > 0, size.height > 0 else { return }
+                let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: 10000)
+                let h = size.height
+                let w = size.width
+                let activity = waiting ? 0.22 : listening
+                    ? 0.55 + 0.45 * Double(microphoneLevel) : speaking ? 1.0 : 0.35
+                for j in 0..<7 {
+                    var path = Path()
+                    let layer = Double(j)
+                    for x in stride(from: 0.0, through: Double(w) + 2, by: 2) {
+                        let u = x / Double(w)
+                        let envelope = 0.12 + 0.88 * pow(max(0, sin(u * .pi)), 1.4)
+                        let displacement = sin(u * 9 + t * 1.4 + layer * 0.23) * Double(h) * 0.16
+                            + cos(u * 12 - t * 0.8 + layer * 0.37) * Double(h) * 0.07
+                        let point = CGPoint(x: x, y: Double(h) / 2 + envelope * displacement * activity)
+                        if x == 0 { path.move(to: point) } else { path.addLine(to: point) }
+                    }
+                    context.stroke(path, with: .color((waiting ? waitingAccent : accent)
+                        .opacity(0.2 + layer * 0.09)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                }
             }
         }
-        .frame(height: 64)
-        .opacity(waiting ? 0.75 : 1)
-        .animation(.easeInOut(duration: 0.15), value: microphoneLevel)
         .accessibilityLabel(listening ? "正在聆听" : speaking ? "正在说话" : "初始化系统")
     }
 }
