@@ -124,10 +124,32 @@ struct FirstEncounterView: View {
         voiceError = nil
         waiting = false
         speaking = true
-        speech.say(question) {
-            speaking = false
-            guard session.phase == .question(index), scenePhase == .active else { return }
-            listen(index)
+        recognition = Task {
+            let authorization = await voice.requestAuthorization()
+            guard !Task.isCancelled, session.phase == .question(index) else {
+                speaking = false
+                return
+            }
+            guard authorization == .granted else {
+                speaking = false
+                permissionBlocked = true
+                waiting = true
+                speech.say("请允许麦克风和语音识别权限。") {}
+                return
+            }
+            permissionBlocked = false
+            // System permission alerts can temporarily make the scene inactive.
+            // Resume on activation rather than speaking behind an alert.
+            guard scenePhase == .active else {
+                speaking = false
+                waiting = true
+                return
+            }
+            speech.say(question) {
+                speaking = false
+                guard session.phase == .question(index), scenePhase == .active else { return }
+                listen(index)
+            }
         }
     }
 
