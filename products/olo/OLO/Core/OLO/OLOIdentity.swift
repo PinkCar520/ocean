@@ -6,8 +6,7 @@ import Foundation
 /// (iPhone today; OLO One, Robot, Vehicle, Home later). This protocol
 /// describes the identity itself, decoupled from any specific UI or device.
 ///
-/// Concrete storage (SwiftData today, remote sync later) is provided by
-/// an `OLOIdentityStore`. The protocol stays device-agnostic.
+/// Local persistence is provided by `OLOIdentityStore`; remote sync is future work.
 public struct OLOIdentity: Identifiable, Hashable, Codable, Sendable {
     public let id: UUID
     public var name: String
@@ -24,6 +23,32 @@ public struct OLOIdentity: Identifiable, Hashable, Codable, Sendable {
         self.name = name
         self.pronouns = pronouns
         self.createdAt = createdAt
+    }
+}
+
+/// One durable identity per local installation. Identity metadata is not
+/// personal memory and survives deletion of encounter answers.
+@MainActor
+struct OLOIdentityStore {
+    let defaults: UserDefaults
+    private let key = "olo.identity.v1"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func loadOrCreate(now: Date = .now) -> OLOIdentity {
+        if let data = defaults.data(forKey: key),
+           let identity = try? JSONDecoder().decode(OLOIdentity.self, from: data) {
+            return identity
+        }
+        // A provisional personal name, independent of the OLO product brand.
+        let names = ["Aster", "Lumen", "Nova", "Echo", "Iris", "Mira"]
+        let identity = OLOIdentity(name: names.randomElement() ?? "Aster", createdAt: now)
+        if let data = try? JSONEncoder().encode(identity) {
+            defaults.set(data, forKey: key)
+        }
+        return identity
     }
 }
 
