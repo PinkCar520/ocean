@@ -9,6 +9,7 @@ struct FirstEncounterView: View {
     @State private var speech = OLOSpeechResponder()
     @State private var greeted = false
     @State private var naming = false
+    @State private var greetingFinished = false
 
     var body: some View {
         ZStack {
@@ -52,16 +53,15 @@ struct FirstEncounterView: View {
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.white.opacity(0.5))
                 } else if session.phase == .awakening {
-                    Circle().fill(.white).frame(width: 18, height: 18)
-                        .shadow(color: .white.opacity(0.65), radius: 20)
+                    OLOEntityView(audioLevel: 0, isResponding: greeted && !greetingFinished)
+                        .frame(height: 240)
+                        .transition(.opacity)
                     Text("你好。")
                         .font(.largeTitle).foregroundStyle(.white)
-                    Text(greeted ? center.identity.name : "你的个人智能体正在苏醒。")
-                        .font(.footnote).foregroundStyle(.white.opacity(0.6))
                     if naming { ProgressView().tint(.white) }
-                    Button("进入 OLO") { session.finishAwakening() }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(naming || !greeted)
+                    if greetingFinished, session.errorMessage != nil {
+                        Button("重试保存") { completeEncounter() }
+                    }
                 }
                 if let error = session.errorMessage {
                     Text(error).font(.footnote).foregroundStyle(.orange)
@@ -70,7 +70,11 @@ struct FirstEncounterView: View {
             }
             .padding(24)
         }
+        .animation(.easeInOut(duration: 0.6), value: session.phase)
         .onChange(of: session.phase) { _, _ in answer = "" }
+        .task(id: session.currentQuestion) {
+            if let question = session.currentQuestion { speech.say(question) {} }
+        }
         .task(id: session.phase == .awakening) {
             guard session.phase == .awakening, !greeted else { return }
             naming = true
@@ -95,9 +99,17 @@ struct FirstEncounterView: View {
             }
             naming = false
             greeted = true
-            speech.say("你好。我叫\(center.identity.name)。", voiceChoice: session.voiceChoice) {}
+            speech.say("你好。", voiceChoice: session.voiceChoice) {
+                greetingFinished = true
+                completeEncounter()
+            }
         }
         .onDisappear { speech.stop() }
+    }
+
+    private func completeEncounter() {
+        session.finishAwakening()
+        if session.isFinished { center.pendingFirstConversation = true }
     }
 
     private var waveform: some View {
