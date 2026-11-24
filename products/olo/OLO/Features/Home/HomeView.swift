@@ -167,6 +167,12 @@ struct HomeView: View {
         // service during a cold launch. Keep the one-shot request pending until
         // the service is actually ready; do not guess readiness with a timer.
         guard center.voiceService != nil else { return }
+        if center.pendingFirstConversation {
+            guard !center.privacyMode else { return }
+            center.pendingFirstConversation = false
+            startConversation()
+            return
+        }
         guard systemVoiceLaunch.consume() else { return }
         startConversation()
     }
