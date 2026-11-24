@@ -22,8 +22,7 @@ struct FirstEncounterView: View {
     @State private var retryCount = 0
     @State private var recognition: Task<Void, Never>?
 
-    private let accent = SwiftUI.Color(red: 244 / 255, green: 125 / 255, blue: 53 / 255)
-    private let waitingAccent = SwiftUI.Color(red: 215 / 255, green: 181 / 255, blue: 161 / 255)
+    private let accent = SwiftUI.Color(.sRGB, red: 244.0 / 255.0, green: 125.0 / 255.0, blue: 53.0 / 255.0, opacity: 1)
 
     var body: some View {
         ZStack {
@@ -253,7 +252,7 @@ struct FirstEncounterView: View {
                         let point = CGPoint(x: x, y: Double(h) / 2 + envelope * displacement * activity)
                         if x == 0 { path.move(to: point) } else { path.addLine(to: point) }
                     }
-                    context.stroke(path, with: .color((waiting ? waitingAccent : accent)
+                    context.stroke(path, with: .color(accent
                         .opacity(0.2 + layer * 0.09)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 }
             }
