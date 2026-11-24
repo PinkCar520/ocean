@@ -239,9 +239,21 @@ struct FirstEncounterView: View {
 
     private var waveform: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion)) { timeline in
+            EncounterFluidFrame(time: reduceMotion ? 0 : timeline.date.timeIntervalSince(waveEpoch))
+        }
+        .accessibilityLabel(listening ? "正在聆听" : speaking ? "正在说话" : "初始化系统")
+    }
+}
+
+/// Shared production and deterministic snapshot rendering surface.
+struct EncounterFluidFrame: View {
+    let time: TimeInterval
+    private let accent = SwiftUI.Color(.sRGB, red: 244.0 / 255.0, green: 125.0 / 255.0, blue: 53.0 / 255.0, opacity: 1)
+
+    var body: some View {
             Canvas { context, size in
                 guard size.width > 0, size.height > 0 else { return }
-                let t = reduceMotion ? 0 : timeline.date.timeIntervalSince(waveEpoch)
+                let t = time
                 let h = size.height
                 let w = size.width
                 // Keep the approved prototype amplitude in every state.
@@ -261,7 +273,6 @@ struct FirstEncounterView: View {
                         .opacity(0.2 + layer * 0.09)), style: StrokeStyle(lineWidth: 1.5, lineCap: .butt, lineJoin: .miter))
                 }
             }
-        }
-        .accessibilityLabel(listening ? "正在聆听" : speaking ? "正在说话" : "初始化系统")
+        .background(SwiftUI.Color.white)
     }
 }

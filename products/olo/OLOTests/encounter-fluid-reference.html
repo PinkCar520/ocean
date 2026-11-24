@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>OLO approved fluid reference</title>
+<style>html,body{margin:0;background:white}canvas{display:block;width:100vw;height:100vh}</style>
+<canvas id="fluid"></canvas>
+<script>
+const c=document.getElementById('fluid'),g=c.getContext('2d');
+function renderFrame(w,h,t,d=1){
+  c.width=Math.round(w*d);c.height=Math.round(h*d);
+  g.setTransform(d,0,0,d,0,0);
+  g.fillStyle='#FFFFFF';g.fillRect(0,0,w,h);
+  for(let j=0;j<7;j++){
+    g.beginPath();
+    for(let x=0;x<=w;x+=2){
+      let u=x/w,e=.12+.88*Math.pow(Math.sin(u*Math.PI),1.4),
+      y=h/2+e*(Math.sin(u*9+t*.0014+j*.23)*h*.16+Math.cos(u*12-t*.0008+j*.37)*h*.07);
+      x===0?g.moveTo(x,y):g.lineTo(x,y);
+    }
+    g.strokeStyle='rgba(244,125,53,'+(.2+j*.09)+')';g.lineWidth=1.5;g.stroke();
+  }
+  return c.toDataURL('image/png').split(',')[1];
+}
+if(!location.search.includes('snapshot')) {
+  function draw(t){renderFrame(c.clientWidth,c.clientHeight,t,Math.min(devicePixelRatio,2));requestAnimationFrame(draw)}
+  requestAnimationFrame(draw);
+}
+</script>

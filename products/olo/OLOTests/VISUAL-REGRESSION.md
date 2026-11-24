@@ -1,0 +1,3 @@
+# Fluid visual regression
+
+The HTML reference is the approved browser prototype, independent of the production Swift renderer. Open it in a browser to preview. The simulator test renders eight fixed frames at 2x, compares RGB differences normalized by reference ink and total ink coverage, and attaches both images on failure. Initial tolerances (35% normalized difference, 15% coverage) allow rasterizer differences; they are not a claim of pixel identity and must be calibrated with actual CI results. Do not update the reference to silence regressions. Run OLOTests/EncounterFluidVisualTests via Xcode or the OLO iOS validation workflow. This tests the production drawing surface, not full-screen layout or real-time frame rate.
