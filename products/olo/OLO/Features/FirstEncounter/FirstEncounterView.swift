@@ -4,6 +4,8 @@ import SwiftUI
 struct FirstEncounterView: View {
     @Bindable var session: FirstEncounterSession
     @State private var answer = ""
+    @State private var speech = OLOSpeechResponder()
+    @State private var greeted = false
 
     var body: some View {
         ZStack {
@@ -51,7 +53,7 @@ struct FirstEncounterView: View {
                         .shadow(color: .white.opacity(0.65), radius: 20)
                     Text("你好。")
                         .font(.largeTitle).foregroundStyle(.white)
-                    Text("这是文字预览；首次苏醒的语音与 Eye 动画尚未接入。")
+                    Text("你的个人智能体正在苏醒。")
                         .font(.footnote).foregroundStyle(.white.opacity(0.6))
                     Button("进入 OLO") { session.finishAwakening() }
                         .buttonStyle(.borderedProminent)
@@ -64,6 +66,12 @@ struct FirstEncounterView: View {
             .padding(24)
         }
         .onChange(of: session.phase) { _, _ in answer = "" }
+        .task(id: session.phase == .awakening) {
+            guard session.phase == .awakening, !greeted else { return }
+            greeted = true
+            speech.say("你好。", voiceChoice: session.voiceChoice) {}
+        }
+        .onDisappear { speech.stop() }
     }
 
     private var waveform: some View {
