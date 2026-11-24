@@ -42,7 +42,7 @@ struct HomeView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 0) {
-                    entityStage
+                    entityStage(height: min(460, max(180, geometry.size.height)))
                         .frame(maxWidth: 520)
                 }
                 .frame(maxWidth: .infinity)
@@ -209,15 +209,17 @@ struct HomeView: View {
 
     // MARK: - Sections
 
-    private var entityStage: some View {
+    private func entityStage(height: CGFloat) -> some View {
         ZStack {
             VStack(spacing: 18) {
                 OLOEntityView(audioLevel: microphoneLevel, isResponding: isSpeaking)
+                    .frame(maxHeight: max(100, height - 76))
+                    .scaleEffect(min(1, max(0.4, (height - 76) / 320)))
                 stateLabel
             }
             .animation(.easeInOut(duration: 0.25), value: voiceMode)
         }
-        .frame(height: 460)
+        .frame(height: height)
         .accessibilityIdentifier("olo.entity")
         .contentShape(Rectangle())
         .onTapGesture {
