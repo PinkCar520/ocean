@@ -8,6 +8,7 @@ import Speech
 final class OLOAudioSessionCoordinator {
     static let shared = OLOAudioSessionCoordinator()
     private var owner: UUID?
+    private var activated = false
     private var interruptOwner: (() -> Void)?
 
     @discardableResult
@@ -15,6 +16,7 @@ final class OLOAudioSessionCoordinator {
         interruptOwner?()
         let token = UUID()
         owner = token
+        activated = false
         interruptOwner = interrupt
         return token
     }
@@ -24,12 +26,15 @@ final class OLOAudioSessionCoordinator {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(category, mode: mode)
         try session.setActive(true)
+        activated = true
     }
 
     func release(_ token: UUID?) {
         guard let token, owner == token else { return }
         owner = nil
         interruptOwner = nil
+        guard activated else { return }
+        activated = false
         do { try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
         catch { NSLog("OLO audio session deactivation failed: %@", error.localizedDescription) }
     }
