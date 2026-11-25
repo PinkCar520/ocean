@@ -27,9 +27,14 @@ final class SystemVoicePermissions: VoicePermissions {
 
 @MainActor
 protocol VoiceCapture {
+    func setAutomaticEndpointing(_ enabled: Bool)
     func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error>
     func stop() async
     func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?)
+}
+
+extension VoiceCapture {
+    func setAutomaticEndpointing(_ enabled: Bool) {}
 }
 
 /// Each start owns a unique token and capture. Old completions cannot stop a new session.
@@ -37,6 +42,11 @@ protocol VoiceCapture {
 final class AVVoiceService: VoiceService {
     private let permissions: any VoicePermissions
     private let makeCapture: @MainActor () -> any VoiceCapture
+    private var automaticEndpointing = true
+    func setAutomaticEndpointing(_ enabled: Bool) {
+        automaticEndpointing = enabled
+        capture?.setAutomaticEndpointing(enabled)
+    }
     private var sessionID: UUID?
     private var capture: (any VoiceCapture)?
     private var timeout: Task<Void, Never>?
@@ -71,6 +81,7 @@ final class AVVoiceService: VoiceService {
             let newCapture = makeCapture()
             capture = newCapture
             newCapture.setLevelHandler(levelHandler)
+            newCapture.setAutomaticEndpointing(automaticEndpointing)
             let source = try await newCapture.start()
             guard sessionID == id else {
                 // Stop may have run while activation was suspended.
@@ -186,6 +197,11 @@ private final class SystemVoiceCapture: VoiceCapture {
     private var resultsTask: Task<Void, Never>?
     private var endpointTask: Task<Void, Never>?
     private var finishing = false
+    private var automaticEndpointing = true
+    func setAutomaticEndpointing(_ enabled: Bool) {
+        automaticEndpointing = enabled
+        if !enabled { endpointTask?.cancel(); endpointTask = nil }
+    }
     private var tapInstalled = false
     private var sessionActive = false
     private var observers: [NSObjectProtocol] = []
@@ -270,7 +286,7 @@ private final class SystemVoiceCapture: VoiceCapture {
     }
 
     private func scheduleEndpoint() {
-        guard !finishing else { return }
+        guard automaticEndpointing, !finishing else { return }
         endpointTask?.cancel()
         endpointTask = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
