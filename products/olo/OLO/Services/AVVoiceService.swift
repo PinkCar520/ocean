@@ -50,6 +50,8 @@ final class AVVoiceService: VoiceService {
         capture?.setAutomaticEndpointing(enabled)
     }
     private var sessionID: UUID?
+    private var captureReady = false
+    private var finishRequested = false
     private var capture: (any VoiceCapture)?
     private var timeout: Task<Void, Never>?
     private var levelHandler: (@Sendable (Float) -> Void)?
@@ -75,6 +77,8 @@ final class AVVoiceService: VoiceService {
         guard sessionID == nil else { throw VoiceError.alreadyListening }
         let id = UUID()
         sessionID = id
+        captureReady = false
+        finishRequested = false
         do {
             let authorization = await permissions.request()
             try Task.checkCancellation()
@@ -91,6 +95,7 @@ final class AVVoiceService: VoiceService {
                 throw CancellationError()
             }
             try Task.checkCancellation()
+            captureReady = true
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
             let relay = Task { [weak self] in
                 do {
@@ -112,6 +117,12 @@ final class AVVoiceService: VoiceService {
                 continuation.finish(throwing: VoiceError.timeout)
                 await self?.stop(id: id)
             }
+            if finishRequested {
+                Task { [weak self] in
+                    guard let self, self.sessionID == id else { return }
+                    await self.finish()
+                }
+            }
             return stream
         } catch {
             await stop(id: id)
@@ -119,7 +130,12 @@ final class AVVoiceService: VoiceService {
         }
     }
 
-    func finish() async { await capture?.finish() }
+    func finish() async {
+        guard sessionID != nil else { return }
+        finishRequested = true
+        guard captureReady else { return }
+        await capture?.finish()
+    }
 
     func stop() async {
         if let sessionID { await stop(id: sessionID) }
@@ -128,6 +144,8 @@ final class AVVoiceService: VoiceService {
     private func stop(id: UUID) async {
         guard sessionID == id else { return }
         sessionID = nil
+        captureReady = false
+        finishRequested = false
         timeout?.cancel()
         timeout = nil
         let oldCapture = capture
