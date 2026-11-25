@@ -5,7 +5,7 @@ include:
 options:
   bundleIdPrefix: app.olo
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "27.0"
   developmentLanguage: en
   createIntermediateGroups: true
   groupSortPosition: top
@@ -14,7 +14,7 @@ settings:
     SWIFT_VERSION: "6.2"
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
-    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "27.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
