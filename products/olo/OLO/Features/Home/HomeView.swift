@@ -312,9 +312,10 @@ struct HomeView: View {
             isSpeaking = false
         }
         if center.state == .thinking || center.state == .needYou || center.state == .acting {
-            // Stop the conversation UI, not a potentially committed external action.
+            // Do not cancel an external agent action; only interrupt local audio.
             voiceMode = false
             speech.stop()
+            isSpeaking = false
             showToast("已停止语音回应；任务状态请在 Activity 查看")
             return
         }
