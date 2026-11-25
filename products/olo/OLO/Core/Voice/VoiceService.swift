@@ -38,7 +38,10 @@ public protocol VoiceService: AnyObject, Sendable {
     /// Throws `VoiceError` if unauthorized or unavailable.
     func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error>
 
-    /// Stop listening and finalize the current transcript.
+    /// Enable automatic endpointing for tap-to-talk, disable for push-to-talk.
+    func setAutomaticEndpointing(_ enabled: Bool)
+
+    /// Stop listening and cancel the current capture.
     func stop() async
 
     /// Live normalized microphone level for the Voice UI.
@@ -46,6 +49,7 @@ public protocol VoiceService: AnyObject, Sendable {
 }
 
 public extension VoiceService {
+    func setAutomaticEndpointing(_ enabled: Bool) {}
     func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {}
 }
 
