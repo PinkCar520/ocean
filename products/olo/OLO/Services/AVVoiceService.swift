@@ -268,7 +268,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.record, mode: .measurement)
-            try await session.activate()
+            try session.setActive(true)
             sessionActive = true
             try Task.checkCancellation()
             let engine = AVAudioEngine()
@@ -367,7 +367,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         analyzer = nil
         engine = nil
         if sessionActive {
-            do { try await AVAudioSession.sharedInstance().deactivate(options: .notifyOthersOnDeactivation) }
+            do { try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
             catch { NSLog("OLO audio session deactivation failed: %@", error.localizedDescription) }
         }
         sessionActive = false
