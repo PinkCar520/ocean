@@ -12,13 +12,21 @@ permissions:
 
 jobs:
   ios:
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
     defaults:
       run:
         working-directory: products/olo
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Xcode 27 and iOS 27 SDK
+        run: |
+          xcodebuild -version
+          xcode-select -p
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          SDK_MAJOR=$(xcrun --sdk iphonesimulator --show-sdk-version | cut -d. -f1)
+          test "$SDK_MAJOR" = "27"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
