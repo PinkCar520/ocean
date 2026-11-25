@@ -568,27 +568,47 @@ struct HomeView: View {
 final class OLOSpeechResponder {
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
     @ObservationIgnored private var delegate: SpeechCompletionDelegate?
+    @ObservationIgnored private var generation: UUID?
 
     func say(_ message: String, voiceChoice: FirstEncounterSession.VoiceChoice? = nil, onFinish: @escaping @MainActor () -> Void) {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        synthesizer.stopSpeaking(at: .immediate)
-        let completion = SpeechCompletionDelegate(onFinish: onFinish)
+        stop()
+        let generation = UUID()
+        self.generation = generation
+        let completion = SpeechCompletionDelegate { [weak self] in
+            guard let self, self.generation == generation else { return }
+            self.generation = nil
+            self.delegate = nil
+            onFinish()
+        }
         delegate = completion
         synthesizer.delegate = completion
         let utterance = AVSpeechUtterance(string: text)
         let preference = voiceChoice ?? UserDefaults.standard.string(forKey: "olo.encounter.voice.v1").flatMap(FirstEncounterSession.VoiceChoice.init(rawValue:))
         let gender: AVSpeechSynthesisVoiceGender? = preference.map { $0 == .masculine ? .male : .female }
         let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "zh-CN" }
-        utterance.voice = voices.first { $0.gender == gender } ?? AVSpeechSynthesisVoice(language: "zh-CN")
+        let key = "olo.voice.identifier.v1." + (preference?.rawValue ?? "default")
+        let candidates = voices.filter { gender == nil || $0.gender == gender }
+        let ranked = (candidates.isEmpty ? voices : candidates).sorted {
+            if $0.quality.rawValue != $1.quality.rawValue {
+                return $0.quality.rawValue > $1.quality.rawValue
+            }
+            return $0.identifier < $1.identifier
+        }
+        let stored = UserDefaults.standard.string(forKey: key)
+        let selected = ranked.first { $0.identifier == stored } ?? ranked.first
+        utterance.voice = selected ?? AVSpeechSynthesisVoice(language: "zh-CN")
+        if let selected { UserDefaults.standard.set(selected.identifier, forKey: key) }
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         synthesizer.speak(utterance)
     }
 
     func stop() {
-        synthesizer.stopSpeaking(at: .immediate)
+        generation = nil
         synthesizer.delegate = nil
         delegate = nil
+        synthesizer.stopSpeaking(at: .immediate)
     }
 }
 
