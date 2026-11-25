@@ -393,17 +393,12 @@ struct HomeView: View {
     @MainActor
     private func finishListening() {
         guard center.state == .listening || center.state == .needYou else { return }
-        let finalText = capturedSpeech.isEmpty ? center.liveTranscript : capturedSpeech
-        listenGeneration = UUID()
         center.voiceService?.setLevelHandler(nil)
         microphoneLevel = 0
-        listenTask?.cancel()
-        listenTask = nil
         pushToTalk = false
         withAnimation { center.state = .thinking }
         Task {
-            await center.voiceService?.stop()
-            await finishVoice(finalText)
+            await center.voiceService?.finish()
         }
     }
 
