@@ -157,15 +157,17 @@ final class AVVoiceService: VoiceService {
 /// Session-local input bridge; the tap owns a copy before crossing the async boundary.
 private final class AnalyzerAudioBridge: @unchecked Sendable {
     private let continuation: AsyncStream<AnalyzerInput>.Continuation
-    private let converter: AnalyzerInputConverter
+    private let converter: AVAudioConverter?
+    private let outputFormat: AVAudioFormat
     private let onError: @Sendable (Error) -> Void
     private var closed = false
     private let lock = NSLock()
     private var levelHandler: (@Sendable (Float) -> Void)?
 
-    init(_ continuation: AsyncStream<AnalyzerInput>.Continuation, outputFormat: AVAudioFormat, onError: @escaping @Sendable (Error) -> Void) {
+    init(_ continuation: AsyncStream<AnalyzerInput>.Continuation, inputFormat: AVAudioFormat, outputFormat: AVAudioFormat, onError: @escaping @Sendable (Error) -> Void) {
         self.continuation = continuation
-        self.converter = AnalyzerInputConverter(analyzerFormat: outputFormat)
+        self.outputFormat = outputFormat
+        self.converter = AVAudioConverter(from: inputFormat, to: outputFormat)
         self.onError = onError
     }
 
@@ -176,14 +178,33 @@ private final class AnalyzerAudioBridge: @unchecked Sendable {
     func append(_ buffer: AVAudioPCMBuffer) {
         lock.lock()
         guard !closed else { lock.unlock(); return }
-        do {
-            for input in try converter.convert(buffer, at: nil) { continuation.yield(input) }
-        } catch {
-            closed = true
-            continuation.finish()
-            lock.unlock()
-            onError(error)
-            return
+        if let converter {
+            let capacity = AVAudioFrameCount(ceil(Double(buffer.frameLength) * outputFormat.sampleRate / buffer.format.sampleRate)) + 256
+            guard let converted = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else {
+                lock.unlock()
+                onError(VoiceError.audioEngineFailed("无法分配语音分析缓冲区"))
+                return
+            }
+            var supplied = false
+            var error: NSError?
+            let status = converter.convert(to: converted, error: &error) { _, inputStatus in
+                if supplied { inputStatus.pointee = .noDataNow; return nil }
+                supplied = true
+                inputStatus.pointee = .haveData
+                return buffer
+            }
+            if let error {
+                closed = true
+                continuation.finish()
+                lock.unlock()
+                onError(error)
+                return
+            }
+            if status != .error, converted.frameLength > 0 {
+                continuation.yield(AnalyzerInput(buffer: converted))
+            }
+        } else {
+            continuation.yield(AnalyzerInput(buffer: buffer))
         }
         let handler = levelHandler
         lock.unlock()
@@ -199,9 +220,6 @@ private final class AnalyzerAudioBridge: @unchecked Sendable {
         defer { lock.unlock() }
         guard !closed else { return }
         closed = true
-        do {
-            for input in try converter.flush() { continuation.yield(input) }
-        } catch { onError(error) }
         continuation.finish()
     }
 }
@@ -267,7 +285,7 @@ private final class SystemVoiceCapture: VoiceCapture {
             try Task.checkCancellation()
             let (audio, audioContinuation) = AsyncStream<AnalyzerInput>.makeStream()
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
-            let bridge = AnalyzerAudioBridge(audioContinuation, outputFormat: analysisFormat) { error in
+            let bridge = AnalyzerAudioBridge(audioContinuation, inputFormat: format, outputFormat: analysisFormat) { error in
                 continuation.finish(throwing: error)
             }
             self.bridge = bridge
