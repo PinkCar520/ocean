@@ -27,6 +27,7 @@ final class SystemVoicePermissions: VoicePermissions {
 
 @MainActor
 protocol VoiceCapture {
+    func finish() async
     func setAutomaticEndpointing(_ enabled: Bool)
     func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error>
     func stop() async
@@ -34,6 +35,7 @@ protocol VoiceCapture {
 }
 
 extension VoiceCapture {
+    func finish() async { await stop() }
     func setAutomaticEndpointing(_ enabled: Bool) {}
 }
 
@@ -116,6 +118,8 @@ final class AVVoiceService: VoiceService {
             throw error
         }
     }
+
+    func finish() async { await capture?.finish() }
 
     func stop() async {
         if let sessionID { await stop(id: sessionID) }
@@ -290,17 +294,21 @@ private final class SystemVoiceCapture: VoiceCapture {
         endpointTask?.cancel()
         endpointTask = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
-            guard let self, !self.finishing else { return }
-            self.finishing = true
-            self.engine?.stop()
-            if self.tapInstalled { self.engine?.inputNode.removeTap(onBus: 0) }
-            self.tapInstalled = false
-            self.bridge?.close()
-            do {
-                try await self.analyzer?.finalizeAndFinishThroughEndOfInput()
-            } catch {
-                await self.analyzer?.cancelAndFinishNow()
-            }
+            await self?.finish()
+        }
+    }
+
+    func finish() async {
+        guard !finishing else { return }
+        finishing = true
+        engine?.stop()
+        if tapInstalled { engine?.inputNode.removeTap(onBus: 0) }
+        tapInstalled = false
+        bridge?.close()
+        do {
+            try await analyzer?.finalizeAndFinishThroughEndOfInput()
+        } catch {
+            await analyzer?.cancelAndFinishNow()
         }
     }
 
