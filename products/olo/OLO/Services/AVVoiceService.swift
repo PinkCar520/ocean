@@ -21,28 +21,7 @@ final class SystemVoicePermissions: VoicePermissions {
     }
 
     private static func authorize() async -> VoiceAuthorization {
-        guard await AVAudioApplication.requestRecordPermission() else { return .denied }
-        let status: SFSpeechRecognizerAuthorizationStatus
-        if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
-            status = await speechPermission()
-        } else {
-            status = SFSpeechRecognizer.authorizationStatus()
-        }
-        switch status {
-        case .authorized: return .granted
-        case .denied: return .denied
-        case .restricted: return .restricted
-        case .notDetermined: return .notDetermined
-        @unknown default: return .notDetermined
-        }
-    }
-}
-
-private nonisolated func speechPermission() async -> SFSpeechRecognizerAuthorizationStatus {
-    await withCheckedContinuation { continuation in
-        SFSpeechRecognizer.requestAuthorization { @Sendable status in
-            continuation.resume(returning: status)
-        }
+        await AVAudioApplication.requestRecordPermission() ? .granted : .denied
     }
 }
 
@@ -75,7 +54,7 @@ final class AVVoiceService: VoiceService {
     }
 
     func isAvailable() async -> Bool {
-        SFSpeechRecognizer(locale: .current)?.isAvailable ?? false
+        await SpeechTranscriber.supportedLocale(equivalentTo: .current) != nil
     }
 
     func requestAuthorization() async -> VoiceAuthorization { await permissions.request() }
@@ -142,94 +121,53 @@ final class AVVoiceService: VoiceService {
     }
 }
 
-/// Session-local callback bridge. The lock serializes append/endAudio and close.
-/// No callback touches the MainActor capture or a later session's bridge.
-private final class AudioBridge: @unchecked Sendable {
+/// Session-local input bridge; the tap owns a copy before crossing the async boundary.
+private final class AnalyzerAudioBridge: @unchecked Sendable {
+    private let continuation: AsyncStream<AnalyzerInput>.Continuation
     private let lock = NSLock()
-    private let request: SFSpeechAudioBufferRecognitionRequest
-    private let continuation: AsyncThrowingStream<VoiceTranscript, Error>.Continuation
-    private var closed = false
     private var levelHandler: (@Sendable (Float) -> Void)?
+
+    init(_ continuation: AsyncStream<AnalyzerInput>.Continuation) {
+        self.continuation = continuation
+    }
 
     func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {
         lock.lock(); levelHandler = handler; lock.unlock()
     }
 
-    init(request: SFSpeechAudioBufferRecognitionRequest,
-         continuation: AsyncThrowingStream<VoiceTranscript, Error>.Continuation) {
-        self.request = request
-        self.continuation = continuation
-    }
-
     func append(_ buffer: AVAudioPCMBuffer) {
-        lock.lock()
-        guard !closed else { lock.unlock(); return }
-        request.append(buffer)
-        let handler = levelHandler
-        lock.unlock()
+        guard let copy = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength) else { return }
+        copy.frameLength = buffer.frameLength
+        let source = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
+        let destination = UnsafeMutableAudioBufferListPointer(copy.mutableAudioBufferList)
+        for (src, dst) in zip(source, destination) {
+            if let from = src.mData, let to = dst.mData {
+                memcpy(to, from, Int(min(src.mDataByteSize, dst.mDataByteSize)))
+            }
+        }
+        continuation.yield(AnalyzerInput(buffer: copy))
+        lock.lock(); let handler = levelHandler; lock.unlock()
         guard let handler, let channels = buffer.floatChannelData, buffer.frameLength > 0 else { return }
-        let samples = channels[0]
         let count = Int(buffer.frameLength)
         var sum: Float = 0
-        for index in 0..<count { sum += samples[index] * samples[index] }
-        let rms = sqrt(sum / Float(count))
-        handler(min(1, rms * 8))
+        for index in 0..<count { sum += channels[0][index] * channels[0][index] }
+        handler(min(1, sqrt(sum / Float(count)) * 8))
     }
 
-    func receive(_ result: SFSpeechRecognitionResult?, error: Error?) {
-        lock.lock()
-        let active = !closed
-        lock.unlock()
-        guard active else { return }
-        if let error {
-            continuation.finish(throwing: VoiceError.recognitionFailed(error.localizedDescription))
-        } else if let result {
-            continuation.yield(VoiceTranscript(text: result.bestTranscription.formattedString,
-                                                isFinal: result.isFinal))
-            if result.isFinal { continuation.finish() }
-        }
-    }
-
-    func close() {
-        lock.lock()
-        guard !closed else { lock.unlock(); return }
-        closed = true
-        request.endAudio()
-        lock.unlock()
-        continuation.finish()
-    }
+    func close() { continuation.finish() }
 }
 
-private nonisolated func audioTap(_ bridge: AudioBridge) -> AVAudioNodeTapBlock {
+private nonisolated func analyzerTap(_ bridge: AnalyzerAudioBridge) -> AVAudioNodeTapBlock {
     { @Sendable buffer, _ in bridge.append(buffer) }
-}
-
-private nonisolated func recognitionHandler(_ bridge: AudioBridge)
-    -> @Sendable (SFSpeechRecognitionResult?, Error?) -> Void {
-    { result, error in bridge.receive(result, error: error) }
-}
-
-/// Serializes audio-session transitions off MainActor on iOS 26.
-/// iOS 27 provides native asynchronous activation APIs.
-private actor RecordingAudioSession {
-    static let shared = RecordingAudioSession()
-
-    func activate() async throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setActive(true)
-    }
-
-    func deactivate() async throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setActive(false, options: .notifyOthersOnDeactivation)
-    }
 }
 
 @MainActor
 private final class SystemVoiceCapture: VoiceCapture {
     private var engine: AVAudioEngine?
-    private var task: SFSpeechRecognitionTask?
-    private var bridge: AudioBridge?
+    private var analyzer: SpeechAnalyzer?
+    private var bridge: AnalyzerAudioBridge?
+    private var analysisTask: Task<Void, Never>?
+    private var resultsTask: Task<Void, Never>?
     private var tapInstalled = false
     private var sessionActive = false
     private var observers: [NSObjectProtocol] = []
@@ -241,16 +179,20 @@ private final class SystemVoiceCapture: VoiceCapture {
     }
 
     func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error> {
-        guard let recognizer = SFSpeechRecognizer(locale: .current), recognizer.isAvailable else {
-            throw VoiceError.unavailable("当前语言的语音识别不可用")
+        guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: .current) else {
+            throw VoiceError.unavailable("当前语言的端侧语音识别不可用")
         }
-        guard recognizer.supportsOnDeviceRecognition else {
-            throw VoiceError.unavailable("当前设备或语言不支持本地语音识别")
+        let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            try await request.downloadAndInstall()
         }
+        try Task.checkCancellation()
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        self.analyzer = analyzer
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.record, mode: .measurement)
-            try await RecordingAudioSession.shared.activate()
+            try await session.activate()
             sessionActive = true
             try Task.checkCancellation()
             let engine = AVAudioEngine()
@@ -260,15 +202,31 @@ private final class SystemVoiceCapture: VoiceCapture {
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 throw VoiceError.audioEngineFailed("没有可用的麦克风输入")
             }
-            let request = SFSpeechAudioBufferRecognitionRequest()
-            request.shouldReportPartialResults = true
-            request.requiresOnDeviceRecognition = true
+            try await analyzer.prepareToAnalyze(in: format)
+            try Task.checkCancellation()
+            let (audio, audioContinuation) = AsyncStream<AnalyzerInput>.makeStream()
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
-            let bridge = AudioBridge(request: request, continuation: continuation)
+            let bridge = AnalyzerAudioBridge(audioContinuation)
             self.bridge = bridge
             bridge.setLevelHandler(levelHandler)
-            task = recognizer.recognitionTask(with: request, resultHandler: recognitionHandler(bridge))
-            input.installTap(onBus: 0, bufferSize: 1024, format: format, block: audioTap(bridge))
+            resultsTask = Task {
+                do {
+                    var committed = ""
+                    for try await result in transcriber.results {
+                        let text = String(result.text.characters)
+                        let combined = committed + text
+                        continuation.yield(VoiceTranscript(text: combined, isFinal: false))
+                        if result.isFinal { committed = combined }
+                    }
+                    continuation.finish()
+                } catch { continuation.finish(throwing: error) }
+            }
+            analysisTask = Task {
+                do {
+                    try await analyzer.start(inputSequence: audio)
+                } catch { continuation.finish(throwing: error) }
+            }
+            input.installTap(onBus: 0, bufferSize: 1024, format: format, block: analyzerTap(bridge))
             tapInstalled = true
             for name in [AVAudioSession.interruptionNotification, AVAudioSession.mediaServicesWereResetNotification] {
                 observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: nil) { @Sendable _ in
@@ -291,12 +249,16 @@ private final class SystemVoiceCapture: VoiceCapture {
         if tapInstalled { engine?.inputNode.removeTap(onBus: 0) }
         tapInstalled = false
         bridge?.close()
-        task?.cancel()
+        analysisTask?.cancel()
+        resultsTask?.cancel()
+        await analyzer?.cancelAndFinishNow()
         bridge = nil
-        task = nil
+        analysisTask = nil
+        resultsTask = nil
+        analyzer = nil
         engine = nil
         if sessionActive {
-            do { try await RecordingAudioSession.shared.deactivate() }
+            do { try await AVAudioSession.sharedInstance().deactivate(options: .notifyOthersOnDeactivation) }
             catch { NSLog("OLO audio session deactivation failed: %@", error.localizedDescription) }
         }
         sessionActive = false
