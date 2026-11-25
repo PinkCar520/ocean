@@ -124,6 +124,19 @@ final class VoiceLifecycleTests: XCTestCase {
         XCTAssertEqual(capture.finishes, 1)
     }
 
+    func testRepeatedFinishOnlyFinalizesCaptureOnce() async throws {
+        let permission = Permissions(), capture = Capture()
+        let voice = AVVoiceService(permissions: permission, makeCapture: { capture })
+        let start = Task { try await voice.start() }
+        await waitForRequest(permission)
+        permission.resolve(.granted)
+        _ = try await start.value
+        await voice.finish()
+        await voice.finish()
+        XCTAssertEqual(capture.finishes, 1)
+        await voice.stop()
+    }
+
     func testFinishAfterStopDoesNotReachOldCapture() async throws {
         let permission = Permissions(), capture = Capture()
         let voice = AVVoiceService(permissions: permission, makeCapture: { capture })
