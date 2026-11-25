@@ -184,6 +184,8 @@ private final class SystemVoiceCapture: VoiceCapture {
     private var bridge: AnalyzerAudioBridge?
     private var analysisTask: Task<Void, Never>?
     private var resultsTask: Task<Void, Never>?
+    private var endpointTask: Task<Void, Never>?
+    private var finishing = false
     private var tapInstalled = false
     private var sessionActive = false
     private var observers: [NSObjectProtocol] = []
@@ -232,15 +234,17 @@ private final class SystemVoiceCapture: VoiceCapture {
             }
             self.bridge = bridge
             bridge.setLevelHandler(levelHandler)
-            resultsTask = Task {
+            resultsTask = Task { [weak self] in
                 do {
                     var committed = ""
                     for try await result in transcriber.results {
                         let text = String(result.text.characters)
                         let combined = committed + text
-                        continuation.yield(VoiceTranscript(text: combined, isFinal: result.isFinal))
+                        continuation.yield(VoiceTranscript(text: combined, isFinal: false))
                         if result.isFinal { committed = combined }
+                        self?.scheduleEndpoint()
                     }
+                    if !committed.isEmpty { continuation.yield(VoiceTranscript(text: committed, isFinal: true)) }
                     continuation.finish()
                 } catch { continuation.finish(throwing: error) }
             }
@@ -265,7 +269,29 @@ private final class SystemVoiceCapture: VoiceCapture {
         }
     }
 
+    private func scheduleEndpoint() {
+        guard !finishing else { return }
+        endpointTask?.cancel()
+        endpointTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
+            guard let self, !self.finishing else { return }
+            self.finishing = true
+            self.engine?.stop()
+            if self.tapInstalled { self.engine?.inputNode.removeTap(onBus: 0) }
+            self.tapInstalled = false
+            self.bridge?.close()
+            do {
+                try await self.analyzer?.finalizeAndFinishThroughEndOfInput()
+            } catch {
+                await self.analyzer?.cancelAndFinishNow()
+            }
+        }
+    }
+
     func stop() async {
+        endpointTask?.cancel()
+        endpointTask = nil
+        finishing = true
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
         engine?.stop()
