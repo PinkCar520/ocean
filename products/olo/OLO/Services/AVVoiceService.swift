@@ -209,11 +209,13 @@ private final class SystemVoiceCapture: VoiceCapture {
             throw VoiceError.unavailable("当前语言的端侧语音识别不可用")
         }
         let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+        let detector = SpeechDetector()
+        let modules: [any SpeechModule] = [detector, transcriber]
+        if let request = try await AssetInventory.assetInstallationRequest(supporting: modules) {
             try await request.downloadAndInstall()
         }
         try Task.checkCancellation()
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        let analyzer = SpeechAnalyzer(modules: modules)
         self.analyzer = analyzer
         let session = AVAudioSession.sharedInstance()
         do {
@@ -228,7 +230,7 @@ private final class SystemVoiceCapture: VoiceCapture {
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 throw VoiceError.audioEngineFailed("没有可用的麦克风输入")
             }
-            guard let analysisFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
+            guard let analysisFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: modules, considering: format) else {
                 throw VoiceError.audioEngineFailed("没有可用的语音分析格式")
             }
             try await analyzer.prepareToAnalyze(in: analysisFormat)
