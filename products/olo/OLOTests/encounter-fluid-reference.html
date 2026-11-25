@@ -9,7 +9,7 @@ function drawFrame(w,h,t,d=1){
   if(c.width!==Math.round(w*d)||c.height!==Math.round(h*d)){c.width=Math.round(w*d);c.height=Math.round(h*d)}
   g.setTransform(d,0,0,d,0,0);
   g.fillStyle='#FFFFFF';g.fillRect(0,0,w,h);
-  const amplitude=Math.min(w,h);
+  const amplitude=Math.min(w,h)*(w<h?0.4:1);
   for(let j=0;j<7;j++){
     g.beginPath();
     for(let x=0;x<=w;x+=2){

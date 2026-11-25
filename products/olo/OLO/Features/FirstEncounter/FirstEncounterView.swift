@@ -256,8 +256,8 @@ struct EncounterFluidFrame: View {
                 let t = time
                 let h = size.height
                 let w = size.width
-                // Short-edge amplitude prevents portrait stretching; landscape is unchanged.
-                let amplitude = Double(min(w, h))
+                // Approved portrait amplitude is 40% of the short-edge baseline.
+                let amplitude = Double(min(w, h)) * (w < h ? 0.4 : 1.0)
                 for j in 0..<7 {
                     var path = Path()
                     let layer = Double(j)
