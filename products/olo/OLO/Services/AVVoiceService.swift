@@ -200,7 +200,14 @@ private final class AnalyzerAudioBridge: @unchecked Sendable {
                 onError(error)
                 return
             }
-            if status != .error, converted.frameLength > 0 {
+            if status == .error {
+                closed = true
+                continuation.finish()
+                lock.unlock()
+                onError(VoiceError.audioEngineFailed("语音输入格式转换失败"))
+                return
+            }
+            if converted.frameLength > 0 {
                 continuation.yield(AnalyzerInput(buffer: converted))
             }
         } else {
@@ -337,6 +344,8 @@ private final class SystemVoiceCapture: VoiceCapture {
     func finish() async {
         guard !finishing else { return }
         finishing = true
+        endpointTask?.cancel()
+        endpointTask = nil
         engine?.stop()
         if tapInstalled { engine?.inputNode.removeTap(onBus: 0) }
         tapInstalled = false
