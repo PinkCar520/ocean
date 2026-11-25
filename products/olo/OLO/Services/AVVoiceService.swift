@@ -52,6 +52,7 @@ final class AVVoiceService: VoiceService {
     private var sessionID: UUID?
     private var captureReady = false
     private var finishRequested = false
+    private var finishDispatched = false
     private var capture: (any VoiceCapture)?
     private var timeout: Task<Void, Never>?
     private var levelHandler: (@Sendable (Float) -> Void)?
@@ -79,6 +80,7 @@ final class AVVoiceService: VoiceService {
         sessionID = id
         captureReady = false
         finishRequested = false
+        finishDispatched = false
         do {
             let authorization = await permissions.request()
             try Task.checkCancellation()
@@ -133,7 +135,8 @@ final class AVVoiceService: VoiceService {
     func finish() async {
         guard sessionID != nil else { return }
         finishRequested = true
-        guard captureReady else { return }
+        guard captureReady, !finishDispatched else { return }
+        finishDispatched = true
         await capture?.finish()
     }
 
@@ -146,6 +149,7 @@ final class AVVoiceService: VoiceService {
         sessionID = nil
         captureReady = false
         finishRequested = false
+        finishDispatched = false
         timeout?.cancel()
         timeout = nil
         let oldCapture = capture
