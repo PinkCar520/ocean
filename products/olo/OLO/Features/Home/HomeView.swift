@@ -299,8 +299,6 @@ struct HomeView: View {
     /// Tap starts native voice capture; a second tap finalizes the utterance.
     @MainActor
     private func startConversation(pushToTalk mode: Bool = false) {
-        speech.stop()
-        isSpeaking = false
         guard !center.privacyMode else {
             showToast("隐私模式下麦克风已暂停")
             return
@@ -309,7 +307,10 @@ struct HomeView: View {
             if !mode { finishListening() }
             return
         }
-        if isSpeaking { speech.stop(); isSpeaking = false }
+        if isSpeaking {
+            speech.stop()
+            isSpeaking = false
+        }
         if center.state == .thinking || center.state == .needYou || center.state == .acting {
             // Stop the conversation UI, not a potentially committed external action.
             voiceMode = false
@@ -318,6 +319,8 @@ struct HomeView: View {
             return
         }
         guard center.state == .idle || center.state == .done || center.state == .error else { return }
+        speech.stop()
+        isSpeaking = false
         voiceMode = true
         pushToTalk = mode
         capturedSpeech = ""
@@ -340,6 +343,13 @@ struct HomeView: View {
         showToast("正在检查语音权限")
         center.liveTranscript = ""
         listenTask = Task {
+            defer {
+                if listenGeneration == generation {
+                    listenTask = nil
+                    voice.setLevelHandler(nil)
+                    microphoneLevel = 0
+                }
+            }
             do {
                 voice.setAutomaticEndpointing(!mode)
                 let stream = try await voice.start()
@@ -394,8 +404,12 @@ struct HomeView: View {
         microphoneLevel = 0
         pushToTalk = false
         withAnimation { center.state = .thinking }
-        Task {
-            await center.voiceService?.finish()
+        // Keep the session identity: a late release must not finalize a newer recording.
+        let generation = listenGeneration
+        let voice = center.voiceService
+        Task { @MainActor in
+            guard listenGeneration == generation else { return }
+            await voice?.finish()
         }
     }
 
