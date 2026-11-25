@@ -124,11 +124,21 @@ final class AVVoiceService: VoiceService {
 /// Session-local input bridge; the tap owns a copy before crossing the async boundary.
 private final class AnalyzerAudioBridge: @unchecked Sendable {
     private let continuation: AsyncStream<AnalyzerInput>.Continuation
+    private let converter: AVAudioConverter?
+    private let outputFormat: AVAudioFormat
     private let lock = NSLock()
     private var levelHandler: (@Sendable (Float) -> Void)?
 
-    init(_ continuation: AsyncStream<AnalyzerInput>.Continuation) {
+    init(_ continuation: AsyncStream<AnalyzerInput>.Continuation, inputFormat: AVAudioFormat, outputFormat: AVAudioFormat) throws {
         self.continuation = continuation
+        self.outputFormat = outputFormat
+        if inputFormat == outputFormat { converter = nil }
+        else {
+            guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+                throw VoiceError.audioEngineFailed("无法转换语音输入格式")
+            }
+            self.converter = converter
+        }
     }
 
     func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {
@@ -145,7 +155,23 @@ private final class AnalyzerAudioBridge: @unchecked Sendable {
                 memcpy(to, from, Int(min(src.mDataByteSize, dst.mDataByteSize)))
             }
         }
-        continuation.yield(AnalyzerInput(buffer: copy))
+        if let converter {
+            let capacity = AVAudioFrameCount(ceil(Double(copy.frameLength) * outputFormat.sampleRate / copy.format.sampleRate)) + 32
+            guard let converted = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else { return }
+            var supplied = false
+            var error: NSError?
+            let status = converter.convert(to: converted, error: &error) { _, inputStatus in
+                if supplied { inputStatus.pointee = .noDataNow; return nil }
+                supplied = true
+                inputStatus.pointee = .haveData
+                return copy
+            }
+            if status != .error && converted.frameLength > 0 {
+                continuation.yield(AnalyzerInput(buffer: converted))
+            }
+        } else {
+            continuation.yield(AnalyzerInput(buffer: copy))
+        }
         lock.lock(); let handler = levelHandler; lock.unlock()
         guard let handler, let channels = buffer.floatChannelData, buffer.frameLength > 0 else { return }
         let count = Int(buffer.frameLength)
@@ -202,11 +228,14 @@ private final class SystemVoiceCapture: VoiceCapture {
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 throw VoiceError.audioEngineFailed("没有可用的麦克风输入")
             }
-            try await analyzer.prepareToAnalyze(in: format)
+            guard let analysisFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
+                throw VoiceError.audioEngineFailed("没有可用的语音分析格式")
+            }
+            try await analyzer.prepareToAnalyze(in: analysisFormat)
             try Task.checkCancellation()
             let (audio, audioContinuation) = AsyncStream<AnalyzerInput>.makeStream()
             let (stream, continuation) = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
-            let bridge = AnalyzerAudioBridge(audioContinuation)
+            let bridge = try AnalyzerAudioBridge(audioContinuation, inputFormat: format, outputFormat: analysisFormat)
             self.bridge = bridge
             bridge.setLevelHandler(levelHandler)
             resultsTask = Task {
@@ -215,7 +244,7 @@ private final class SystemVoiceCapture: VoiceCapture {
                     for try await result in transcriber.results {
                         let text = String(result.text.characters)
                         let combined = committed + text
-                        continuation.yield(VoiceTranscript(text: combined, isFinal: false))
+                        continuation.yield(VoiceTranscript(text: combined, isFinal: result.isFinal))
                         if result.isFinal { committed = combined }
                     }
                     continuation.finish()
