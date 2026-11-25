@@ -41,6 +41,9 @@ public protocol VoiceService: AnyObject, Sendable {
     /// Enable automatic endpointing for tap-to-talk, disable for push-to-talk.
     func setAutomaticEndpointing(_ enabled: Bool)
 
+    /// Finish input and drain final recognition results.
+    func finish() async
+
     /// Stop listening and cancel the current capture.
     func stop() async
 
@@ -49,6 +52,7 @@ public protocol VoiceService: AnyObject, Sendable {
 }
 
 public extension VoiceService {
+    func finish() async { await stop() }
     func setAutomaticEndpointing(_ enabled: Bool) {}
     func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {}
 }
