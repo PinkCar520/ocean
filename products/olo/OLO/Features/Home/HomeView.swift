@@ -344,6 +344,7 @@ struct HomeView: View {
         center.liveTranscript = ""
         listenTask = Task {
             do {
+                voice.setAutomaticEndpointing(!pushToTalk)
                 let stream = try await voice.start()
                 try Task.checkCancellation()
                 guard !center.privacyMode, listenGeneration == generation else { await voice.stop(); return }
