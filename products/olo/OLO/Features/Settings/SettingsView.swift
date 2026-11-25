@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 import AVFoundation
-import Speech
 
 /// Settings — OLO's tuning panel.
 ///
@@ -17,17 +16,13 @@ import Speech
 ///   5. About           — version, build, and the "One OLO. Many Bodies."
 ///                       one-liner.
 ///
-/// Voice permission reads `AVAudioApplication.recordPermission` (sync) and
-/// `SFSpeechRecognizer.authorizationStatus()` (sync) on appear and on
-/// `scenePhase` change, because the user can flip the switch in System
-/// Settings while the app is backgrounded.
+/// Refresh microphone permission when returning from System Settings.
 struct SettingsView: View {
     @Environment(OLOCenter.self) private var center
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var micGranted: Bool = AVAudioApplication.shared.recordPermission == .granted
-    @State private var speechStatus: SFSpeechRecognizerAuthorizationStatus = SFSpeechRecognizer.authorizationStatus()
     @State private var memoryCount: Int = 0
     @State private var taskCount: Int = 0
     @State private var hasEncounterMemory = false
@@ -386,14 +381,7 @@ struct SettingsView: View {
                 granted: micGranted
             )
             Divider().opacity(0.5).padding(.vertical, 4)
-            permissionRow(
-                icon: "waveform.badge.mic",
-                title: "语音识别",
-                detail: speechStatusLabel,
-                granted: speechStatus == .authorized
-            )
-            Divider().opacity(0.5).padding(.vertical, 4)
-            if micGranted && speechStatus == .authorized {
+            if micGranted {
                 Button {
                     openSystemSettings()
                 } label: {
@@ -408,7 +396,7 @@ struct SettingsView: View {
                         settingsRowLabel(
                             icon: "hand.raised.fill",
                             title: "请求权限",
-                            detail: requestingVoice ? "请求中…" : "OLO 需要麦克风和语音识别"
+                            detail: requestingVoice ? "请求中…" : "OLO 需要麦克风权限"
                         )
                         Spacer()
                         Image(systemName: "chevron.right").foregroundStyle(.tertiary).font(.caption)
@@ -421,16 +409,6 @@ struct SettingsView: View {
         .padding(18)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(.black.opacity(0.06)))
-    }
-
-    private var speechStatusLabel: String {
-        switch speechStatus {
-        case .authorized: "已授权"
-        case .denied: "已拒绝"
-        case .restricted: "受限"
-        case .notDetermined: "未询问"
-        @unknown default: "未知"
-        }
     }
 
     private var wakeValidationCard: some View {
@@ -628,7 +606,6 @@ struct SettingsView: View {
     @MainActor
     private func refreshPermissions() {
         micGranted = AVAudioApplication.shared.recordPermission == .granted
-        speechStatus = SFSpeechRecognizer.authorizationStatus()
     }
 
     @MainActor
@@ -648,8 +625,7 @@ struct SettingsView: View {
                 let result = await voice.requestAuthorization()
                 applyVoiceAuth(result)
             } else {
-                // Voice service not attached yet — request mic directly,
-                // SFSpeechRecognizer will prompt via its own alert.
+                // Voice service not attached yet — request microphone directly.
                 let granted = await AVAudioApplication.requestRecordPermission()
                 applyVoiceAuth(granted ? .granted : .denied)
             }

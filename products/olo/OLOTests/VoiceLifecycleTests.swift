@@ -14,6 +14,8 @@ private final class Permissions: VoicePermissions {
 private final class Capture: VoiceCapture {
     var starts = 0
     var stops = 0
+    var finishes = 0
+    func finish() async { finishes += 1; pair.continuation.yield(.init(text: "final utterance", isFinal: true)); pair.continuation.finish() }
     func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) {}
     let pair = AsyncThrowingStream<VoiceTranscript, Error>.makeStream()
     func start() async throws -> AsyncThrowingStream<VoiceTranscript, Error> { starts += 1; return pair.stream }
@@ -91,6 +93,61 @@ final class VoiceLifecycleTests: XCTestCase {
         for try await value in stream2 { received = value.text }
         XCTAssertEqual(received, "new session")
         await voice.stop()
+    }
+
+
+    func testManualFinishDeliversFinalTranscriptWithoutDroppingIt() async throws {
+        let permission = Permissions(), capture = Capture()
+        let voice = AVVoiceService(permissions: permission, makeCapture: { capture })
+        let start = Task { try await voice.start() }
+        await waitForRequest(permission)
+        permission.resolve(.granted)
+        let stream = try await start.value
+        await voice.finish()
+        var final: VoiceTranscript?
+        for try await result in stream { if result.isFinal { final = result } }
+        XCTAssertEqual(final?.text, "final utterance")
+        XCTAssertEqual(capture.finishes, 1)
+    }
+
+    func testFinishDuringAuthorizationWaitsForCaptureReadiness() async throws {
+        let permission = Permissions(), capture = Capture()
+        let voice = AVVoiceService(permissions: permission, makeCapture: { capture })
+        let start = Task { try await voice.start() }
+        await waitForRequest(permission)
+        await voice.finish()
+        permission.resolve(.granted)
+        let stream = try await start.value
+        var final: VoiceTranscript?
+        for try await result in stream { if result.isFinal { final = result } }
+        XCTAssertEqual(final?.text, "final utterance")
+        XCTAssertEqual(capture.finishes, 1)
+    }
+
+    func testRepeatedFinishOnlyFinalizesCaptureOnce() async throws {
+        let permission = Permissions(), capture = Capture()
+        let voice = AVVoiceService(permissions: permission, makeCapture: { capture })
+        let start = Task { try await voice.start() }
+        await waitForRequest(permission)
+        permission.resolve(.granted)
+        _ = try await start.value
+        await voice.finish()
+        await voice.finish()
+        XCTAssertEqual(capture.finishes, 1)
+        await voice.stop()
+    }
+
+    func testFinishAfterStopDoesNotReachOldCapture() async throws {
+        let permission = Permissions(), capture = Capture()
+        let voice = AVVoiceService(permissions: permission, makeCapture: { capture })
+        let start = Task { try await voice.start() }
+        await waitForRequest(permission)
+        permission.resolve(.granted)
+        _ = try await start.value
+        await voice.stop()
+        await voice.finish()
+        XCTAssertEqual(capture.finishes, 0)
+        XCTAssertEqual(capture.stops, 1)
     }
 
     func testRecognitionErrorPropagates() async throws {
