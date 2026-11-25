@@ -291,18 +291,12 @@ struct HomeView: View {
         if center.privacyMode { return AttributedString(stateName) }
         var bold = AttributeContainer()
         bold.inlinePresentationIntent = .stronglyEmphasized
-        var s = AttributedString(stateName, attributes: bold)
-
-        return s
+        return AttributedString(stateName, attributes: bold)
     }
 
     // MARK: - Gesture dispatch
 
-    /// Tap — start listening; if already listening, stop and settle.
-    /// Falls back to text input when the voice service is not attached
-    /// (e.g. running in a context where SFSpeechRecognizer is unavailable)
-    /// so the user is never stuck with no way to talk to OLO. Matches
-    /// 1.html where the primary input is a text panel.
+    /// Tap starts native voice capture; a second tap finalizes the utterance.
     @MainActor
     private func startConversation(pushToTalk mode: Bool = false) {
         speech.stop()
@@ -336,7 +330,10 @@ struct HomeView: View {
             }
         }
         guard let voice = center.voiceService else {
-            showingTextInput = true
+            voiceMode = false
+            pushToTalk = false
+            center.voiceService?.setLevelHandler(nil)
+            showToast("语音服务暂不可用")
             return
         }
         withAnimation { center.state = .needYou }
@@ -344,7 +341,7 @@ struct HomeView: View {
         center.liveTranscript = ""
         listenTask = Task {
             do {
-                voice.setAutomaticEndpointing(!pushToTalk)
+                voice.setAutomaticEndpointing(!mode)
                 let stream = try await voice.start()
                 try Task.checkCancellation()
                 guard !center.privacyMode, listenGeneration == generation else { await voice.stop(); return }
@@ -368,7 +365,7 @@ struct HomeView: View {
                 guard !Task.isCancelled else { return }
                 center.liveTranscript = ""
                 withAnimation { center.state = .idle }
-                showToast("需要麦克风与语音识别权限")
+                showToast("需要麦克风权限")
             } catch VoiceError.unavailable(let message) {
                 center.liveTranscript = ""
                 withAnimation { center.state = .idle }
