@@ -560,23 +560,20 @@ struct HomeView: View {
 @Observable
 final class OLOSpeechResponder {
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
-    @ObservationIgnored private var delegate: SpeechCompletionDelegate?
+    @ObservationIgnored private var engine: AVAudioEngine?
+    @ObservationIgnored private var player: AVAudioPlayerNode?
     @ObservationIgnored private var generation: UUID?
+    @ObservationIgnored private var synthesisFinished = false
+    @ObservationIgnored private var pendingBuffers = 0
+    @ObservationIgnored private var onFinish: (@MainActor () -> Void)?
 
     func say(_ message: String, voiceChoice: FirstEncounterSession.VoiceChoice? = nil, onFinish: @escaping @MainActor () -> Void) {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else { onFinish(); return }
         stop()
-        let generation = UUID()
-        self.generation = generation
-        let completion = SpeechCompletionDelegate { [weak self] in
-            guard let self, self.generation == generation else { return }
-            self.generation = nil
-            self.delegate = nil
-            onFinish()
-        }
-        delegate = completion
-        synthesizer.delegate = completion
+        let id = UUID()
+        generation = id
+        self.onFinish = onFinish
         let utterance = AVSpeechUtterance(string: text)
         let preference = voiceChoice ?? UserDefaults.standard.string(forKey: "olo.encounter.voice.v1").flatMap(FirstEncounterSession.VoiceChoice.init(rawValue:))
         let gender: AVSpeechSynthesisVoiceGender? = preference.map { $0 == .masculine ? .male : .female }
@@ -584,36 +581,99 @@ final class OLOSpeechResponder {
         let key = "olo.voice.identifier.v1." + (preference?.rawValue ?? "default")
         let candidates = voices.filter { gender == nil || $0.gender == gender }
         let ranked = (candidates.isEmpty ? voices : candidates).sorted {
-            if $0.quality.rawValue != $1.quality.rawValue {
-                return $0.quality.rawValue > $1.quality.rawValue
-            }
+            if $0.quality.rawValue != $1.quality.rawValue { return $0.quality.rawValue > $1.quality.rawValue }
             return $0.identifier < $1.identifier
         }
-        let stored = UserDefaults.standard.string(forKey: key)
-        let selected = ranked.first { $0.identifier == stored } ?? ranked.first
+        let selected = ranked.first { $0.identifier == UserDefaults.standard.string(forKey: key) } ?? ranked.first
         utterance.voice = selected ?? AVSpeechSynthesisVoice(language: "zh-CN")
         if let selected { UserDefaults.standard.set(selected.identifier, forKey: key) }
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        synthesizer.speak(utterance)
+
+        // The synthesizer produces PCM. The player node, not AVSpeechSynthesizer.speak,
+        // owns playback and can be stopped immediately on interruption or a new request.
+        synthesizer.write(utterance) { [weak self] audioBuffer in
+            guard let pcm = audioBuffer as? AVAudioPCMBuffer else { return }
+            // AVSpeechSynthesizer.write may invoke this callback off the main actor.
+            // Copy before crossing actors: the synthesizer may reuse its buffer storage.
+            let copy: AVAudioPCMBuffer? = {
+                guard pcm.frameLength > 0,
+                      let copy = AVAudioPCMBuffer(pcmFormat: pcm.format, frameCapacity: pcm.frameLength) else { return nil }
+                copy.frameLength = pcm.frameLength
+                let channels = Int(pcm.format.channelCount)
+                let frames = Int(pcm.frameLength)
+                if let source = pcm.floatChannelData, let target = copy.floatChannelData {
+                    for channel in 0..<channels {
+                        target[channel].update(from: source[channel], count: frames)
+                    }
+                } else if let source = pcm.int16ChannelData, let target = copy.int16ChannelData {
+                    for channel in 0..<channels {
+                        target[channel].update(from: source[channel], count: frames)
+                    }
+                } else { return nil }
+                return copy
+            }()
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == id else { return }
+                if let copy {
+                    self.enqueue(copy, id: id)
+                } else if pcm.frameLength == 0 {
+                    self.synthesisFinished = true
+                    self.completeIfReady(id: id)
+                } else {
+                    self.stop()
+                }
+            }
+        }
+    }
+
+    private func enqueue(_ buffer: AVAudioPCMBuffer, id: UUID) {
+        guard generation == id else { return }
+        if engine == nil {
+            let engine = AVAudioEngine()
+            let player = AVAudioPlayerNode()
+            engine.attach(player)
+            engine.connect(player, to: engine.mainMixerNode, format: buffer.format)
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+                try AVAudioSession.sharedInstance().setActive(true)
+                engine.prepare()
+                try engine.start()
+                player.play()
+                self.engine = engine
+                self.player = player
+            } catch {
+                NSLog("OLO PCM playback failed: %@", error.localizedDescription)
+                stop()
+                return
+            }
+        }
+        pendingBuffers += 1
+        player?.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == id else { return }
+                self.pendingBuffers -= 1
+                self.completeIfReady(id: id)
+            }
+        }
+    }
+
+    private func completeIfReady(id: UUID) {
+        guard generation == id, synthesisFinished, pendingBuffers == 0 else { return }
+        let completion = onFinish
+        stop()
+        completion?()
     }
 
     func stop() {
         generation = nil
-        synthesizer.delegate = nil
-        delegate = nil
+        onFinish = nil
+        synthesisFinished = false
+        pendingBuffers = 0
         synthesizer.stopSpeaking(at: .immediate)
-    }
-}
-
-@MainActor
-private final class SpeechCompletionDelegate: NSObject, AVSpeechSynthesizerDelegate {
-    let onFinish: @MainActor () -> Void
-    init(onFinish: @escaping @MainActor () -> Void) { self.onFinish = onFinish }
-    // AVSpeechSynthesizerDelegate is a nonisolated Objective-C protocol.
-    // Hop to the main actor before touching SwiftUI-observed state.
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            self?.onFinish()
-        }
+        player?.stop()
+        engine?.stop()
+        player = nil
+        engine = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
