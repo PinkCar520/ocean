@@ -6,6 +6,7 @@ x-logging: &service-logging
 services:
   # Ocean AI 网关总线 (NestJS + Prisma)
   gateway:
+    container_name: ocean-gateway
     logging: *service-logging
     image: *gateway-image
     restart: always
@@ -36,22 +37,13 @@ services:
       timeout: 3s
       retries: 12
     depends_on:
-      uploads-init:
-        condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
 
-  uploads-init:
-    logging: *service-logging
-    image: *gateway-image
-    user: "0:0"
-    command: ["chown", "-Rh", "1000:1000", "/uploads"]
-    volumes:
-      - ocean_gateway_uploads:/uploads
-
   worker:
+    container_name: ocean-worker
     logging: *service-logging
     image: *gateway-image
     restart: always
@@ -93,6 +85,7 @@ services:
 
   # Ocean Web（Next.js App Router / Server Components）
   web:
+    container_name: ocean-web
     logging: *service-logging
     image: ${DOCKERHUB_USERNAME:-ocean}/ocean-web@${OCEAN_WEB_DIGEST:?OCEAN_WEB_DIGEST is required}
     restart: always
@@ -117,6 +110,7 @@ services:
 
   # 用户中心持久化核心 (支持 Vector 检索)
   postgres:
+    container_name: ocean-postgres
     logging: *service-logging
     image: pgvector/pgvector:pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
     restart: always
@@ -136,6 +130,7 @@ services:
 
   # 可观测性中心 (Tracing / Jaeger)
   jaeger:
+    container_name: ocean-jaeger
     logging: *service-logging
     image: jaegertracing/jaeger:2.23.0@sha256:3823829974ccfc2485d2e48b165579091f32295022ae80ca49704e2f4834116e
     restart: always
@@ -161,6 +156,7 @@ services:
 
   # 会话记忆与流控层 (Redis)
   redis:
+    container_name: ocean-redis
     logging: *service-logging
     image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
     restart: always

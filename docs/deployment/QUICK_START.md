@@ -60,6 +60,14 @@ GITLAB_TOKEN=your_token
 
 ### 2. 执行部署
 
+首次建库或有待应用的迁移时，先构建 Gateway 镜像、启动 PostgreSQL，并执行迁移。已有数据库若缺少迁移记录，先核对迁移基线。
+
+```bash
+docker compose build gateway
+docker compose up -d --wait postgres
+docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate deploy
+```
+
 ```bash
 ./scripts/deploy.sh
 ```
@@ -74,7 +82,7 @@ GITLAB_TOKEN=your_token
 docker compose ps
 ```
 
-核心服务应显示 `Up`。用 `docker compose ps -a db-init` 确认初始化任务以状态码 0 退出。
+核心服务应显示 `Up`。
 
 ### 验证 MCP Servers
 
@@ -156,7 +164,7 @@ docker compose logs gateway
 docker compose exec gateway ping postgres
 
 # 手动执行数据库迁移
-docker compose run --rm db-init
+docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate deploy
 ```
 
 ### MCP Server 未连接
@@ -217,7 +225,7 @@ docker compose restart gateway
 docker compose exec gateway sh
 
 # 数据库迁移
-docker compose run --rm db-init
+docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate deploy
 ```
 
 ### 访问地址

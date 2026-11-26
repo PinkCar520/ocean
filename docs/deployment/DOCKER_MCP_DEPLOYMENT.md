@@ -35,10 +35,14 @@ git pull origin main
 # 2. 构建所有服务（包含新增的 MCP Servers）
 docker compose build --no-cache
 
-# 3. 启动所有服务
+# 3. 初始化新数据库或应用待执行的迁移
+docker compose up -d --wait postgres
+docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate deploy
+
+# 4. 启动所有服务
 docker compose up -d
 
-# 4. 查看服务状态
+# 5. 查看服务状态
 docker compose ps
 ```
 
@@ -97,9 +101,16 @@ docker compose build gateway
 docker compose up -d gateway worker
 ```
 
-### 数据库初始化
+### 数据库迁移
 
-本地 Compose 的 `db-init` 在 PostgreSQL 就绪后执行 `prisma db push`。Gateway 和 Worker 等待初始化成功。更新本地 Gateway 镜像后，用 `docker compose up -d gateway worker` 应用新镜像及初始化步骤。
+本地容器启动时不会自动修改数据库。首次建库或发布包含新迁移的版本时，先执行：
+
+```bash
+docker compose up -d --wait postgres
+docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate deploy
+```
+
+已有数据库若由 `db push` 初始化且缺少迁移记录，先在备份副本核对迁移基线。
 
 ## 生产部署
 
@@ -115,7 +126,7 @@ GitHub Actions 只允许 `main` 部署到 `production` 环境。`develop` 继续
 
 两个服务文件都采用 `KEY=value` 格式，填写实际值。Node.js 加载时不会展开变量引用。无额外配置时可以保留一个空的 Worker 文件。宿主机上的 `secrets/` 目录应只允许部署账户进入，例如 `chmod 0700 secrets`。两个文件需要容器内 UID 1000 可读。可在该私有目录内设置 `chmod 0444 secrets/gateway.env secrets/worker.env`，或设置相应的属主和读取权限。更新服务文件后，使用生产 Compose 的 `up -d --force-recreate gateway worker` 让新容器重新读取。
 
-Gateway 和 Web 以非 root 用户运行。一次性 `uploads-init` 为已有上传卷修正文件所有权。宿主管理的 skills 目录以只读方式挂载，需让容器内 UID 1000 可读取。通过应用上传的临时技能文件使用镜像内独立的可写目录。
+Gateway 和 Web 以非 root 用户运行。新上传卷使用镜像目录的属主。升级旧卷前，确认其中的目录和文件可由 UID 1000 读写。宿主管理的 skills 目录以只读方式挂载，需让容器内 UID 1000 可读取。通过应用上传的临时技能文件使用镜像内独立的可写目录。
 
 手动部署时，在该部署目录设置 `DOCKERHUB_USERNAME`、`OCEAN_GATEWAY_DIGEST` 和 `OCEAN_WEB_DIGEST`（完整的 `sha256:…` 值），再执行：
 

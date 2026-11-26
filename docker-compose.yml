@@ -1,6 +1,6 @@
 # Ocean 服务编排
 #
-# 默认：核心平台栈（db-init / uploads-init / gateway / worker / web / postgres / redis / jaeger / fastapi）
+# 默认：核心平台栈（gateway / worker / web / postgres / redis / jaeger / fastapi）
 #   docker compose up -d
 #
 # Jenkins、GitLab 和禅道通过 .env 或工作区配置连接远程实例。
@@ -10,6 +10,7 @@ x-logging: &service-logging
 services:
   # Ocean AI 网关总线 (NestJS + Prisma)
   gateway:
+    container_name: ocean-gateway
     logging: *service-logging
     image: ocean-gateway:local
     build: &gateway-build
@@ -42,24 +43,14 @@ services:
       timeout: 3s
       retries: 12
     depends_on:
-      uploads-init:
-        condition: service_completed_successfully
-      db-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
   # Ocean Run Engine Worker（独立进程消费 outbox，ADR-002/003；Web 切 Run API 的执行前提）
-  uploads-init:
-    logging: *service-logging
-    image: ocean-gateway:local
-    build: *gateway-build
-    user: "0:0"
-    command: ["chown", "-Rh", "1000:1000", "/uploads"]
-    volumes:
-      - ocean_gateway_uploads:/uploads
-
   worker:
+    container_name: ocean-worker
     logging: *service-logging
     image: ocean-gateway:local
     build: *gateway-build
@@ -84,25 +75,14 @@ services:
       timeout: 3s
       retries: 12
     depends_on:
-      db-init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-
-  # 本地开发 schema 初始化
-  db-init:
-    logging: *service-logging
-    image: ocean-gateway:local
-    build: *gateway-build
-    command: ["./node_modules/.bin/prisma", "db", "push"]
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-    depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # Ocean Web（Next.js App Router / Server Components）
   web:
+    container_name: ocean-web
     logging: *service-logging
     build:
       context: .
@@ -129,6 +109,7 @@ services:
 
   # 用户中心持久化核心 (支持 Vector 检索)
   postgres:
+    container_name: ocean-postgres
     logging: *service-logging
     image: pgvector/pgvector:pg16
     restart: always
@@ -148,6 +129,7 @@ services:
 
   # 可观测性中心 (Tracing / Jaeger)
   jaeger:
+    container_name: ocean-jaeger
     logging: *service-logging
     image: jaegertracing/jaeger:2.23.0
     restart: always
@@ -158,6 +140,7 @@ services:
 
   # 会话记忆与流控层 (Redis)
   redis:
+    container_name: ocean-redis
     logging: *service-logging
     image: redis:7-alpine
     restart: always
@@ -173,6 +156,7 @@ services:
 
   # Ocean AI 智力中枢 (Python FastAPI)
   fastapi-backend:
+    container_name: ocean-fastapi-backend
     logging: *service-logging
     build:
       context: ./apps/fastapi-backend

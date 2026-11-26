@@ -61,10 +61,13 @@ docker-compose.yml     本地核心服务编排
    - 确保 `DATABASE_URL` 中的密码与 `POSTGRES_PASSWORD` 一致；如密码含特殊字符，需进行 URL 编码。
    - 若需连接已有的 ZenTao、Jenkins 或 GitLab，填写对应地址和凭证；未配置时相关集成会禁用或使用 mock。
 
-3. 构建并启动核心服务：
+3. 构建镜像。首次建库或有待应用的迁移时，先执行数据库迁移，再启动核心服务：
 
    ```bash
-   docker compose up -d --build
+   docker compose build
+   docker compose up -d --wait postgres
+   docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate deploy
+   docker compose up -d
    ```
 
    核心服务包括 Gateway、Worker、Web、PostgreSQL、Redis、Jaeger 和 FastAPI 计算服务。启动后可访问：

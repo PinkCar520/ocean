@@ -98,7 +98,7 @@ verify_services() {
     
     # 检查容器运行状态
     local running_containers=$(docker compose ps --services --filter "status=running" | wc -l)
-    local total_containers=$(docker compose config --services | awk '$0 != "db-init" && $0 != "uploads-init"' | wc -l)
+    local total_containers=$(docker compose config --services | wc -l)
     
     if [ "$running_containers" -eq "$total_containers" ]; then
         log_success "所有 $total_containers 个服务运行正常"
