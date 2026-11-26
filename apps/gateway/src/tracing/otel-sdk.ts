@@ -9,8 +9,9 @@ import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core'
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 
-const endpoint = process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT?.trim() ||
-  process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
+import { resolveTraceEndpoint } from './otel-config';
+
+const endpoint = resolveTraceEndpoint(process.env);
 const exporter = endpoint ? new OTLPTraceExporter({ url: endpoint }) : undefined;
 
 export const otelSDK = new NodeSDK({
@@ -28,19 +29,16 @@ export const otelSDK = new NodeSDK({
 });
 
 // Start the SDK
-if (exporter && process.env.ENABLE_TRACING !== 'false' && (
-  process.env.NODE_ENV === 'production' ||
-  process.env.ENABLE_TRACING === 'true'
-)) {
+if (exporter) {
   console.log('[Tracing] Initializing OpenTelemetry SDK...');
   otelSDK.start();
-}
 
-// Gracefully shut down the SDK on process exit
-process.on('SIGTERM', () => {
+  // Only register shutdown for a started SDK.
+  process.on('SIGTERM', () => {
   otelSDK
     .shutdown()
     .then(() => console.log('[Tracing] SDK shut down successfully'))
     .catch((err) => console.log('[Tracing] Error shutting down SDK', err))
     .finally(() => process.exit(0));
-});
+  });
+}

@@ -145,4 +145,4 @@ jobs:
           cd "$HOME/ocean"
           compose=(docker compose --project-directory "$PWD" --env-file .env -f "$GITHUB_WORKSPACE/docker-compose.prod.yml")
           "${compose[@]}" pull
-          "${compose[@]}" up -d --wait --wait-timeout 300
+          "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 300
