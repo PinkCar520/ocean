@@ -708,15 +708,8 @@
 | `packages/tools/zentao/package.json` | packages/tools | — | 0 | pending |
 | `packages/tools/zentao/src/index.ts` | packages/tools | 2 | 0 | pending |
 | `packages/tools/zentao/tsconfig.json` | packages/tools | — | 0 | pending |
-| `packages/ui/clean-chatinput.cjs` | packages/ui | 10 | 0 | pending |
-| `packages/ui/fixJSX.cjs` | packages/ui | 9 | 0 | pending |
 | `packages/ui/package.json` | packages/ui | — | 0 | pending |
-| `packages/ui/patch.py` | packages/ui | — | 0 | pending |
-| `packages/ui/refactor-chatinput.cjs` | packages/ui | 17 | 0 | pending |
-| `packages/ui/removeHandlers.cjs` | packages/ui | 7 | 0 | pending |
-| `packages/ui/removeJSX.cjs` | packages/ui | 8 | 0 | pending |
 | `packages/ui/src/assets/hero.png` | packages/ui | — | 0 | 视觉或二进制资产 |
-| `packages/ui/src/assets/react.svg` | packages/ui | — | 0 | 视觉或二进制资产 |
 | `packages/ui/src/components/AllChatsManager.tsx` | packages/ui | 2 | 0 | pending |
 | `packages/ui/src/components/ApprovalCard.tsx` | packages/ui | 2 | 2 | pending |
 | `packages/ui/src/components/ApprovalCenter.tsx` | packages/ui | 3 | 1 | pending |
@@ -759,7 +752,6 @@
 | `packages/ui/src/components/Settings/tabs/PermissionsTab.tsx` | packages/ui | 1 | 1 | pending |
 | `packages/ui/src/components/Settings/tabs/ProfileTab.tsx` | packages/ui | 1 | 1 | pending |
 | `packages/ui/src/components/Settings/types.ts` | packages/ui | 7 | 4 | pending |
-| `packages/ui/src/components/SettingsDialog.tsx.bak` | packages/ui | — | 0 | pending |
 | `packages/ui/src/components/SettingsModal.tsx` | packages/ui | 2 | 0 | pending |
 | `packages/ui/src/components/Sidebar.tsx` | packages/ui | 7 | 0 | pending |
 | `packages/ui/src/components/SkillLibrary.tsx` | packages/ui | 7 | 0 | pending |
@@ -779,7 +771,6 @@
 | `packages/ui/src/components/chat/ActiveContext.tsx` | packages/ui | 5 | 1 | pending |
 | `packages/ui/src/components/chat/ChatHelpers.tsx` | packages/ui | 2 | 2 | pending |
 | `packages/ui/src/components/chat/ChatInput.tsx` | packages/ui | 2 | 1 | pending |
-| `packages/ui/src/components/chat/ChatInputLegacy.tsx` | packages/ui | 3 | 0 | pending |
 | `packages/ui/src/components/chat/ChatMarkdown.tsx` | packages/ui | 1 | 1 | pending |
 | `packages/ui/src/components/chat/ChatMessage.tsx` | packages/ui | 2 | 1 | pending |
 | `packages/ui/src/components/chat/ConversationFind.tsx` | packages/ui | 4 | 1 | pending |
@@ -833,7 +824,6 @@
 | `packages/ui/src/styles/conversation-find.css` | packages/ui | — | 0 | pending |
 | `packages/ui/src/styles/index.css` | packages/ui | — | 0 | pending |
 | `packages/ui/src/types/ui-protocol.ts` | packages/ui | 0 | 10 | pending |
-| `packages/ui/test-transport.ts` | packages/ui | 0 | 0 | pending |
 | `packages/ui/tsconfig.json` | packages/ui | — | 0 | pending |
 | `pnpm-lock.yaml` | pnpm-lock.yaml | — | 0 | pending |
 | `pnpm-workspace.yaml` | pnpm-workspace.yaml | — | 0 | pending |

@@ -14885,56 +14885,6 @@
       "directRelativeReferences": []
     },
     {
-      "file": "packages/ui/clean-chatinput.cjs",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "5817dfeb57cc66ea36081f5dfa2d58593daa5f0c",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "symbols": [
-        "fs",
-        "path",
-        "p",
-        "code",
-        "startIdx",
-        "endIdx",
-        "menuStart",
-        "menuEnd",
-        "editStart",
-        "editEnd"
-      ],
-      "imports": [
-        "fs",
-        "path"
-      ],
-      "directRelativeReferences": []
-    },
-    {
-      "file": "packages/ui/fixJSX.cjs",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "07d8a1056fa417f1e85f2cc1ec702d3c515188fd",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "symbols": [
-        "fs",
-        "p",
-        "code",
-        "h_start",
-        "h_end",
-        "m_start",
-        "s_start",
-        "active_start",
-        "ce_start"
-      ],
-      "imports": [
-        "fs"
-      ],
-      "directRelativeReferences": []
-    },
-    {
       "file": "packages/ui/package.json",
       "mode": "100644",
       "type": "blob",
@@ -14945,108 +14895,10 @@
       "directRelativeReferences": []
     },
     {
-      "file": "packages/ui/patch.py",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "4bc836de9e329e06c46c4f7f11a5e9646b508421",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "directRelativeReferences": []
-    },
-    {
-      "file": "packages/ui/refactor-chatinput.cjs",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "4ffd1d038ed1094328603ebbb5d09e2115645c70",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "symbols": [
-        "fs",
-        "path",
-        "p",
-        "code",
-        "newImports",
-        "startHooks",
-        "endHooks",
-        "hooksReplacement",
-        "startHandlers",
-        "endHandlers",
-        "startMenuPresence",
-        "endMenuPresence",
-        "mentionMapStart",
-        "mentionMapEnd",
-        "editorBlockStart",
-        "editorBlockEnd",
-        "newEditorBlock"
-      ],
-      "imports": [
-        "fs",
-        "path"
-      ],
-      "directRelativeReferences": []
-    },
-    {
-      "file": "packages/ui/removeHandlers.cjs",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "1823dc50aa7cca30a2feffb2f9344d3b6b12b5f1",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "symbols": [
-        "fs",
-        "p",
-        "code",
-        "start_str",
-        "end_str",
-        "idx_start",
-        "idx_end"
-      ],
-      "imports": [
-        "fs"
-      ],
-      "directRelativeReferences": []
-    },
-    {
-      "file": "packages/ui/removeJSX.cjs",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9b410c0998b0fe68ed01459a8ebb7a2a136bfb66",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "symbols": [
-        "fs",
-        "p",
-        "code",
-        "start_idx",
-        "end_idx",
-        "correct_start",
-        "editor_start",
-        "editor_end"
-      ],
-      "imports": [
-        "fs"
-      ],
-      "directRelativeReferences": []
-    },
-    {
       "file": "packages/ui/src/assets/hero.png",
       "mode": "100644",
       "type": "blob",
       "blob": "cc51a3d20ad4bc961b596a6adfd686685cd84bb0",
-      "excluded": "视觉或二进制资产",
-      "module": "packages/ui",
-      "status": "excluded",
-      "directRelativeReferences": []
-    },
-    {
-      "file": "packages/ui/src/assets/react.svg",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "6c87de9bb3358469122cc991d5cf578927246184",
       "excluded": "视觉或二进制资产",
       "module": "packages/ui",
       "status": "excluded",
@@ -15457,8 +15309,7 @@
         "framer-motion"
       ],
       "directRelativeReferences": [
-        "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx"
+        "packages/ui/src/components/chat/ChatInput.tsx"
       ]
     },
     {
@@ -15723,8 +15574,7 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/Sidebar.tsx",
-        "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx"
+        "packages/ui/src/components/chat/ChatInput.tsx"
       ]
     },
     {
@@ -16073,16 +15923,6 @@
         "packages/ui/src/components/Settings/index.ts",
         "packages/ui/src/components/SettingsModal.tsx"
       ]
-    },
-    {
-      "file": "packages/ui/src/components/SettingsDialog.tsx.bak",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "7a59b4bd6dba7dcdaf2762bcdcadf761c1d87d5a",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "directRelativeReferences": []
     },
     {
       "file": "packages/ui/src/components/SettingsModal.tsx",
@@ -16584,37 +16424,6 @@
       "directRelativeReferences": [
         "packages/ui/src/components/ChatSession.tsx"
       ]
-    },
-    {
-      "file": "packages/ui/src/components/chat/ChatInputLegacy.tsx",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "82799af32f5d3a134350c78d56436239a668cbab",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "symbols": [
-        "ChatInputProps",
-        "ICON_MAP",
-        "ChatInput"
-      ],
-      "imports": [
-        "react",
-        "lucide-react",
-        "framer-motion",
-        "../../lib/utils",
-        "../../lib/chat-utils",
-        "../../lib/useProjects",
-        "../../lib/useInstalledSkills",
-        "../ProjectCreateModal",
-        "../../contexts/WorkspaceContext",
-        "../GlobalToast",
-        "../../lib/api-client",
-        "../../lib/useVoiceInput",
-        "../ui/dropdown-menu",
-        "../ui/tooltip"
-      ],
-      "directRelativeReferences": []
     },
     {
       "file": "packages/ui/src/components/chat/ChatMarkdown.tsx",
@@ -17255,7 +17064,6 @@
         "packages/ui/src/components/Sidebar.tsx",
         "packages/ui/src/components/SkillManager.tsx",
         "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx",
         "packages/ui/src/components/chat/ConversationHeader.tsx"
       ]
     },
@@ -17304,7 +17112,6 @@
         "packages/ui/src/components/Sidebar.tsx",
         "packages/ui/src/components/SkillManager.tsx",
         "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx",
         "packages/ui/src/components/chat/ChatMessage.tsx",
         "packages/ui/src/components/chat/ConversationHeader.tsx",
         "packages/ui/src/components/chat/TokenUsageIndicators.tsx",
@@ -17341,7 +17148,6 @@
         "packages/ui/src/components/Sidebar.tsx",
         "packages/ui/src/components/chat/ActiveContext.tsx",
         "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx",
         "packages/ui/src/components/chat/IntegrationsPanel.tsx"
       ]
     },
@@ -17404,7 +17210,6 @@
         "packages/ui/src/components/SkillSandbox.tsx",
         "packages/ui/src/components/WorkProjection.tsx",
         "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx",
         "packages/ui/src/components/chat/ConversationHeader.tsx",
         "packages/ui/src/components/chat/ConversationInvites.tsx",
         "packages/ui/src/contexts/WorkspaceContext.tsx",
@@ -17436,7 +17241,6 @@
         "packages/ui/src/components/ThinkingList.tsx",
         "packages/ui/src/components/ThinkingPills.tsx",
         "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx",
         "packages/ui/src/components/chat/ChatMessage.tsx",
         "packages/ui/src/components/chat/ToolAccordion.tsx",
         "packages/ui/src/components/chat/ToolInvocationRenderer.tsx"
@@ -17671,7 +17475,6 @@
       "directRelativeReferences": [
         "packages/ui/src/components/SkillLibrary.tsx",
         "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx",
         "packages/ui/src/components/chat/ChatMessage.tsx"
       ]
     },
@@ -17698,8 +17501,7 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/Sidebar.tsx",
-        "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx"
+        "packages/ui/src/components/chat/ChatInput.tsx"
       ]
     },
     {
@@ -17784,8 +17586,7 @@
         "react"
       ],
       "directRelativeReferences": [
-        "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx"
+        "packages/ui/src/components/chat/ChatInput.tsx"
       ]
     },
     {
@@ -17849,7 +17650,6 @@
         "packages/ui/src/components/button.tsx",
         "packages/ui/src/components/chat/ActiveContext.tsx",
         "packages/ui/src/components/chat/ChatInput.tsx",
-        "packages/ui/src/components/chat/ChatInputLegacy.tsx",
         "packages/ui/src/components/chat/ChatMessage.tsx",
         "packages/ui/src/components/chat/IntegrationsPanel.tsx",
         "packages/ui/src/components/chat/MarkdownConfig.tsx",
@@ -17937,20 +17737,6 @@
         "packages/ui/src/components/UIRenderer.tsx",
         "packages/ui/src/lib/uiRegistry.tsx"
       ]
-    },
-    {
-      "file": "packages/ui/test-transport.ts",
-      "mode": "100644",
-      "type": "blob",
-      "blob": "3a18d4848de1013608330409540b797ea432730a",
-      "excluded": null,
-      "module": "packages/ui",
-      "status": "pending",
-      "symbols": [],
-      "imports": [
-        "ai"
-      ],
-      "directRelativeReferences": []
     },
     {
       "file": "packages/ui/tsconfig.json",
