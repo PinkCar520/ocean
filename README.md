@@ -70,13 +70,12 @@ docker-compose.yml     本地核心服务编排
    docker compose up -d
    ```
 
-   核心服务包括 Gateway、Worker、Web、PostgreSQL、Redis、Jaeger 和 FastAPI 计算服务。启动后可访问：
+   核心服务包括 Gateway、Worker、Web、PostgreSQL、Redis 和 FastAPI 计算服务。启动后可访问：
 
    | 服务 | 地址 |
    | --- | --- |
    | Web | <http://localhost:8081> |
    | Gateway | <http://localhost:3000> |
-   | Jaeger | <http://localhost:16686> |
 
 ### 单独启动开发客户端
 

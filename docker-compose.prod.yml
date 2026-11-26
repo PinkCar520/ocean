@@ -128,32 +128,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # 可观测性中心 (Tracing / Jaeger)
-  jaeger:
-    container_name: ocean-jaeger
-    logging: *service-logging
-    image: jaegertracing/jaeger:2.23.0@sha256:3823829974ccfc2485d2e48b165579091f32295022ae80ca49704e2f4834116e
-    restart: always
-
-    command: ["--config", "/etc/jaeger/ocean.yaml"]
-    configs:
-      - source: jaeger-config
-        target: /etc/jaeger/ocean.yaml
-    volumes:
-      - ocean_jaeger_data:/badger
-    depends_on:
-      jaeger-init:
-        condition: service_completed_successfully
-
-  jaeger-init:
-    logging: *service-logging
-    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
-    user: "0:0"
-    entrypoint: ["/bin/sh", "-ec"]
-    command: ["mkdir -p /badger/traces && chown 10001:10001 /badger/traces"]
-    volumes:
-      - ocean_jaeger_data:/badger
-
   # 会话记忆与流控层 (Redis)
   redis:
     container_name: ocean-redis
@@ -179,12 +153,7 @@ secrets:
   worker_env:
     file: ./secrets/worker.env
 
-configs:
-  jaeger-config:
-    file: ${OCEAN_JAEGER_CONFIG:-./deploy/jaeger.yml}
-
 volumes:
-  ocean_jaeger_data:
   ocean_postgres_data:
   ocean_redis_data:
   ocean_gateway_uploads:

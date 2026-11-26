@@ -1,6 +1,6 @@
 # Ocean 服务编排
 #
-# 默认：核心平台栈（gateway / worker / web / postgres / redis / jaeger / fastapi）
+# 默认：核心平台栈（gateway / worker / web / postgres / redis / fastapi）
 #   docker compose up -d
 #
 # Jenkins、GitLab 和禅道通过 .env 或工作区配置连接远程实例。
@@ -126,17 +126,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  # 可观测性中心 (Tracing / Jaeger)
-  jaeger:
-    container_name: ocean-jaeger
-    logging: *service-logging
-    image: jaegertracing/jaeger:2.23.0
-    restart: always
-    ports:
-      - "127.0.0.1:16686:16686" # UI
-      - "127.0.0.1:4317:4317" # OTLP gRPC
-      - "127.0.0.1:4318:4318" # OTLP HTTP
 
   # 会话记忆与流控层 (Redis)
   redis:
