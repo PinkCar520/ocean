@@ -1,7 +1,7 @@
 {
   "name": "ocean",
   "version": "1.0.0",
-  "description": "Ocean - 银行内网人工智能工作流中枢",
+  "description": "Ocean - Exploring What's Next",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -14,7 +14,6 @@
     "web": "pnpm --filter web dev",
     "desktop": "pnpm --filter ocean-desktop dev",
     "daemon": "pnpm --filter @ocean/cli start daemon",
-    "all": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",

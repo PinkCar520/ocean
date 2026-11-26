@@ -19,7 +19,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts"]
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "src/**/*.mjs", "test/**/*.ts", "test/**/*.mjs"]
     },
     "typecheck": {
       "dependsOn": ["^build", "^typecheck"],
