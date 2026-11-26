@@ -32,6 +32,31 @@ final class VoiceLifecycleTests: XCTestCase {
         XCTFail("Authorization was not requested")
     }
 
+
+    func testAudioSessionPreemptionInvalidatesOldOwner() {
+        let coordinator = OLOAudioSessionCoordinator()
+        var interrupted = 0
+        let first = coordinator.acquire { interrupted += 1 }
+        let second = coordinator.acquire { interrupted += 10 }
+        XCTAssertEqual(interrupted, 1)
+        coordinator.release(first)
+        XCTAssertEqual(interrupted, 1)
+        let third = coordinator.acquire { interrupted += 100 }
+        XCTAssertEqual(interrupted, 11)
+        coordinator.release(second)
+        coordinator.release(third)
+    }
+
+    func testAudioSessionReleaseIsIdempotent() {
+        let coordinator = OLOAudioSessionCoordinator()
+        var interrupted = false
+        let token = coordinator.acquire { interrupted = true }
+        coordinator.release(token)
+        coordinator.release(token)
+        _ = coordinator.acquire {}
+        XCTAssertFalse(interrupted)
+    }
+
     func testSystemVoiceLaunchRequestIsConsumedOnlyOnce() {
         let launch = OLOVoiceLaunch.shared
         _ = launch.consume()

@@ -1,6 +1,45 @@
 import AVFoundation
 import Speech
 
+
+/// Serializes microphone and PCM playback ownership of the process-wide audio session.
+/// A stale owner cannot deactivate a newer owner's session.
+@MainActor
+final class OLOAudioSessionCoordinator {
+    static let shared = OLOAudioSessionCoordinator()
+    private var owner: UUID?
+    private var activated = false
+    private var interruptOwner: (() -> Void)?
+
+    @discardableResult
+    func acquire(interrupt: @escaping () -> Void) -> UUID {
+        interruptOwner?()
+        let token = UUID()
+        owner = token
+        activated = false
+        interruptOwner = interrupt
+        return token
+    }
+
+    func configure(_ token: UUID, category: AVAudioSession.Category, mode: AVAudioSession.Mode) throws {
+        guard owner == token else { throw CancellationError() }
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(category, mode: mode)
+        try session.setActive(true)
+        activated = true
+    }
+
+    func release(_ token: UUID?) {
+        guard let token, owner == token else { return }
+        owner = nil
+        interruptOwner = nil
+        guard activated else { return }
+        activated = false
+        do { try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+        catch { NSLog("OLO audio session deactivation failed: %@", error.localizedDescription) }
+    }
+}
+
 @MainActor
 protocol VoicePermissions {
     func request() async -> VoiceAuthorization
@@ -254,7 +293,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         if !enabled { endpointTask?.cancel(); endpointTask = nil }
     }
     private var tapInstalled = false
-    private var sessionActive = false
+    private var audioSessionToken: UUID?
     private var observers: [NSObjectProtocol] = []
     private var levelHandler: (@Sendable (Float) -> Void)?
 
@@ -276,11 +315,12 @@ private final class SystemVoiceCapture: VoiceCapture {
         try Task.checkCancellation()
         let analyzer = SpeechAnalyzer(modules: modules)
         self.analyzer = analyzer
-        let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.record, mode: .measurement)
-            try session.setActive(true)
-            sessionActive = true
+            let token = OLOAudioSessionCoordinator.shared.acquire { [weak self] in
+                Task { @MainActor [weak self] in await self?.stop() }
+            }
+            audioSessionToken = token
+            try OLOAudioSessionCoordinator.shared.configure(token, category: .record, mode: .measurement)
             try Task.checkCancellation()
             let engine = AVAudioEngine()
             self.engine = engine
@@ -379,10 +419,7 @@ private final class SystemVoiceCapture: VoiceCapture {
         resultsTask = nil
         analyzer = nil
         engine = nil
-        if sessionActive {
-            do { try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
-            catch { NSLog("OLO audio session deactivation failed: %@", error.localizedDescription) }
-        }
-        sessionActive = false
+        OLOAudioSessionCoordinator.shared.release(audioSessionToken)
+        audioSessionToken = nil
     }
 }

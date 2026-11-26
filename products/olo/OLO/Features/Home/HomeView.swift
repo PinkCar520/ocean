@@ -578,6 +578,7 @@ final class OLOSpeechResponder {
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var player: AVAudioPlayerNode?
     @ObservationIgnored private var generation: UUID?
+    @ObservationIgnored private var audioSessionToken: UUID?
     @ObservationIgnored private var synthesisFinished = false
     @ObservationIgnored private var pendingBuffers = 0
     @ObservationIgnored private var onFinish: (@MainActor () -> Void)?
@@ -649,8 +650,9 @@ final class OLOSpeechResponder {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: buffer.format)
             do {
-                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-                try AVAudioSession.sharedInstance().setActive(true)
+                let token = OLOAudioSessionCoordinator.shared.acquire { [weak self] in self?.stop() }
+                audioSessionToken = token
+                try OLOAudioSessionCoordinator.shared.configure(token, category: .playback, mode: .spokenAudio)
                 engine.prepare()
                 try engine.start()
                 player.play()
@@ -689,6 +691,7 @@ final class OLOSpeechResponder {
         engine?.stop()
         player = nil
         engine = nil
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        OLOAudioSessionCoordinator.shared.release(audioSessionToken)
+        audioSessionToken = nil
     }
 }
