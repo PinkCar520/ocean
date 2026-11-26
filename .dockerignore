@@ -16,6 +16,8 @@ yarn-error.log*
 pnpm-debug.log*
 .pnpm-store
 coverage
+.env
+/secrets/
 .env.local
 .env.development.local
 .env.test.local

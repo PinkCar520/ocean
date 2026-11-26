@@ -48,4 +48,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /production/ ./
 EXPOSE 3000
-CMD ["sh", "-c", "cd apps/gateway && ./node_modules/.bin/prisma db push --accept-data-loss --schema prisma/schema.prisma && node dist/apps/gateway/src/main"]
+COPY deploy/load-production-env.cjs /app/load-production-env.cjs
+WORKDIR /app/apps/gateway
+RUN chmod -R a+rX prisma \
+    && mkdir -p public/uploads temp_skills agents/skills \
+    && chown -R node:node public/uploads temp_skills agents/skills
+USER node
+CMD ["node", "dist/apps/gateway/src/main"]

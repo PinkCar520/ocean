@@ -2,31 +2,7 @@
 
 ## 部署架构
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Docker Compose                         │
-│                                                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ ocean-web   │  │ ocean-gw    │  │ ocean-jkns  │     │
-│  │ :8081       │─▶│ :3000       │─▶│ :8082       │     │
-│  └─────────────┘  └──────┬──────┘  └─────────────┘     │
-│                           │                              │
-│  ┌────────────────────────▼───────────────────────┐     │
-│  │         MCP Servers (内置于 Gateway）           │     │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐      │     │
-│  │  │ mcp-     │ │ mcp-     │ │ mcp-     │      │     │
-│  │  │ zentao   │ │ jenkins  │ │ gitlab   │      │     │
-│  │  └──────────┘ └──────────┘ └──────────┘      │     │
-│  └───────────────────────────────────────────────┘     │
-│                           │                              │
-│  ┌─────────────┐  ┌──────▼──────┐  ┌─────────────┐     │
-│  │ ocean-zentao│  │ ocean-pg    │  │ ocean-gitlab│     │
-│  │ :8080       │  │ :5432       │  │ :8083       │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-└─────────────────────────────────────────────────────────┘
-```
-
----
+Compose 启动 Gateway、Worker、Web、PostgreSQL、Redis、Jaeger 和 FastAPI。Gateway 使用远程 Jenkins、GitLab 和禅道实例提供集成能力。
 
 ## 部署步骤
 
@@ -38,15 +14,15 @@
 # ============ MCP Servers ============
 
 # Jenkins CI/CD
-JENKINS_BASE_URL=http://jenkins:8080
+JENKINS_BASE_URL=https://jenkins.example.com
 JENKINS_TOKEN=your_jenkins_token_here
 
 # GitLab Repository
-GITLAB_BASE_URL=http://gitlab:80
+GITLAB_BASE_URL=https://gitlab.example.com
 GITLAB_TOKEN=your_gitlab_token_here
 
 # ZenTao (已有)
-ZENTAO_BASE_URL=http://zentao:80
+ZENTAO_BASE_URL=https://zentao.example.com
 ZENTAO_API_TOKEN=your_zentao_token_here
 ```
 
@@ -72,12 +48,6 @@ docker compose ps
 # 检查 Gateway 日志
 docker compose logs -f gateway
 
-# 检查 Jenkins 是否启动成功
-docker compose logs -f jenkins
-
-# 检查 GitLab 是否启动成功
-docker compose logs -f gitlab
-
 # 验证 MCP Servers 连接
 curl http://localhost:3000/api/mcp-servers
 ```
@@ -89,43 +59,15 @@ curl http://localhost:3000/api/mcp-servers
 | 服务 | 容器端口 | 宿主机端口 | 说明 |
 |------|---------|-----------|------|
 | Gateway | 3000 | 3000 | API 网关 |
-| Web | 80 | 8081 | 前端面板 |
+| Web | 3000 | 8081 | 前端面板 |
 | PostgreSQL | 5432 | 5432 | 数据库 |
 | Redis | 6379 | 6379 | 缓存/会话 |
-| ZenTao | 80 | 8080 | 禅道 |
-| **Jenkins** | **8080** | **8082** | **CI/CD（新增）** |
-| **GitLab** | **80** | **8083** | **代码托管（新增）** |
-| GitLab SSH | 22 | 22 | Git SSH |
 
 ---
 
-## 初始化配置
+## 远程集成配置
 
-### Jenkins 初始化
-
-1. **访问 Jenkins**: http://localhost:8082
-2. **获取初始密码**:
-   ```bash
-   docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
-   ```
-3. **安装推荐插件**
-4. **创建管理员账户**
-5. **生成 API Token**:
-   - 进入用户设置
-   - 添加新 Token
-   - 复制到 `.env` 文件的 `JENKINS_TOKEN`
-
-### GitLab 初始化
-
-1. **访问 GitLab**: http://localhost:8083
-2. **初始密码**: `gitlab_admin_pass`（可在 docker-compose.yml 修改）
-3. **用户**: `root`
-4. **生成 Personal Access Token**:
-   - User Settings → Access Tokens
-   - 勾选 `api`, `read_user`, `read_repository`, `write_repository`
-   - 复制到 `.env` 文件的 `GITLAB_TOKEN`
-
----
+在对应远程实例中创建集成凭据，填入 `.env`，并确认 Gateway 容器可以访问配置的地址。
 
 ## 更新部署
 
@@ -138,32 +80,57 @@ git pull origin main
 # 2. 仅重新构建 Gateway（包含 MCP Servers）
 docker compose build gateway
 
-# 3. 重启 Gateway
-docker compose up -d gateway
+# 3. 更新 Gateway 和 Worker
+docker compose up -d gateway worker
 
 # 4. 查看日志确认启动成功
 docker compose logs -f gateway
 ```
 
-### 仅更新 MCP Servers（不重启其他服务）
+### 更新 MCP Servers
 
 ```bash
 # 1. 重新构建 Gateway
 docker compose build gateway
 
-# 2. 重启 Gateway（其他服务不受影响）
-docker compose restart gateway
+# 2. 更新 Gateway 和 Worker
+docker compose up -d gateway worker
 ```
 
-### 数据库迁移
+### 数据库初始化
+
+本地 Compose 的 `db-init` 在 PostgreSQL 就绪后执行 `prisma db push`。Gateway 和 Worker 等待初始化成功。更新本地 Gateway 镜像后，用 `docker compose up -d gateway worker` 应用新镜像及初始化步骤。
+
+## 生产部署
+
+GitHub Actions 只允许 `main` 部署到 `production` 环境。`develop` 继续构建与检查。生产发布使用当前提交的 Compose 文件、本次构建的镜像 digest，以及服务器 `~/ocean` 中的配置与数据卷。在 GitHub 仓库的 `production` Environment 中，也将允许部署的分支设为 `main`。
+
+首次使用此配置前，在部署目录准备以下文件：
+
+| 文件 | 配置内容 |
+| --- | --- |
+| `.env` | 保留 `DATABASE_URL`、`POSTGRES_PASSWORD`、PostgreSQL 用户与库名、端口绑定和 `FASTAPI_URL`。Compose 单独把数据库连接交给 Gateway、Worker 和迁移任务，把 PostgreSQL 密码交给 PostgreSQL。 |
+| `secrets/gateway.env` | 必填 `JWT_SECRET`。按需复制 Gateway 所用的模型、登录、追踪和集成配置。 |
+| `secrets/worker.env` | 按需复制 Worker 所用的模型、工具集成、Hooks 和处理参数。只有实际使用的模型与集成凭据需在两个文件中都配置。 |
+
+两个服务文件都采用 `KEY=value` 格式，填写实际值。Node.js 加载时不会展开变量引用。无额外配置时可以保留一个空的 Worker 文件。宿主机上的 `secrets/` 目录应只允许部署账户进入，例如 `chmod 0700 secrets`。两个文件需要容器内 UID 1000 可读。可在该私有目录内设置 `chmod 0444 secrets/gateway.env secrets/worker.env`，或设置相应的属主和读取权限。更新服务文件后，使用生产 Compose 的 `up -d --force-recreate gateway worker` 让新容器重新读取。
+
+Gateway 和 Web 以非 root 用户运行。一次性 `uploads-init` 为已有上传卷修正文件所有权。宿主管理的 skills 目录以只读方式挂载，需让容器内 UID 1000 可读取。通过应用上传的临时技能文件使用镜像内独立的可写目录。
+
+手动部署时，在该部署目录设置 `DOCKERHUB_USERNAME`、`OCEAN_GATEWAY_DIGEST` 和 `OCEAN_WEB_DIGEST`（完整的 `sha256:…` 值），再执行：
 
 ```bash
-# Gateway 启动时会自动执行 db push
-# 如需手动迁移：
-docker compose exec gateway sh -c "cd /app/apps/gateway && npx prisma migrate dev"
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 300
 ```
 
----
+生产 `migrate` 服务运行 `prisma migrate deploy`，成功后启动新版 Gateway 和 Worker。迁移失败时，用 `docker compose -f docker-compose.prod.yml logs migrate` 查看原因。首次接管以前由 `db push` 初始化且缺少迁移记录的数据库时，先备份，在副本核对实际结构与迁移历史，再建立迁移基线。新空库可直接执行发布流程。
+
+使用语义技能匹配或嵌入生成时，将 `FASTAPI_URL` 设为 Gateway 容器可达的独立 FastAPI 地址。生产 Gateway 和 Web 分别默认绑定 `127.0.0.1:3000` 和 `127.0.0.1:8081`。宿主机反向代理可直接连接这两个地址。若入口在其他主机上，按需设置 `OCEAN_GATEWAY_BIND_IP` 或 `OCEAN_WEB_BIND_IP` 为相应宿主机地址。PostgreSQL、Redis 和 Jaeger 通过 Compose 网络访问。
+
+升级现有部署前，检查旧 Gateway 容器的 `/app/apps/gateway/public/uploads`。若有文件，先用 `docker compose exec -T gateway tar -C /app/apps/gateway/public/uploads -cf - . > gateway-uploads.tar` 导出，再部署并将备份合并到新 Gateway 的同一目录。该目录现在由命名卷持久化。
+
+生产 Jaeger v2 使用单机 Badger 存储，trace 保留 72 小时。Redis 延续 RDB 快照策略，突然重启可能丢失最近一次快照之后的更新。
 
 ## MCP Server 配置管理
 
@@ -232,21 +199,9 @@ docker compose exec gateway env | grep -E "JENKINS|GITLAB|ZENTAO"
 docker compose exec gateway node /app/agents/mcp/mcp-jenkins/dist/server.js
 ```
 
-### Jenkins/GitLab 无法访问
+### 远程集成无法访问
 
-```bash
-# 检查容器状态
-docker compose ps jenkins gitlab
-
-# 检查端口占用
-netstat -tulpn | grep -E '8082|8083'
-
-# 检查防火墙规则（Mac/Linux）
-sudo lsof -i :8082
-sudo lsof -i :8083
-```
-
----
+检查 Gateway 所在网络能否解析并访问远程地址，再检查凭据权限和 Gateway 日志。
 
 ## 性能优化
 
@@ -298,11 +253,6 @@ logging:
 # 备份 PostgreSQL
 docker compose exec postgres pg_dump -U postgres ocean > backup_$(date +%Y%m%d).sql
 
-# 备份 Jenkins
-docker compose cp jenkins:/var/jenkins_home ./backup/jenkins
-
-# 备份 GitLab
-docker compose exec gitlab gitlab-backup create
 ```
 
 ---
@@ -312,8 +262,8 @@ docker compose exec gitlab gitlab-backup create
 ### 本地开发（不启动 Docker）
 
 ```bash
-# 1. 启动外部依赖（PostgreSQL, Redis, ZenTao）
-docker compose up -d postgres redis zentao
+# 1. 启动外部依赖（PostgreSQL, Redis）
+docker compose up -d postgres redis
 
 # 2. 本地启动 Gateway
 cd apps/gateway
@@ -324,27 +274,12 @@ cd apps/web
 pnpm dev
 ```
 
-### 混合模式（部分 Docker + 部分本地）
-
-```bash
-# 启动 Jenkins 和 GitLab（Docker）
-docker compose up -d jenkins gitlab
-
-# 本地开发 Gateway（自动热加载）
-cd apps/gateway
-pnpm dev
-```
-
----
-
 ## 安全建议
 
 ### 生产环境配置
 
 1. **修改默认密码**
    - PostgreSQL: `POSTGRES_PASSWORD`
-   - GitLab: `gitlab_rails['initial_root_password']`
-   - Jenkins: 初始管理员密码
 
 2. **启用 HTTPS**
    ```yaml
@@ -362,13 +297,10 @@ pnpm dev
    ```yaml
    # 仅暴露 Gateway 和 Web
    ports:
-     - "3000:3000"
-     - "8081:80"
+     - "127.0.0.1:3000:3000"
+     - "127.0.0.1:8081:3000"
    
-   # 内部服务不暴露到宿主机
-   jenkins:
-     # ports:  # 注释掉
-     #   - "8082:8080"
+   # 内部服务可省略宿主机端口映射
    ```
 
 4. **使用 Docker Secrets**
@@ -388,16 +320,11 @@ pnpm dev
 
 ```bash
 # 检查所有服务
-curl http://localhost:3000/api/health
+curl -fsS http://localhost:3000/api/metrics
 
 # 检查 MCP Servers
 curl http://localhost:3000/api/mcp-servers/health/all
 
-# 检查 Jenkins
-curl http://localhost:8082/api/json
-
-# 检查 GitLab
-curl http://localhost:8083/api/v4/projects
 ```
 
 ### 日志聚合

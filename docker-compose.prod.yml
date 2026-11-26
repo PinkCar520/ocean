@@ -1,101 +1,194 @@
+x-gateway-image: &gateway-image ${DOCKERHUB_USERNAME:-ocean}/ocean-gateway@${OCEAN_GATEWAY_DIGEST:?OCEAN_GATEWAY_DIGEST is required}
+
+x-logging: &service-logging
+  driver: local
+
 services:
   # Ocean AI 网关总线 (NestJS + Prisma)
   gateway:
-    image: ${DOCKERHUB_USERNAME:-ocean}/ocean-gateway:latest
-    container_name: ocean-gateway
+    logging: *service-logging
+    image: *gateway-image
     restart: always
     ports:
-      - "3000:3000"
-    env_file:
-      - .env
+      - "${OCEAN_GATEWAY_BIND_IP:-127.0.0.1}:3000:3000"
+    secrets:
+      - &database-url-secret
+        source: database_url
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - gateway_env
     volumes:
-      - ./agents/skills:/app/agents/skills
-      - ocean_gateway_uploads:/app/public/uploads
+      - ./agents/skills:/app/agents/skills:ro
+      - ocean_gateway_uploads:/app/apps/gateway/public/uploads
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - PORT=3000
+      - NODE_OPTIONS=--require=/app/load-production-env.cjs
+      - OCEAN_SERVICE_ENV_FILE=/run/secrets/gateway_env
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
+      - FASTAPI_URL=${FASTAPI_URL:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/metrics').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      uploads-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  uploads-init:
+    logging: *service-logging
+    image: *gateway-image
+    user: "0:0"
+    command: ["chown", "-Rh", "1000:1000", "/uploads"]
+    volumes:
+      - ocean_gateway_uploads:/uploads
+
+  worker:
+    logging: *service-logging
+    image: *gateway-image
+    restart: always
+    secrets:
+      - *database-url-secret
+      - worker_env
+    environment:
+      - NODE_ENV=production
+      - NODE_OPTIONS=--require=/app/load-production-env.cjs
+      - OCEAN_SERVICE_ENV_FILE=/run/secrets/worker_env
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GATEWAY_ROOT=/app
+      - WORKER_LOG_LEVEL=log
+      - WORKER_READY_PORT=3001
+    command: ["node", "dist/apps/gateway/src/worker/main"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/ready').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  migrate:
+    logging: *service-logging
+    image: *gateway-image
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    secrets:
+      - *database-url-secret
+    environment:
+      NODE_OPTIONS: --require=/app/load-production-env.cjs
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_started
 
   # Ocean Web（Next.js App Router / Server Components）
   web:
-    image: ${DOCKERHUB_USERNAME:-ocean}/ocean-web:latest
-    container_name: ocean-web
+    logging: *service-logging
+    image: ${DOCKERHUB_USERNAME:-ocean}/ocean-web@${OCEAN_WEB_DIGEST:?OCEAN_WEB_DIGEST is required}
     restart: always
     ports:
-      - "8081:3000"
+      - "${OCEAN_WEB_BIND_IP:-127.0.0.1}:8081:3000"
     environment:
       - OCEAN_GATEWAY_URL=http://gateway:3000
-    env_file:
-      - .env
     deploy:
       resources:
         limits:
           memory: 300M
         reservations:
           memory: 128M
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/', { redirect: 'manual' }).then(response => process.exit(response.status >= 200 && response.status < 400 ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     depends_on:
       gateway:
-        condition: service_started
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
+        condition: service_healthy
 
   # 用户中心持久化核心 (支持 Vector 检索)
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: ocean-postgres
+    logging: *service-logging
+    image: pgvector/pgvector:pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
     restart: always
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-ocean}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
       - POSTGRES_DB=${POSTGRES_DB:-ocean}
-    ports:
-      - "5432:5432"
+    secrets:
+      - postgres_password
     volumes:
       - ocean_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ocean} -d ${POSTGRES_DB:-ocean}" ]
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 5s
       retries: 5
 
   # 可观测性中心 (Tracing / Jaeger)
   jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: ocean-jaeger
+    logging: *service-logging
+    image: jaegertracing/jaeger:2.23.0@sha256:3823829974ccfc2485d2e48b165579091f32295022ae80ca49704e2f4834116e
     restart: always
-    ports:
-      - "16686:16686" # UI
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+
+    command: ["--config", "/etc/jaeger/ocean.yaml"]
+    configs:
+      - source: jaeger-config
+        target: /etc/jaeger/ocean.yaml
+    volumes:
+      - ocean_jaeger_data:/badger
+    depends_on:
+      jaeger-init:
+        condition: service_completed_successfully
+
+  jaeger-init:
+    logging: *service-logging
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ec"]
+    command: ["mkdir -p /badger/traces && chown 10001:10001 /badger/traces"]
+    volumes:
+      - ocean_jaeger_data:/badger
 
   # 会话记忆与流控层 (Redis)
   redis:
-    image: redis:7-alpine
-    container_name: ocean-redis
-    ports:
-      - "6379:6379"
+    logging: *service-logging
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    restart: always
+    command: ["redis-server", "--save", "3600 1 300 100 60 10000"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-e", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     volumes:
       - ocean_redis_data:/data
 
+secrets:
+  database_url:
+    environment: DATABASE_URL
+  postgres_password:
+    environment: POSTGRES_PASSWORD
+  gateway_env:
+    file: ./secrets/gateway.env
+  worker_env:
+    file: ./secrets/worker.env
+
+configs:
+  jaeger-config:
+    file: ${OCEAN_JAEGER_CONFIG:-./deploy/jaeger.yml}
+
 volumes:
+  ocean_jaeger_data:
   ocean_postgres_data:
   ocean_redis_data:
   ocean_gateway_uploads:

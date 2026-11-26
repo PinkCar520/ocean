@@ -35,9 +35,6 @@
 | **Web** | 8081 | ✅ 自动配置 | 前端面板 |
 | **PostgreSQL** | 5432 | ✅ 自动配置 | 数据库 |
 | **Redis** | 6379 | ✅ 自动配置 | 缓存/会话 |
-| **ZenTao** | 8080 | ✅ 自动配置 | 禅道项目管理 |
-| **Jenkins** | 8082 | ⚠️ 需初始化 | CI/CD |
-| **GitLab** | 8083 | ⚠️ 需初始化 | 代码托管 |
 
 ---
 
@@ -50,17 +47,14 @@ cp .env.example .env
 # 编辑 .env 文件，填入以下内容
 ```
 
-必填配置（其他有默认值）：
+设置 `DATABASE_URL`、`POSTGRES_PASSWORD` 和 `JWT_SECRET`。如需启用集成，在 `.env` 中填写 Gateway 可访问的远程服务地址和对应凭据。
 
-```bash
-# 禅道
-ZENTAO_BASE_URL=http://zentao:80
+```dotenv
+ZENTAO_BASE_URL=https://zentao.example.com
 ZENTAO_API_TOKEN=your_token
-
-# Jenkins (首次部署后生成)
+JENKINS_BASE_URL=https://jenkins.example.com
 JENKINS_TOKEN=your_token
-
-# GitLab (首次部署后生成)
+GITLAB_BASE_URL=https://gitlab.example.com
 GITLAB_TOKEN=your_token
 ```
 
@@ -72,43 +66,6 @@ GITLAB_TOKEN=your_token
 
 等待 2-3 分钟，所有服务将自动启动。
 
-### 3. 初始化 Jenkins
-
-```bash
-# 获取初始密码
-docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
-
-# 访问 http://localhost:8082
-# 1. 输入初始密码
-# 2. 安装推荐插件
-# 3. 创建管理员账户
-# 4. 生成 API Token: 用户设置 → API Token → 添加新 Token
-# 5. 将 Token 填入 .env 文件的 JENKINS_TOKEN
-```
-
-### 4. 初始化 GitLab
-
-```bash
-# 访问 http://localhost:8083
-# 用户: root
-# 密码: gitlab_admin_pass
-
-# 登录后：
-# 1. 修改密码
-# 2. 生成 Personal Access Token:
-#    User Settings → Access Tokens
-#    勾选: api, read_user, read_repository, write_repository
-# 3. 将 Token 填入 .env 文件的 GITLAB_TOKEN
-```
-
-### 5. 重启 Gateway 使配置生效
-
-```bash
-docker compose restart gateway
-```
-
----
-
 ## 📊 验证部署
 
 ### 检查服务状态
@@ -117,7 +74,7 @@ docker compose restart gateway
 docker compose ps
 ```
 
-所有服务应显示 `Up` 状态。
+核心服务应显示 `Up`。用 `docker compose ps -a db-init` 确认初始化任务以状态码 0 退出。
 
 ### 验证 MCP Servers
 
@@ -161,12 +118,6 @@ curl http://localhost:3000/api/mcp/prompts
 # Gateway 日志
 docker compose logs -f gateway
 
-# Jenkins 日志
-docker compose logs -f jenkins
-
-# GitLab 日志
-docker compose logs -f gitlab
-
 # 所有服务日志
 docker compose logs -f
 ```
@@ -205,7 +156,7 @@ docker compose logs gateway
 docker compose exec gateway ping postgres
 
 # 手动执行数据库迁移
-docker compose exec gateway sh -c "cd /app/apps/gateway && npx prisma db push"
+docker compose run --rm db-init
 ```
 
 ### MCP Server 未连接
@@ -226,8 +177,7 @@ curl -X POST http://localhost:3000/api/mcp/config/reload
 ```bash
 # 查看端口占用
 lsof -i :3000
-lsof -i :8082
-lsof -i :8083
+lsof -i :8081
 
 # 修改 docker-compose.yml 中的端口映射
 # 例如: - "3001:3000" 改为 3001 端口
@@ -267,7 +217,7 @@ docker compose restart gateway
 docker compose exec gateway sh
 
 # 数据库迁移
-docker compose exec gateway sh -c "cd /app/apps/gateway && npx prisma db push"
+docker compose run --rm db-init
 ```
 
 ### 访问地址
@@ -276,9 +226,6 @@ docker compose exec gateway sh -c "cd /app/apps/gateway && npx prisma db push"
 |------|-----|
 | Web 面板 | http://localhost:8081 |
 | API 网关 | http://localhost:3000 |
-| ZenTao | http://localhost:8080 |
-| Jenkins | http://localhost:8082 |
-| GitLab | http://localhost:8083 |
 
 ---
 

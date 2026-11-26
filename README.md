@@ -75,12 +75,6 @@ docker-compose.yml     本地核心服务编排
    | Gateway | <http://localhost:3000> |
    | Jaeger | <http://localhost:16686> |
 
-   需要本地集成演示环境时，再启动可选的 ZenTao、Jenkins 和 GitLab：
-
-   ```bash
-   docker compose --profile integrations up -d
-   ```
-
 ### 单独启动开发客户端
 
 安装依赖并配置 `.env` 后，可按需在不同终端启动应用：

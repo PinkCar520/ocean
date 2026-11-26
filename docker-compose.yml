@@ -1,56 +1,68 @@
 # Ocean 服务编排
 #
-# 默认：核心平台栈（gateway / worker / web / postgres / redis / jaeger / fastapi）
+# 默认：核心平台栈（db-init / uploads-init / gateway / worker / web / postgres / redis / jaeger / fastapi）
 #   docker compose up -d
 #
-# 需要本地集成演示环境（GitLab / Jenkins / 禅道）时：
-#   docker compose --profile integrations up -d
-#
-# 注意：GitLab / Jenkins / 禅道是「被集成的目标系统」，不是平台运行依赖。
-# 生产/日常开发请通过 .env 或工作区集成配置指向真实 SaaS 地址；未配置时相关
-# 能力自动进入 mock / 禁用状态。
+# Jenkins、GitLab 和禅道通过 .env 或工作区配置连接远程实例。
+x-logging: &service-logging
+  driver: local
+
 services:
   # Ocean AI 网关总线 (NestJS + Prisma)
   gateway:
+    logging: *service-logging
     image: ocean-gateway:local
-    build:
+    build: &gateway-build
       context: .
       dockerfile: apps/gateway/Dockerfile
-    container_name: ocean-gateway
     restart: always
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env
     volumes:
-      - ./agents/skills:/app/agents/skills
-      - ocean_gateway_uploads:/app/public/uploads
+      - ./agents/skills:/app/agents/skills:ro
+      - ocean_gateway_uploads:/app/apps/gateway/public/uploads
     environment:
       - NODE_ENV=production
+      - PORT=3000
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
       # 集成目标地址：在 .env 中配置真实 SaaS 地址；留空则相关能力自动 mock / 禁用。
-      # 只有启动本地集成演示栈（--profile integrations）时才应指向本地容器。
       - ZENTAO_BASE_URL=${ZENTAO_BASE_URL:-}
       - JENKINS_BASE_URL=${JENKINS_BASE_URL:-}
       - GITLAB_BASE_URL=${GITLAB_BASE_URL:-}
       - FASTAPI_URL=http://fastapi-backend:8000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/metrics').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     depends_on:
-      postgres:
-        condition: service_healthy
+      uploads-init:
+        condition: service_completed_successfully
+      db-init:
+        condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
 
   # Ocean Run Engine Worker（独立进程消费 outbox，ADR-002/003；Web 切 Run API 的执行前提）
-  worker:
+  uploads-init:
+    logging: *service-logging
     image: ocean-gateway:local
-    build:
-      context: .
-      dockerfile: apps/gateway/Dockerfile
-    container_name: ocean-worker
+    build: *gateway-build
+    user: "0:0"
+    command: ["chown", "-Rh", "1000:1000", "/uploads"]
+    volumes:
+      - ocean_gateway_uploads:/uploads
+
+  worker:
+    logging: *service-logging
+    image: ocean-gateway:local
+    build: *gateway-build
     restart: always
     env_file:
       - .env
@@ -63,28 +75,41 @@ services:
       - GATEWAY_ROOT=/app
       - WORKER_POLL_MS=1000
       - WORKER_CLAIM_LIMIT=5
-      - WORKER_LOG_LEVEL=info
-    command:
-      - sh
-      - -c
-      - cd apps/gateway && node dist/apps/gateway/src/worker/main
+      - WORKER_LOG_LEVEL=log
+      - WORKER_READY_PORT=3001
+    command: ["node", "dist/apps/gateway/src/worker/main"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/ready').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # 本地开发 schema 初始化
+  db-init:
+    logging: *service-logging
+    image: ocean-gateway:local
+    build: *gateway-build
+    command: ["./node_modules/.bin/prisma", "db", "push"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_started
 
   # Ocean Web（Next.js App Router / Server Components）
   web:
+    logging: *service-logging
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: ocean-web
     restart: always
     ports:
-      - "8081:3000"
-    env_file:
-      - .env
+      - "127.0.0.1:8081:3000"
     environment:
       - OCEAN_GATEWAY_URL=http://gateway:3000
     deploy:
@@ -93,69 +118,68 @@ services:
           memory: 300M
         reservations:
           memory: 128M
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/', { redirect: 'manual' }).then(response => process.exit(response.status >= 200 && response.status < 400 ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     depends_on:
       gateway:
-        condition: service_started
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
+        condition: service_healthy
 
   # 用户中心持久化核心 (支持 Vector 检索)
   postgres:
+    logging: *service-logging
     image: pgvector/pgvector:pg16
-    container_name: ocean-postgres
     restart: always
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-ocean}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - POSTGRES_DB=${POSTGRES_DB:-ocean}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - ocean_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ocean} -d ${POSTGRES_DB:-ocean}" ]
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 5s
       retries: 5
 
   # 可观测性中心 (Tracing / Jaeger)
   jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: ocean-jaeger
+    logging: *service-logging
+    image: jaegertracing/jaeger:2.23.0
     restart: always
     ports:
-      - "16686:16686" # UI
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - "127.0.0.1:16686:16686" # UI
+      - "127.0.0.1:4317:4317" # OTLP gRPC
+      - "127.0.0.1:4318:4318" # OTLP HTTP
 
   # 会话记忆与流控层 (Redis)
   redis:
+    logging: *service-logging
     image: redis:7-alpine
-    container_name: ocean-redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-e", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - ocean_redis_data:/data
 
   # Ocean AI 智力中枢 (Python FastAPI)
   fastapi-backend:
+    logging: *service-logging
     build:
       context: ./apps/fastapi-backend
       dockerfile: Dockerfile
-    container_name: ocean-fastapi-backend
     restart: always
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     healthcheck:
@@ -165,87 +189,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # Jenkins CI/CD（本地集成演示用，非平台运行依赖）
-  jenkins:
-    profiles: ["integrations"]
-    image: jenkins/jenkins:lts-jdk17
-    container_name: ocean-jenkins
-    restart: always
-    ports:
-      - "8082:8080"
-      - "50000:50000"
-    environment:
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
-    volumes:
-      - ocean_jenkins_data:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  # GitLab 代码托管（本地集成演示用，非平台运行依赖）
-  gitlab:
-    profiles: ["integrations"]
-    image: gitlab/gitlab-ce:latest
-    container_name: ocean-gitlab
-    restart: always
-    ports:
-      - "8083:80"
-      - "444:443"
-      - "2222:22"
-    environment:
-      GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://localhost:8083'
-        gitlab_rails['initial_root_password'] = 'gitlab_admin_pass'
-    volumes:
-      - ocean_gitlab_data:/etc/gitlab
-      - ocean_gitlab_logs:/var/log/gitlab
-      - ocean_gitlab_data:/var/opt/gitlab
-    shm_size: '256m'
-
-  # 禅道 Web 服务（本地集成演示用，非平台运行依赖）
-  zentao:
-    profiles: ["integrations"]
-    image: easysoft/zentao:latest
-    container_name: ocean-zentao
-    restart: always
-    ports:
-      - "8080:80"
-    environment:
-      - MYSQL_INTERNAL=false
-      - MYSQL_HOST=zentao-db
-      - MYSQL_PORT=3306
-      - MYSQL_USER=zentao
-      - MYSQL_PASSWORD=zentao_pass
-      - MYSQL_DATABASE=zentao
-    volumes:
-      - ocean_zentao_data:/www/zentaopms
-    depends_on:
-      zentao-db:
-        condition: service_healthy
-
-  # 禅道专用数据库（仅 integrations profile 需要）
-  zentao-db:
-    profiles: ["integrations"]
-    image: mariadb:10.6
-    container_name: ocean-zentao-db
-    restart: always
-    environment:
-      - MYSQL_ROOT_PASSWORD=root_pass
-      - MYSQL_DATABASE=zentao
-      - MYSQL_USER=zentao
-      - MYSQL_PASSWORD=zentao_pass
-    volumes:
-      - ocean_zentao_mysql:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "zentao", "-pzentao_pass"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
 volumes:
   ocean_postgres_data:
   ocean_redis_data:
   ocean_gateway_uploads:
-  ocean_zentao_data:
-  ocean_zentao_mysql:
-  ocean_jenkins_data:
-  ocean_gitlab_data:
-  ocean_gitlab_logs:

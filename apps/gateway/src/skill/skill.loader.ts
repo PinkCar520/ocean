@@ -158,6 +158,10 @@ export class SkillLoader {
 
   private getDefaultScanDirs(): string[] {
     const dirs: string[] = [];
+    const gatewayRoot = process.env.GATEWAY_ROOT;
+    if (gatewayRoot) {
+      dirs.push(path.resolve(gatewayRoot, 'agents/skills'));
+    }
 
     // 1. Built-in skills from the @ocean/skills package
     // We try to resolve the package directory. If it fails, we fall back to a relative path

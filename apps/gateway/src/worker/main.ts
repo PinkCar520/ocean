@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { createServer } from 'node:http';
 import { NestFactory } from '@nestjs/core';
 
 import { WorkerModule } from './worker.module';
@@ -20,13 +21,19 @@ async function bootstrap(): Promise<void> {
   });
 
   const worker = app.get(WorkerService);
-  await worker.onModuleInit(); // 恢复僵尸 Run 后开始取件
+  const readinessPort = process.env.WORKER_READY_PORT;
+  const readinessServer = readinessPort
+    ? createServer((request, response) => {
+        const status = request.url === '/ready' ? (worker.isReady() ? 200 : 503) : 404;
+        response.writeHead(status).end();
+      }).listen(Number(readinessPort), '127.0.0.1')
+    : undefined;
 
   let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    worker.onModuleDestroy();
+    readinessServer?.close();
     await app.close();
     process.exit(0);
   };

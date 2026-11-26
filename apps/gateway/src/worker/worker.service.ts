@@ -32,6 +32,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WorkerService.name);
   private readonly workerId = `worker-${hostname()}-${process.pid}`;
   private running = false;
+  private ready = false;
   private timer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -59,8 +60,13 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
     void this.poll();
   }
 
+  isReady(): boolean {
+    return this.running && this.ready;
+  }
+
   stop(): void {
     this.running = false;
+    this.ready = false;
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -82,10 +88,12 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
         claimLimit,
         leaseMs,
       );
+      this.ready = this.running;
       for (const job of jobs) {
         await this.executeAndSettle(job, leaseMs);
       }
     } catch (error) {
+      this.ready = false;
       this.logger.error(`Poll iteration failed: ${this.describe(error)}`);
     } finally {
       if (this.running) {

@@ -49,10 +49,10 @@ docker compose build gateway
 log_success "Gateway 构建完成"
 echo ""
 
-# 3. 重启 Gateway（不影响其他服务）
-log_info "重启 Gateway..."
-docker compose up -d gateway
-log_success "Gateway 已重启"
+# 3. 更新共享同一镜像的 Gateway 和 Worker
+log_info "更新 Gateway 和 Worker..."
+docker compose up -d gateway worker
+log_success "Gateway 和 Worker 已更新"
 echo ""
 
 # 4. 等待启动
@@ -61,7 +61,7 @@ sleep 5
 
 # 5. 验证
 log_info "验证 Gateway 状态..."
-if curl -s http://localhost:3000/api/health > /dev/null 2>&1; then
+if curl -fsS http://localhost:3000/api/metrics > /dev/null 2>&1; then
     log_success "Gateway 运行正常"
     echo ""
     

@@ -9,10 +9,6 @@ on:
       - develop
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   quality:
     uses: ./.github/workflows/ci.yml
@@ -33,6 +29,8 @@ jobs:
   build-and-push-gateway:
     name: Build and Push Gateway Image
     needs: [prep, quality]
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -59,6 +57,7 @@ jobs:
             type=raw,value=${{ needs.prep.outputs.sha_short }}
 
       - name: Build and push Gateway Docker image
+        id: build
         uses: docker/build-push-action@v7
         timeout-minutes: 30
         env:
@@ -76,6 +75,8 @@ jobs:
   build-and-push-web:
     name: Build and Push Web Image
     needs: [prep, quality]
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -102,6 +103,7 @@ jobs:
             type=raw,value=${{ needs.prep.outputs.sha_short }}
 
       - name: Build and push Web Docker image
+        id: build
         uses: docker/build-push-action@v7
         timeout-minutes: 30
         env:
@@ -121,18 +123,27 @@ jobs:
   deploy:
     name: Auto Deploy to Server
     needs: [build-and-push-gateway, build-and-push-web]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main'
+    environment: production
     runs-on: self-hosted
+    concurrency:
+      group: ocean-server-deployment
+      cancel-in-progress: false
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Pull and Restart Containers
+      - name: Pull and Start Production Services
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          OCEAN_GATEWAY_DIGEST: ${{ needs.build-and-push-gateway.outputs.digest }}
+          OCEAN_WEB_DIGEST: ${{ needs.build-and-push-web.outputs.digest }}
+          OCEAN_JAEGER_CONFIG: ${{ github.workspace }}/deploy/jaeger.yml
         run: |
-          cd ~/ocean 2>/dev/null || cd ~/ocean
-          docker compose pull
-          docker compose down
-          docker compose up -d
-          docker image prune -f
+          cd "$HOME/ocean"
+          compose=(docker compose --project-directory "$PWD" --env-file .env -f "$GITHUB_WORKSPACE/docker-compose.prod.yml")
+          "${compose[@]}" pull
+          "${compose[@]}" up -d --wait --wait-timeout 300

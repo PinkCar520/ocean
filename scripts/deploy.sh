@@ -98,7 +98,7 @@ verify_services() {
     
     # 检查容器运行状态
     local running_containers=$(docker compose ps --services --filter "status=running" | wc -l)
-    local total_containers=$(docker compose config --services | wc -l)
+    local total_containers=$(docker compose config --services | awk '$0 != "db-init" && $0 != "uploads-init"' | wc -l)
     
     if [ "$running_containers" -eq "$total_containers" ]; then
         log_success "所有 $total_containers 个服务运行正常"
@@ -114,7 +114,7 @@ verify_services() {
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if curl -s http://localhost:3000/api/health > /dev/null 2>&1; then
+        if curl -fsS http://localhost:3000/api/metrics > /dev/null 2>&1; then
             log_success "Gateway 已就绪"
             break
         fi
@@ -138,20 +138,11 @@ show_deployment_info() {
     echo "服务访问地址："
     echo -e "  ${BLUE}Web 面板:${NC}      http://localhost:8081"
     echo -e "  ${BLUE}API 网关:${NC}      http://localhost:3000"
-    echo -e "  ${BLUE}ZenTao:${NC}        http://localhost:8080"
-    echo -e "  ${BLUE}Jenkins:${NC}       http://localhost:8082"
-    echo -e "  ${BLUE}GitLab:${NC}        http://localhost:8083"
     echo -e "  ${BLUE}PostgreSQL:${NC}    localhost:5432"
     echo -e "  ${BLUE}Redis:${NC}         localhost:6379"
     echo ""
     echo "下一步："
-    echo "  1. 初始化 Jenkins: http://localhost:8082"
-    echo "     初始密码: docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword"
-    echo ""
-    echo "  2. 登录 GitLab: http://localhost:8083"
-    echo "     用户: root, 密码: gitlab_admin_pass"
-    echo ""
-    echo "  3. 验证 MCP Servers:"
+    echo "  在 .env 中配置远程 ZenTao、Jenkins、GitLab 地址和凭据，然后验证 MCP Servers"
     echo "     curl http://localhost:3000/api/mcp-servers"
     echo ""
     echo "常用命令："
