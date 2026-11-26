@@ -28,6 +28,16 @@ jobs:
           node-version: '24'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
+      - name: Verify retired UI files have no tracked references
+        shell: bash
+        run: |
+          if git grep -n -I -E 'ChatInputLegacy|SettingsDialog\.tsx\.bak|clean-chatinput\.cjs|fixJSX\.cjs|refactor-chatinput\.cjs|removeHandlers\.cjs|removeJSX\.cjs|test-transport\.ts|react\.svg' -- packages/ui apps/web apps/desktop ':!packages/ui/src/components/chat/ChatInputLegacy.tsx'; then
+            echo 'Retired UI reference found'
+            exit 1
+          else
+            status=$?
+            test "$status" -eq 1
+          fi
       - name: Install locked dependencies once
         run: pnpm install --frozen-lockfile
       - name: Generate Prisma client
