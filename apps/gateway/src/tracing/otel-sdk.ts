@@ -9,10 +9,9 @@ import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core'
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 
-const exporter = new OTLPTraceExporter({
-  url:
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://jaeger:4318/v1/traces',
-});
+const endpoint = process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT?.trim() ||
+  process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
+const exporter = endpoint ? new OTLPTraceExporter({ url: endpoint }) : undefined;
 
 export const otelSDK = new NodeSDK({
   resource: defaultResource().merge(
@@ -20,7 +19,7 @@ export const otelSDK = new NodeSDK({
       [SEMRESATTRS_SERVICE_NAME]: 'ocean-gateway',
     }),
   ),
-  traceExporter: exporter,
+  ...(exporter ? { traceExporter: exporter } : {}),
   instrumentations: [
     new HttpInstrumentation(),
     new ExpressInstrumentation(),
@@ -29,10 +28,10 @@ export const otelSDK = new NodeSDK({
 });
 
 // Start the SDK
-if (
+if (exporter && process.env.ENABLE_TRACING !== 'false' && (
   process.env.NODE_ENV === 'production' ||
   process.env.ENABLE_TRACING === 'true'
-) {
+)) {
   console.log('[Tracing] Initializing OpenTelemetry SDK...');
   otelSDK.start();
 }

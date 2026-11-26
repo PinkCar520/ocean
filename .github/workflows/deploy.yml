@@ -141,7 +141,6 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           OCEAN_GATEWAY_DIGEST: ${{ needs.build-and-push-gateway.outputs.digest }}
           OCEAN_WEB_DIGEST: ${{ needs.build-and-push-web.outputs.digest }}
-          OCEAN_JAEGER_CONFIG: ${{ github.workspace }}/deploy/jaeger.yml
         run: |
           cd "$HOME/ocean"
           compose=(docker compose --project-directory "$PWD" --env-file .env -f "$GITHUB_WORKSPACE/docker-compose.prod.yml")

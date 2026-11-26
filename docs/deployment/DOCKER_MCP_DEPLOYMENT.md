@@ -2,7 +2,7 @@
 
 ## 部署架构
 
-Compose 启动 Gateway、Worker、Web、PostgreSQL、Redis、Jaeger 和 FastAPI。Gateway 使用远程 Jenkins、GitLab 和禅道实例提供集成能力。
+Compose 启动 Gateway、Worker、Web、PostgreSQL、Redis 和 FastAPI。Gateway 使用远程 Jenkins、GitLab 和禅道实例提供集成能力。
 
 ## 部署步骤
 
@@ -137,11 +137,11 @@ docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 300
 
 生产 `migrate` 服务运行 `prisma migrate deploy`，成功后启动新版 Gateway 和 Worker。迁移失败时，用 `docker compose -f docker-compose.prod.yml logs migrate` 查看原因。首次接管以前由 `db push` 初始化且缺少迁移记录的数据库时，先备份，在副本核对实际结构与迁移历史，再建立迁移基线。新空库可直接执行发布流程。
 
-使用语义技能匹配或嵌入生成时，将 `FASTAPI_URL` 设为 Gateway 容器可达的独立 FastAPI 地址。生产 Gateway 和 Web 分别默认绑定 `127.0.0.1:3000` 和 `127.0.0.1:8081`。宿主机反向代理可直接连接这两个地址。若入口在其他主机上，按需设置 `OCEAN_GATEWAY_BIND_IP` 或 `OCEAN_WEB_BIND_IP` 为相应宿主机地址。PostgreSQL、Redis 和 Jaeger 通过 Compose 网络访问。
+使用语义技能匹配或嵌入生成时，将 `FASTAPI_URL` 设为 Gateway 容器可达的独立 FastAPI 地址。生产 Gateway 和 Web 分别默认绑定 `127.0.0.1:3000` 和 `127.0.0.1:8081`。宿主机反向代理可直接连接这两个地址。若入口在其他主机上，按需设置 `OCEAN_GATEWAY_BIND_IP` 或 `OCEAN_WEB_BIND_IP` 为相应宿主机地址。PostgreSQL、Redis 通过 Compose 网络访问。
 
 升级现有部署前，检查旧 Gateway 容器的 `/app/apps/gateway/public/uploads`。若有文件，先用 `docker compose exec -T gateway tar -C /app/apps/gateway/public/uploads -cf - . > gateway-uploads.tar` 导出，再部署并将备份合并到新 Gateway 的同一目录。该目录现在由命名卷持久化。
 
-生产 Jaeger v2 使用单机 Badger 存储，trace 保留 72 小时。Redis 延续 RDB 快照策略，突然重启可能丢失最近一次快照之后的更新。
+生产环境可通过 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` 或 `OTEL_EXPORTER_OTLP_ENDPOINT` 配置外部 OTLP HTTP trace 接收地址（包含 `/v1/traces`）；未配置时不启动追踪导出。Redis 延续 RDB 快照策略，突然重启可能丢失最近一次快照之后的更新。
 
 ## MCP Server 配置管理
 

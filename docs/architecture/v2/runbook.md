@@ -124,6 +124,6 @@ docker exec ocean-postgres psql -U postgres -d ocean_restore -t \
 
 - `GET /api/metrics`（Prometheus 文本）：`run_created`、`run_terminal{status}`、
   `tool_executed{tool}`、`approval_requested`、`outbox_enqueued{topic}`、`http_requests{method,status}`。
-- OTel traces push 到 `OTEL_EXPORTER_OTLP_ENDPOINT`（默认 `http://jaeger:4318/v1/traces`）。
+- OTel traces push 到 `OTEL_EXPORTER_OTLP_ENDPOINT`（或 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`，未配置时不启动追踪导出）。
 - 告警建议：`run_terminal{status="failed"}` 突增、`outbox_enqueued` 与 `run_terminal` 差值持续放大、
   `http_requests{status="5xx"}` 比例 > 1%、`/api/metrics` 不可达。
