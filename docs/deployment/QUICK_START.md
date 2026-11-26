@@ -1,23 +1,5 @@
 # Ocean MCP Docker 部署 - 快速开始
 
-## 🚀 一键部署
-
-### 首次部署
-
-```bash
-./scripts/deploy.sh
-```
-
-### 日常更新
-
-```bash
-./scripts/update.sh
-```
-
-就这么简单！✨
-
----
-
 ## 📋 部署清单
 
 ### 前置要求
@@ -69,7 +51,7 @@ docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate dep
 ```
 
 ```bash
-./scripts/deploy.sh
+docker compose up -d --build
 ```
 
 等待 2-3 分钟，所有服务将自动启动。
@@ -111,14 +93,11 @@ curl http://localhost:3000/api/mcp/prompts
 ### 更新代码
 
 ```bash
-./scripts/update.sh
+git pull --ff-only origin main
+docker compose up -d --build gateway worker
+docker compose ps gateway worker
+curl -fsS http://localhost:3000/api/metrics
 ```
-
-这将：
-1. 拉取最新代码
-2. 重新构建 Gateway
-3. 重启 Gateway（不影响其他服务）
-4. 验证部署状态
 
 ### 查看日志
 
@@ -207,10 +186,7 @@ lsof -i :8081
 
 ```bash
 # 部署
-./scripts/deploy.sh
-
-# 更新
-./scripts/update.sh
+docker compose up -d --build
 
 # 查看状态
 docker compose ps

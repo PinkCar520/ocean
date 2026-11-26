@@ -12,16 +12,15 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "rootDir": ".",
-    "baseUrl": ".",
     "paths": {
       "@agents/*": [
-        "agents/*"
+        "./agents/*"
       ],
       "@packages/*": [
-        "packages/*"
+        "./packages/*"
       ],
       "@apps/*": [
-        "apps/*"
+        "./apps/*"
       ]
     }
   }
