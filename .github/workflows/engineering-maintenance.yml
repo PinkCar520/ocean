@@ -1,0 +1,28 @@
+name: Ocean Engineering Maintenance
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analysis:
+    uses: ./.github/workflows/engineering-analysis.yml
+  governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test scripts/engineering/governance.test.mjs
+      - name: Validate ledger and documentation
+        shell: bash
+        run: node scripts/engineering/governance.mjs | tee "$RUNNER_TEMP/governance.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engineering-governance
+          path: ${{ runner.temp }}/governance.json
+          if-no-files-found: error

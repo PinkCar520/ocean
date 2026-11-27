@@ -58,3 +58,7 @@ packages/*/dist/
 # Python
 __pycache__/
 *.pyc
+
+# Generated engineering evidence
+/reports/engineering/
+/.engineering-fixture-*/

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "EH-01",
+      "name": "Source Intelligence",
+      "status": "PARTIAL",
+      "evidence": [
+        "scripts/engineering/source-intelligence.mjs",
+        "scripts/engineering/source-intelligence.test.mjs",
+        "scripts/engineering/runtime-entries.json",
+        ".github/workflows/ci.yml"
+      ],
+      "remaining": [
+        "Full runtime and Swift semantic coverage; compiler-context and generated-output completeness"
+      ]
+    },
+    {
+      "id": "EH-02",
+      "name": "Code Health",
+      "status": "PARTIAL",
+      "evidence": [
+        "knip.json",
+        ".jscpd.json",
+        "scripts/engineering/toolchain.mjs",
+        "scripts/engineering/toolchain.test.mjs"
+      ],
+      "remaining": [
+        "Dead-code candidates require entry-point and usage verification; no global clone baseline or safe deletion yet"
+      ]
+    },
+    {
+      "id": "EH-03",
+      "name": "Architecture Governance",
+      "status": "PARTIAL",
+      "evidence": [
+        ".dependency-cruiser.cjs",
+        "scripts/engineering/architecture-gate.mjs",
+        "scripts/engineering/architecture-gate.test.mjs",
+        "scripts/engineering/architecture-baseline.json"
+      ],
+      "remaining": [
+        "Broader package boundary and unresolved/generated edge coverage"
+      ]
+    },
+    {
+      "id": "EH-04",
+      "name": "Automated Refactoring",
+      "status": "PARTIAL",
+      "evidence": [
+        "scripts/engineering/codemod.mjs",
+        "scripts/engineering/codemod.test.mjs"
+      ],
+      "remaining": [
+        "All-context proof, behavior-preserving consolidation of distinct implementations, and legacy migration tooling integration"
+      ]
+    },
+    {
+      "id": "EH-05",
+      "name": "Verification Engineering",
+      "status": "PARTIAL",
+      "evidence": [
+        "scripts/engineering/verification.mjs",
+        "scripts/engineering/verification.test.mjs",
+        "scripts/engineering/verification-matrix.json"
+      ],
+      "remaining": [
+        "Cross-host visual/interaction regression, native verification, all remaining workspace test gaps"
+      ]
+    },
+    {
+      "id": "EH-06",
+      "name": "Agent Governance",
+      "status": "PARTIAL",
+      "evidence": [
+        "AGENTS.md",
+        "scripts/engineering/governance.mjs",
+        "scripts/engineering/governance.test.mjs",
+        "docs/engineering-harness/manifest.json"
+      ],
+      "remaining": [
+        "Independent acceptance and recovery exercise from a fresh Agent session"
+      ]
+    },
+    {
+      "id": "EH-07",
+      "name": "Continuous Maintenance",
+      "status": "PARTIAL",
+      "evidence": [
+        ".github/workflows/engineering-maintenance.yml",
+        "scripts/engineering/governance.mjs"
+      ],
+      "remaining": [
+        "Scheduled execution evidence; broader documentation consistency and managed remediation"
+      ]
+    },
+    {
+      "id": "EH-08",
+      "name": "Quality Gates",
+      "status": "PARTIAL",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        "scripts/engineering/quality-wiring.test.mjs",
+        ".github/workflows/deploy.yml"
+      ],
+      "remaining": [
+        "Integrated CI at exact SHA, required branch checks, independent acceptance and UI trial"
+      ]
+    }
+  ],
+  "acceptance": {
+    "status": "PENDING",
+    "reviewer": null,
+    "commit": null,
+    "evidence": []
+  }
+}
