@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "workspaces": [
+    {
+      "name": "@ocean/contracts",
+      "checks": [
+        [
+          "build"
+        ],
+        [
+          "typecheck"
+        ],
+        [
+          "test"
+        ]
+      ],
+      "external": [],
+      "gaps": []
+    },
+    {
+      "name": "@ocean/secure-sandbox",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "No dedicated workspace test script"
+      ]
+    },
+    {
+      "name": "@ocean/tools-gitlab",
+      "checks": [
+        [
+          "build"
+        ],
+        [
+          "test"
+        ]
+      ],
+      "external": [],
+      "gaps": []
+    },
+    {
+      "name": "@ocean/tools-jenkins",
+      "checks": [
+        [
+          "build"
+        ],
+        [
+          "test"
+        ]
+      ],
+      "external": [],
+      "gaps": []
+    },
+    {
+      "name": "@ocean/tools-zentao",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "No dedicated workspace test script"
+      ]
+    },
+    {
+      "name": "@ocean/mcp-gitlab",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "No dedicated workspace test script"
+      ]
+    },
+    {
+      "name": "@ocean/mcp-im",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "No dedicated workspace test script"
+      ]
+    },
+    {
+      "name": "@ocean/mcp-jenkins",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "No dedicated workspace test script"
+      ]
+    },
+    {
+      "name": "@ocean/mcp-zentao",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "No dedicated workspace test script"
+      ]
+    },
+    {
+      "name": "@ocean/skills",
+      "checks": [],
+      "external": [],
+      "gaps": [
+        "Data-only workspace; no executable verification script"
+      ]
+    },
+    {
+      "name": "@ocean/core",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [
+        {
+          "script": "test",
+          "workflow": ".github/workflows/ci.yml",
+          "evidence": "pnpm run ci:unit"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "@ocean/cli",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [
+        {
+          "script": "typecheck",
+          "workflow": ".github/workflows/ci.yml",
+          "evidence": "pnpm run ci:typecheck"
+        },
+        {
+          "script": "test",
+          "workflow": ".github/workflows/ci.yml",
+          "evidence": "pnpm run ci:unit"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "gateway",
+      "checks": [
+        [
+          "build"
+        ]
+      ],
+      "external": [
+        {
+          "script": "typecheck",
+          "workflow": ".github/workflows/ci.yml",
+          "evidence": "pnpm run ci:typecheck"
+        },
+        {
+          "script": "test",
+          "workflow": ".github/workflows/ci.yml",
+          "evidence": "pnpm run ci:unit"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "@ocean/ui",
+      "checks": [
+        [
+          "typecheck"
+        ],
+        [
+          "test"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "Visual and interaction regression coverage incomplete"
+      ]
+    },
+    {
+      "name": "ocean-desktop",
+      "checks": [
+        [
+          "build"
+        ],
+        [
+          "test"
+        ]
+      ],
+      "external": [],
+      "gaps": [
+        "Native platform packaging and UI interaction not verified by Linux build"
+      ]
+    },
+    {
+      "name": "web",
+      "checks": [],
+      "external": [
+        {
+          "script": "typecheck",
+          "workflow": ".github/workflows/website.yml",
+          "evidence": "pnpm --filter web typecheck"
+        },
+        {
+          "script": "build",
+          "workflow": ".github/workflows/website.yml",
+          "evidence": "pnpm --filter web build"
+        }
+      ],
+      "gaps": [
+        "No dedicated web test script; website smoke test is separate"
+      ]
+    }
+  ]
+}
