@@ -1,4 +1,4 @@
-x-gateway-image: &gateway-image ${DOCKERHUB_USERNAME:-ocean}/ocean-gateway@${OCEAN_GATEWAY_DIGEST:?OCEAN_GATEWAY_DIGEST is required}
+x-gateway-image: &gateway-image ${OCEAN_IMAGE_PREFIX:?OCEAN_IMAGE_PREFIX is required}/ocean-gateway@${OCEAN_GATEWAY_DIGEST:?OCEAN_GATEWAY_DIGEST is required}
 
 x-logging: &service-logging
   driver: local
@@ -30,7 +30,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
-      - FASTAPI_URL=${FASTAPI_URL:-}
+      - FASTAPI_URL=http://fastapi-backend:8000
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/metrics').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
       interval: 5s
@@ -40,6 +40,8 @@ services:
       migrate:
         condition: service_completed_successfully
       redis:
+        condition: service_healthy
+      fastapi-backend:
         condition: service_healthy
 
   worker:
@@ -57,6 +59,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
+      - FASTAPI_URL=http://fastapi-backend:8000
       - WORKER_LOG_LEVEL=log
       - WORKER_READY_PORT=3001
     command: ["node", "dist/apps/gateway/src/worker/main"]
@@ -69,6 +72,8 @@ services:
       migrate:
         condition: service_completed_successfully
       redis:
+        condition: service_healthy
+      fastapi-backend:
         condition: service_healthy
 
   migrate:
@@ -87,7 +92,7 @@ services:
   web:
     container_name: ocean-web
     logging: *service-logging
-    image: ${DOCKERHUB_USERNAME:-ocean}/ocean-web@${OCEAN_WEB_DIGEST:?OCEAN_WEB_DIGEST is required}
+    image: ${OCEAN_IMAGE_PREFIX:?OCEAN_IMAGE_PREFIX is required}/ocean-web@${OCEAN_WEB_DIGEST:?OCEAN_WEB_DIGEST is required}
     restart: always
     ports:
       - "${OCEAN_WEB_BIND_IP:-127.0.0.1}:8081:3000"
@@ -112,7 +117,7 @@ services:
   postgres:
     container_name: ocean-postgres
     logging: *service-logging
-    image: pgvector/pgvector:pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
+    image: ${OCEAN_IMAGE_PREFIX:?OCEAN_IMAGE_PREFIX is required}/ocean-postgres@${OCEAN_POSTGRES_DIGEST:?OCEAN_POSTGRES_DIGEST is required}
     restart: always
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-ocean}
@@ -132,7 +137,7 @@ services:
   redis:
     container_name: ocean-redis
     logging: *service-logging
-    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    image: ${OCEAN_IMAGE_PREFIX:?OCEAN_IMAGE_PREFIX is required}/ocean-redis@${OCEAN_REDIS_DIGEST:?OCEAN_REDIS_DIGEST is required}
     restart: always
     command: ["redis-server", "--save", "3600 1 300 100 60 10000"]
     healthcheck:
@@ -143,6 +148,21 @@ services:
     volumes:
       - ocean_redis_data:/data
 
+  fastapi-backend:
+    container_name: ocean-fastapi-backend
+    logging: *service-logging
+    image: ${OCEAN_IMAGE_PREFIX:?OCEAN_IMAGE_PREFIX is required}/ocean-fastapi-backend@${OCEAN_FASTAPI_DIGEST:?OCEAN_FASTAPI_DIGEST is required}
+    restart: always
+    secrets:
+      - fastapi_env
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--env-file", "/run/secrets/fastapi_env"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 secrets:
   database_url:
     environment: DATABASE_URL
@@ -152,6 +172,8 @@ secrets:
     file: ./secrets/gateway.env
   worker_env:
     file: ./secrets/worker.env
+  fastapi_env:
+    file: ./secrets/fastapi.env
 
 volumes:
   ocean_postgres_data:

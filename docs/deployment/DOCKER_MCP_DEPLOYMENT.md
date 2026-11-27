@@ -114,21 +114,22 @@ docker compose run --rm --no-deps gateway ./node_modules/.bin/prisma migrate dep
 
 ## 生产部署
 
-GitHub Actions 只允许 `main` 部署到 `production` 环境。`develop` 继续构建与检查。生产发布使用当前提交的 Compose 文件、本次构建的镜像 digest，以及服务器 `~/ocean` 中的配置与数据卷。在 GitHub 仓库的 `production` Environment 中，也将允许部署的分支设为 `main`。
+GitHub Actions 仅从 `main` 发布五种镜像至 TCR，产出已验证的版本清单。此阶段不执行服务器部署。见 [TCR 发布说明](./TCR_PUBLICATION.md)。
 
 首次使用此配置前，在部署目录准备以下文件：
 
 | 文件 | 配置内容 |
 | --- | --- |
-| `.env` | 保留 `DATABASE_URL`、`POSTGRES_PASSWORD`、PostgreSQL 用户与库名、端口绑定和 `FASTAPI_URL`。Compose 单独把数据库连接交给 Gateway、Worker 和迁移任务，把 PostgreSQL 密码交给 PostgreSQL。 |
+| `.env` | 保留 `DATABASE_URL`、`POSTGRES_PASSWORD`、PostgreSQL 用户与库名、端口绑定。Compose 单独把数据库连接交给 Gateway、Worker 和迁移任务，把 PostgreSQL 密码交给 PostgreSQL。 |
 | `secrets/gateway.env` | 必填 `JWT_SECRET`。按需复制 Gateway 所用的模型、登录、追踪和集成配置。 |
-| `secrets/worker.env` | 按需复制 Worker 所用的模型、工具集成、Hooks 和处理参数。只有实际使用的模型与集成凭据需在两个文件中都配置。 |
+| `secrets/worker.env` | 按需复制 Worker 所用的模型、工具集成、Hooks 和处理参数。 |
+| `secrets/fastapi.env` | 仅计算服务所需模型配置，例如 DEFAULT_AI_PROVIDER、对应 API_KEY/BASE_URL、EMBEDDING_MODEL_NAME。 |
 
-两个服务文件都采用 `KEY=value` 格式，填写实际值。Node.js 加载时不会展开变量引用。无额外配置时可以保留一个空的 Worker 文件。宿主机上的 `secrets/` 目录应只允许部署账户进入，例如 `chmod 0700 secrets`。两个文件需要容器内 UID 1000 可读。可在该私有目录内设置 `chmod 0444 secrets/gateway.env secrets/worker.env`，或设置相应的属主和读取权限。更新服务文件后，使用生产 Compose 的 `up -d --force-recreate gateway worker` 让新容器重新读取。
+三个服务文件都采用 `KEY=value` 格式，填写实际值。Node.js 加载时不会展开变量引用。无额外配置时可以保留一个空的 Worker 文件。宿主机上的 `secrets/` 目录应只允许部署账户进入，例如 `chmod 0700 secrets`。两个文件需要容器内 UID 1000 可读。可在该私有目录内设置 `chmod 0444 secrets/gateway.env secrets/worker.env`，或设置相应的属主和读取权限。更新服务文件后，使用生产 Compose 的 `up -d --force-recreate gateway worker` 让新容器重新读取。
 
 Gateway 和 Web 以非 root 用户运行。新上传卷使用镜像目录的属主。升级旧卷前，确认其中的目录和文件可由 UID 1000 读写。宿主管理的 skills 目录以只读方式挂载，需让容器内 UID 1000 可读取。通过应用上传的临时技能文件使用镜像内独立的可写目录。
 
-手动部署时，在该部署目录设置 `DOCKERHUB_USERNAME`、`OCEAN_GATEWAY_DIGEST` 和 `OCEAN_WEB_DIGEST`（完整的 `sha256:…` 值），再执行：
+手动部署前根据已验证的 `ocean-release.json` 设置 `OCEAN_IMAGE_PREFIX`（TCR 域名及命名空间）及 `OCEAN_GATEWAY_DIGEST`、`OCEAN_WEB_DIGEST`、`OCEAN_FASTAPI_DIGEST`、`OCEAN_POSTGRES_DIGEST`、`OCEAN_REDIS_DIGEST`（完整 `sha256:…`），使用独立只读 TCR 凭据登录后再执行：
 
 ```bash
 docker compose -f docker-compose.prod.yml pull
@@ -137,7 +138,7 @@ docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 300
 
 生产 `migrate` 服务运行 `prisma migrate deploy`，成功后启动新版 Gateway 和 Worker。迁移失败时，用 `docker compose -f docker-compose.prod.yml logs migrate` 查看原因。首次接管以前由 `db push` 初始化且缺少迁移记录的数据库时，先备份，在副本核对实际结构与迁移历史，再建立迁移基线。新空库可直接执行发布流程。
 
-使用语义技能匹配或嵌入生成时，将 `FASTAPI_URL` 设为 Gateway 容器可达的独立 FastAPI 地址。生产 Gateway 和 Web 分别默认绑定 `127.0.0.1:3000` 和 `127.0.0.1:8081`。宿主机反向代理可直接连接这两个地址。若入口在其他主机上，按需设置 `OCEAN_GATEWAY_BIND_IP` 或 `OCEAN_WEB_BIND_IP` 为相应宿主机地址。PostgreSQL、Redis 通过 Compose 网络访问。
+FastAPI 作为内部计算服务由生产 Compose 启动，Gateway 与 Worker 使用 `http://fastapi-backend:8000`，不发布该服务端口。生产 Gateway 和 Web 分别默认绑定 `127.0.0.1:3000` 和 `127.0.0.1:8081`。宿主机反向代理可直接连接这两个地址。若入口在其他主机上，按需设置 `OCEAN_GATEWAY_BIND_IP` 或 `OCEAN_WEB_BIND_IP` 为相应宿主机地址。PostgreSQL、Redis 通过 Compose 网络访问。
 
 升级现有部署前，检查旧 Gateway 容器的 `/app/apps/gateway/public/uploads`。若有文件，先用 `docker compose exec -T gateway tar -C /app/apps/gateway/public/uploads -cf - . > gateway-uploads.tar` 导出，再部署并将备份合并到新 Gateway 的同一目录。该目录现在由命名卷持久化。
 
