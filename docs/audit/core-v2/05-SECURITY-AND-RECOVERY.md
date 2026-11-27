@@ -6,7 +6,7 @@ Core 在 `agent-execution-engine.ts:339–400` 拒绝未结 prepared/unknown、�
 
 ## CV2-004 · P1 · 独立生产 Compose 规格遗漏 Worker
 
-`docker-compose.prod.yml:1–97` 启动 Gateway、Web、PostgreSQL、Jaeger、Redis。Gateway 镜像启动 HTTP 入口（`apps/gateway/Dockerfile:51`），AppModule 导入 RunModule（`apps/gateway/src/app.module.ts:54`），独立 Worker 的启动入口在 `apps/gateway/src/worker/main.ts:16`。因此仅按该生产规格启动时，`RunService.createInTransaction` 写入的 run.requested 缺少本规格内的消费者。常规 `docker-compose.yml:48–75` 有 Worker，f208d98 为引入记录，生产规格加入于 a959a94。 `.github/workflows/deploy.yml:120–138` 在服务器 `~/ocean` 运行无 `-f` 的 docker compose。不能据此确定线上使用哪份 Compose 或是否存在外部 Worker。
+`docker-compose.prod.yml:1–97` 启动 Gateway、Web、PostgreSQL、Redis。Gateway 镜像启动 HTTP 入口（`apps/gateway/Dockerfile:51`），AppModule 导入 RunModule（`apps/gateway/src/app.module.ts:54`），独立 Worker 的启动入口在 `apps/gateway/src/worker/main.ts:16`。因此仅按该生产规格启动时，`RunService.createInTransaction` 写入的 run.requested 缺少本规格内的消费者。常规 `docker-compose.yml:48–75` 有 Worker，f208d98 为引入记录，生产规格加入于 a959a94。 `.github/workflows/deploy.yml:120–138` 在服务器 `~/ocean` 运行无 `-f` 的 docker compose。不能据此确定线上使用哪份 Compose 或是否存在外部 Worker。
 
 验收以实际发布规格启动干净环境，断言 HTTP readiness、Worker 消费、完整 Run/SSE 终止和重启恢复。统一版本及依赖配置后收敛重复规格。
 
