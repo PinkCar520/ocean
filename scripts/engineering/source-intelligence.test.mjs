@@ -98,3 +98,27 @@ test('maps unbuilt workspace exports without claiming compiler resolution or ign
   assert.equal(report.entryPoints.filter(e => e.status === 'mapped').length,2);
   assert.equal(report.entryPoints.filter(e => e.status === 'pattern').length,1);
 });
+
+test('inventories framework and declared runtime roots without asserting unsupported languages are analyzed', t => {
+  const root = mkdtempSync(path.join(os.tmpdir(),'ocean-source-runtime-'));
+  t.after(() => rmSync(root,{recursive:true,force:true}));
+  const fixture = {
+    'apps/web/package.json': '{"name":"web","dependencies":{"next":"1"}}',
+    'apps/web/src/app/page.tsx': 'export default function Page() { return null; }',
+    'apps/web/src/app/helper.ts': 'export const helpers = import.meta.glob("./*.tsx");',
+    'apps/desktop/index.html': '<html></html>',
+    'apps/desktop/src/renderer.ts': 'export const x = 1;',
+    'products/olo/App.swift': 'import SwiftUI'
+  };
+  for (const [name,content] of Object.entries(fixture)) {
+    const file = path.join(root,name); mkdirSync(path.dirname(file),{recursive:true}); writeFileSync(file,content);
+  }
+  const config = {entries:[{path:'apps/desktop/src/renderer.ts',kind:'renderer',evidence:'apps/desktop/index.html'},{path:'apps/desktop/missing.ts',kind:'main',evidence:'apps/desktop/index.html'}]};
+  const report = analyze(root,Object.keys(fixture),null,config);
+  assert.ok(report.runtimeEntries.some(e => e.path.endsWith('/page.tsx') && e.status === 'convention-candidate'));
+  assert.ok(report.runtimeEntries.some(e => e.kind === 'renderer' && e.status === 'declared'));
+  assert.equal(report.runtimeDiagnostics.length,1);
+  assert.ok(report.unknownDynamicReferences.some(e => e.kind === 'import-meta-glob'));
+  assert.ok(report.unanalysedSources.some(e => e.path === 'products/olo/App.swift'));
+  assert.match(report.files[0].sha256,/^[a-f0-9]{64}$/);
+});

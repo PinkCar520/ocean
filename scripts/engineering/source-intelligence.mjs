@@ -1,5 +1,6 @@
 import ts from 'typescript';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +14,7 @@ const sorted = values => [...values].sort(compare);
 const within = (file, dir) => dir === '.' || file.startsWith(dir + '/');
 const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
-export function analyze(root, tracked, revision = null) {
+export function analyze(root, tracked, revision = null, runtimeConfig = { entries: [] }) {
   root = path.resolve(root);
   const relative = file => slash(path.relative(root, file));
   const files = sorted(new Set(tracked.filter(f => SOURCE.test(f) && OWNED.test(f))));
@@ -56,6 +57,27 @@ export function analyze(root, tracked, revision = null) {
     return { path: path.posix.dirname(file), name: manifest.name ?? null, manifest };
   });
   const workspaces = packageData.map(({path,name}) => ({path,name}));
+  const runtimeEntries = [];
+  const runtimeDiagnostics = [];
+  for (const entry of runtimeConfig.entries) {
+    if (typeof entry.path !== 'string' || typeof entry.evidence !== 'string' || !entry.kind) throw new Error('Invalid runtime entry');
+    const present = trackedSet.has(entry.path) && existsSync(path.join(root,entry.path));
+    const evidencePresent = trackedSet.has(entry.evidence) && existsSync(path.join(root,entry.evidence));
+    runtimeEntries.push({ ...entry, status: present && evidencePresent ? 'declared' : 'missing' });
+    if (!present || !evidencePresent) runtimeDiagnostics.push({ path: entry.path, evidence: entry.evidence, present, evidencePresent });
+  }
+  // Next.js file-system routing is not represented by ordinary imports.
+  for (const pkg of packageData.filter(p => p.manifest.dependencies?.next || p.manifest.devDependencies?.next)) {
+    const appRoots = [pkg.path+'/app/',pkg.path+'/src/app/'];
+    const pagesRoots = [pkg.path+'/pages/',pkg.path+'/src/pages/'];
+    for (const file of files.filter(f => within(f,pkg.path))) {
+      const appRoute = appRoots.some(prefix => file.startsWith(prefix)) && /(?:^|\/)(page|layout|route|loading|error|not-found|template|default|global-error|global-not-found|forbidden|unauthorized|sitemap|robots|manifest|opengraph-image|twitter-image|icon|apple-icon)\.[jt]sx?$/.test(file);
+      const pageRoute = pagesRoots.some(prefix => file.startsWith(prefix)) && !/\.d\.ts$/.test(file);
+      const special = [pkg.path,pkg.path+'/src'].some(dir => path.posix.dirname(file) === dir) && /^(middleware|proxy|instrumentation|instrumentation-client|next\.config)\.[cm]?[jt]sx?$/.test(path.posix.basename(file));
+      if (appRoute || pageRoute || special) runtimeEntries.push({ path: file, kind: 'next-convention', evidence: pkg.path+'/package.json', status: 'convention-candidate' });
+    }
+  }
+  runtimeEntries.sort((a,b) => compare(a.path,b.path) || compare(a.kind,b.kind));
   // Generated JS and declarations often do not exist in a clean checkout.
   // Use explicit compiler rootDir/outDir to project package targets back to
   // tracked sources; distinguish this evidence from compiler resolution.
@@ -144,7 +166,7 @@ export function analyze(root, tracked, revision = null) {
         return { name: symbol.getName(), type: !!(target.flags & ts.SymbolFlags.Type), value: !!(target.flags & ts.SymbolFlags.Value),
           declarations: sorted(new Set((target.declarations ?? []).map(d => relative(d.getSourceFile().fileName)).filter(p => trackedSet.has(p)))) };
       }).sort((a,b) => compare(a.name,b.name)) : [];
-      records.push({ path: file, workspace: workspaceOf(file), config, configs: contexts.get(file), exports });
+      records.push({ path: file, workspace: workspaceOf(file), config, configs: contexts.get(file), sha256: createHash('sha256').update(readFileSync(path.join(root,file))).digest('hex'), exports });
       function add(node, expression, kind, names = [], typeOnly = false) {
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
         if (!expression || !ts.isStringLiteralLike(expression)) {
@@ -209,6 +231,11 @@ export function analyze(root, tracked, revision = null) {
         } else if (ts.isCallExpression(node)) {
           if (node.expression.kind === ts.SyntaxKind.ImportKeyword) add(node,node.arguments[0],'dynamic-import',['*']);
           else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') add(node,node.arguments[0],'require',['*']);
+          else if (ts.isPropertyAccessExpression(node.expression) && node.expression.expression.getText(sf) === 'require' && node.expression.name.text === 'resolve') add(node,node.arguments[0],'require-resolve',['*']);
+          else if (ts.isPropertyAccessExpression(node.expression) && node.expression.expression.getText(sf) === 'import.meta' && ['glob','globEager'].includes(node.expression.name.text)) {
+            const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+            unknown.push({ from: file, config, line, kind: 'import-meta-glob', expression: node.arguments[0]?.getText(sf) ?? null });
+          }
         }
         ts.forEachChild(node,visit);
       }
@@ -225,8 +252,10 @@ export function analyze(root, tracked, revision = null) {
   usages.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || a.column-b.column || compare(a.name,b.name));
   edges.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind) || compare(a.specifier,b.specifier));
   unknown.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind));
+  const unanalysedSources = sorted(tracked.filter(f => !sourceSet.has(f) && /\.(swift|py|sh|bash|zsh|m|mm|h|c|cc|cpp|rs|go|java|kt|rb|css|scss|html|[cm]?[jt]sx?)$/.test(f)))
+    .map(file => ({ path: file, reason: file.startsWith('restored-src/') ? 'reference-source' : 'unsupported-language-or-scope' }));
   return { schemaVersion: 1, revision, scope: { include: ['apps','packages','agents','scripts','deploy'], language: 'JS/TS', trackedOnly: true, excludedTrackedSourceCount: tracked.filter(f => SOURCE.test(f) && !OWNED.test(f)).length },
-    workspaces, entryPoints, coverage: { expected: files.length, analyzed: inventory.length, missing: sorted(new Set(missing)), withoutConfig: inventory.filter(r => !r.config).map(r => r.path), configurationDiagnostics },
+    workspaces, entryPoints, runtimeEntries, runtimeDiagnostics, unanalysedSources, coverage: { expected: files.length, analyzed: inventory.length, missing: sorted(new Set(missing)), withoutConfig: inventory.filter(r => !r.config).map(r => r.path), configurationDiagnostics },
     files: inventory, edges, symbolUsages: usages, unknownDynamicReferences: unknown };
 }
 
@@ -236,9 +265,10 @@ function main() {
   if (args.length && (args.length !== 2 || args[0] !== '--output')) throw new Error('Usage: pnpm audit:source [--output FILE]');
   const tracked = git(root,['ls-files','-z']).split('\0').filter(Boolean);
   const revision = { commit: git(root,['rev-parse','HEAD']).trim(), dirty: !!git(root,['status','--porcelain','--untracked-files=no']).trim() };
-  const report = analyze(root,tracked,revision);
+  const runtimeConfig = JSON.parse(readFileSync(new URL('./runtime-entries.json',import.meta.url),'utf8'));
+  const report = analyze(root,tracked,revision,runtimeConfig);
   const json = JSON.stringify(report,null,2) + '\n';
   if (args.length) writeFileSync(path.resolve(args[1]),json); else process.stdout.write(json);
-  if (report.coverage.missing.length) process.exitCode = 1;
+  if (report.coverage.missing.length || report.runtimeDiagnostics.length) process.exitCode = 1;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

@@ -13,6 +13,8 @@ CI generates the report as an artifact; the fixture tests exercise aliases, reex
 
 Package manifest entry points and conditional exports are inventoried. Where compiled workspace artifacts are absent, explicit rootDir/outDir projections provide source candidates; projected and ambiguous edges are not treated as compiler-resolved. Export restrictions are respected by the projection. Pattern declarations are reported separately.
 
+Runtime roots declared in `scripts/engineering/runtime-entries.json` record their configuration evidence. Missing tracked paths fail the command. Next.js route conventions are inventoried as candidates, not proof of runtime reachability. Other languages and reference sources are listed explicitly as unanalyzed. Each analyzed file has a content hash for evidence comparison.
+
 The report is evidence, not a dead-code verdict. Generated package declarations, runtime plugins, CSS imports, assets, framework conventions, nonliteral imports and Swift require further analysis. An unresolved edge does not imply unused code. The current stage does not enforce dependency boundaries or claim full semantic usage analysis. Run after dependencies are installed; build workspace packages when analyzing generated declaration resolution.
 
 No business code is changed.

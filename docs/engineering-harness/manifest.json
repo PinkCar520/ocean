@@ -11,8 +11,8 @@
         ".github/workflows/ci.yml"
       ],
       "remaining": [
-        "runtime and framework entry points",
-        "non-TypeScript coverage",
+        "additional runtime entry mechanisms and generated code resolution",
+        "non-TypeScript semantic coverage",
         "independent verification"
       ]
     },

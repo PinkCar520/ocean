@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "kind": "electron-main",
+      "evidence": "apps/desktop/electron.vite.config.ts"
+    },
+    {
+      "path": "apps/desktop/src/preload/index.ts",
+      "kind": "electron-preload",
+      "evidence": "apps/desktop/electron.vite.config.ts"
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/main.tsx",
+      "kind": "electron-renderer",
+      "evidence": "apps/desktop/src/renderer/index.html"
+    },
+    {
+      "path": "apps/cli/src/workspace-host.ts",
+      "kind": "electron-bundled-workspace-host",
+      "evidence": "apps/desktop/electron.vite.config.ts"
+    },
+    {
+      "path": "apps/gateway/src/main.ts",
+      "kind": "nest-main",
+      "evidence": "apps/gateway/nest-cli.json"
+    },
+    {
+      "path": "apps/gateway/src/worker/main.ts",
+      "kind": "gateway-worker",
+      "evidence": "apps/gateway/package.json"
+    }
+  ]
+}
