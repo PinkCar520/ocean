@@ -122,3 +122,29 @@ test('inventories framework and declared runtime roots without asserting unsuppo
   assert.ok(report.unanalysedSources.some(e => e.path === 'products/olo/App.swift'));
   assert.match(report.files[0].sha256,/^[a-f0-9]{64}$/);
 });
+
+test('captures transitive shared source under consumer compiler settings, not just owning roots', t => {
+  const root=mkdtempSync(path.join(os.tmpdir(),'ocean-source-consumer-'));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const fixture={
+    'packages/ui/tsconfig.json':'{"compilerOptions":{"module":"esnext","moduleResolution":"bundler","paths":{"@theme":["./src/theme.ts"]}},"include":["src"]}',
+    'packages/ui/src/component.ts':'import {theme} from "@theme"; export const component=theme;',
+    'packages/ui/src/theme.ts':'export const theme="shared";',
+    'apps/web/tsconfig.json':'{"compilerOptions":{"module":"esnext","moduleResolution":"bundler","paths":{"@theme":["./src/theme.ts"],"@component":["../../packages/ui/src/component.ts"]}},"include":["src"]}',
+    'apps/web/src/main.ts':'import {component} from "@component"; export const app=component;',
+    'apps/web/src/theme.ts':'export const theme="web";'
+  };
+  for(const [name,content] of Object.entries(fixture)){
+    const absolute=path.join(root,name);mkdirSync(path.dirname(absolute),{recursive:true});writeFileSync(absolute,content);
+  }
+  const result=analyze(root,Object.keys(fixture));
+  const component=result.files.find(f=>f.path==='packages/ui/src/component.ts');
+  assert.deepEqual(component.configs,['apps/web/tsconfig.json','packages/ui/tsconfig.json']);
+  assert.deepEqual(component.owningConfigs,['packages/ui/tsconfig.json']);
+  assert.equal(component.config,'packages/ui/tsconfig.json');
+  const edges=result.edges.filter(e=>e.from===component.path&&e.specifier==='@theme');
+  assert.deepEqual(edges.map(e=>[e.config,e.target]),[
+    ['apps/web/tsconfig.json','apps/web/src/theme.ts'],
+    ['packages/ui/tsconfig.json','packages/ui/src/theme.ts']
+  ]);
+});

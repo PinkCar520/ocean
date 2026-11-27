@@ -44,8 +44,10 @@ export function analyze(root, tracked, revision = null, runtimeConfig = { entrie
       Number(path.posix.basename(a) !== 'tsconfig.json') - Number(path.posix.basename(b) !== 'tsconfig.json') || compare(a,b));
     // Analyze each owning configuration, not just the first matching tsconfig.
     const depth = candidates[0] ? path.posix.dirname(candidates[0]).length : -1;
-    const applicable = candidates.filter(c => path.posix.dirname(c).length === depth);
-    contexts.set(file, applicable);
+    const owning = candidates.filter(c => path.posix.dirname(c).length === depth);
+    const explicitConsumers = configs.filter(c => configData.has(c) && !within(file,path.posix.dirname(c)) && configData.get(c).roots.has(file));
+    const applicable = [...new Set([...owning,...explicitConsumers])];
+    contexts.set(file, owning);
     for (const config of applicable.length ? applicable : [null]) {
       if (!groups.has(config)) groups.set(config, []);
       groups.get(config).push(file);
@@ -157,9 +159,17 @@ export function analyze(root, tracked, revision = null, runtimeConfig = { entrie
     const program = ts.createProgram(members.map(f => path.join(root, f)), options, host);
     const checker = program.getTypeChecker();
     const cache = ts.createModuleResolutionCache(root, host.getCanonicalFileName, options);
-    for (const file of members) {
-      const sf = program.getSourceFile(path.join(root,file));
-      if (!sf) { missing.push(file); continue; }
+    // Compiler programs also load tracked sources transitively, including
+    // shared UI through Web/Desktop aliases. Inventory those contexts instead
+    // of only scanning the project's explicitly owned root files.
+    const loaded = new Map();
+    for (const sf of program.getSourceFiles()) {
+      let file = relative(sf.fileName);
+      if (!sourceSet.has(file) && sf.fileName.includes(path.sep+'node_modules'+path.sep) && existsSync(sf.fileName)) file = relative(realpathSync(sf.fileName));
+      if (sourceSet.has(file) && !loaded.has(file)) loaded.set(file,sf);
+    }
+    for (const file of members) if (!loaded.has(file)) missing.push(file);
+    for (const [file,sf] of [...loaded].sort(([a],[b])=>compare(a,b))) {
       const moduleSymbol = checker.getSymbolAtLocation(sf);
       const exports = moduleSymbol ? checker.getExportsOfModule(moduleSymbol).map(symbol => {
         const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
@@ -248,14 +258,18 @@ export function analyze(root, tracked, revision = null, runtimeConfig = { entrie
     if (!uniqueFiles.has(record.path)) uniqueFiles.set(record.path, { ...record, contexts: [] });
     uniqueFiles.get(record.path).contexts.push({ config: record.config, exports: record.exports });
   }
-  const inventory = [...uniqueFiles.values()];
+  const inventory = [...uniqueFiles.values()].map(record => {
+    const owning = contexts.get(record.path) ?? [];
+    const primary = record.contexts.find(c=>owning.includes(c.config)) ?? record.contexts.find(c=>c.config!==null) ?? record.contexts[0];
+    return {...record,config:primary.config,exports:primary.exports,configs:sorted(new Set(record.contexts.map(c=>c.config).filter(c=>c!==null))),owningConfigs:owning};
+  });
   usages.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || a.column-b.column || compare(a.name,b.name));
   edges.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind) || compare(a.specifier,b.specifier));
   unknown.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind));
   const unanalysedSources = sorted(tracked.filter(f => !sourceSet.has(f) && /\.(swift|py|sh|bash|zsh|m|mm|h|c|cc|cpp|rs|go|java|kt|rb|css|scss|html|[cm]?[jt]sx?)$/.test(f)))
     .map(file => ({ path: file, reason: file.startsWith('restored-src/') ? 'reference-source' : 'unsupported-language-or-scope' }));
   return { schemaVersion: 1, revision, scope: { include: ['apps','packages','agents','scripts','deploy'], language: 'JS/TS', trackedOnly: true, excludedTrackedSourceCount: tracked.filter(f => SOURCE.test(f) && !OWNED.test(f)).length },
-    workspaces, entryPoints, runtimeEntries, runtimeDiagnostics, unanalysedSources, coverage: { expected: files.length, analyzed: inventory.length, missing: sorted(new Set(missing)), withoutConfig: inventory.filter(r => !r.config).map(r => r.path), configurationDiagnostics },
+    workspaces, entryPoints, runtimeEntries, runtimeDiagnostics, unanalysedSources, coverage: { expected: files.length, analyzed: inventory.length, missing: sorted(new Set(missing)), withoutConfig: inventory.filter(r => !r.configs.length).map(r => r.path), configurationDiagnostics },
     files: inventory, edges, symbolUsages: usages, unknownDynamicReferences: unknown };
 }
 
