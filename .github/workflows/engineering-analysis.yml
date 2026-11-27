@@ -25,6 +25,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run audit:tools:test
       - run: pnpm run audit:health "$RUNNER_TEMP/engineering"
+      - name: Enforce architecture boundaries
+        run: |
+          node scripts/engineering/architecture-gate.mjs "$RUNNER_TEMP/engineering/graph" scripts/engineering/architecture-baseline.json | tee "$RUNNER_TEMP/engineering/architecture-gate.json"
+        shell: bash
       - uses: actions/upload-artifact@v4
         if: always()
         with:

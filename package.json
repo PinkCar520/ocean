@@ -28,7 +28,8 @@
     "audit:duplicates": "jscpd apps packages agents scripts --config .jscpd.json",
     "audit:graph": "node scripts/engineering/toolchain.mjs graph",
     "audit:health": "node scripts/engineering/toolchain.mjs health",
-    "audit:tools:test": "node --test scripts/engineering/toolchain.test.mjs"
+    "audit:tools:test": "node --test scripts/engineering/toolchain.test.mjs scripts/engineering/architecture-gate.test.mjs",
+    "audit:architecture": "node scripts/engineering/architecture-gate.mjs reports/engineering/graph scripts/engineering/architecture-baseline.json"
   },
   "devDependencies": {
     "dependency-cruiser": "18.9.0",
