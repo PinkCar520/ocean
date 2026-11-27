@@ -23,7 +23,9 @@
     "ci:unit": "pnpm --filter @ocean/core test && pnpm --filter @ocean/cli test && pnpm --filter gateway test --runInBand",
     "ci:e2e": "pnpm --filter gateway test:e2e",
     "ci:faults": "pnpm --filter @ocean/cli test:faults && pnpm --filter gateway test:faults",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "audit:source": "node scripts/engineering/source-intelligence.mjs",
+    "audit:test": "node --test scripts/engineering/*.test.mjs"
   },
   "devDependencies": {
     "prettier": "^3.2.0",

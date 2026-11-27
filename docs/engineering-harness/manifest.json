@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "EH-01",
+      "name": "Source Intelligence",
+      "status": "PARTIAL",
+      "evidence": [
+        "scripts/engineering/source-intelligence.mjs",
+        "scripts/engineering/source-intelligence.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "remaining": [
+        "semantic symbol usage and non-TypeScript coverage",
+        "complete workspace resolution and runtime entry points",
+        "independent verification"
+      ]
+    },
+    {
+      "id": "EH-02",
+      "name": "Code Health",
+      "status": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "EH-03",
+      "name": "Architecture Governance",
+      "status": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "EH-04",
+      "name": "Automated Refactoring",
+      "status": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "EH-05",
+      "name": "Verification Engineering",
+      "status": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "EH-06",
+      "name": "Agent Governance",
+      "status": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "EH-07",
+      "name": "Continuous Maintenance",
+      "status": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "EH-08",
+      "name": "Quality Gates",
+      "status": "NOT_IMPLEMENTED"
+    }
+  ]
+}
