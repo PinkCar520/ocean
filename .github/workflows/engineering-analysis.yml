@@ -24,7 +24,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run audit:tools:test
-      - run: pnpm run audit:health -- "$RUNNER_TEMP/engineering"
+      - run: pnpm run audit:health "$RUNNER_TEMP/engineering"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
