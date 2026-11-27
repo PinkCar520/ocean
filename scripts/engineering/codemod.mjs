@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, realpathSync, lstatSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { analyze } from './source-intelligence.mjs';
 
 const hash = s => createHash('sha256').update(s).digest('hex');
 const git = (root,args) => execFileSync('git',args,{cwd:root,encoding:'utf8',maxBuffer:64*1024*1024});
@@ -55,25 +56,41 @@ export function plan(root,trackedFiles,rules,revision=null) {
   const tracked=new Set(trackedFiles);
   if(!Array.isArray(rules)||!rules.length)throw Error('At least one explicit rewrite rule is required');
   const byFile=new Map();
+  const sourceReport=analyze(root,trackedFiles,revision===null?null:{commit:revision,dirty:false});
+  const inventory=new Map(sourceReport.files.map(f=>[f.path,f]));
+  if(sourceReport.coverage.missing.length)throw Error('Incomplete source intelligence; cannot plan a safe rewrite');
   for(const rule of rules){
     if(!rule||typeof rule.from!=='string'||typeof rule.to!=='string'||!rule.from||!rule.to||rule.from===rule.to||!Array.isArray(rule.configs)||!rule.configs.length)throw Error('Invalid rewrite rule');
     const absolute=checkedPath(root,rule.file,tracked);
     if(!byFile.has(rule.file))byFile.set(rule.file,{absolute,source:readFileSync(absolute,'utf8'),rules:[]});
     const state=byFile.get(rule.file);
+    const record=inventory.get(rule.file);
+    if(!record||record.sha256!==hash(state.source)||!record.configs.length||record.contexts.some(c=>c.config===null))throw Error('Missing compiler context coverage: '+rule.file);
+    const requested=[...new Set(rule.configs)].sort(order);
+    if(JSON.stringify(requested)!==JSON.stringify(record.configs))throw Error('Rule must cover every observed compiler context: '+rule.file+' '+record.configs.join(', '));
+    const oldEdges=sourceReport.edges.filter(e=>e.from===rule.file&&e.specifier===rule.from);
+    if(!oldEdges.length||oldEdges.some(e=>!['import','reexport','import-equals','import-type','dynamic-import'].includes(e.kind)||e.status!=='source'))throw Error('Unsupported or unresolved existing module edge: '+rule.file+' '+rule.from);
     if(state.rules.some(r=>r.from===rule.from||r.from===rule.to||r.to===rule.from))throw Error('Overlapping rewrite rules: '+rule.file);
     // Compare real module targets in every explicitly selected compiler context.
     // No rewrite of different implementations or unresolved imports is allowed.
     const resolutions=[];
     for(const config of [...new Set(rule.configs)].sort(order)){
       const options=compilerOptions(root,config,tracked);
-      const resolve=specifier=>{
-        const result=ts.resolveModuleName(specifier,absolute,options,ts.sys).resolvedModule?.resolvedFileName;
+      const resolve=(specifier,mode)=>{
+        const result=ts.resolveModuleName(specifier,absolute,options,ts.sys,undefined,undefined,mode).resolvedModule?.resolvedFileName;
         return result?realpathSync(result):null;
       };
-      const old=resolve(rule.from),next=resolve(rule.to);
-      if(!old||!next||old!==next)throw Error('Module identity not preserved: '+rule.file+' ('+config+'): '+rule.from+' -> '+rule.to);
-      const target=path.relative(root,old).split(path.sep).join('/');
-      if(!tracked.has(target))throw Error('Target is not tracked: '+target);
+      // Check both import and require conditional resolutions conservatively.
+      // A mode-dependent or unresolved package target must be handled separately.
+      const targets=new Set();
+      for(const mode of [ts.ModuleKind.ESNext,ts.ModuleKind.CommonJS]){
+        const old=resolve(rule.from,mode),next=resolve(rule.to,mode);
+        if(!old||!next||old!==next)throw Error('Module identity not preserved: '+rule.file+' ('+config+'): '+rule.from+' -> '+rule.to);
+        targets.add(path.relative(root,old).split(path.sep).join('/'));
+      }
+      if(targets.size!==1)throw Error('Mode-dependent module identity: '+rule.file+' '+rule.from);
+      const [target]=targets;
+      if(!tracked.has(target)||!oldEdges.filter(e=>e.config===config).length||oldEdges.some(e=>e.config===config&&e.target!==target))throw Error('Target does not match compiler evidence: '+target);
       resolutions.push({config,target});
     }
     state.rules.push({...rule,resolutions});

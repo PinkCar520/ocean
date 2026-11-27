@@ -15,6 +15,6 @@ node scripts/engineering/codemod.mjs apply /tmp/ocean-plan.json
 
 Preview never changes source and cannot overwrite an existing plan. Apply requires a clean tracked checkout and the exact planned commit, recomputes the plan and verifies hashes, and attempts rollback on write failure. It rewrites literal imports, reexports, import types and dynamic imports, not comments, arbitrary string values or potentially shadowed require calls. It does not delete files.
 
-The chosen configs must cover every real host that compiles the file. This tool currently cannot prove coverage of all contexts, mode-dependent package exports, behavioral equivalence of distinct components, or runtime loader references. Those require source-intelligence integration, cross-host tests and independent review before UI consolidation. The older AI SDK migration script is not replaced by this narrow tool. No product code is changed.
+The rule must cover every compiler context found by the source-intelligence analyzer, including consuming hosts. Both import and require resolution modes must preserve one tracked module identity; unsupported or unresolved old edges are rejected. This does not prove runtime-loader behavior, unobserved compiler contexts, or behavioral equivalence of distinct components. Those require source-intelligence integration, cross-host tests and independent review before UI consolidation. The older AI SDK migration script is not replaced by this narrow tool. No product code is changed.
 
 Status: PARTIAL, pending CI and independent acceptance.

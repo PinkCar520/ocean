@@ -36,7 +36,7 @@ test('preview does not modify source; apply validates module identity and hashes
  const result=apply(root,tracked,p,'abc');
  assert.equal(result.length,1);
  assert.match(readFileSync(path.join(root,file),'utf8'),/import \{ x \} from "@target"/);
- assert.throws(()=>apply(root,tracked,p,'abc'),/No matching|drift/);
+ assert.throws(()=>apply(root,tracked,p,'abc'),/No matching|drift|Unsupported or unresolved/);
 });
 test('different targets, unresolved aliases, modified plans and changed source are rejected',t=>{
  const {root,tracked,rule,source}=fixture(t);
@@ -49,4 +49,16 @@ test('different targets, unresolved aliases, modified plans and changed source a
  writeFileSync(path.join(root,file),source+'// edited\n');
  assert.throws(()=>apply(root,tracked,p,'abc'),/drift/);
  assert.equal(readFileSync(path.join(root,file),'utf8'),source+'// edited\n');
+});
+
+test('requires all observed consumer configurations and rejects unhandled require edges',t=>{
+ const {root,tracked,rule,source}=fixture(t);
+ const alt='apps/web/tsconfig.alt.json';
+ writeFileSync(path.join(root,alt),readFileSync(path.join(root,config),'utf8'));
+ tracked.push(alt);
+ assert.throws(()=>plan(root,tracked,[rule]),/every observed compiler context/);
+ const full={...rule,configs:[config,alt]};
+ assert.equal(plan(root,tracked,[full]).changes[0].rules[0].resolutions.length,2);
+ writeFileSync(path.join(root,file),source+'const stillThere = require("./target");\n');
+ assert.throws(()=>plan(root,tracked,[full]),/Unsupported or unresolved/);
 });
