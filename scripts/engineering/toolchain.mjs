@@ -45,7 +45,7 @@ function graph(output) {
 function health(output) {
   mkdirSync(output,{recursive:true});
   const dead = jsonResult(runTool(['knip','--reporter','json','--no-exit-code']),'knip');
-  if (!Array.isArray(dead.files) || !Array.isArray(dead.issues)) throw new Error('Unexpected Knip report schema');
+  if (!Array.isArray(dead.issues)) throw new Error('Unexpected Knip report schema');
   writeFileSync(path.join(output,'knip.json'),JSON.stringify(dead,null,2)+'\n');
   const duplicates = path.join(output,'duplicates');
   mkdirSync(duplicates,{recursive:true});
