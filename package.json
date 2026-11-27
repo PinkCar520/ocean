@@ -23,7 +23,12 @@
     "ci:unit": "pnpm --filter @ocean/core test && pnpm --filter @ocean/cli test && pnpm --filter gateway test --runInBand",
     "ci:e2e": "pnpm --filter gateway test:e2e",
     "ci:faults": "pnpm --filter @ocean/cli test:faults && pnpm --filter gateway test:faults",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "audit:dead": "knip --reporter json --no-exit-code",
+    "audit:duplicates": "jscpd apps packages agents scripts --config .jscpd.json",
+    "audit:graph": "node scripts/engineering/toolchain.mjs graph",
+    "audit:health": "node scripts/engineering/toolchain.mjs health",
+    "audit:tools:test": "node --test scripts/engineering/toolchain.test.mjs"
   },
   "devDependencies": {
     "dependency-cruiser": "18.9.0",
