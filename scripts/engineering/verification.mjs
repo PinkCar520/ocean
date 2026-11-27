@@ -35,6 +35,25 @@ export function validateMatrix(manifests,matrix){
  }
  for(const name of byName.keys())if(!covered.has(name))throw Error('Workspace missing from matrix: '+name);
 }
+export function orderedWorkspaces(manifests,matrix){
+ validateMatrix(manifests,matrix);
+ const byName=new Map(manifests.map(m=>[m.name,m]));
+ const entries=new Map(matrix.workspaces.map(e=>[e.name,e]));
+ const done=new Set(),active=new Set(),order=[];
+ function visit(name){
+  if(done.has(name))return;
+  if(active.has(name))throw Error('Cyclic workspace build dependency: '+[...active,name].join(' -> '));
+  active.add(name);
+  const m=byName.get(name);
+  for(const [dep,version] of Object.entries({...m.dependencies,...m.devDependencies,...m.optionalDependencies,...m.peerDependencies}).sort(([a],[b])=>a.localeCompare(b,'en'))){
+   if(byName.has(dep))visit(dep);
+   else if(typeof version==='string'&&version.startsWith('workspace:'))throw Error('Unresolved workspace dependency: '+name+' -> '+dep);
+  }
+  active.delete(name);done.add(name);order.push(entries.get(name));
+ }
+ for(const e of matrix.workspaces)visit(e.name);
+ return order;
+}
 function main(){
  const output=process.argv[2];
  if(!output)throw Error('Usage: node scripts/engineering/verification.mjs OUTPUT_DIRECTORY');
@@ -49,7 +68,7 @@ function main(){
  const report={revision:git(['rev-parse','HEAD']).trim(),results:[],external:matrix.workspaces.flatMap(e=>e.external.map(c=>({workspace:e.name,...c}))),gaps:matrix.workspaces.flatMap(e=>e.gaps.map(reason=>({workspace:e.name,reason})))};
  const persist=()=>writeFileSync(path.join(output,'verification.json'),JSON.stringify(report,null,2)+'\n');
  persist();
- for(const entry of matrix.workspaces){
+ for(const entry of orderedWorkspaces(manifests,matrix)){
   for(const args of entry.checks){
    const invocation=['--filter',entry.name,'--fail-if-no-match','run',...args];
    console.log('Verification: pnpm '+invocation.join(' '));
