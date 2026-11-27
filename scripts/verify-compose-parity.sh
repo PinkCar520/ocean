@@ -16,7 +16,7 @@ diff <(jq -S '.services | map_values(.depends_on // {} | map_values(.condition))
 for f in "$tmp/dev.json" "$tmp/prod.json"; do
   jq -e '.services | (.gateway.image == .worker.image and .worker.image == .migrate.image) and (.gateway.environment.FASTAPI_URL == "http://fastapi-backend:8000") and (.worker.environment.FASTAPI_URL == "http://fastapi-backend:8000")' "$f"
 done
-jq -e '.services | [.fastapi-backend,.postgres,.redis] | all((.ports // []) | length == 0)' "$tmp/prod.json"
+jq -e '.services | [.["fastapi-backend"],.postgres,.redis] | all((.ports // []) | length == 0)' "$tmp/prod.json"
 jq -e '.services | [.[] | .image] | unique | length == 5' "$tmp/prod.json"
 jq -e '.services | [.[] | .image] | all(startswith("ccr.ccs.tencentyun.com/ocean-test/") and test("@sha256:[a-f0-9]{64}$"))' "$tmp/prod.json"
 for service in postgres redis; do
