@@ -17,3 +17,19 @@ test('quality checks include types, unit tests, HTTP and fault regressions witho
  assert.match(ci, /--frozen-lockfile/);
  assert.doesNotMatch(ci, /continue-on-error|passWithNoTests|\|\| true/);
 });
+
+test('TCR publication is main-only, quality-gated and does not run on a production host', () => {
+ const deploy = read('.github/workflows/deploy.yml');
+ assert.doesNotMatch(deploy, /runs-on: self-hosted|DOCKERHUB_|type=raw,value=latest|pull_request_target/);
+ assert.match(deploy, /push:\s*\n\s+branches:\s*\n\s+- main\s*\n\s+workflow_dispatch:/);
+ for (const name of ['build-and-push-gateway', 'build-and-push-web']) {
+  const job = deploy.split(`  ${name}:`)[1].split(/\n  [\w-]+:/)[0];
+  assert.match(job, /environment: production/);
+  assert.match(job, /registry: ccr\.ccs\.tencentyun\.com/);
+  assert.match(job, /secrets\.TCR_USERNAME/);
+  assert.match(job, /secrets\.TCR_PASSWORD/);
+ }
+ assert.match(deploy, /verify-publication:[\s\S]*needs: \[prep, build-and-push-gateway, build-and-push-web\]/);
+ assert.match(deploy, /docker buildx imagetools inspect "\$image@\$digest"/);
+ assert.match(deploy, /ocean-release\.json/);
+});
