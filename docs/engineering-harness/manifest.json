@@ -113,5 +113,91 @@
     "reviewer": null,
     "commit": null,
     "evidence": []
+  },
+  "uiTrial": {
+    "scope": "packages/ui",
+    "modules": [
+      {
+        "id": "UI-M01",
+        "name": "Source and dependency audit",
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/source-intelligence.mjs",
+          "scripts/engineering/ui-primitive-audit.mjs"
+        ],
+        "remaining": [
+          "Complete runtime and dependency coverage"
+        ]
+      },
+      {
+        "id": "UI-M02",
+        "name": "Legacy cleanup",
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/toolchain.mjs",
+          "scripts/engineering/source-intelligence.mjs"
+        ],
+        "remaining": [
+          "Revalidate prior cleanup against actual findings; confirm all external and dynamic consumers"
+        ]
+      },
+      {
+        "id": "UI-M03",
+        "name": "Duplicate primitives",
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/ui-primitive-audit.mjs",
+          "scripts/engineering/ui-primitive-audit.test.mjs"
+        ],
+        "remaining": [
+          "Review candidates; prove equivalent behavior; migrate callers and validate both hosts"
+        ]
+      },
+      {
+        "id": "UI-M04",
+        "name": "Client boundary",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M05",
+        "name": "ChatSession decomposition",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M06",
+        "name": "Host adapters",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M07",
+        "name": "Public exports",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M08",
+        "name": "Cross-host regression",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      }
+    ]
   }
 }

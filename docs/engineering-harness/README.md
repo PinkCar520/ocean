@@ -26,3 +26,9 @@ The root [AGENTS.md](../../AGENTS.md) defines the execution and handoff contract
 See [static analysis](toolchain.md), [safe transformations](codemod.md), and [verification](verification.md). The existing reusable quality workflow now calls analysis, codemod, and workspace verification as jobs, so deploy's existing dependency on the quality workflow covers those jobs as well. Scheduled maintenance reuses analysis and validates the ledger and engineering documentation; it never modifies product code.
 
 The integration combines module work from PRs #99–#102. These are source provenance, not current independent acceptance. All modules remain PARTIAL. Branch protection settings and the packages/ui full trial are outstanding. Configuration rules and scope limitations are explicit rather than hidden by a success claim.
+
+## Shared UI trial
+
+`pnpm audit:ui SOURCE_REPORT OUTPUT` discovers same-name files directly under `components/` and `components/ui/`. It compares compiler-emitted runtime ASTs (relative import targets normalized), mutually assignable exports, exact string-literal changes, source hashes, import edges and symbol usages from the same clean revision. CI uploads the report next to source intelligence. A match is only a structural candidate, not proof of behavioral or visual equivalence. Unknown dynamic references, unresolved dependencies, public exports and other clone locations still require review. No component is automatically deleted.
+
+The same module ledger records UI-M01–M08; only the candidate-analysis step is implemented so far.

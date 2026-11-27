@@ -38,11 +38,15 @@ jobs:
         run: pnpm run audit:test
       - name: Generate tracked source intelligence
         run: pnpm run audit:source --output "$RUNNER_TEMP/source-intelligence.json"
+      - name: Audit shared UI primitive candidates
+        run: pnpm run audit:ui "$RUNNER_TEMP/source-intelligence.json" "$RUNNER_TEMP/ui-primitive-audit.json"
       - name: Publish source intelligence evidence
         uses: actions/upload-artifact@v4
         with:
           name: source-intelligence
-          path: ${{ runner.temp }}/source-intelligence.json
+          path: |
+            ${{ runner.temp }}/source-intelligence.json
+            ${{ runner.temp }}/ui-primitive-audit.json
           if-no-files-found: error
       - name: Generate Prisma client
         run: pnpm --filter gateway exec prisma generate
