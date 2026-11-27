@@ -1,0 +1,55 @@
+name: Engineering task
+description: Define a bounded engineering task with testable acceptance criteria.
+title: "[Task] "
+body:
+  - type: markdown
+    attributes:
+      value: Keep product capability status in the existing capability ledger. Use this issue to track the task and its delivery.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What outcome is required, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: Identify affected modules, constraints, and changes explicitly out of scope.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and capability IDs
+      description: Reference blocking issues and relevant capability IDs, or state none.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Include reproducible positive and negative tests, CI evidence, and any independent acceptance criteria.
+      placeholder: |
+        - [ ] Criterion with a reproducible test
+        - [ ] Required checks pass on the final SHA
+        - [ ] Independent acceptance evidence
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Delivery evidence
+      description: Add branch, PR, final SHA, check runs, artifacts, and unresolved limitations as work proceeds.
