@@ -35,9 +35,11 @@
     "audit:codemod": "node scripts/engineering/codemod.mjs",
     "audit:governance": "node scripts/engineering/governance.mjs",
     "audit:verify": "node scripts/engineering/verification.mjs",
-    "audit:ui": "node scripts/engineering/ui-primitive-audit.mjs"
+    "audit:ui": "node scripts/engineering/ui-primitive-audit.mjs",
+    "audit:ui:browser": "node scripts/engineering/browser/run.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
     "dependency-cruiser": "18.9.0",
     "jscpd": "5.4.3",
     "knip": "6.48.0",

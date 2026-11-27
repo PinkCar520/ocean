@@ -62,10 +62,13 @@
       "evidence": [
         "scripts/engineering/verification.mjs",
         "scripts/engineering/verification.test.mjs",
-        "scripts/engineering/verification-matrix.json"
+        "scripts/engineering/verification-matrix.json",
+        ".github/workflows/engineering-browser.yml",
+        "scripts/engineering/browser/primitive-browser.spec.mjs"
       ],
       "remaining": [
-        "Cross-host visual/interaction regression, native verification, all remaining workspace test gaps"
+        "Run shared primitive browser tests and verify screenshot evidence; establish reviewed pixel baselines",
+        "Production host end-to-end coverage, native verification and remaining workspace test gaps"
       ]
     },
     {
@@ -199,10 +202,14 @@
       {
         "id": "UI-M08",
         "name": "Cross-host regression",
-        "status": "NOT_IMPLEMENTED",
-        "evidence": [],
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/browser/primitive-browser.spec.mjs",
+          ".github/workflows/engineering-browser.yml",
+          "packages/ui/tests/browser/PrimitiveFixture.tsx"
+        ],
         "remaining": [
-          "Implementation and independent acceptance"
+          "Actual CI execution; reviewed visual baselines; production app route and native host end-to-end coverage; independent acceptance"
         ]
       }
     ]

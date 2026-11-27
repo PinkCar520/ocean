@@ -72,3 +72,6 @@ jobs:
     uses: ./.github/workflows/engineering-codemod.yml
   workspace-verification:
     uses: ./.github/workflows/engineering-verification.yml
+
+  engineering-browser:
+    uses: ./.github/workflows/engineering-browser.yml

@@ -5,7 +5,7 @@ const read=p=>readFileSync(new URL('../../'+p,import.meta.url),'utf8');
 test('shared quality workflow invokes all engineering checks as reusable jobs',()=>{
  const ci=read('.github/workflows/ci.yml');
  assert.match(ci,/workflow_call:/);
- for(const n of ['analysis','codemod','verification']){
+ for(const n of ['analysis','codemod','verification','browser']){
   assert.ok(ci.includes('uses: ./.github/workflows/engineering-'+n+'.yml'));
   const wf=read('.github/workflows/engineering-'+n+'.yml');
   assert.match(wf,/on:\s*\n\s+workflow_call:/);
