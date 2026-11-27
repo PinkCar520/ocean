@@ -2,8 +2,8 @@
 export { cn } from './lib/utils'
 
 // 原子 UI 组件
-export { Button, buttonVariants } from './components/button'
-export type { ButtonProps } from './components/button'
+export { Button, buttonVariants } from './components/ui/button'
+export type { ButtonProps } from './components/ui/button'
 export {
   Dialog,
   DialogClose,
@@ -16,7 +16,7 @@ export {
   DialogTitle,
   DialogTrigger,
 } from './components/dialog'
-export { Input } from './components/input'
+export { Input } from './components/ui/input'
 export {
   Tooltip,
   TooltipContent,

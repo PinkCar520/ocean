@@ -147,10 +147,15 @@
         "status": "PARTIAL",
         "evidence": [
           "scripts/engineering/ui-primitive-audit.mjs",
-          "scripts/engineering/ui-primitive-audit.test.mjs"
+          "scripts/engineering/ui-primitive-audit.test.mjs",
+          "packages/ui/src/components/ui/primitive-identity.spec.tsx",
+          "packages/ui/src/components/button.tsx",
+          "packages/ui/src/components/input.tsx"
         ],
         "remaining": [
-          "Review candidates; prove equivalent behavior; migrate callers and validate both hosts"
+          "Dialog and DropdownMenu differ in stacking, animation, icon sizing and client directive; preserve behavior before consolidating",
+          "Migrate internal callers to canonical paths; retain public compatibility exports until explicit API migration",
+          "Cross-host interaction and visual regression; independent acceptance"
         ]
       },
       {
