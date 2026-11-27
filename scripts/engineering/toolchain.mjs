@@ -40,7 +40,7 @@ function graph(output) {
     const report = jsonResult(result,name,[0,1]);
     if (!Array.isArray(report.modules) || !report.modules.length || !Array.isArray(report.summary?.violations)) throw new Error('Incomplete graph: '+name);
     writeFileSync(path.join(output,name+'.json'),JSON.stringify(report,null,2)+'\n');
-    summary.push({name,entry,config,modules:report.modules.length,violations:report.summary.violations.length,status:result.status});
+    summary.push({name,entry,config,modules:report.modules.length,violations:report.summary.violations.length,status:result.status,advisedExitCode:report.summary.advisedExitCode});
   }
   writeFileSync(path.join(output,'summary.json'),JSON.stringify(summary,null,2)+'\n');
 }

@@ -29,12 +29,15 @@ test('architecture tool rejects a real core-to-host import and accepts an intern
   copyFileSync(path.join(root,'.dependency-cruiser.cjs'),path.join(dir,'.dependency-cruiser.cjs'));
   const args=['depcruise','--config','.dependency-cruiser.cjs','--ts-config','tsconfig.json','--output-type','json','packages/shared/core/src'];
   const bad=runTool(args,dir);
-  assert.equal(bad.status,1,bad.stderr+'\n'+bad.stdout.slice(0,6000));
-  assert.ok(jsonResult(bad,'fixture',[1]).summary.violations.some(v=>v.rule.name==='core-cannot-import-host'));
+  const rejected = jsonResult(bad,'fixture',[0,1]);
+  assert.equal(rejected.summary.advisedExitCode,1);
+  assert.ok(rejected.summary.violations.some(v=>v.rule.name==='core-cannot-import-host'));
   writeFileSync(path.join(dir,'packages/shared/core/src/main.ts'),'import { local } from "./local"; export const value = local;');
   const good=runTool(args,dir);
   assert.equal(good.status,0,good.stderr+'\n'+good.stdout.slice(0,6000));
-  assert.equal(jsonResult(good,'fixture').summary.violations.length,0);
+  const accepted = jsonResult(good,'fixture');
+  assert.equal(accepted.summary.advisedExitCode,0);
+  assert.equal(accepted.summary.violations.length,0);
 });
 test('report parsing does not swallow execution or format errors',()=>{
   assert.throws(()=>jsonResult({status:2,stdout:'{}',stderr:'error'},'test'),/failed/);
