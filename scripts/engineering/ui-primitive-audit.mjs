@@ -116,18 +116,31 @@ export function auditUi(root,tracked,report){
   const api=apiComparison(checker,exported(checker,sfs[0]),exported(checker,sfs[1]));
   const runtimeAstMatch=shapes.every(s=>!s.diagnostics.length&&!s.unresolved.length)&&shapes[0].hash===shapes[1].hash;
   const apiMatch=!diagnostics.length&&api.length>0&&api.every(e=>e.mutuallyAssignable);
+  // A pure reexport is an API compatibility path, not a second implementation.
+  // Require every exported symbol to resolve to the same compiler symbol.
+  const leftExports=exported(checker,sfs[0]);
+  const rightExports=exported(checker,sfs[1]);
+  function aliasTarget(sf,other){
+   if(!sf.statements.length||!sf.statements.every(s=>ts.isExportDeclaration(s)&&s.moduleSpecifier&&ts.isStringLiteralLike(s.moduleSpecifier)))return false;
+   const direct=sf.statements.every(s=>ts.resolveModuleName(s.moduleSpecifier.text,sf.fileName,options,ts.sys).resolvedModule?.resolvedFileName===other.fileName);
+   if(!direct)return false;
+   const symbols=s=>new Map(checker.getExportsOfModule(checker.getSymbolAtLocation(s)).map(v=>[v.getName(),v.flags&ts.SymbolFlags.Alias?checker.getAliasedSymbol(v):v]));
+   const a=symbols(sf),b=symbols(other);
+   return a.size>0&&a.size===b.size&&[...a].every(([name,symbol])=>b.get(name)===symbol);
+  }
+  const compatibilityAlias=apiMatch&&((leftExports.size&&aliasTarget(sfs[0],sfs[1]))||(rightExports.size&&aliasTarget(sfs[1],sfs[0])))?true:false;
   const consumers=files.map(file=>({
    file,publicExportCandidates:entryExposure(report,file),
    importEdges:report.edges.filter(e=>e.target===file||e.sourceCandidates?.includes(file)),
    symbolUsages:(report.symbolUsages??[]).filter(u=>u.declarations?.some(d=>d.file===file))
   }));
-  return {left,right,runtimeAstMatch,apiMatch,classification:runtimeAstMatch&&apiMatch?'structural-match-candidate':'differences-or-unproven',
+  return {left,right,runtimeAstMatch,apiMatch,compatibilityAlias,classification:compatibilityAlias?'compatibility-reexport':runtimeAstMatch&&apiMatch?'structural-match-candidate':'differences-or-unproven',
    runtime:shapes,api,diagnostics,literalDifferences:{leftOnly:literals[0].filter(x=>!literals[1].includes(x)),rightOnly:literals[1].filter(x=>!literals[0].includes(x))},consumers};
  });
  return {schemaVersion:1,revision:report.revision,scope:'same-name files in packages/ui/src/components and components/ui only',
   unknownDynamicReferenceCount:report.unknownDynamicReferences.length,
   unresolvedEdgeCount:report.edges.filter(e=>e.status==='unresolved'||e.status==='ambiguous-source').length,
-  summary:{pairs:records.length,structuralMatchCandidates:records.filter(p=>p.classification==='structural-match-candidate').length,otherPairs:records.filter(p=>p.classification!=='structural-match-candidate').length},
+  summary:{pairs:records.length,structuralMatchCandidates:records.filter(p=>p.classification==='structural-match-candidate').length,compatibilityReexports:records.filter(p=>p.compatibilityAlias).length,otherPairs:records.filter(p=>p.classification==='differences-or-unproven').length},
   records};
 }
 function main(){
