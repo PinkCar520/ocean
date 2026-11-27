@@ -1,0 +1,37 @@
+name: Ocean Engineering Analysis
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run audit:tools:test
+      - run: pnpm run audit:health "$RUNNER_TEMP/engineering"
+      - name: Enforce architecture boundaries
+        run: |
+          node scripts/engineering/architecture-gate.mjs "$RUNNER_TEMP/engineering/graph" scripts/engineering/architecture-baseline.json | tee "$RUNNER_TEMP/engineering/architecture-gate.json"
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engineering-analysis
+          path: ${{ runner.temp }}/engineering
+          if-no-files-found: error
