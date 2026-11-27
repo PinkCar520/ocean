@@ -4,9 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 export function runTool(args, cwd = root) {
-  const run = spawnSync(pnpm, ['exec', ...args], { cwd, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, shell: process.platform === 'win32' });
+  const [tool,...flags] = args;
+  if (!['knip','jscpd','depcruise'].includes(tool)) throw new Error('Unsupported engineering tool: '+tool);
+  const binary = path.join(root,'node_modules','.bin',tool+(process.platform === 'win32' ? '.cmd' : ''));
+  const run = spawnSync(binary, flags, { cwd, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, shell: process.platform === 'win32' });
   if (run.error) throw run.error;
   return { status: run.status, stdout: run.stdout, stderr: run.stderr };
 }
