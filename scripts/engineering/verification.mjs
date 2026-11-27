@@ -21,7 +21,12 @@ export function validateMatrix(manifests,matrix){
   for(const command of entry.checks){
    if(!Array.isArray(command)||!command.length||!m.scripts?.[command[0]])throw Error('Missing workspace command: '+entry.name+' '+command);
   }
-  const accounted=new Set([...entry.checks.map(c=>c[0]),...entry.external.map(c=>c.script)]);
+  const indirect=entry.indirect??[];
+  if(!Array.isArray(indirect))throw Error('Invalid indirect coverage: '+entry.name);
+  for(const c of indirect){
+   if(!m.scripts?.[c.script]||!entry.checks.some(args=>args[0]===c.via)||!m.scripts[c.via].split('&&').some(command=>command.trim()==='pnpm run '+c.script))throw Error('Unproven indirect coverage: '+entry.name+' '+c.script);
+  }
+  const accounted=new Set([...entry.checks.map(c=>c[0]),...entry.external.map(c=>c.script),...indirect.map(c=>c.script)]);
   for(const command of ['build','typecheck','test']){
    if(m.scripts?.[command]&&!accounted.has(command))throw Error('Uncovered script: '+entry.name+' '+command);
   }

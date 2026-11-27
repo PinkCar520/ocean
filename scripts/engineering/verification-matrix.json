@@ -209,6 +209,12 @@
       "external": [],
       "gaps": [
         "Native platform packaging and UI interaction not verified by Linux build"
+      ],
+      "indirect": [
+        {
+          "script": "typecheck",
+          "via": "build"
+        }
       ]
     },
     {

@@ -9,3 +9,11 @@ test('rejects missing workspaces, missing scripts and invented checks',()=>{
  const b=structuredClone(matrix);b.workspaces[0].checks.pop();assert.throws(()=>validateMatrix(manifests,b),/Uncovered script/);
  const c=structuredClone(matrix);c.workspaces[0].checks.push(['build']);assert.throws(()=>validateMatrix(manifests,c),/Missing workspace command/);
 });
+
+test('nested typecheck is only covered if the executed script actually calls it',()=>{
+ const manifests=[{name:'desktop',scripts:{build:'pnpm run typecheck && electron-vite build',typecheck:'tsc'}}];
+ const matrix={schemaVersion:1,workspaces:[{name:'desktop',checks:[['build']],external:[],indirect:[{script:'typecheck',via:'build'}],gaps:[]}]};
+ assert.doesNotThrow(()=>validateMatrix(manifests,matrix));
+ manifests[0].scripts.build='electron-vite build';
+ assert.throws(()=>validateMatrix(manifests,matrix),/Unproven indirect coverage/);
+});
