@@ -11,8 +11,8 @@
         ".github/workflows/ci.yml"
       ],
       "remaining": [
-        "semantic symbol usage and non-TypeScript coverage",
         "complete workspace resolution and runtime entry points",
+        "non-TypeScript coverage",
         "independent verification"
       ]
     },

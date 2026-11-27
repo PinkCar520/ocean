@@ -34,15 +34,21 @@ export function analyze(root, tracked, revision = null) {
     configData.set(file, { options: parsed.options, roots: new Set(parsed.fileNames.map(relative)) });
   }
   const groups = new Map();
+  const contexts = new Map();
   const missing = [];
   for (const file of files) {
     if (!existsSync(path.join(root, file))) { missing.push(file); continue; }
     const candidates = configs.filter(c => configData.has(c) && within(file, path.posix.dirname(c)) && configData.get(c).roots.has(file));
     candidates.sort((a, b) => path.posix.dirname(b).length - path.posix.dirname(a).length ||
       Number(path.posix.basename(a) !== 'tsconfig.json') - Number(path.posix.basename(b) !== 'tsconfig.json') || compare(a,b));
-    const config = candidates[0] ?? null;
-    if (!groups.has(config)) groups.set(config, []);
-    groups.get(config).push(file);
+    // Analyze each owning configuration, not just the first matching tsconfig.
+    const depth = candidates[0] ? path.posix.dirname(candidates[0]).length : -1;
+    const applicable = candidates.filter(c => path.posix.dirname(c).length === depth);
+    contexts.set(file, applicable);
+    for (const config of applicable.length ? applicable : [null]) {
+      if (!groups.has(config)) groups.set(config, []);
+      groups.get(config).push(file);
+    }
   }
   const manifests = sorted(tracked.filter(f => f.endsWith('/package.json') && OWNED.test(f)));
   const workspaces = manifests.map(file => {
@@ -53,6 +59,7 @@ export function analyze(root, tracked, revision = null) {
   const records = [];
   const edges = [];
   const unknown = [];
+  const usages = [];
   for (const [config, members] of groups) {
     const options = { ...(configData.get(config)?.options ?? { module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.ReactJSX }), noEmit: true, allowJs: true, checkJs: false, skipLibCheck: true, incremental: false, composite: false };
     const host = ts.createCompilerHost(options);
@@ -68,11 +75,11 @@ export function analyze(root, tracked, revision = null) {
         return { name: symbol.getName(), type: !!(target.flags & ts.SymbolFlags.Type), value: !!(target.flags & ts.SymbolFlags.Value),
           declarations: sorted(new Set((target.declarations ?? []).map(d => relative(d.getSourceFile().fileName)).filter(p => trackedSet.has(p)))) };
       }).sort((a,b) => compare(a.name,b.name)) : [];
-      records.push({ path: file, workspace: workspaceOf(file), config, exports });
+      records.push({ path: file, workspace: workspaceOf(file), config, configs: contexts.get(file), exports });
       function add(node, expression, kind, names = [], typeOnly = false) {
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
         if (!expression || !ts.isStringLiteralLike(expression)) {
-          unknown.push({ from: file, line, kind, expression: expression?.getText(sf) ?? null });
+          unknown.push({ from: file, config, line, kind, expression: expression?.getText(sf) ?? null });
           return;
         }
         const specifier = expression.text;
@@ -89,10 +96,27 @@ export function analyze(root, tracked, revision = null) {
           const physical = existsSync(resolved) ? relative(realpathSync(resolved)) : logical;
           target = trackedSet.has(logical) ? logical : trackedSet.has(physical) ? physical : null;
         }
-        edges.push({ from: file, line, kind, specifier, names: sorted(names), typeOnly, target,
+        edges.push({ from: file, config, line, kind, specifier, names: sorted(names), typeOnly, target,
           status: target ? (sourceSet.has(target) ? 'source' : 'tracked-asset') : resolved ? 'resolved-outside-tracked-source' : 'unresolved' });
       }
       function visit(node) {
+        if (ts.isIdentifier(node)) {
+          const symbol = checker.getSymbolAtLocation(node);
+          const target = symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+          const declarations = (target?.declarations ?? []).filter(d => trackedSet.has(relative(d.getSourceFile().fileName)));
+          // Record cross-file semantic bindings only; local references are not
+          // used as evidence of a cross-module dependency.
+          const bindings = declarations.map(d => {
+            const origin = d.getSourceFile();
+            const position = origin.getLineAndCharacterOfPosition(d.getStart(origin));
+            return { file: relative(origin.fileName), line: position.line + 1, column: position.character + 1 };
+          }).filter(d => d.file !== file);
+          if (bindings.length) {
+            const position = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+            usages.push({ from: file, config, line: position.line + 1, column: position.character + 1, name: node.text,
+              symbol: target.getName(), declarations: bindings.sort((a,b) => compare(a.file,b.file) || a.line-b.line || a.column-b.column) });
+          }
+        }
         if (ts.isImportDeclaration(node)) {
           const clause = node.importClause;
           const names = [];
@@ -118,12 +142,19 @@ export function analyze(root, tracked, revision = null) {
       visit(sf);
     }
   }
-  records.sort((a,b) => compare(a.path,b.path));
-  edges.sort((a,b) => compare(a.from,b.from) || a.line-b.line || compare(a.kind,b.kind) || compare(a.specifier,b.specifier));
-  unknown.sort((a,b) => compare(a.from,b.from) || a.line-b.line || compare(a.kind,b.kind));
+  records.sort((a,b) => compare(a.path,b.path) || compare(a.config ?? '',b.config ?? ''));
+  const uniqueFiles = new Map();
+  for (const record of records) {
+    if (!uniqueFiles.has(record.path)) uniqueFiles.set(record.path, { ...record, contexts: [] });
+    uniqueFiles.get(record.path).contexts.push({ config: record.config, exports: record.exports });
+  }
+  const inventory = [...uniqueFiles.values()];
+  usages.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || a.column-b.column || compare(a.name,b.name));
+  edges.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind) || compare(a.specifier,b.specifier));
+  unknown.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind));
   return { schemaVersion: 1, revision, scope: { include: ['apps','packages','agents','scripts','deploy'], language: 'JS/TS', trackedOnly: true, excludedTrackedSourceCount: tracked.filter(f => SOURCE.test(f) && !OWNED.test(f)).length },
-    workspaces, coverage: { expected: files.length, analyzed: records.length, missing: sorted(missing), withoutConfig: records.filter(r => !r.config).map(r => r.path), configurationDiagnostics },
-    files: records, edges, unknownDynamicReferences: unknown };
+    workspaces, coverage: { expected: files.length, analyzed: inventory.length, missing: sorted(new Set(missing)), withoutConfig: inventory.filter(r => !r.config).map(r => r.path), configurationDiagnostics },
+    files: inventory, edges, symbolUsages: usages, unknownDynamicReferences: unknown };
 }
 
 function main() {

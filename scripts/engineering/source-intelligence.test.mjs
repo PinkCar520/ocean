@@ -48,3 +48,27 @@ test('missing tracked files are explicitly reported', t => {
   assert.equal(result.coverage.analyzed,0);
   assert.deepEqual(result.coverage.missing,['packages/ui/src/missing.ts']);
 });
+
+test('keeps overlapping compiler contexts and semantic cross-file bindings', t => {
+  const root = mkdtempSync(path.join(os.tmpdir(),'ocean-source-contexts-'));
+  t.after(() => rmSync(root,{recursive:true,force:true}));
+  const fixture = {
+    'apps/web/tsconfig.json': '{"compilerOptions":{"module":"esnext","moduleResolution":"bundler","paths":{"@impl":["./a.ts"]}},"include":["*.ts"]}',
+    'apps/web/tsconfig.alt.json': '{"compilerOptions":{"module":"esnext","moduleResolution":"bundler","paths":{"@impl":["./b.ts"]}},"include":["*.ts"]}',
+    'apps/web/a.ts': 'export function implementation() { return 1 }',
+    'apps/web/b.ts': 'export function implementation() { return 2 }',
+    'apps/web/main.ts': 'import { implementation as run } from "@impl";\nexport const result = run();'
+  };
+  for (const [name,content] of Object.entries(fixture)) {
+    const file = path.join(root,name); mkdirSync(path.dirname(file),{recursive:true}); writeFileSync(file,content);
+  }
+  const report = analyze(root,Object.keys(fixture));
+  assert.equal(report.coverage.analyzed,3);
+  const main = report.files.find(f => f.path.endsWith('/main.ts'));
+  assert.equal(main.contexts.length,2);
+  assert.deepEqual(report.edges.map(e => e.target).sort(),['apps/web/a.ts','apps/web/b.ts']);
+  const calls = report.symbolUsages.filter(u => u.from === main.path && u.line === 2 && u.name === 'run');
+  assert.equal(calls.length,2);
+  assert.deepEqual(calls.map(u => u.declarations[0].file).sort(),['apps/web/a.ts','apps/web/b.ts']);
+  assert.deepEqual(analyze(root,Object.keys(fixture).reverse()),report);
+});

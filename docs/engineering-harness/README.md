@@ -7,6 +7,7 @@ Development status is tracked in `manifest.json`. Independent acceptance is sepa
 Run `pnpm audit:test` and `pnpm audit:source --output /tmp/source-intelligence.json` from an installed checkout.
 The report inventories Git-tracked JS/TS under apps, packages, agents, scripts and deploy; it excludes reference source and documentation.
 It uses TypeScript's configured module resolution and export symbol checker, includes static imports, reexports, import types, literal dynamic imports and require calls, and records unresolved and nonliteral references explicitly.
+Overlapping owning compiler configurations are analyzed separately, and cross-file identifier bindings include declaration and usage locations. These bindings include import declarations and type references; they are not a runtime call graph.
 It records the checked-out commit, tracked dirty status, workspace ownership, configuration diagnostics and coverage. Missing tracked sources fail the command.
 CI generates the report as an artifact; the fixture tests exercise aliases, reexports, cross-workspace edges, unknown references, missing files and deterministic ordering.
 
