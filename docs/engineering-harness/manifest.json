@@ -150,12 +150,14 @@
           "scripts/engineering/ui-primitive-audit.test.mjs",
           "packages/ui/src/components/ui/primitive-identity.spec.tsx",
           "packages/ui/src/components/button.tsx",
-          "packages/ui/src/components/input.tsx"
+          "packages/ui/src/components/input.tsx",
+          "packages/ui/src/components/ui/dialog-implementation.tsx",
+          "packages/ui/src/components/ui/dropdown-menu-implementation.tsx"
         ],
         "remaining": [
-          "Dialog and DropdownMenu differ in stacking, animation, icon sizing and client directive; preserve behavior before consolidating",
-          "Migrate internal callers to canonical paths; retain public compatibility exports until explicit API migration",
-          "Cross-host interaction and visual regression; independent acceptance"
+          "Verify preserved visual profiles in Web and Desktop; migrate internal callers to canonical API without changing defaults",
+          "Public compatibility exports retained until explicit API migration",
+          "Independent acceptance"
         ]
       },
       {

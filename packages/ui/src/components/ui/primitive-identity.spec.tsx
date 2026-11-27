@@ -33,3 +33,19 @@ describe('shared primitive consolidation', () => {
     expect(markup).toContain('h-12')
   })
 })
+
+import { Dialog as LegacyDialog, DialogHeader as LegacyDialogHeader, DialogContent as LegacyDialogContent } from '../dialog'
+import { Dialog, DialogHeader, DialogContent } from './dialog'
+import { DropdownMenu as LegacyMenu, DropdownMenuCheckboxItem as LegacyCheckboxItem, DropdownMenuContent as LegacyMenuContent } from '../dropdown-menu'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent } from './dropdown-menu'
+
+describe('profiled primitive implementations', () => {
+  it('shares profile-independent components without collapsing distinct visual defaults', () => {
+    expect(LegacyDialog).toBe(Dialog)
+    expect(LegacyDialogHeader).toBe(DialogHeader)
+    expect(LegacyMenu).toBe(DropdownMenu)
+    expect(LegacyCheckboxItem).toBe(DropdownMenuCheckboxItem)
+    expect(LegacyDialogContent).not.toBe(DialogContent)
+    expect(LegacyMenuContent).not.toBe(DropdownMenuContent)
+  })
+})
