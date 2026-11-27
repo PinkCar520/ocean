@@ -1,23 +1,15 @@
-# TCR image publication (R04, stage 1)
+# TCR image publication and stack parity (R04)
 
-This phase publishes images only. It does not deploy to a server. The production Compose file remains unchanged until the server pull/deployment phase.
+Both Compose environments declare the same seven services: gateway, worker, web, fastapi-backend, postgres, redis, migrate. Gateway/worker/migrate share one image; migrate exits after Prisma migration. Development builds locally and uses the same pinned upstream database/cache images. Production uses five TCR digest references. Existing development databases initialized using db push must be backed up and baselined before enabling migrate; never reset an existing database just to pass startup.
 
 ## Administrator setup before merging
 
-- Create private TCR Personal repositories `ocean-gateway` and `ocean-web` in the actual Ocean namespace.
-- Set repository Actions variable `TCR_NAMESPACE` to that namespace (not a URL).
-- Set Actions environment **production** secrets `TCR_USERNAME` and `TCR_PASSWORD` using a dedicated registry credential authorized to push and pull only the two repositories, if supported by TCR.
-- Keep the production environment's branch restriction to main. Never commit or share credentials in logs.
-- Ensure GitHub-hosted runners can reach `ccr.ccs.tencentyun.com`.
+Create private TCR Personal repositories ocean-gateway, ocean-web, ocean-fastapi-backend, ocean-postgres, ocean-redis in the actual Ocean namespace. Set repository variable TCR_NAMESPACE to that namespace and production environment secrets TCR_USERNAME/TCR_PASSWORD to a dedicated credential able to push/pull the five repositories. Keep production restricted to main. Never commit credentials.
 
-The workflow runs on main pushes or a manual dispatch on main. The existing reusable quality gate must pass before either build publishes. Both builds tag the checked-out revision (12-character SHA); the verification job checks each remote digest and the tag-to-digest match before producing an `ocean-release.json` artifact containing the full Git SHA and exact image references.
+On main, the quality gate checks Compose topology, dependencies, pinned upstream sources and the built FastAPI image's health and embedding HTTP contract (mock provider). Then build three Ocean images and mirror the exact upstream PostgreSQL and Redis manifests. Mirroring fails closed if TCR changes the digest or cannot store the upstream manifest. All five revision tags must resolve to their expected digests before ocean-release.json is uploaded. Docker Hub publication and server deployment remain paused.
 
-Docker Hub publication and the old self-hosted deploy job are paused in this phase. No server, SSH credential or self-hosted runner is required. Do not treat a successful image publication as production deployment.
+## Server acceptance (separate)
 
-## Acceptance
+Use OCEAN_IMAGE_PREFIX=ccr.ccs.tencentyun.com/<namespace> and OCEAN_GATEWAY_DIGEST, OCEAN_WEB_DIGEST, OCEAN_FASTAPI_DIGEST, OCEAN_POSTGRES_DIGEST, OCEAN_REDIS_DIGEST from the verified manifest. Create private secrets/gateway.env, secrets/worker.env, secrets/fastapi.env; FastAPI only needs its model provider configuration. Supply DATABASE_URL and POSTGRES_PASSWORD locally. Pull using an independent read-only registry identity. Keep FastAPI, PostgreSQL and Redis internal. Validate migration, six healthy long-running services, actual provider embedding and skill matching before calling production accepted. No real provider credential is used in CI.
 
-1. Both quality and image jobs pass in the same run.
-2. Verify TCR publication passes and the manifest artifact exists with both images.
-3. In TCR, confirm both revision tags and digests.
-4. Separately verify server pull of the exact manifest references and the pinned PostgreSQL/Redis images; then adapt production Compose and implement restricted deployment.
-5. Keep registry version cleanup disabled until current and rollback image references can be protected.
+Do not enable version cleanup until production and rollback digests are protected.

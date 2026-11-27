@@ -34,6 +34,10 @@ jobs:
         run: pnpm --filter gateway exec prisma generate
       - name: Validate deployment gate
         run: node --test scripts/ci-gate.test.mjs
+      - name: Validate development and production Compose parity
+        run: bash scripts/verify-compose-parity.sh
+      - name: Build and verify FastAPI compute contract
+        run: bash scripts/verify-fastapi-image.sh
       - name: TypeScript checks
         run: pnpm run ci:typecheck
       - name: Core, CLI and Gateway unit tests
