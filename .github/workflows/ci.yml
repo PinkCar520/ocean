@@ -30,6 +30,24 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies once
         run: pnpm install --frozen-lockfile
+      - name: Validate engineering ledger and governance
+        run: |
+          node --test scripts/engineering/governance.test.mjs scripts/engineering/quality-wiring.test.mjs
+          pnpm run audit:governance
+      - name: Test engineering source intelligence
+        run: pnpm run audit:test
+      - name: Generate tracked source intelligence
+        run: pnpm run audit:source --output "$RUNNER_TEMP/source-intelligence.json"
+      - name: Audit shared UI primitive candidates
+        run: pnpm run audit:ui "$RUNNER_TEMP/source-intelligence.json" "$RUNNER_TEMP/ui-primitive-audit.json"
+      - name: Publish source intelligence evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-intelligence
+          path: |
+            ${{ runner.temp }}/source-intelligence.json
+            ${{ runner.temp }}/ui-primitive-audit.json
+          if-no-files-found: error
       - name: Generate Prisma client
         run: pnpm --filter gateway exec prisma generate
       - name: Validate deployment gate
@@ -47,3 +65,13 @@ jobs:
       - name: Summarize quality result
         if: always()
         run: echo 'Quality gate result is recorded in the named steps above; all required steps must pass before image publication.' >> "$GITHUB_STEP_SUMMARY"
+
+  engineering-analysis:
+    uses: ./.github/workflows/engineering-analysis.yml
+  engineering-codemod:
+    uses: ./.github/workflows/engineering-codemod.yml
+  workspace-verification:
+    uses: ./.github/workflows/engineering-verification.yml
+
+  engineering-browser:
+    uses: ./.github/workflows/engineering-browser.yml

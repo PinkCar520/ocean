@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "EH-01",
+      "name": "Source Intelligence",
+      "status": "PARTIAL",
+      "evidence": [
+        "scripts/engineering/source-intelligence.mjs",
+        "scripts/engineering/source-intelligence.test.mjs",
+        "scripts/engineering/runtime-entries.json",
+        ".github/workflows/ci.yml"
+      ],
+      "remaining": [
+        "Full runtime and Swift semantic coverage; compiler-context and generated-output completeness"
+      ]
+    },
+    {
+      "id": "EH-02",
+      "name": "Code Health",
+      "status": "PARTIAL",
+      "evidence": [
+        "knip.json",
+        ".jscpd.json",
+        "scripts/engineering/toolchain.mjs",
+        "scripts/engineering/toolchain.test.mjs"
+      ],
+      "remaining": [
+        "Dead-code candidates require entry-point and usage verification; no global clone baseline or safe deletion yet"
+      ]
+    },
+    {
+      "id": "EH-03",
+      "name": "Architecture Governance",
+      "status": "PARTIAL",
+      "evidence": [
+        ".dependency-cruiser.cjs",
+        "scripts/engineering/architecture-gate.mjs",
+        "scripts/engineering/architecture-gate.test.mjs",
+        "scripts/engineering/architecture-baseline.json"
+      ],
+      "remaining": [
+        "Broader package boundary and unresolved/generated edge coverage"
+      ]
+    },
+    {
+      "id": "EH-04",
+      "name": "Automated Refactoring",
+      "status": "PARTIAL",
+      "evidence": [
+        "scripts/engineering/codemod.mjs",
+        "scripts/engineering/codemod.test.mjs"
+      ],
+      "remaining": [
+        "All-context proof, behavior-preserving consolidation of distinct implementations, and legacy migration tooling integration"
+      ]
+    },
+    {
+      "id": "EH-05",
+      "name": "Verification Engineering",
+      "status": "PARTIAL",
+      "evidence": [
+        "scripts/engineering/verification.mjs",
+        "scripts/engineering/verification.test.mjs",
+        "scripts/engineering/verification-matrix.json",
+        ".github/workflows/engineering-browser.yml",
+        "scripts/engineering/browser/primitive-browser.spec.mjs"
+      ],
+      "remaining": [
+        "Run shared primitive browser tests and verify screenshot evidence; establish reviewed pixel baselines",
+        "Production host end-to-end coverage, native verification and remaining workspace test gaps"
+      ]
+    },
+    {
+      "id": "EH-06",
+      "name": "Agent Governance",
+      "status": "PARTIAL",
+      "evidence": [
+        "AGENTS.md",
+        "scripts/engineering/governance.mjs",
+        "scripts/engineering/governance.test.mjs",
+        "docs/engineering-harness/manifest.json"
+      ],
+      "remaining": [
+        "Independent acceptance and recovery exercise from a fresh Agent session"
+      ]
+    },
+    {
+      "id": "EH-07",
+      "name": "Continuous Maintenance",
+      "status": "PARTIAL",
+      "evidence": [
+        ".github/workflows/engineering-maintenance.yml",
+        "scripts/engineering/governance.mjs"
+      ],
+      "remaining": [
+        "Scheduled execution evidence; broader documentation consistency and managed remediation"
+      ]
+    },
+    {
+      "id": "EH-08",
+      "name": "Quality Gates",
+      "status": "PARTIAL",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        "scripts/engineering/quality-wiring.test.mjs",
+        ".github/workflows/deploy.yml"
+      ],
+      "remaining": [
+        "Integrated CI at exact SHA, required branch checks, independent acceptance and UI trial"
+      ]
+    }
+  ],
+  "acceptance": {
+    "status": "PENDING",
+    "reviewer": null,
+    "commit": null,
+    "evidence": []
+  },
+  "uiTrial": {
+    "scope": "packages/ui",
+    "modules": [
+      {
+        "id": "UI-M01",
+        "name": "Source and dependency audit",
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/source-intelligence.mjs",
+          "scripts/engineering/ui-primitive-audit.mjs"
+        ],
+        "remaining": [
+          "Complete runtime and dependency coverage"
+        ]
+      },
+      {
+        "id": "UI-M02",
+        "name": "Legacy cleanup",
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/toolchain.mjs",
+          "scripts/engineering/source-intelligence.mjs"
+        ],
+        "remaining": [
+          "Revalidate prior cleanup against actual findings; confirm all external and dynamic consumers"
+        ]
+      },
+      {
+        "id": "UI-M03",
+        "name": "Duplicate primitives",
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/ui-primitive-audit.mjs",
+          "scripts/engineering/ui-primitive-audit.test.mjs",
+          "packages/ui/src/components/ui/primitive-identity.spec.tsx",
+          "packages/ui/src/components/button.tsx",
+          "packages/ui/src/components/input.tsx",
+          "packages/ui/src/components/ui/dialog-implementation.tsx",
+          "packages/ui/src/components/ui/dropdown-menu-implementation.tsx"
+        ],
+        "remaining": [
+          "Verify preserved visual profiles in Web and Desktop; migrate internal callers to canonical API without changing defaults",
+          "Public compatibility exports retained until explicit API migration",
+          "Independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M04",
+        "name": "Client boundary",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M05",
+        "name": "ChatSession decomposition",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M06",
+        "name": "Host adapters",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M07",
+        "name": "Public exports",
+        "status": "NOT_IMPLEMENTED",
+        "evidence": [],
+        "remaining": [
+          "Implementation and independent acceptance"
+        ]
+      },
+      {
+        "id": "UI-M08",
+        "name": "Cross-host regression",
+        "status": "PARTIAL",
+        "evidence": [
+          "scripts/engineering/browser/primitive-browser.spec.mjs",
+          ".github/workflows/engineering-browser.yml",
+          "packages/ui/tests/browser/PrimitiveFixture.tsx"
+        ],
+        "remaining": [
+          "Actual CI execution; reviewed visual baselines; production app route and native host end-to-end coverage; independent acceptance"
+        ]
+      }
+    ]
+  }
+}

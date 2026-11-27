@@ -1,0 +1,104 @@
+{
+  "$schema": "https://unpkg.com/knip@6.48.0/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{ts,mjs,js}",
+        "deploy/**/*.{cjs,mjs,js}"
+      ],
+      "project": [
+        "scripts/**/*.{ts,mjs,js}",
+        "deploy/**/*.{cjs,mjs,js}"
+      ]
+    },
+    "apps/cli": {
+      "entry": [
+        "src/index.ts",
+        "src/workspace-host.ts",
+        "src/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}"
+      ]
+    },
+    "apps/gateway": {
+      "entry": [
+        "src/main.ts",
+        "src/worker/main.ts",
+        "src/**/*.spec.ts",
+        "test/**/*.{ts,js}",
+        "prisma.config.js"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "prisma.config.js"
+      ]
+    },
+    "apps/desktop": {
+      "entry": [
+        "src/main/index.ts",
+        "src/preload/index.ts",
+        "src/renderer/src/main.tsx",
+        "src/main/*.test.mjs",
+        "electron.vite.config.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx,mjs}",
+        "electron.vite.config.ts"
+      ]
+    },
+    "apps/web": {
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "*.{ts,js,mjs}"
+      ]
+    },
+    "packages/ui": {
+      "entry": [
+        "src/index.ts",
+        "src/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}"
+      ]
+    },
+    "packages/contracts": {
+      "entry": [
+        "src/index.ts",
+        "src/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
+    },
+    "packages/shared/*": {
+      "entry": [
+        "src/index.ts",
+        "src/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
+    },
+    "packages/tools/*": {
+      "entry": [
+        "src/index.ts",
+        "src/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
+    },
+    "agents/mcp/*": {
+      "entry": [
+        "src/server.ts",
+        "src/index.ts",
+        "src/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
+    }
+  }
+}

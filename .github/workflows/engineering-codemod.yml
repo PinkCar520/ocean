@@ -1,0 +1,22 @@
+name: Ocean Safe Codemod
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  codemod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node --test scripts/engineering/codemod.test.mjs
