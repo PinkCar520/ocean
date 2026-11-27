@@ -11,6 +11,8 @@ Overlapping owning compiler configurations are analyzed separately, and cross-fi
 It records the checked-out commit, tracked dirty status, workspace ownership, configuration diagnostics and coverage. Missing tracked sources fail the command.
 CI generates the report as an artifact; the fixture tests exercise aliases, reexports, cross-workspace edges, unknown references, missing files and deterministic ordering.
 
+Package manifest entry points and conditional exports are inventoried. Where compiled workspace artifacts are absent, explicit rootDir/outDir projections provide source candidates; projected and ambiguous edges are not treated as compiler-resolved. Export restrictions are respected by the projection. Pattern declarations are reported separately.
+
 The report is evidence, not a dead-code verdict. Generated package declarations, runtime plugins, CSS imports, assets, framework conventions, nonliteral imports and Swift require further analysis. An unresolved edge does not imply unused code. The current stage does not enforce dependency boundaries or claim full semantic usage analysis. Run after dependencies are installed; build workspace packages when analyzing generated declaration resolution.
 
 No business code is changed.

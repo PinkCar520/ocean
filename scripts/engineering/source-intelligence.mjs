@@ -51,10 +51,79 @@ export function analyze(root, tracked, revision = null) {
     }
   }
   const manifests = sorted(tracked.filter(f => f.endsWith('/package.json') && OWNED.test(f)));
-  const workspaces = manifests.map(file => {
+  const packageData = manifests.map(file => {
     const manifest = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
-    return { path: path.posix.dirname(file), name: manifest.name ?? null };
+    return { path: path.posix.dirname(file), name: manifest.name ?? null, manifest };
   });
+  const workspaces = packageData.map(({path,name}) => ({path,name}));
+  // Generated JS and declarations often do not exist in a clean checkout.
+  // Use explicit compiler rootDir/outDir to project package targets back to
+  // tracked sources; distinguish this evidence from compiler resolution.
+  const outputSources = new Map();
+  for (const [config, data] of configData) {
+    const { rootDir, outDir } = data.options;
+    if (!rootDir || !outDir) continue;
+    for (const file of data.roots) {
+      if (!sourceSet.has(file) || /\.d\.[cm]?ts$/.test(file) || !within(file, path.posix.dirname(config))) continue;
+      const rel = slash(path.relative(rootDir, path.join(root,file)));
+      if (rel.startsWith('../') || rel === '..') continue;
+      const extensions = rel.endsWith('.mts') ? ['.mjs','.d.mts'] : rel.endsWith('.cts') ? ['.cjs','.d.cts'] : ['.js','.d.ts'];
+      for (const ext of extensions) {
+        const output = relative(path.join(outDir,rel.replace(/\.[cm]?[jt]sx?$/,ext)));
+        if (!outputSources.has(output)) outputSources.set(output,new Set());
+        outputSources.get(output).add(file);
+      }
+    }
+  }
+  const projectTarget = target => {
+    const normalized = path.posix.normalize(target);
+    if (trackedSet.has(normalized)) return [normalized];
+    const variants = [normalized, normalized+'.ts',normalized+'.tsx',normalized+'.js',normalized+'/index.ts',normalized+'/index.tsx'];
+    return sorted(new Set([...variants.filter(p => trackedSet.has(p)),...(outputSources.get(normalized) ?? [])]));
+  };
+  function leaves(value, condition = []) {
+    if (typeof value === 'string') return [{ value, condition }];
+    if (Array.isArray(value)) return value.flatMap((v,i) => leaves(v,[...condition,String(i)]));
+    if (value && typeof value === 'object') return Object.entries(value).flatMap(([k,v]) => leaves(v,[...condition,k]));
+    return [];
+  }
+  const entryPoints = [];
+  for (const pkg of packageData) {
+    const {manifest} = pkg;
+    for (const field of ['main','module','types','typings','bin','exports','imports']) {
+      for (const leaf of leaves(manifest[field])) {
+        const spec = leaf.value;
+        const local = spec.startsWith('./') || (field !== 'exports' && field !== 'imports' && !path.isAbsolute(spec));
+        const candidates = local && !spec.includes('*') ? projectTarget(path.posix.join(pkg.path,spec)) : [];
+        entryPoints.push({ workspace: pkg.name, packagePath: pkg.path, field, condition: leaf.condition, target: spec, candidates,
+          status: spec.includes('*') ? 'pattern' : candidates.length === 1 ? 'mapped' : candidates.length > 1 ? 'ambiguous' : 'unmapped' });
+      }
+    }
+  }
+  function packageCandidates(specifier) {
+    const pkg = packageData.filter(p => p.name && (specifier === p.name || specifier.startsWith(p.name+'/'))).sort((a,b) => b.name.length-a.name.length)[0];
+    if (!pkg) return [];
+    const subpath = specifier === pkg.name ? '.' : '.'+specifier.slice(pkg.name.length);
+    const exports = pkg.manifest.exports;
+    let targets = [];
+    if (exports !== undefined) {
+      if (exports && typeof exports === 'object' && !Array.isArray(exports) && Object.keys(exports).some(k => k.startsWith('.'))) {
+        if (Object.hasOwn(exports,subpath)) targets = leaves(exports[subpath]).map(l => l.value);
+        else {
+          const patterns = Object.keys(exports).filter(k => k.includes('*')).map(key => {
+            const [prefix,suffix] = key.split('*');
+            return { key,prefix,suffix };
+          }).filter(p => subpath.startsWith(p.prefix) && subpath.endsWith(p.suffix) && subpath.length >= p.prefix.length+p.suffix.length)
+            .sort((a,b) => b.prefix.length-a.prefix.length || b.suffix.length-a.suffix.length || compare(a.key,b.key));
+          if (patterns.length) {
+            const p = patterns[0], match = subpath.slice(p.prefix.length,subpath.length-p.suffix.length);
+            targets = leaves(exports[p.key]).map(l => l.value.replaceAll('*',match));
+          }
+        }
+      } else if (subpath === '.') targets = leaves(exports).map(l => l.value);
+    } else if (subpath === '.') targets = [pkg.manifest.types,pkg.manifest.typings,pkg.manifest.main,pkg.manifest.module].filter(v => typeof v === 'string');
+    return sorted(new Set(targets.filter(v => !path.isAbsolute(v) && !v.startsWith('../')).flatMap(v => projectTarget(path.posix.join(pkg.path,v)))));
+  }
   const workspaceOf = file => workspaces.filter(w => within(file, w.path)).sort((a,b) => b.path.length-a.path.length)[0]?.name ?? null;
   const records = [];
   const edges = [];
@@ -96,8 +165,12 @@ export function analyze(root, tracked, revision = null) {
           const physical = existsSync(resolved) ? relative(realpathSync(resolved)) : logical;
           target = trackedSet.has(logical) ? logical : trackedSet.has(physical) ? physical : null;
         }
-        edges.push({ from: file, config, line, kind, specifier, names: sorted(names), typeOnly, target,
-          status: target ? (sourceSet.has(target) ? 'source' : 'tracked-asset') : resolved ? 'resolved-outside-tracked-source' : 'unresolved' });
+        const candidates = target ? [] : sorted(new Set([
+          ...(resolved ? projectTarget(relative(resolved)) : []),
+          ...packageCandidates(specifier)
+        ]));
+        edges.push({ from: file, config, line, kind, specifier, names: sorted(names), typeOnly, target, sourceCandidates: candidates,
+          status: target ? (sourceSet.has(target) ? 'source' : 'tracked-asset') : candidates.length === 1 ? 'projected-source' : candidates.length > 1 ? 'ambiguous-source' : resolved ? 'resolved-outside-tracked-source' : 'unresolved' });
       }
       function visit(node) {
         if (ts.isIdentifier(node)) {
@@ -153,7 +226,7 @@ export function analyze(root, tracked, revision = null) {
   edges.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind) || compare(a.specifier,b.specifier));
   unknown.sort((a,b) => compare(a.from,b.from) || compare(a.config ?? '',b.config ?? '') || a.line-b.line || compare(a.kind,b.kind));
   return { schemaVersion: 1, revision, scope: { include: ['apps','packages','agents','scripts','deploy'], language: 'JS/TS', trackedOnly: true, excludedTrackedSourceCount: tracked.filter(f => SOURCE.test(f) && !OWNED.test(f)).length },
-    workspaces, coverage: { expected: files.length, analyzed: inventory.length, missing: sorted(new Set(missing)), withoutConfig: inventory.filter(r => !r.config).map(r => r.path), configurationDiagnostics },
+    workspaces, entryPoints, coverage: { expected: files.length, analyzed: inventory.length, missing: sorted(new Set(missing)), withoutConfig: inventory.filter(r => !r.config).map(r => r.path), configurationDiagnostics },
     files: inventory, edges, symbolUsages: usages, unknownDynamicReferences: unknown };
 }
 

@@ -72,3 +72,29 @@ test('keeps overlapping compiler contexts and semantic cross-file bindings', t =
   assert.deepEqual(calls.map(u => u.declarations[0].file).sort(),['apps/web/a.ts','apps/web/b.ts']);
   assert.deepEqual(analyze(root,Object.keys(fixture).reverse()),report);
 });
+
+test('maps unbuilt workspace exports without claiming compiler resolution or ignoring export restrictions', t => {
+  const root = mkdtempSync(path.join(os.tmpdir(),'ocean-source-exports-'));
+  t.after(() => rmSync(root,{recursive:true,force:true}));
+  const fixture = {
+    'packages/contracts/package.json': '{"name":"@ocean/contracts","exports":{".":{"types":"./dist/index.d.ts","import":"./dist/index.js"},"./features/*":"./dist/features/*.js"}}',
+    'packages/contracts/tsconfig.json': '{"compilerOptions":{"module":"esnext","moduleResolution":"bundler","rootDir":"src","outDir":"dist"},"include":["src"]}',
+    'packages/contracts/src/index.ts': 'export const value = 1;',
+    'packages/contracts/src/features/demo.ts': 'export const demo = 2;',
+    'packages/contracts/src/private.ts': 'export const secret = 3;',
+    'apps/web/main.ts': 'import "@ocean/contracts";\nimport "@ocean/contracts/features/demo";\nimport "@ocean/contracts/private";'
+  };
+  for (const [name,content] of Object.entries(fixture)) {
+    const file = path.join(root,name); mkdirSync(path.dirname(file),{recursive:true}); writeFileSync(file,content);
+  }
+  const report = analyze(root,Object.keys(fixture));
+  const [entry,feature,hidden] = report.edges;
+  assert.equal(entry.status,'projected-source');
+  assert.equal(entry.target,null);
+  assert.deepEqual(entry.sourceCandidates,['packages/contracts/src/index.ts']);
+  assert.deepEqual(feature.sourceCandidates,['packages/contracts/src/features/demo.ts']);
+  assert.equal(hidden.status,'unresolved');
+  assert.deepEqual(hidden.sourceCandidates,[]);
+  assert.equal(report.entryPoints.filter(e => e.status === 'mapped').length,2);
+  assert.equal(report.entryPoints.filter(e => e.status === 'pattern').length,1);
+});
