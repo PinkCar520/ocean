@@ -3,7 +3,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from main import app
 
-class ComputeContract(unittest.TestCase):
+class InferenceContract(unittest.TestCase):
     def test_health(self):
         self.assertEqual(TestClient(app).get("/").status_code, 200)
 

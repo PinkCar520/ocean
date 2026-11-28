@@ -30,8 +30,8 @@ interface EmbeddingRow {
  *
  * 原实现代理 FastAPI /api/internal/skills/resolve；收敛后完全本地：
  * 1. 显式指定（ctx.skillIds）+ 关键词精确匹配（Prisma 本地查询）
- * 2. Embedding 语义兜底（调 Python 无状态计算 Job /api/internal/embedding 拿向量，
- *    再用 pgvector 在 skills.embedding 上匹配；计算 Job 不可用时静默降级）
+ * 2. Embedding 语义兜底（调 Python 无状态推理 Job /api/internal/embedding 拿向量，
+ *    再用 pgvector 在 skills.embedding 上匹配；推理 Job 不可用时静默降级）
  * 3. 组装 <injected_skills> Prompt 片段 + 落 SkillTriggerLog
  *
  * 返回结构对外不变（{injectedPrompt, matchedSkills}），失败静默降级。
@@ -45,9 +45,9 @@ export class SkillResolver {
     private readonly configService: ConfigService,
   ) {}
 
-  get fastapiUrl(): string {
+  get inferenceUrl(): string {
     return (
-      this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000'
+      this.configService.get<string>('OCEAN_INFERENCE_URL') || 'http://localhost:8000'
     );
   }
 
@@ -144,7 +144,7 @@ export class SkillResolver {
     }
   }
 
-  /** 调用 Python 无状态 Embedding Job 生成向量，再以 pgvector 做语义匹配。 */
+  /** 调用 Inference Service 的无状态 Embedding Job 生成向量，再以 pgvector 做语义匹配。 */
   private async matchByEmbedding(
     message: string,
     pending: SkillRow[],
@@ -158,7 +158,7 @@ export class SkillResolver {
     let embedding: number[] | null = null;
     try {
       const res = await globalThis.fetch(
-        `${this.fastapiUrl}/api/internal/embedding`,
+        `${this.inferenceUrl}/api/internal/embedding`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

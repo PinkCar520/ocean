@@ -46,7 +46,7 @@ describe('PromptComposer (Agent Runtime 拆分)', () => {
     expect(prompt).toContain('当前在线的本地 CLI 节点: cli-a, cli-b');
   });
 
-  it('注入 FastAPI 命中技能片段', async () => {
+  it('注入 Inference Service 命中技能片段', async () => {
     const { composer, deps } = create();
     deps.skillResolver.resolve.mockResolvedValueOnce({
       injectedPrompt: '## 命中技能指令',

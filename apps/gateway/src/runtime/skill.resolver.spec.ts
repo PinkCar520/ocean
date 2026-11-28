@@ -43,7 +43,7 @@ describe('SkillResolver (第 4 条本地化)', () => {
         create: overrides.createLog ?? jest.fn().mockResolvedValue({}),
       },
     };
-    const configService = { get: jest.fn(() => 'http://fastapi:8000') };
+    const configService = { get: jest.fn(() => 'http://inference:8000') };
     (globalThis as any).fetch = overrides.fetchMock ?? jest.fn();
     return new SkillResolver(prisma as never, configService as never);
   }
