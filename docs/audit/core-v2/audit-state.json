@@ -140,7 +140,118 @@
     "apps/desktop/package.json",
     "apps/desktop/tsconfig.json",
     "apps/desktop/tsconfig.node.json",
-    "apps/desktop/tsconfig.web.json"
+    "apps/desktop/tsconfig.web.json",
+    "apps/fastapi-backend/Dockerfile",
+    "apps/fastapi-backend/embedding.py",
+    "apps/fastapi-backend/main.py",
+    "apps/fastapi-backend/requirements.txt",
+    "apps/fastapi-backend/routers/__init__.py",
+    "apps/fastapi-backend/routers/audio.py",
+    "apps/fastapi-backend/routers/embedding.py",
+    "apps/desktop/.editorconfig",
+    "apps/desktop/.gitignore",
+    "apps/desktop/.prettierignore",
+    "apps/desktop/.prettierrc.yaml",
+    "apps/desktop/README.md",
+    "apps/desktop/electron-builder.yml",
+    "apps/desktop/eslint.config.mjs",
+    "apps/desktop/src/main/workspace-host.test.mjs",
+    "apps/desktop/src/renderer/index.html",
+    "apps/desktop/src/renderer/src/App.tsx",
+    "apps/desktop/src/renderer/src/index.css",
+    "apps/desktop/src/renderer/src/main.tsx",
+    "apps/cli/src/daemon.ts",
+    "apps/cli/src/tools/local/plan.ts",
+    "apps/cli/src/tools/task-plan.spec.ts",
+    "apps/cli/src/tools/task-plan.ts",
+    "apps/cli/src/utils/notebook-snapshots.ts",
+    "apps/cli/src/utils/task-manager.ts",
+    "packages/shared/core/src/filesystem/notebook-snapshots.ts",
+    "apps/cli/src/tools/checkpoint.ts",
+    "apps/cli/src/utils/checkpoints.spec.ts",
+    "apps/cli/src/utils/checkpoints.ts",
+    "apps/cli/src/utils/file-system.spec.ts",
+    "apps/cli/src/utils/security.spec.ts",
+    "apps/cli/src/utils/security.ts",
+    "packages/shared/core/src/filesystem/checkpoints.ts",
+    "packages/shared/core/src/filesystem/file-system.ts",
+    "packages/shared/core/src/filesystem/security.ts",
+    "package.json",
+    "packages/tools/gitlab/package.json",
+    "packages/tools/gitlab/src/index.test.ts",
+    "packages/tools/gitlab/tsconfig.json",
+    "packages/tools/jenkins/package.json",
+    "packages/tools/jenkins/src/index.test.ts",
+    "packages/tools/jenkins/tsconfig.json",
+    "packages/tools/zentao/package.json",
+    "packages/tools/zentao/tsconfig.json",
+    "pnpm-workspace.yaml",
+    "tsconfig.json",
+    "turbo.json",
+    "apps/gateway/src/skill/interactive.manager.ts",
+    "apps/web/src/components/ApprovalPanel.tsx",
+    "packages/shared/core/src/ui-protocol.ts",
+    "packages/ui/package.json",
+    "packages/ui/src/components/ApprovalCard.tsx",
+    "packages/ui/src/components/ApprovalCenter.tsx",
+    "packages/ui/src/components/ApprovalModal.tsx",
+    "packages/ui/src/components/ToolApprovalDialog.tsx",
+    "packages/ui/src/components/UIRenderer.tsx",
+    "packages/ui/src/lib/parseUIKit.spec.ts",
+    "packages/ui/src/lib/parseUIKit.ts",
+    "packages/ui/src/lib/uiRegistry.tsx",
+    "packages/ui/src/types/ui-protocol.ts",
+    "apps/cli/src/llm/chat-image-middleware.spec.ts",
+    "apps/gateway/src/ai/chat-image-middleware.ts",
+    "apps/cli/src/utils/runtime-event-store.spec.ts",
+    "apps/gateway/src/run/runtime-event-store.spec.ts",
+    "apps/gateway/src/worker/core-lifecycle.spec.ts",
+    "apps/gateway/src/skill-registry/skill-import.service.ts",
+    "apps/gateway/src/skill-registry/skill-registry.module.ts",
+    "apps/gateway/src/skill-registry/skill-sync.service.ts",
+    "apps/gateway/src/skill-registry/skill.controller.ts",
+    "packages/ui/src/components/chat/extensions/GhostTextExtension.ts",
+    "packages/ui/src/components/chat/extensions/MentionList.tsx",
+    "packages/ui/src/components/chat/extensions/SlashCommandExtension.ts",
+    "packages/ui/src/components/chat/extensions/SlashList.tsx",
+    "packages/ui/src/components/chat/extensions/mentionSuggestion.tsx",
+    "packages/ui/src/components/chat/extensions/slashSuggestion.tsx",
+    "apps/cli/src/mcp/config-store.spec.ts",
+    "apps/cli/src/mcp/config-store.ts",
+    "apps/cli/src/mcp/stdio-sdk-transport.spec.ts",
+    "apps/cli/src/mcp/stdio-sdk-transport.ts",
+    "apps/gateway/src/mcp/mcp-client.manager.spec.ts",
+    "apps/gateway/src/mcp/mcp-client.pool.spec.ts",
+    "apps/gateway/src/mcp/mcp-client.pool.ts",
+    "apps/gateway/src/mcp/mcp-config.loader.spec.ts",
+    "apps/gateway/src/mcp/mcp-transport.factory.ts",
+    "apps/gateway/src/mcp/mcp.module.ts",
+    "apps/gateway/src/mcp/mcp.types.ts",
+    "apps/gateway/src/mcp/mcp-credentials.controller.ts",
+    "apps/gateway/src/mcp/mcp-credentials.service.spec.ts",
+    "apps/gateway/src/mcp/mcp-credentials.service.ts",
+    "apps/gateway/src/mcp/mcp-oauth.controller.ts",
+    "apps/gateway/src/mcp/mcp-oauth.service.spec.ts",
+    "apps/gateway/src/mcp/mcp-oauth.service.ts",
+    "apps/gateway/src/mcp-server/mcp-health.scheduler.ts",
+    "apps/gateway/src/mcp-server/mcp-resources.controller.ts",
+    "apps/gateway/src/mcp-server/mcp-server.controller.ts",
+    "apps/gateway/src/mcp-server/mcp-server.module.ts",
+    "apps/gateway/src/mcp-server/mcp-server.service.ts",
+    "apps/gateway/src/mcp/mcp-config.watcher.ts",
+    "agents/mcp/mcp-gitlab/package.json",
+    "agents/mcp/mcp-gitlab/tsconfig.json",
+    "agents/mcp/mcp-im/package.json",
+    "agents/mcp/mcp-im/src/index.ts",
+    "agents/mcp/mcp-im/tsconfig.json",
+    "agents/mcp/mcp-jenkins/package.json",
+    "agents/mcp/mcp-jenkins/tsconfig.json",
+    "agents/mcp/mcp-zentao/package.json",
+    "agents/mcp/mcp-zentao/tsconfig.json",
+    "apps/gateway/mcp.config.json",
+    "apps/gateway/src/chat/zentao.service.spec.ts",
+    "apps/gateway/src/zentao/zentao.module.ts",
+    "apps/gateway/src/zentao/zentao.service.ts"
   ],
   "files": [
     {
@@ -410,8 +521,13 @@
       "blob": "15990dd423ff543b5fcd18f5e4815a9eee99c934",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "包入口与依赖",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-gitlab/src/server.ts",
@@ -441,8 +557,13 @@
       "blob": "1522badda9895180249cf138e04276b37e122447",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "构建输入与输出",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-im/package.json",
@@ -451,8 +572,13 @@
       "blob": "3c42ab3b946d3ab50eda9395b4ad97ad98f42fc8",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "包入口与依赖",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-im/src/index.ts",
@@ -461,7 +587,7 @@
       "blob": "5e6a11c67c70b371fc74736a4c4d532a3d4237e2",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "IMIncomingMessage",
         "IMReply",
@@ -471,7 +597,14 @@
       "imports": [
         "@ocean/core"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "IM 消息解析、签名及回复占位",
+      "consumer": "ChatController.handleImWebhook",
+      "productionReachable": true,
+      "issues": [
+        "CV2-054"
+      ],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-im/tsconfig.json",
@@ -480,8 +613,13 @@
       "blob": "ca5c2bd80be403680f5b949362ef1ec5e02733a5",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "构建输入与输出",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-jenkins/package.json",
@@ -490,8 +628,13 @@
       "blob": "c283cfe517411b33bc1396a794d164a1bb6c8fae",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "包入口与依赖",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-jenkins/src/server.ts",
@@ -521,8 +664,13 @@
       "blob": "1522badda9895180249cf138e04276b37e122447",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "构建输入与输出",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-zentao/package.json",
@@ -531,8 +679,13 @@
       "blob": "990c695e88adb74124a4aaabe1d24d9a1f27659a",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "包入口与依赖",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/mcp/mcp-zentao/src/server.ts",
@@ -563,8 +716,13 @@
       "blob": "1522badda9895180249cf138e04276b37e122447",
       "excluded": null,
       "module": "agents/mcp",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "构建输入与输出",
+      "consumer": "Gateway 镜像 workspace 打包",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "agents/memory/README.md",
@@ -1025,7 +1183,7 @@
       "blob": "86739646eb095e526a375e334d11228ff064f8fd",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "tools",
         "powerShellTool",
@@ -1056,6 +1214,13 @@
       ],
       "directRelativeReferences": [
         "apps/cli/src/index.ts"
+      ],
+      "role": "设备 RPC 路由和权限",
+      "consumer": "apps/cli/src/index.ts:327",
+      "productionReachable": true,
+      "duplicationOrAdapter": "旧设备适配器",
+      "issues": [
+        "CV2-042"
       ]
     },
     {
@@ -1146,7 +1311,7 @@
       "blob": "34758fa6ff226c6fba326b0d10a6cb864bbd162c",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "@ai-sdk/openai",
@@ -1154,7 +1319,14 @@
         "vitest",
         "./chat-image-middleware.js"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "验证序列化结果",
+      "consumer": "CLI vitest",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试",
+      "issues": [
+        "CV2-045"
+      ]
     },
     {
       "file": "apps/cli/src/llm/chat-image-middleware.ts",
@@ -1175,12 +1347,14 @@
         "apps/cli/src/llm/model-router.ts",
         "apps/cli/src/tools/core-tools.spec.ts"
       ],
-      "role": "转换工具结果图片以适配 Chat Completions",
-      "consumer": "model-router.ts:135",
+      "role": "工具图片消息协议映射",
+      "consumer": "model-router.ts:138",
       "productionReachable": true,
       "moduleState": "Implemented Unverified",
-      "duplicationOrAdapter": "协议转换 adapter；本轮未动态跑图片",
-      "issues": []
+      "duplicationOrAdapter": "同一 blob 双 Host 使用",
+      "issues": [
+        "CV2-045"
+      ]
     },
     {
       "file": "apps/cli/src/llm/chat.loop.spec.ts",
@@ -1925,7 +2099,7 @@
       "blob": "9351c8e41826ee6e06ad8a83c2c42931d195ce6a",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "vitest",
@@ -1933,7 +2107,12 @@
         "node:os",
         "./config-store.js"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "本轮实跑的 MCP 定向测试",
+      "consumer": "所在 workspace 的测试入口",
+      "moduleState": "Verified",
+      "productionReachable": false,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/cli/src/mcp/config-store.ts",
@@ -1942,7 +2121,7 @@
       "blob": "ad8ca91c7efe34a5ca7f008a4c5dc03f67320bc9",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "McpScope",
         "configFile",
@@ -1960,7 +2139,12 @@
         "apps/cli/src/commands/mcp.ts",
         "apps/cli/src/mcp/client.ts",
         "apps/cli/src/mcp/config-store.spec.ts"
-      ]
+      ],
+      "role": "三种 scope 文件选择、规范化及原子替换",
+      "consumer": "commands/mcp.ts:19,41；mcp/client.ts:160",
+      "moduleState": "Implemented Unverified",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/cli/src/mcp/fixtures/echo.mjs",
@@ -2007,13 +2191,18 @@
       "blob": "1089e453db4f26b9683d1547bda7898fd3c49034",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "vitest",
         "./stdio-sdk-transport.js"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "本轮实跑的 MCP 定向测试",
+      "consumer": "所在 workspace 的测试入口",
+      "moduleState": "Verified",
+      "productionReachable": false,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/cli/src/mcp/stdio-sdk-transport.ts",
@@ -2022,7 +2211,7 @@
       "blob": "a6d576bf3612ab2870dbf7e5a5a0a1f19de72f3a",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "controlReply",
         "StdioSdkMcpHost",
@@ -2037,7 +2226,12 @@
       "directRelativeReferences": [
         "apps/cli/src/mcp/stdio-sdk-transport.spec.ts",
         "apps/cli/src/repl.ts"
-      ]
+      ],
+      "role": "将 SDK 控制消息适配到 MCP Transport",
+      "consumer": "apps/cli/src/repl.ts:195",
+      "moduleState": "Implemented Unverified",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/cli/src/plugins/registry.ts",
@@ -2427,7 +2621,7 @@
       "blob": "84a9c0d3d5615c623d994be5973d09e6eb919de9",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "createCheckpointTool"
       ],
@@ -2439,7 +2633,12 @@
       ],
       "directRelativeReferences": [
         "apps/cli/src/tools/index.ts"
-      ]
+      ],
+      "role": "注册列出、比较、删除和回滚检查点的操作",
+      "consumer": "tools/index.ts:33",
+      "productionReachable": true,
+      "duplicationOrAdapter": "CLI 工具适配器",
+      "issues": []
     },
     {
       "file": "apps/cli/src/tools/core-tool-adapter.spec.ts",
@@ -2891,7 +3090,7 @@
       "blob": "cebd3193bbb6f819a4e4aa14a2f8d2a38a5f5417",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "PlanParams",
         "PlanTool"
@@ -2902,6 +3101,13 @@
       ],
       "directRelativeReferences": [
         "apps/cli/src/daemon.ts"
+      ],
+      "role": "进程级任务计划适配器",
+      "consumer": "apps/cli/src/daemon.ts:178",
+      "productionReachable": true,
+      "duplicationOrAdapter": "旧 RPC 工具",
+      "issues": [
+        "CV2-042"
       ]
     },
     {
@@ -3146,7 +3352,7 @@
       "blob": "529dc5b83ca15c169f6eccbbd39fba7132c623ce",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "assertPlan"
       ],
@@ -3158,7 +3364,14 @@
         "../utils/session-store.js",
         "./task-plan.js"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "持久及内存计划隔离断言",
+      "consumer": "CLI vitest",
+      "productionReachable": false,
+      "duplicationOrAdapter": "仅测试现行工具",
+      "issues": [
+        "CV2-042"
+      ]
     },
     {
       "file": "apps/cli/src/tools/task-plan.ts",
@@ -3167,7 +3380,7 @@
       "blob": "e0c36809e58d121a8b714387d1e6792d7cb70882",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "PlanStorage",
         "TaskPlanToolResult",
@@ -3184,6 +3397,13 @@
         "apps/cli/src/tools/index.ts",
         "apps/cli/src/tools/local/git-agent.ts",
         "apps/cli/src/tools/task-plan.spec.ts"
+      ],
+      "role": "按会话读写计划",
+      "consumer": "apps/cli/src/tools/index.ts:27",
+      "productionReachable": true,
+      "duplicationOrAdapter": "会话实现",
+      "issues": [
+        "CV2-042"
       ]
     },
     {
@@ -3801,7 +4021,7 @@
       "blob": "97e0c613b52ae4ffb8d9ad09577fd0d505add18a",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "node:fs/promises",
@@ -3816,7 +4036,14 @@
         "./file-system.js",
         "./file-system.js"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "检查点重启、实际子进程冲突与回滚",
+      "consumer": "apps/cli/package.json test",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试",
+      "issues": [
+        "CV2-043"
+      ]
     },
     {
       "file": "apps/cli/src/utils/checkpoints.ts",
@@ -3825,7 +4052,7 @@
       "blob": "1e74757d82a3c40756c26a83ef5dbddcdad4d802",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "@ocean/core/checkpoints"
@@ -3840,7 +4067,12 @@
         "apps/cli/src/tools/local/git.workflow.spec.ts",
         "apps/cli/src/tools/notebook-edit.ts",
         "apps/cli/src/utils/checkpoints.spec.ts"
-      ]
+      ],
+      "role": "转出共享 Checkpoints",
+      "consumer": "tools/checkpoint.ts:2",
+      "productionReachable": true,
+      "duplicationOrAdapter": "兼容导出",
+      "issues": []
     },
     {
       "file": "apps/cli/src/utils/cli-highlight.ts",
@@ -3931,7 +4163,7 @@
       "blob": "8b2e11c832894c07f5c1dc101966e62944441f3b",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "node:fs/promises",
@@ -3942,7 +4174,14 @@
         "./file-system.js",
         "node:fs/promises"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "原子替换中止、并行和死亡持有者",
+      "consumer": "apps/cli/package.json test",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试",
+      "issues": [
+        "CV2-043"
+      ]
     },
     {
       "file": "apps/cli/src/utils/file-system.ts",
@@ -4112,7 +4351,7 @@
       "blob": "0d1aeaddbfd07284b28fd115dae2c96641017a4e",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "@ocean/core/notebook-snapshots"
@@ -4122,7 +4361,12 @@
         "apps/cli/src/tools/index.ts",
         "apps/cli/src/tools/notebook-edit.ts",
         "apps/cli/src/tools/notebook-rpc.ts"
-      ]
+      ],
+      "role": "转出 Core 快照实现",
+      "consumer": "apps/cli/src/tools/index.ts:16",
+      "productionReachable": true,
+      "duplicationOrAdapter": "兼容导出，无重复算法",
+      "issues": []
     },
     {
       "file": "apps/cli/src/utils/permission-policy.spec.ts",
@@ -4305,7 +4549,7 @@
       "blob": "9b894feb79bb832ed92db063b458959799f3d267",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "roots"
       ],
@@ -4320,7 +4564,11 @@
         "node:crypto",
         "node:fs/promises"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "文件重放及锁和状态验证",
+      "consumer": "工作区测试入口",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试"
     },
     {
       "file": "apps/cli/src/utils/runtime-event-store.ts",
@@ -4364,7 +4612,7 @@
       "blob": "2b5e262230099070fc53d71572a31fa12ee9389b",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "node:fs/promises",
@@ -4377,7 +4625,12 @@
         "node:fs/promises",
         "node:fs/promises"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "路径、读取及变更边界",
+      "consumer": "apps/cli/package.json test",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试",
+      "issues": []
     },
     {
       "file": "apps/cli/src/utils/security.ts",
@@ -4386,7 +4639,7 @@
       "blob": "e5b39df75a901cd63f70582e61b0118d0f2ba4ed",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "@ocean/core/security"
@@ -4405,7 +4658,12 @@
         "apps/cli/src/tools/powershell.ts",
         "apps/cli/src/types.ts",
         "apps/cli/src/utils/security.spec.ts"
-      ]
+      ],
+      "role": "转出共享 SecurityEngine",
+      "consumer": "tools/index.ts:2；daemon.ts:15",
+      "productionReachable": true,
+      "duplicationOrAdapter": "兼容导出",
+      "issues": []
     },
     {
       "file": "apps/cli/src/utils/session-store.spec.ts",
@@ -4520,7 +4778,7 @@
       "blob": "6ed5a60a55316f82d1c3772541c013c247b8ca47",
       "excluded": null,
       "module": "apps/cli",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "Task",
         "WorkMode",
@@ -4541,6 +4799,13 @@
         "apps/cli/src/tools/task-plan.ts",
         "apps/cli/src/ui/app.tsx",
         "apps/cli/src/utils/session-store.ts"
+      ],
+      "role": "会话实例及旧静态计划管理",
+      "consumer": "tools/task-plan.ts:60；tools/local/plan.ts:26",
+      "productionReachable": true,
+      "duplicationOrAdapter": "两套计划管理",
+      "issues": [
+        "CV2-042"
       ]
     },
     {
@@ -4652,8 +4917,13 @@
       "blob": "cf640d53fbc2ebac28b14a7ab44ece043cf67e37",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "编辑器格式",
+      "consumer": "EditorConfig",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/.gitignore",
@@ -4662,8 +4932,13 @@
       "blob": "75ef73cdb59168fd3805f77c36180fc1eedd49f0",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "忽略输出与依赖",
+      "consumer": "Git",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/.prettierignore",
@@ -4672,8 +4947,13 @@
       "blob": "9c6b791d5344235f6d2cbe8153adccd8cc8d8b04",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "格式检查排除目录",
+      "consumer": "Prettier",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/.prettierrc.yaml",
@@ -4682,8 +4962,13 @@
       "blob": "35893b3be3373f34a67dfa5124d953fedc819919",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "格式化规则",
+      "consumer": "Prettier",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/README.md",
@@ -4692,8 +4977,13 @@
       "blob": "5058cf15999853f248c95644db93c6a462e8cd94",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "开发与构建命令说明",
+      "consumer": "开发人员",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/electron-builder.yml",
@@ -4702,8 +4992,13 @@
       "blob": "5f1fed90561c352462229cf2ccea5839d8ae82d5",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "打包与发布配置",
+      "consumer": "package.json build:win/mac/linux",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/electron.vite.config.ts",
@@ -4740,7 +5035,7 @@
       "blob": "89dc5097ec3fb0f9bfd3492cd5e0900c221d4b18",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "eslint/config",
@@ -4750,7 +5045,12 @@
         "eslint-plugin-react-hooks",
         "eslint-plugin-react-refresh"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "静态检查规则",
+      "consumer": "package.json lint",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/package.json",
@@ -4844,7 +5144,7 @@
       "blob": "3ae9e4207aa6afc2be5c56f34c30c11b270b33d3",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "{ outputFiles: [bundle] }",
         "children",
@@ -4861,7 +5161,12 @@
         "node:timers/promises",
         "esbuild"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "账号切换和凭据的进程监督测试",
+      "consumer": "package.json test",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "开发、构建或测试输入"
     },
     {
       "file": "apps/desktop/src/main/workspace-host.ts",
@@ -4928,8 +5233,13 @@
       "blob": "11790205e33bb69cade00d089208f191da445a4c",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "Renderer 页面入口及 CSP",
+      "consumer": "Electron BrowserWindow",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "Desktop 装配与界面"
     },
     {
       "file": "apps/desktop/src/renderer/public/logo.svg",
@@ -4948,7 +5258,7 @@
       "blob": "893e61a632662c918473b8d377b81f73c5c3a0bf",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "__OCEAN_WEB_URL__",
         "WorkspaceHostInfo",
@@ -4987,7 +5297,12 @@
       ],
       "directRelativeReferences": [
         "apps/desktop/src/renderer/src/main.tsx"
-      ]
+      ],
+      "role": "主机身份、工作区快照与共享会话界面装配",
+      "consumer": "src/renderer/src/main.tsx",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "Desktop 装配与界面"
     },
     {
       "file": "apps/desktop/src/renderer/src/index.css",
@@ -4996,10 +5311,15 @@
       "blob": "4f9b2235b8bb8be06baf9c4e958f1e49d135241b",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
+      "status": "reviewed",
       "directRelativeReferences": [
         "apps/desktop/src/renderer/src/main.tsx"
-      ]
+      ],
+      "role": "桌面窗口样式",
+      "consumer": "src/renderer/src/main.tsx",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "Desktop 装配与界面"
     },
     {
       "file": "apps/desktop/src/renderer/src/main.tsx",
@@ -5008,7 +5328,7 @@
       "blob": "0a128fe551dd46b35c4bd30ea4abbe79d3be35bd",
       "excluded": null,
       "module": "apps/desktop",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "react",
@@ -5019,7 +5339,12 @@
         "./App",
         "./index.css"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "HashRouter 和应用挂载",
+      "consumer": "src/renderer/index.html",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "Desktop 装配与界面"
     },
     {
       "file": "apps/desktop/tsconfig.json",
@@ -5076,8 +5401,14 @@
       "blob": "12cc1be5a75d3b1a10c77dde794b73b336f8cd2a",
       "excluded": null,
       "module": "apps/fastapi-backend",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "构建 Python 服务镜像并启动 uvicorn",
+      "consumer": "docker-compose.yml:151–165",
+      "productionReachable": true,
+      "moduleState": "Implemented Unverified",
+      "duplicationOrAdapter": "容器入口",
+      "issues": []
     },
     {
       "file": "apps/fastapi-backend/embedding.py",
@@ -5086,8 +5417,18 @@
       "blob": "58f2e1622bf364d0423c621a2424d160eecfc94c",
       "excluded": null,
       "module": "apps/fastapi-backend",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "symbols": [
+        "EmbeddingService",
+        "generate_embedding"
+      ],
+      "role": "生成 1536 维向量",
+      "consumer": "routers/embedding.py:18",
+      "productionReachable": true,
+      "moduleState": "Implemented Unverified",
+      "duplicationOrAdapter": "Provider 适配",
+      "issues": []
     },
     {
       "file": "apps/fastapi-backend/main.py",
@@ -5096,8 +5437,17 @@
       "blob": "82fd5b80ec4b29fd4da86a9948e83edaff54729c",
       "excluded": null,
       "module": "apps/fastapi-backend",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "symbols": [
+        "read_root"
+      ],
+      "role": "注册计算路由和健康检查",
+      "consumer": "Dockerfile:14",
+      "productionReachable": true,
+      "moduleState": "Implemented Unverified",
+      "duplicationOrAdapter": "ASGI 装配",
+      "issues": []
     },
     {
       "file": "apps/fastapi-backend/requirements.txt",
@@ -5106,8 +5456,14 @@
       "blob": "2d3d1fec836023ae69b40607e4ab5181b06df471",
       "excluded": null,
       "module": "apps/fastapi-backend",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "安装服务端 SDK 和 multipart 依赖",
+      "consumer": "Dockerfile:5–8",
+      "productionReachable": true,
+      "moduleState": "Implemented Unverified",
+      "duplicationOrAdapter": "镜像构建输入",
+      "issues": []
     },
     {
       "file": "apps/fastapi-backend/routers/__init__.py",
@@ -5116,8 +5472,15 @@
       "blob": "f51e92c87d3fdfce655e302ce5540f51a75a69cc",
       "excluded": null,
       "module": "apps/fastapi-backend",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "symbols": [],
+      "role": "路由包初始化",
+      "consumer": "main.py:2–3",
+      "productionReachable": true,
+      "moduleState": "Implemented Unverified",
+      "duplicationOrAdapter": "包标记",
+      "issues": []
     },
     {
       "file": "apps/fastapi-backend/routers/audio.py",
@@ -5126,8 +5489,17 @@
       "blob": "e079995048ede11b0ee2877817a65bec6a864881",
       "excluded": null,
       "module": "apps/fastapi-backend",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "symbols": [
+        "transcribe_audio_chunk"
+      ],
+      "role": "音频临时文件和转录请求",
+      "consumer": "main.py:12 注册；仓内 UI 与 CLI 使用 Gateway 入口",
+      "productionReachable": true,
+      "moduleState": "Implemented Unverified",
+      "duplicationOrAdapter": "与 Gateway 转录职责重叠，外部消费者待核对",
+      "issues": []
     },
     {
       "file": "apps/fastapi-backend/routers/embedding.py",
@@ -5136,8 +5508,19 @@
       "blob": "c7a7e04e0b296332d675bdefd5478217af433937",
       "excluded": null,
       "module": "apps/fastapi-backend",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "symbols": [
+        "EmbeddingRequest",
+        "EmbeddingResponse",
+        "create_embedding"
+      ],
+      "role": "验证文本并返回向量",
+      "consumer": "skill.service.ts:263；skill.resolver.ts:161",
+      "productionReachable": true,
+      "moduleState": "Implemented Unverified",
+      "duplicationOrAdapter": "HTTP 适配",
+      "issues": []
     },
     {
       "file": "apps/gateway/.gitignore",
@@ -5222,8 +5605,15 @@
       "blob": "8d75795889f55c0190c546669d2327c64d05afe1",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "内置 MCP 服务定义",
+      "consumer": "Gateway Loader 与全局 Manager",
+      "productionReachable": "全局 Manager 启动可达，默认 Worker 池路径不匹配",
+      "issues": [
+        "CV2-053"
+      ],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "apps/gateway/nest-cli.json",
@@ -6218,7 +6608,7 @@
       "blob": "fa0b7a884e8a581bb5cd7cf5aa58ef89525f78e2",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "chatImageMiddleware"
       ],
@@ -6227,6 +6617,13 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/ai/model.factory.ts"
+      ],
+      "role": "工具图片消息协议映射",
+      "consumer": "model.factory.ts:165",
+      "productionReachable": true,
+      "duplicationOrAdapter": "同一 blob 双 Host 使用",
+      "issues": [
+        "CV2-045"
       ]
     },
     {
@@ -7279,13 +7676,18 @@
       "blob": "242a6dab62485e1a7cf4a136506fbc7efde9a7ae",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "../zentao/zentao.service",
         "@nestjs/config"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "mock 禅道查找与搜索",
+      "consumer": "Gateway Jest",
+      "productionReachable": false,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "apps/gateway/src/code/code.controller.ts",
@@ -7508,7 +7910,7 @@
       "blob": "1b25296675f078caa9fe6b4c93b42cd33bdca60f",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPHealthScheduler"
       ],
@@ -7518,7 +7920,14 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/mcp-server/mcp-server.module.ts"
-      ]
+      ],
+      "role": "定时触发 MCP 健康检查",
+      "consumer": "MCPServerModule",
+      "productionReachable": true,
+      "issues": [
+        "CV2-049"
+      ],
+      "duplicationOrAdapter": "Gateway MCP 管理"
     },
     {
       "file": "apps/gateway/src/mcp-server/mcp-resources.controller.ts",
@@ -7527,7 +7936,7 @@
       "blob": "4dacd34639a2c70c65c8f4b8b713d075735918aa",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "Public",
         "MCPResourcesController"
@@ -7542,7 +7951,14 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/mcp-server/mcp-server.module.ts"
-      ]
+      ],
+      "role": "资源、提示和重载 HTTP API",
+      "consumer": "MCPServerModule",
+      "productionReachable": true,
+      "issues": [
+        "CV2-052"
+      ],
+      "duplicationOrAdapter": "Gateway MCP 管理"
     },
     {
       "file": "apps/gateway/src/mcp-server/mcp-server.controller.ts",
@@ -7551,7 +7967,7 @@
       "blob": "98681a5b57190263d189ec171427386a5f5e961b",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "Public",
         "MCPServerController"
@@ -7563,7 +7979,14 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/mcp-server/mcp-server.module.ts"
-      ]
+      ],
+      "role": "MCP 目录与健康 HTTP API",
+      "consumer": "MCPServerModule",
+      "productionReachable": true,
+      "issues": [
+        "CV2-049"
+      ],
+      "duplicationOrAdapter": "Gateway MCP 管理"
     },
     {
       "file": "apps/gateway/src/mcp-server/mcp-server.module.ts",
@@ -7572,7 +7995,7 @@
       "blob": "ef43ed225114fca073c3ab2a7519953fe7e27364",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPServerModule"
       ],
@@ -7587,7 +8010,14 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/app.module.ts"
-      ]
+      ],
+      "role": "全局 MCP 管理 DI",
+      "consumer": "AppModule:53",
+      "productionReachable": true,
+      "issues": [
+        "CV2-052"
+      ],
+      "duplicationOrAdapter": "Gateway MCP 管理"
     },
     {
       "file": "apps/gateway/src/mcp-server/mcp-server.service.ts",
@@ -7596,7 +8026,7 @@
       "blob": "d5766caddc6b656fd60f91e8f7b8fe5364aeab10",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "CreateMCPServerDto",
         "UpdateMCPServerDto",
@@ -7617,7 +8047,14 @@
         "apps/gateway/src/mcp-server/mcp-server.controller.ts",
         "apps/gateway/src/mcp-server/mcp-server.module.ts",
         "apps/gateway/src/mcp/mcp-config.watcher.ts"
-      ]
+      ],
+      "role": "目录 CRUD、健康检查和文件导入",
+      "consumer": "MCPServerController、MCPHealthScheduler",
+      "productionReachable": true,
+      "issues": [
+        "CV2-049"
+      ],
+      "duplicationOrAdapter": "Gateway MCP 管理"
     },
     {
       "file": "apps/gateway/src/mcp-server/seed-mcp-servers.ts",
@@ -7649,7 +8086,7 @@
       "blob": "b9d1a95e13708596ec67b16d7fccdb3186121384",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "TestManager"
       ],
@@ -7657,7 +8094,12 @@
         "node:path",
         "./mcp-client.manager"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "本轮实跑的 MCP 定向测试",
+      "consumer": "所在 workspace 的测试入口",
+      "moduleState": "Verified",
+      "productionReachable": false,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-client.manager.ts",
@@ -7666,7 +8108,7 @@
       "blob": "335bf07b1d5cafcf3839fbc85af6fa0f94143d38",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "partial-review",
       "symbols": [
         "mcpToolName",
         "ManagedMCPClient",
@@ -7700,7 +8142,13 @@
         "apps/gateway/src/mcp/mcp-config.watcher.ts",
         "apps/gateway/src/mcp/mcp.module.ts",
         "apps/gateway/src/skill/skill.orchestrator.ts"
-      ]
+      ],
+      "issues": [
+        "CV2-047",
+        "CV2-049"
+      ],
+      "role": "服务连接、发现、调用、Sampling 和资源适配",
+      "consumer": "MCPClientPool 与 MCPModule"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-client.pool.spec.ts",
@@ -7709,7 +8157,7 @@
       "blob": "ff3a4c1a4cf4641587d41f101d73c28e53b30d45",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "FakeManager",
         "TestPool"
@@ -7722,7 +8170,12 @@
         "../tool/mcp-resource.tools",
         "./mcp-client.manager"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "本轮实跑的 MCP 定向测试",
+      "consumer": "所在 workspace 的测试入口",
+      "moduleState": "Verified",
+      "productionReachable": false,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-client.pool.ts",
@@ -7731,7 +8184,7 @@
       "blob": "0f4e6f3ec70ef43fba9896f44198d27b63ef9e82",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "partial-review",
+      "status": "reviewed",
       "symbols": [
         "MCPToolScope",
         "mcpScopeKey",
@@ -7764,8 +8217,15 @@
         "apps/gateway/test/worker.postgres.e2e-spec.ts"
       ],
       "issues": [
-        "CV2-018"
-      ]
+        "CV2-018",
+        "CV2-049",
+        "CV2-050"
+      ],
+      "role": "按用户与工作区缓存连接和隔离配置",
+      "consumer": "Worker MCP 工具与 ToolRuntime",
+      "moduleState": "Partial",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-config.loader.spec.ts",
@@ -7774,7 +8234,7 @@
       "blob": "119f38718c5b4cf9bc7cd58c66fb8b180e021038",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "fs/promises",
@@ -7782,7 +8242,12 @@
         "path",
         "./mcp-config.loader"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "本轮实跑的 MCP 定向测试",
+      "consumer": "所在 workspace 的测试入口",
+      "moduleState": "Verified",
+      "productionReachable": false,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-config.loader.ts",
@@ -7823,7 +8288,7 @@
       "blob": "1e56fce4d805ba4324959c3c0af43d1cb86833e4",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPConfigWatcher"
       ],
@@ -7839,7 +8304,14 @@
       "directRelativeReferences": [
         "apps/gateway/src/mcp-server/mcp-resources.controller.ts",
         "apps/gateway/src/mcp-server/mcp-server.module.ts"
-      ]
+      ],
+      "role": "全局连接重载与本进程缓存失效",
+      "consumer": "MCPServerModule，MCPResourcesController",
+      "productionReachable": true,
+      "issues": [
+        "CV2-052"
+      ],
+      "duplicationOrAdapter": "Gateway MCP 管理"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-credentials.controller.ts",
@@ -7848,7 +8320,7 @@
       "blob": "29e8868b887256565a027fda9b336b8eb4d024d6",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPCredentialsController"
       ],
@@ -7859,7 +8331,14 @@
       "directRelativeReferences": [
         "apps/gateway/src/mcp/mcp.module.ts",
         "apps/gateway/test/worker.postgres.e2e-spec.ts"
-      ]
+      ],
+      "role": "从认证主体接收凭据替换",
+      "consumer": "MCPModule",
+      "productionReachable": true,
+      "issues": [
+        "CV2-050"
+      ],
+      "duplicationOrAdapter": "Gateway 凭据适配或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-credentials.service.spec.ts",
@@ -7868,7 +8347,7 @@
       "blob": "3854711e9ce6ac0212eb158e57adfe2ad8173fbd",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "node:fs/promises",
@@ -7877,7 +8356,14 @@
         "./mcp-credentials.service",
         "./mcp-client.pool"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "主体隔离、原子替换、路径安全断言",
+      "consumer": "Gateway Jest",
+      "productionReachable": false,
+      "issues": [
+        "CV2-050"
+      ],
+      "duplicationOrAdapter": "Gateway 凭据适配或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-credentials.service.ts",
@@ -7886,7 +8372,7 @@
       "blob": "1e44fbc31eae0a46c4cc60ff47a827109aefbd8f",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPCredentialsService"
       ],
@@ -7902,7 +8388,14 @@
         "apps/gateway/src/mcp/mcp-credentials.service.spec.ts",
         "apps/gateway/src/mcp/mcp.module.ts",
         "apps/gateway/test/worker.postgres.e2e-spec.ts"
-      ]
+      ],
+      "role": "以原子替换更新私有用户环境文件",
+      "consumer": "mcp-credentials.controller.ts:12",
+      "productionReachable": true,
+      "issues": [
+        "CV2-050"
+      ],
+      "duplicationOrAdapter": "Gateway 凭据适配或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-oauth.controller.ts",
@@ -7911,7 +8404,7 @@
       "blob": "ba9ef3f4a458f43fc30164799bfa1d9ce6737da6",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPOAuthController"
       ],
@@ -7923,7 +8416,14 @@
       "directRelativeReferences": [
         "apps/gateway/src/mcp/mcp.module.ts",
         "apps/gateway/test/worker.postgres.e2e-spec.ts"
-      ]
+      ],
+      "role": "授权、回调和撤销的 HTTP 装配",
+      "consumer": "MCPModule",
+      "productionReachable": true,
+      "issues": [
+        "CV2-050"
+      ],
+      "duplicationOrAdapter": "Gateway 凭据适配或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-oauth.service.spec.ts",
@@ -7932,7 +8432,7 @@
       "blob": "b837cd436695306fbca5a22f393f7e01964e6652",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "node:http",
@@ -7942,7 +8442,14 @@
         "node:crypto",
         "./mcp-oauth.service"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "本机 OAuth 协议与持久化断言",
+      "consumer": "Gateway Jest",
+      "productionReachable": false,
+      "issues": [
+        "CV2-050"
+      ],
+      "duplicationOrAdapter": "Gateway 凭据适配或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-oauth.service.ts",
@@ -7951,7 +8458,7 @@
       "blob": "e2ed83e172b2000d7053d3fc9be7803617602161",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPOAuthServer",
         "MCPOAuthOptions",
@@ -7972,7 +8479,15 @@
         "apps/gateway/src/mcp/mcp-oauth.service.spec.ts",
         "apps/gateway/src/mcp/mcp.module.ts",
         "apps/gateway/test/worker.postgres.e2e-spec.ts"
-      ]
+      ],
+      "role": "OAuth 绑定、状态加密、刷新和撤销",
+      "consumer": "mcp-oauth.controller.ts 与 MCPClientPool",
+      "productionReachable": true,
+      "issues": [
+        "CV2-050",
+        "CV2-051"
+      ],
+      "duplicationOrAdapter": "Gateway 凭据适配或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp-transport.factory.ts",
@@ -7981,7 +8496,7 @@
       "blob": "d7a32d9c91f95113812e5b0c2bf5c07db07220e5",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPTransport",
         "createStdioTransport",
@@ -7997,7 +8512,15 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/mcp/mcp-client.manager.ts"
-      ]
+      ],
+      "issues": [
+        "CV2-049"
+      ],
+      "role": "构造 stdio、SSE、HTTP 传输",
+      "consumer": "mcp-client.manager.ts:587",
+      "moduleState": "Partial",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp.module.ts",
@@ -8006,7 +8529,7 @@
       "blob": "01ef2db68ead8bad58ccea0566a275c9c5044adc",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPModule"
       ],
@@ -8025,7 +8548,12 @@
         "apps/gateway/src/mcp-server/mcp-server.module.ts",
         "apps/gateway/src/skill/skill.module.ts",
         "apps/gateway/src/worker/worker.module.ts"
-      ]
+      ],
+      "role": "配置、OAuth、凭据及 Manager 依赖注入",
+      "consumer": "worker.module.ts:44",
+      "moduleState": "Implemented Unverified",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/gateway/src/mcp/mcp.types.ts",
@@ -8034,7 +8562,7 @@
       "blob": "a93652e8cb86e0c5443b410197bc73ac5c6aa2b0",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MCPResource",
         "MCPResourceTemplate",
@@ -8054,7 +8582,12 @@
         "apps/gateway/src/mcp/mcp-client.manager.ts",
         "apps/gateway/src/mcp/mcp-config.watcher.ts",
         "apps/gateway/src/mcp/mcp-transport.factory.ts"
-      ]
+      ],
+      "role": "Gateway 传输、审批与资源形状",
+      "consumer": "mcp-transport.factory.ts:11",
+      "moduleState": "Implemented Unverified",
+      "productionReachable": false,
+      "duplicationOrAdapter": "Host MCP 配置、装配、传输或测试"
     },
     {
       "file": "apps/gateway/src/obs/metrics.module.ts",
@@ -8788,7 +9321,8 @@
         "CV2-027",
         "CV2-029",
         "CV2-030",
-        "CV2-031"
+        "CV2-031",
+        "CV2-046"
       ],
       "role": "Run、审批、子树取消、事件投影及事务入队",
       "consumer": "RunController、ChatService、Worker、计划调度",
@@ -8803,13 +9337,17 @@
       "blob": "c36aae3bb0ac88ace40eea87dbaaae535b6f66d8",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "./runtime-event-store",
         "@prisma/client"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "Prisma 替身下重放及旧 revision 拒绝",
+      "consumer": "工作区测试入口",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试"
     },
     {
       "file": "apps/gateway/src/run/runtime-event-store.ts",
@@ -9216,7 +9754,8 @@
         "apps/gateway/src/skill/skill.orchestrator.ts"
       ],
       "issues": [
-        "CV2-017"
+        "CV2-017",
+        "CV2-047"
       ]
     },
     {
@@ -9461,7 +10000,7 @@
       "blob": "a506c38716bb60b0a579586bd7b87e14b6b051d6",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ImportSkillDto",
         "ParsedSkill",
@@ -9479,6 +10018,13 @@
       "directRelativeReferences": [
         "apps/gateway/src/skill-registry/skill-registry.module.ts",
         "apps/gateway/src/skill-registry/skill.controller.ts"
+      ],
+      "role": "外部技能读取、解析及入库",
+      "consumer": "skill.controller.ts:262,290",
+      "productionReachable": true,
+      "duplicationOrAdapter": "技能目录规则重复",
+      "issues": [
+        "CV2-048"
       ]
     },
     {
@@ -9488,7 +10034,7 @@
       "blob": "192cd5943cc68bb1201bf760fd4bd16d26d696ba",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "SkillRegistryModule"
       ],
@@ -9503,6 +10049,13 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/app.module.ts"
+      ],
+      "role": "目录 DI 装配",
+      "consumer": "apps/gateway/src/app.module.ts:51",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": [
+        "CV2-048"
       ]
     },
     {
@@ -9512,7 +10065,7 @@
       "blob": "2864af84bfb351589fb7f814cbd30cddce20903a",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "SkillSyncService"
       ],
@@ -9523,6 +10076,13 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/skill-registry/skill-registry.module.ts"
+      ],
+      "role": "启动技能目录同步",
+      "consumer": "SkillRegistryModule onModuleInit",
+      "productionReachable": true,
+      "duplicationOrAdapter": "技能目录规则重复",
+      "issues": [
+        "CV2-048"
       ]
     },
     {
@@ -9532,7 +10092,7 @@
       "blob": "1cdd620e49e59a0487aa21872bec2b949e97de82",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "Public",
         "SkillController"
@@ -9547,6 +10107,13 @@
       ],
       "directRelativeReferences": [
         "apps/gateway/src/skill-registry/skill-registry.module.ts"
+      ],
+      "role": "技能目录与导入 HTTP 接口",
+      "consumer": "SkillRegistryModule",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": [
+        "CV2-048"
       ]
     },
     {
@@ -9607,7 +10174,7 @@
       "blob": "06b757901bc8be2db2fb8533d7e39e8b1afd4a6b",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "InteractiveManager"
       ],
@@ -9622,7 +10189,11 @@
         "apps/gateway/src/runtime/tool.runtime.ts",
         "apps/gateway/src/skill/skill.module.ts",
         "apps/gateway/src/skill/skill.orchestrator.ts"
-      ]
+      ],
+      "role": "兼容澄清与高风险工具拦截",
+      "consumer": "runtime/tool.runtime.ts:385；runtime/policy.evaluator.ts:30",
+      "productionReachable": true,
+      "duplicationOrAdapter": "兼容实现"
     },
     {
       "file": "apps/gateway/src/skill/permission-parity.spec.ts",
@@ -9895,7 +10466,8 @@
         "apps/gateway/test/worker.postgres.e2e-spec.ts"
       ],
       "issues": [
-        "CV2-003"
+        "CV2-003",
+        "CV2-047"
       ]
     },
     {
@@ -10769,7 +11341,7 @@
       "blob": "05190c60cfd8b3c39b57d6eab107adc20432be91",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "fixture"
       ],
@@ -10779,7 +11351,11 @@
         "@prisma/client",
         "@ocean/core"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "替身事务中的 lifecycle、状态序列与恢复门禁",
+      "consumer": "工作区测试入口",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试"
     },
     {
       "file": "apps/gateway/src/worker/core-lifecycle.ts",
@@ -11039,7 +11615,8 @@
         "CV2-027",
         "CV2-028",
         "CV2-033",
-        "CV2-037"
+        "CV2-037",
+        "CV2-046"
       ],
       "role": "fencing、上下文、模型调用、后续分派和 RunStep 持久化",
       "consumer": "WorkerService.executeAndSettle",
@@ -11140,7 +11717,8 @@
         "CV2-015",
         "CV2-029",
         "CV2-030",
-        "CV2-037"
+        "CV2-037",
+        "CV2-046"
       ],
       "role": "验证、批准、调用、结果及恢复",
       "consumer": "WorkerService.executeAndSettle",
@@ -11282,7 +11860,8 @@
         "apps/gateway/src/worker/main.ts"
       ],
       "issues": [
-        "CV2-007"
+        "CV2-007",
+        "CV2-049"
       ],
       "role": "Worker 生产 DI 与模块导入",
       "consumer": "worker/main.ts:16",
@@ -11539,7 +12118,7 @@
       "blob": "f4b1c848f5dde06f6de9a2c1c390777a1285bfa2",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ZentaoModule"
       ],
@@ -11551,7 +12130,12 @@
       "directRelativeReferences": [
         "apps/gateway/src/app.module.ts",
         "apps/gateway/src/skill/skill.module.ts"
-      ]
+      ],
+      "role": "禅道共享服务 DI",
+      "consumer": "Gateway Nest 模块",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "apps/gateway/src/zentao/zentao.service.ts",
@@ -11560,7 +12144,7 @@
       "blob": "82eac3eae124428e97b6197453602498831169f8",
       "excluded": null,
       "module": "apps/gateway",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ZentaoService"
       ],
@@ -11575,7 +12159,12 @@
         "apps/gateway/src/runtime/tool.runtime.ts",
         "apps/gateway/src/skill/skill.orchestrator.ts",
         "apps/gateway/src/zentao/zentao.module.ts"
-      ]
+      ],
+      "role": "旧 Gateway 工具入口复用共享禅道客户端",
+      "consumer": "runtime/tool.runtime.ts",
+      "productionReachable": true,
+      "issues": [],
+      "duplicationOrAdapter": "协议、装配或测试"
     },
     {
       "file": "apps/gateway/test-data-stream.js",
@@ -12561,7 +13150,7 @@
       "blob": "eac833f99249a7465741b072bef530f3e550764f",
       "excluded": null,
       "module": "apps/web",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "PendingApproval",
         "ApprovalPanel"
@@ -12571,7 +13160,11 @@
       ],
       "directRelativeReferences": [
         "apps/web/src/App.tsx"
-      ]
+      ],
+      "role": "账号待审批轮询与决定",
+      "consumer": "apps/web/src/App.tsx:566",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Web adapter"
     },
     {
       "file": "apps/web/src/components/AuthClient.tsx",
@@ -12813,7 +13406,8 @@
       "directRelativeReferences": [],
       "issues": [
         "CV2-004",
-        "CV2-038"
+        "CV2-038",
+        "CV2-050"
       ],
       "role": "独立生产 Gateway/Web/PostgreSQL/Redis",
       "consumer": "docker compose -f 生产规格",
@@ -12833,7 +13427,8 @@
       "issues": [
         "CV2-004",
         "CV2-038",
-        "CV2-039"
+        "CV2-039",
+        "CV2-050"
       ],
       "role": "常规平台/Worker 与集成 profile 装配",
       "consumer": "docker compose 默认入口",
@@ -13527,8 +14122,13 @@
       "blob": "9589c6a3f57f1a8d59d0de55b1cbf7050b152fa1",
       "excluded": null,
       "module": "package.json",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "根命令及 CI workspace 选择",
+      "consumer": "ci.yml:38–44；开发者 pnpm run",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/contracts/generate_swift.py",
@@ -14188,7 +14788,7 @@
       "blob": "fb18231ee30b745746287f75b3241ade3ed640e0",
       "excluded": null,
       "module": "packages/shared/core",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ToolContext",
         "locks",
@@ -14205,7 +14805,14 @@
         "./file-system.js",
         "./notebook-snapshots.js"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "写前记录、内容核对与多文件回滚",
+      "consumer": "core-tools.ts:248,331,412；notebook-edit.ts:101",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享文件检查点",
+      "issues": [
+        "CV2-043"
+      ]
     },
     {
       "file": "packages/shared/core/src/filesystem/file-system.ts",
@@ -14214,7 +14821,7 @@
       "blob": "efa44b48aaf5c95d79905d6c6de0d48a9883fb50",
       "excluded": null,
       "module": "packages/shared/core",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "atomicWriteFile",
         "withProcessFileLock"
@@ -14226,6 +14833,13 @@
       ],
       "directRelativeReferences": [
         "packages/shared/core/src/filesystem/checkpoints.ts"
+      ],
+      "role": "文件替换、落盘与进程锁",
+      "consumer": "filesystem/checkpoints.ts:20；permission-policy.ts:151",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享文件基础设施",
+      "issues": [
+        "CV2-043"
       ]
     },
     {
@@ -14235,7 +14849,7 @@
       "blob": "2cfe3f2fbb7edad0689254d0c330081123e601c0",
       "excluded": null,
       "module": "packages/shared/core",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "notebookDigest",
         "NotebookSnapshots"
@@ -14245,7 +14859,12 @@
       ],
       "directRelativeReferences": [
         "packages/shared/core/src/filesystem/checkpoints.ts"
-      ]
+      ],
+      "role": "按会话路径缓存摘要及按路径串行化操作",
+      "consumer": "apps/cli/src/tools/notebook-rpc.ts:17；filesystem/checkpoints.ts:8",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Core 权威实现；进程内锁",
+      "issues": []
     },
     {
       "file": "packages/shared/core/src/filesystem/security.ts",
@@ -14254,7 +14873,7 @@
       "blob": "96244d02469f2e901f6cb97bb1805fcc9d3ae2b2",
       "excluded": null,
       "module": "packages/shared/core",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "RiskLevel",
         "SecurityAuditResult",
@@ -14267,7 +14886,12 @@
       ],
       "directRelativeReferences": [
         "packages/shared/core/src/filesystem/checkpoints.ts"
-      ]
+      ],
+      "role": "解析实际工作区路径、过滤敏感读取并检查 shell 命令",
+      "consumer": "filesystem/checkpoints.ts:37；CLI utils/security.ts",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享本机工具策略",
+      "issues": []
     },
     {
       "file": "packages/shared/core/src/index.ts",
@@ -14655,14 +15279,18 @@
       "blob": "e322cfe6099041b7ed2ae935ff15df970b816548",
       "excluded": null,
       "module": "packages/shared/core",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "@ocean/contracts"
       ],
       "directRelativeReferences": [
         "packages/shared/core/src/index.ts"
-      ]
+      ],
+      "role": "类型导出",
+      "consumer": "core/src/index.ts:158",
+      "productionReachable": false,
+      "duplicationOrAdapter": "纯类型兼容"
     },
     {
       "file": "packages/shared/core/tsconfig.json",
@@ -14734,8 +15362,13 @@
       "blob": "76b27656ea9d9649b739aec28eb9f1c300d7e8d5",
       "excluded": null,
       "module": "packages/tools",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "包入口、脚本及依赖",
+      "consumer": "pnpm 工作区；agents/mcp/mcp-gitlab/src/server.ts",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/tools/gitlab/src/index.test.ts",
@@ -14744,14 +15377,19 @@
       "blob": "1f3f8c4e6fa423ce498279cf053ea3d3ac9c1e4b",
       "excluded": null,
       "module": "packages/tools",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "vitest",
         "../src/index",
         "axios"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "模拟 axios 的工具请求和响应断言",
+      "consumer": "packages/tools/gitlab/package.json test",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/tools/gitlab/src/index.ts",
@@ -14785,8 +15423,13 @@
       "blob": "bfef7259b31f13e02fe1ca4cb9febaded4e54bb2",
       "excluded": null,
       "module": "packages/tools",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "编译范围与输出",
+      "consumer": "packages/tools/gitlab/package.json build",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/tools/jenkins/package.json",
@@ -14795,8 +15438,13 @@
       "blob": "d30dfe3f29d66255f8f9e2f4f3fe84331d8847c1",
       "excluded": null,
       "module": "packages/tools",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "包入口、脚本及依赖",
+      "consumer": "pnpm 工作区；agents/mcp/mcp-jenkins/src/server.ts",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/tools/jenkins/src/index.test.ts",
@@ -14805,14 +15453,19 @@
       "blob": "f4c3ba838b1b2f37e1c2b9e692de37753f046e1d",
       "excluded": null,
       "module": "packages/tools",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "vitest",
         "../src/index",
         "axios"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "模拟 axios 的工具请求和响应断言",
+      "consumer": "packages/tools/jenkins/package.json test",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/tools/jenkins/src/index.ts",
@@ -14842,8 +15495,13 @@
       "blob": "bfef7259b31f13e02fe1ca4cb9febaded4e54bb2",
       "excluded": null,
       "module": "packages/tools",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "编译范围与输出",
+      "consumer": "packages/tools/jenkins/package.json build",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/tools/zentao/package.json",
@@ -14852,8 +15510,13 @@
       "blob": "daccf9539492341c140383a302e2209a62673b35",
       "excluded": null,
       "module": "packages/tools",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "包入口、脚本及依赖",
+      "consumer": "pnpm 工作区；Gateway ZentaoService",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "packages/tools/zentao/src/index.ts",
@@ -14881,7 +15544,62 @@
       "blob": "ca5c2bd80be403680f5b949362ef1ec5e02733a5",
       "excluded": null,
       "module": "packages/tools",
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "编译范围与输出",
+      "consumer": "packages/tools/zentao/package.json build",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
+    },
+    {
+      "file": "packages/ui/clean-chatinput.cjs",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5817dfeb57cc66ea36081f5dfa2d58593daa5f0c",
+      "excluded": null,
+      "module": "packages/ui",
       "status": "pending",
+      "symbols": [
+        "fs",
+        "path",
+        "p",
+        "code",
+        "startIdx",
+        "endIdx",
+        "menuStart",
+        "menuEnd",
+        "editStart",
+        "editEnd"
+      ],
+      "imports": [
+        "fs",
+        "path"
+      ],
+      "directRelativeReferences": []
+    },
+    {
+      "file": "packages/ui/fixJSX.cjs",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "07d8a1056fa417f1e85f2cc1ec702d3c515188fd",
+      "excluded": null,
+      "module": "packages/ui",
+      "status": "pending",
+      "symbols": [
+        "fs",
+        "p",
+        "code",
+        "h_start",
+        "h_end",
+        "m_start",
+        "s_start",
+        "active_start",
+        "ce_start"
+      ],
+      "imports": [
+        "fs"
+      ],
       "directRelativeReferences": []
     },
     {
@@ -14891,7 +15609,99 @@
       "blob": "981f02208736fb06b882d53a8630fc6c58ee08ee",
       "excluded": null,
       "module": "packages/ui",
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "声明入口、导出与构建测试依赖",
+      "consumer": "Web 与 Desktop 包解析",
+      "productionReachable": true,
+      "duplicationOrAdapter": "包边界"
+    },
+    {
+      "file": "packages/ui/patch.py",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4bc836de9e329e06c46c4f7f11a5e9646b508421",
+      "excluded": null,
+      "module": "packages/ui",
       "status": "pending",
+      "directRelativeReferences": []
+    },
+    {
+      "file": "packages/ui/refactor-chatinput.cjs",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4ffd1d038ed1094328603ebbb5d09e2115645c70",
+      "excluded": null,
+      "module": "packages/ui",
+      "status": "pending",
+      "symbols": [
+        "fs",
+        "path",
+        "p",
+        "code",
+        "newImports",
+        "startHooks",
+        "endHooks",
+        "hooksReplacement",
+        "startHandlers",
+        "endHandlers",
+        "startMenuPresence",
+        "endMenuPresence",
+        "mentionMapStart",
+        "mentionMapEnd",
+        "editorBlockStart",
+        "editorBlockEnd",
+        "newEditorBlock"
+      ],
+      "imports": [
+        "fs",
+        "path"
+      ],
+      "directRelativeReferences": []
+    },
+    {
+      "file": "packages/ui/removeHandlers.cjs",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1823dc50aa7cca30a2feffb2f9344d3b6b12b5f1",
+      "excluded": null,
+      "module": "packages/ui",
+      "status": "pending",
+      "symbols": [
+        "fs",
+        "p",
+        "code",
+        "start_str",
+        "end_str",
+        "idx_start",
+        "idx_end"
+      ],
+      "imports": [
+        "fs"
+      ],
+      "directRelativeReferences": []
+    },
+    {
+      "file": "packages/ui/removeJSX.cjs",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9b410c0998b0fe68ed01459a8ebb7a2a136bfb66",
+      "excluded": null,
+      "module": "packages/ui",
+      "status": "pending",
+      "symbols": [
+        "fs",
+        "p",
+        "code",
+        "start_idx",
+        "end_idx",
+        "correct_start",
+        "editor_start",
+        "editor_end"
+      ],
+      "imports": [
+        "fs"
+      ],
       "directRelativeReferences": []
     },
     {
@@ -14899,6 +15709,16 @@
       "mode": "100644",
       "type": "blob",
       "blob": "cc51a3d20ad4bc961b596a6adfd686685cd84bb0",
+      "excluded": "视觉或二进制资产",
+      "module": "packages/ui",
+      "status": "excluded",
+      "directRelativeReferences": []
+    },
+    {
+      "file": "packages/ui/src/assets/react.svg",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6c87de9bb3358469122cc991d5cf578927246184",
       "excluded": "视觉或二进制资产",
       "module": "packages/ui",
       "status": "excluded",
@@ -14933,7 +15753,7 @@
       "blob": "2246d9d5c40a7b77dc57cd92fc27b44f52ccff89",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ApprovalCardProps",
         "ApprovalCard"
@@ -14948,7 +15768,11 @@
       "directRelativeReferences": [
         "packages/ui/src/components/ChatSession.tsx",
         "packages/ui/src/components/UIRenderer.tsx"
-      ]
+      ],
+      "role": "显示状态、参数及批准/拒绝回调",
+      "consumer": "ChatSession.tsx:925；UIRenderer.tsx:68",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享展示"
     },
     {
       "file": "packages/ui/src/components/ApprovalCenter.tsx",
@@ -14957,7 +15781,7 @@
       "blob": "cfd8a2ac677534724eeffc6dd24e946af2407797",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "PermissionTier",
         "PERMISSION_TIERS",
@@ -14971,7 +15795,11 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/chat/ChatInput.tsx"
-      ]
+      ],
+      "role": "选择权限模式",
+      "consumer": "chat/ChatInput.tsx:799",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享展示"
     },
     {
       "file": "packages/ui/src/components/ApprovalModal.tsx",
@@ -14980,7 +15808,7 @@
       "blob": "e943d75cd4ca73fa9ed55c1462412399ceec64bb",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ApprovalModalProps",
         "ApprovalModal"
@@ -14991,7 +15819,11 @@
         "lucide-react",
         "react-i18next"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "审批对话框",
+      "consumer": "未发现仓内挂载",
+      "productionReachable": false,
+      "duplicationOrAdapter": "历史候选"
     },
     {
       "file": "packages/ui/src/components/ArtifactViewer.tsx",
@@ -15148,7 +15980,8 @@
       ],
       "directRelativeReferences": [],
       "issues": [
-        "CV2-034"
+        "CV2-034",
+        "CV2-044"
       ]
     },
     {
@@ -15925,6 +16758,16 @@
       ]
     },
     {
+      "file": "packages/ui/src/components/SettingsDialog.tsx.bak",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a59b4bd6dba7dcdaf2762bcdcadf761c1d87d5a",
+      "excluded": null,
+      "module": "packages/ui",
+      "status": "pending",
+      "directRelativeReferences": []
+    },
+    {
       "file": "packages/ui/src/components/SettingsModal.tsx",
       "mode": "100644",
       "type": "blob",
@@ -16163,7 +17006,7 @@
       "blob": "d8088d2d71086f331d83cf84817f6ea6b3f9fbe4",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ToolApprovalRequest",
         "ToolApprovalDialogProps",
@@ -16175,7 +17018,11 @@
         "lucide-react",
         "framer-motion"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "工具请求、风险与信任回调",
+      "consumer": "未发现仓内挂载",
+      "productionReachable": false,
+      "duplicationOrAdapter": "历史候选"
     },
     {
       "file": "packages/ui/src/components/UIGallery.tsx",
@@ -16209,7 +17056,7 @@
       "blob": "3d4b0453339dec2de328a256628475045cdc21b8",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "BugCardRenderer",
         "BugListRenderer",
@@ -16242,7 +17089,11 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/ChatSession.tsx"
-      ]
+      ],
+      "role": "注册卡片渲染器与动作映射",
+      "consumer": "ChatSession.tsx:1038",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享展示"
     },
     {
       "file": "packages/ui/src/components/UpgradeModal.tsx",
@@ -16424,6 +17275,37 @@
       "directRelativeReferences": [
         "packages/ui/src/components/ChatSession.tsx"
       ]
+    },
+    {
+      "file": "packages/ui/src/components/chat/ChatInputLegacy.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "82799af32f5d3a134350c78d56436239a668cbab",
+      "excluded": null,
+      "module": "packages/ui",
+      "status": "pending",
+      "symbols": [
+        "ChatInputProps",
+        "ICON_MAP",
+        "ChatInput"
+      ],
+      "imports": [
+        "react",
+        "lucide-react",
+        "framer-motion",
+        "../../lib/utils",
+        "../../lib/chat-utils",
+        "../../lib/useProjects",
+        "../../lib/useInstalledSkills",
+        "../ProjectCreateModal",
+        "../../contexts/WorkspaceContext",
+        "../GlobalToast",
+        "../../lib/api-client",
+        "../../lib/useVoiceInput",
+        "../ui/dropdown-menu",
+        "../ui/tooltip"
+      ],
+      "directRelativeReferences": []
     },
     {
       "file": "packages/ui/src/components/chat/ChatMarkdown.tsx",
@@ -16768,7 +17650,7 @@
       "blob": "a336dfebe93eeea84ac9571e64f5168367564dce",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "GhostTextExtension"
       ],
@@ -16779,7 +17661,12 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/chat/ChatInput.tsx"
-      ]
+      ],
+      "role": "输入框补全装饰",
+      "consumer": "ChatInput.tsx:291",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": []
     },
     {
       "file": "packages/ui/src/components/chat/extensions/MentionList.tsx",
@@ -16788,7 +17675,7 @@
       "blob": "f905aa3195deee3e2db4b0015a293e328e5f3dcb",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "MentionItem",
         "MentionListProps",
@@ -16800,7 +17687,12 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/chat/extensions/mentionSuggestion.tsx"
-      ]
+      ],
+      "role": "上下文候选和导航",
+      "consumer": "mentionSuggestion.tsx",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": []
     },
     {
       "file": "packages/ui/src/components/chat/extensions/SlashCommandExtension.ts",
@@ -16809,7 +17701,7 @@
       "blob": "1ac6da90be64584bc548b808cb10f5e50a2bb3ff",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "SlashCommand"
       ],
@@ -16819,7 +17711,12 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/chat/ChatInput.tsx"
-      ]
+      ],
+      "role": "注册建议插件",
+      "consumer": "ChatInput.tsx:279",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": []
     },
     {
       "file": "packages/ui/src/components/chat/extensions/SlashList.tsx",
@@ -16828,7 +17725,7 @@
       "blob": "580e7ac2509be2747b12d8fee6f205350609fb7d",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "SlashItem",
         "SlashListProps",
@@ -16841,7 +17738,12 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/chat/extensions/slashSuggestion.tsx"
-      ]
+      ],
+      "role": "命令候选和导航",
+      "consumer": "slashSuggestion.tsx",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": []
     },
     {
       "file": "packages/ui/src/components/chat/extensions/mentionSuggestion.tsx",
@@ -16850,7 +17752,7 @@
       "blob": "4b32153d56b2201ddd977e5433e90e8698356c89",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "getMentionSuggestion"
       ],
@@ -16861,7 +17763,12 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/chat/ChatInput.tsx"
-      ]
+      ],
+      "role": "上下文建议弹层",
+      "consumer": "ChatInput.tsx:275",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": []
     },
     {
       "file": "packages/ui/src/components/chat/extensions/slashSuggestion.tsx",
@@ -16870,7 +17777,7 @@
       "blob": "d197b55bcbcdb56b666f2002c5698148ea90c781",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "getSlashSuggestion"
       ],
@@ -16881,7 +17788,12 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/chat/ChatInput.tsx"
-      ]
+      ],
+      "role": "命令建议弹层",
+      "consumer": "ChatInput.tsx:280",
+      "productionReachable": true,
+      "duplicationOrAdapter": "Gateway 或 UI 装配",
+      "issues": []
     },
     {
       "file": "packages/ui/src/components/dialog.tsx",
@@ -17293,13 +18205,17 @@
       "blob": "4ed8b8e8b5e6cfe864753cdf883f149640d83a61",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "vitest",
         "./parseUIKit"
       ],
-      "directRelativeReferences": []
+      "directRelativeReferences": [],
+      "role": "验证已知与未知组件",
+      "consumer": "packages/ui/package.json test",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试"
     },
     {
       "file": "packages/ui/src/lib/parseUIKit.ts",
@@ -17308,7 +18224,7 @@
       "blob": "a6d5c29f9bd4ba4e1664ac76a2b684e318910e3a",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "ParsedUIKit",
         "parseUIKit"
@@ -17319,7 +18235,11 @@
       "directRelativeReferences": [
         "packages/ui/src/lib/parseUIKit.spec.ts",
         "packages/ui/src/lib/uiRegistry.tsx"
-      ]
+      ],
+      "role": "委托 contracts 解析",
+      "consumer": "lib/uiRegistry.tsx:36",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享契约调用"
     },
     {
       "file": "packages/ui/src/lib/shiki.ts",
@@ -17351,7 +18271,7 @@
       "blob": "c7c99ecec4170986a76b4285b94e6ef396975472",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [
         "UIRendererComponent",
         "registry",
@@ -17369,7 +18289,11 @@
       ],
       "directRelativeReferences": [
         "packages/ui/src/components/UIRenderer.tsx"
-      ]
+      ],
+      "role": "运行时协议验证及渲染降级",
+      "consumer": "UIRenderer.tsx",
+      "productionReachable": true,
+      "duplicationOrAdapter": "共享展示"
     },
     {
       "file": "packages/ui/src/lib/useChatInput.ts",
@@ -17720,7 +18644,7 @@
       "blob": "b32140e014fae2486ee645e4c2f87524ef251964",
       "excluded": null,
       "module": "packages/ui",
-      "status": "pending",
+      "status": "reviewed",
       "symbols": [],
       "imports": [
         "@ocean/contracts"
@@ -17736,7 +18660,25 @@
         "packages/ui/src/components/TaskPlan.tsx",
         "packages/ui/src/components/UIRenderer.tsx",
         "packages/ui/src/lib/uiRegistry.tsx"
-      ]
+      ],
+      "role": "类型导出",
+      "consumer": "UIRenderer.tsx:1",
+      "productionReachable": false,
+      "duplicationOrAdapter": "纯类型兼容"
+    },
+    {
+      "file": "packages/ui/test-transport.ts",
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3a18d4848de1013608330409540b797ea432730a",
+      "excluded": null,
+      "module": "packages/ui",
+      "status": "pending",
+      "symbols": [],
+      "imports": [
+        "ai"
+      ],
+      "directRelativeReferences": []
     },
     {
       "file": "packages/ui/tsconfig.json",
@@ -17765,8 +18707,13 @@
       "blob": "11411c5b56233fb8394f54160a0698ea86c642b1",
       "excluded": null,
       "module": "pnpm-workspace.yaml",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "workspace 目录与依赖解析约束",
+      "consumer": "pnpm install / filter",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "products/olo/.gitignore",
@@ -38502,8 +39449,13 @@
       "blob": "1365bd2ee03536d3ac9b193cfe8f482cb55306d6",
       "excluded": null,
       "module": "tsconfig.json",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "NodeNext 编译与别名基线",
+      "consumer": "packages/tools/zentao/tsconfig.json",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     },
     {
       "file": "turbo.json",
@@ -38512,8 +39464,13 @@
       "blob": "7ea761b3506d177f291d569e0ecda955a2dbc455",
       "excluded": null,
       "module": "turbo.json",
-      "status": "pending",
-      "directRelativeReferences": []
+      "status": "reviewed",
+      "directRelativeReferences": [],
+      "role": "构建依赖、产物与测试输入",
+      "consumer": "根 package.json test/build/check",
+      "productionReachable": false,
+      "duplicationOrAdapter": "测试或构建配置；非 Agent 执行器",
+      "issues": []
     }
   ],
   "issues": [
@@ -39217,6 +40174,230 @@
       ],
       "validation": "static IPC routing and directory creation",
       "report": "05-SECURITY-AND-RECOVERY.md"
+    },
+    {
+      "id": "CV2-042",
+      "severity": "P2",
+      "state": "Duplicate",
+      "confirmed": true,
+      "history": [
+        "c8ad092c",
+        "d5555aaa"
+      ],
+      "evidence": [
+        "apps/cli/src/daemon.ts:178",
+        "apps/cli/src/tools/local/plan.ts:26",
+        "apps/cli/src/utils/task-manager.ts:157",
+        "apps/cli/src/tools/task-plan.ts:60",
+        "apps/gateway/src/runtime/tool.runtime.ts:353"
+      ],
+      "validation": "同一 PlanTool 两个 sessionId 实测返回同一计划",
+      "report": "03-DUPLICATE-IMPLEMENTATIONS.md"
+    },
+    {
+      "id": "CV2-043",
+      "severity": "P2",
+      "state": "Partial",
+      "confirmed": true,
+      "history": [
+        "0cf0263d"
+      ],
+      "evidence": [
+        "packages/shared/core/src/filesystem/file-system.ts:76",
+        "packages/shared/core/src/filesystem/file-system.ts:114",
+        "packages/shared/core/src/filesystem/checkpoints.ts:20",
+        "apps/cli/src/tools/core-tools.ts:248"
+      ],
+      "validation": "源码判定与 Git blame；长时活跃竞争未实测",
+      "report": "05-SECURITY-AND-RECOVERY.md"
+    },
+    {
+      "id": "CV2-044",
+      "severity": "P2",
+      "state": "Partial",
+      "confirmed": true,
+      "history": [
+        "027864da"
+      ],
+      "evidence": [
+        "packages/ui/src/components/ChatSession.tsx:310",
+        "packages/ui/src/components/ChatSession.tsx:328",
+        "apps/gateway/src/chat/chat.controller.ts:102",
+        "apps/gateway/src/run/run.service.ts:175"
+      ],
+      "validation": "基线 useEffect 实际回调，首次网络失败零重试，正常挂起有一个定时器",
+      "report": "02-ARCHITECTURE-CONFORMANCE.md"
+    },
+    {
+      "id": "CV2-045",
+      "severity": "P3",
+      "state": "Duplicate",
+      "confirmed": true,
+      "history": [
+        "d5555aaa"
+      ],
+      "evidence": [
+        "apps/cli/src/llm/chat-image-middleware.ts:6",
+        "apps/gateway/src/ai/chat-image-middleware.ts:6",
+        "apps/cli/src/llm/model-router.ts:138",
+        "apps/gateway/src/ai/model.factory.ts:165"
+      ],
+      "validation": "AST、相同 Git blob 与 SDK 序列化断言",
+      "report": "03-DUPLICATE-IMPLEMENTATIONS.md"
+    },
+    {
+      "id": "CV2-046",
+      "severity": "P2",
+      "state": "Duplicate",
+      "confirmed": true,
+      "history": [
+        "2a1ca0ef"
+      ],
+      "evidence": [
+        "apps/gateway/src/worker/run-runner.ts:1184",
+        "apps/gateway/src/worker/tool-executor.ts:942",
+        "apps/gateway/src/run/run.service.ts:582"
+      ],
+      "validation": "AST、Git -S 与实际事务调用链；序号分叉见 CV2-010",
+      "report": "03-DUPLICATE-IMPLEMENTATIONS.md"
+    },
+    {
+      "id": "CV2-047",
+      "severity": "P1",
+      "state": "Duplicate",
+      "confirmed": true,
+      "evidence": [
+        "apps/gateway/src/mcp/mcp-client.manager.ts:598",
+        "apps/gateway/src/skill/skill.orchestrator.ts:387",
+        "apps/gateway/src/runtime/tool.runtime.ts:392"
+      ],
+      "history": [
+        "4640b151",
+        "c973aee2"
+      ],
+      "validation": "静态装配、入口注册和 SDK 控制流",
+      "report": "02-ARCHITECTURE-CONFORMANCE.md"
+    },
+    {
+      "id": "CV2-048",
+      "severity": "P3",
+      "state": "Duplicate",
+      "confirmed": true,
+      "evidence": [
+        "apps/gateway/src/skill-registry/skill-import.service.ts:372",
+        "apps/gateway/src/skill-registry/skill-sync.service.ts:121",
+        "apps/gateway/src/skill-registry/skill.controller.ts:262"
+      ],
+      "history": [
+        "4f7002ba",
+        "bc66ac5f"
+      ],
+      "validation": "AST + DI + Git blame",
+      "report": "03-DUPLICATE-IMPLEMENTATIONS.md"
+    },
+    {
+      "id": "CV2-049",
+      "severity": "P1",
+      "state": "Partial",
+      "confirmed": true,
+      "evidence": [
+        "apps/gateway/src/mcp/mcp-client.pool.ts:157",
+        "apps/gateway/src/mcp/mcp-client.manager.ts:96",
+        "apps/gateway/src/mcp/mcp-transport.factory.ts:39",
+        "apps/gateway/src/worker/worker.module.ts:44"
+      ],
+      "history": [
+        "d4daa274",
+        "0cf0263d"
+      ],
+      "validation": "实际装配与源码检查；生产凭据是否存在或被传递待核实",
+      "report": "05-SECURITY-AND-RECOVERY.md"
+    },
+    {
+      "id": "CV2-050",
+      "severity": "P1",
+      "state": "Partial",
+      "confirmed": true,
+      "history": [
+        "0cf0263d",
+        "4791497f"
+      ],
+      "evidence": [
+        "apps/gateway/src/mcp/mcp-credentials.service.ts:26",
+        "apps/gateway/src/mcp/mcp-oauth.service.ts:55",
+        "apps/gateway/src/mcp/mcp-client.pool.ts:123",
+        "docker-compose.prod.yml@6958817a:45"
+      ],
+      "validation": "静态容器装配；实际生产覆盖配置未验证",
+      "report": "05-SECURITY-AND-RECOVERY.md"
+    },
+    {
+      "id": "CV2-051",
+      "severity": "P2",
+      "state": "Partial",
+      "confirmed": true,
+      "history": [
+        "0cf0263d"
+      ],
+      "evidence": [
+        "apps/gateway/src/mcp/mcp-oauth.service.ts:171",
+        "apps/gateway/src/mcp/mcp-oauth.service.ts:326"
+      ],
+      "validation": "源码锁获取、释放与回收分析；未注入真实退出",
+      "report": "05-SECURITY-AND-RECOVERY.md"
+    },
+    {
+      "id": "CV2-052",
+      "severity": "P2",
+      "state": "Partial",
+      "confirmed": true,
+      "history": [
+        "d4daa274",
+        "0cf0263d"
+      ],
+      "evidence": [
+        "apps/gateway/src/mcp/mcp-config.watcher.ts:301",
+        "apps/gateway/src/mcp/mcp-client.pool.ts:123",
+        "apps/gateway/src/mcp-server/mcp-resources.controller.ts:198",
+        "apps/gateway/src/worker/worker.module.ts:44"
+      ],
+      "validation": "静态双进程装配、调用方与 Git 历史",
+      "report": "02-ARCHITECTURE-CONFORMANCE.md"
+    },
+    {
+      "id": "CV2-053",
+      "severity": "P2",
+      "state": "Partial",
+      "confirmed": true,
+      "history": [
+        "b182f67e",
+        "0cf0263d"
+      ],
+      "evidence": [
+        "apps/gateway/src/mcp/mcp-config.loader.ts:70",
+        "apps/gateway/src/mcp/mcp-client.pool.ts:160",
+        "apps/gateway/Dockerfile@6958817a:52",
+        "docker-compose.prod.yml@6958817a:59"
+      ],
+      "validation": "Git Tree、配置查找与镜像目录静态核对",
+      "report": "02-ARCHITECTURE-CONFORMANCE.md"
+    },
+    {
+      "id": "CV2-054",
+      "severity": "P1",
+      "state": "Partial",
+      "confirmed": true,
+      "history": [
+        "d4a8d756",
+        "2ada586a"
+      ],
+      "evidence": [
+        "apps/gateway/src/chat/chat.controller.ts:400",
+        "apps/gateway/src/chat/chat.controller.ts:429",
+        "agents/mcp/mcp-im/src/index.ts"
+      ],
+      "validation": "公开入口、签名占位与 Run 创建静态调用链",
+      "report": "05-SECURITY-AND-RECOVERY.md"
     }
   ],
   "tests": [
@@ -39453,9 +40634,169 @@
       "exit": 0,
       "result": "2 passed; Electron UI not launched",
       "commit": "9c48d67daa713c9bea3a32bf734f8fb13f9f4ad0"
+    },
+    {
+      "command": "cd apps/desktop && node --test src/main/*.test.mjs",
+      "commit": "6958817ac4c14579d0176e74752a2c8ac1199583",
+      "exitCode": 0,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "boundary": "Electron utilityProcess/safeStorage/fetch substitutes; real filesystem and supervisor. Test and supervisor blobs identical to baseline."
+    },
+    {
+      "command": "cd apps/cli && ./node_modules/.bin/vitest run src/tools/task-plan.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "node --input-type=module (esbuild PlanTool probe, see 06)",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "observed": "A.start→B.list returns A tasks",
+      "issue": "CV2-042"
+    },
+    {
+      "command": "cd apps/cli && ./node_modules/.bin/vitest run src/utils/checkpoints.spec.ts src/utils/file-system.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd apps/cli && ./node_modules/.bin/vitest run src/utils/security.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd packages/tools/gitlab/ && ./node_modules/.bin/vitest run",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd packages/tools/jenkins/ && ./node_modules/.bin/vitest run",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd packages/ui && ./node_modules/.bin/vitest run src/lib/parseUIKit.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "node --input-type=module (AST callback probe, see 06)",
+      "commit": "9c48d67",
+      "exitCode": 0,
+      "observed": "initial failure => 0 timers; waiting => 2500ms",
+      "issue": "CV2-044"
+    },
+    {
+      "command": "cd apps/cli && ./node_modules/.bin/vitest run src/llm/chat-image-middleware.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd apps/gateway && ./node_modules/.bin/jest --runInBand src/run/runtime-event-store.spec.ts src/worker/core-lifecycle.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd apps/cli && ./node_modules/.bin/vitest run src/utils/runtime-event-store.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd packages/ui && ./node_modules/.bin/tsc --noEmit",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "observed": "无诊断"
+    },
+    {
+      "command": "cd apps/gateway && ./node_modules/.bin/jest --runInBand --silent src/mcp/mcp-client.pool.spec.ts src/mcp/mcp-config.loader.spec.ts src/mcp/mcp-client.manager.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd apps/cli && ./node_modules/.bin/vitest run src/mcp/stdio-sdk-transport.spec.ts src/mcp/config-store.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd apps/gateway && ./node_modules/.bin/jest --runInBand --silent src/mcp/mcp-oauth.service.spec.ts src/mcp/mcp-credentials.service.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 1,
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0,
+      "boundary": "沙箱监听 EPERM"
+    },
+    {
+      "command": "cd apps/gateway && ./node_modules/.bin/jest --runInBand --silent --testTimeout=15000 src/mcp/mcp-oauth.service.spec.ts src/mcp/mcp-credentials.service.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 1,
+      "passed": 3,
+      "failed": 1,
+      "skipped": 0,
+      "boundary": "沙箱监听 EPERM"
+    },
+    {
+      "command": "cd apps/gateway && ./node_modules/.bin/jest --runInBand --silent --testTimeout=15000 src/mcp/mcp-oauth.service.spec.ts src/mcp/mcp-credentials.service.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "boundary": "获准使用本机 HTTP 夹具"
+    },
+    {
+      "command": "node --test scripts/ci-gate.test.mjs",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "cd apps/gateway && ./node_modules/.bin/jest --runInBand --silent src/chat/zentao.service.spec.ts",
+      "commit": "6958817a",
+      "exitCode": 0,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
     }
   ],
-  "next": "继续 Desktop renderer、CLI daemon、共享文件工具及其余 workspace；复核排除边界，独立证据完成后比对账本。",
+  "next": "续审外部 MCP 服务处理函数及共享 API 客户端、剩余 Host 与配置；复核排除和生产验收后反查账本。",
   "callChains": [
     [
       "apps/cli/src/ui/app.tsx:212",
@@ -39485,6 +40826,17 @@
       "apps/gateway/src/chat/chat.service.ts:70",
       "apps/gateway/src/chat/chat.controller.ts:373",
       "apps/gateway/src/skill/skill.orchestrator.ts:266"
+    ],
+    [
+      "apps/cli/src/commands/voice.ts:43",
+      "apps/gateway/src/chat/chat.controller.ts:491",
+      "apps/gateway/src/chat/chat.controller.ts:516"
+    ],
+    [
+      "apps/gateway/src/mcp/mcp-client.manager.ts:598",
+      "apps/gateway/src/mcp/mcp-client.manager.ts:614",
+      "apps/gateway/src/skill/skill.orchestrator.ts:387",
+      "apps/gateway/src/runtime/tool.runtime.ts:392"
     ]
   ],
   "referenceFilesConsulted": [
@@ -39518,6 +40870,180 @@
       "observedHead": "4e3917934ae0b8d294550ada379a18aa0457dd81",
       "lockedBaseline": "9c48d67daa713c9bea3a32bf734f8fb13f9f4ad0",
       "observation": "Workspace/Device RPC paths unchanged in this batch, audit baseline remains locked."
+    },
+    {
+      "commit": "6958817a",
+      "observation": "4791497f 接入独立 Worker 与 migrate deploy，并将镜像 digest 传入发布 Compose；相关基线问题需要当前版本运行证据",
+      "issues": [
+        "CV2-004",
+        "CV2-005",
+        "CV2-038",
+        "CV2-039"
+      ]
     }
-  ]
+  ],
+  "architectureDecision111": {
+    "url": "https://github.com/PinkCar520/ocean/issues/111",
+    "date": "2026-11-27",
+    "scope": "后续架构设计决策，独立验收在先；不追溯修改原基线",
+    "localHeadCompared": "6958817ac4c14579d0176e74752a2c8ac1199583",
+    "pythonFilesUnchanged": true
+  },
+  "astCloneScan": {
+    "baseline": "9c48d67daa713c9bea3a32bf734f8fb13f9f4ad0",
+    "algorithm": "ts.forEachChild preorder, block-bodied functions; SyntaxKind, literal text, property names retained, other identifiers numbered by first occurrence; >=80 signature elements; cross-file groups only",
+    "sourceFiles": 606,
+    "functions": 2166,
+    "groups": [
+      [
+        {
+          "file": "apps/cli/src/llm/chat-image-middleware.ts",
+          "line": 6,
+          "symbol": "transformParams"
+        },
+        {
+          "file": "apps/gateway/src/ai/chat-image-middleware.ts",
+          "line": 6,
+          "symbol": "transformParams"
+        }
+      ],
+      [
+        {
+          "file": "apps/cli/src/llm/chat-image-middleware.ts",
+          "line": 21,
+          "symbol": "(callback)"
+        },
+        {
+          "file": "apps/gateway/src/ai/chat-image-middleware.ts",
+          "line": 21,
+          "symbol": "(callback)"
+        }
+      ],
+      [
+        {
+          "file": "apps/cli/src/llm/chat-image-middleware.ts",
+          "line": 23,
+          "symbol": "(callback)"
+        },
+        {
+          "file": "apps/gateway/src/ai/chat-image-middleware.ts",
+          "line": 23,
+          "symbol": "(callback)"
+        }
+      ],
+      [
+        {
+          "file": "apps/desktop/src/renderer/src/App.tsx",
+          "line": 405,
+          "symbol": "(callback)"
+        },
+        {
+          "file": "apps/web/src/App.tsx",
+          "line": 389,
+          "symbol": "(callback)"
+        }
+      ],
+      [
+        {
+          "file": "apps/gateway/src/skill-registry/skill-import.service.ts",
+          "line": 372,
+          "symbol": "inferIcon"
+        },
+        {
+          "file": "apps/gateway/src/skill-registry/skill-sync.service.ts",
+          "line": 121,
+          "symbol": "inferIcon"
+        }
+      ],
+      [
+        {
+          "file": "apps/gateway/src/worker/run-runner.ts",
+          "line": 1195,
+          "symbol": "appendEvent"
+        },
+        {
+          "file": "apps/gateway/src/worker/tool-executor.ts",
+          "line": 953,
+          "symbol": "appendEvent"
+        }
+      ],
+      [
+        {
+          "file": "packages/ui/src/components/chat/ChatInput.tsx",
+          "line": 238,
+          "symbol": "(callback)"
+        },
+        {
+          "file": "packages/ui/src/components/chat/ChatInputLegacy.tsx",
+          "line": 148,
+          "symbol": "(callback)"
+        }
+      ],
+      [
+        {
+          "file": "packages/ui/src/components/chat/ChatInput.tsx",
+          "line": 667,
+          "symbol": "(callback)"
+        },
+        {
+          "file": "packages/ui/src/components/chat/ChatInputLegacy.tsx",
+          "line": 830,
+          "symbol": "(callback)"
+        },
+        {
+          "file": "packages/ui/src/components/chat/ChatInputLegacy.tsx",
+          "line": 1001,
+          "symbol": "(callback)"
+        }
+      ],
+      [
+        {
+          "file": "packages/ui/src/components/chat/ChatInput.tsx",
+          "line": 952,
+          "symbol": "(callback)"
+        },
+        {
+          "file": "packages/ui/src/components/chat/ChatInputLegacy.tsx",
+          "line": 1126,
+          "symbol": "(callback)"
+        }
+      ],
+      [
+        {
+          "file": "packages/ui/src/components/chat/extensions/MentionList.tsx",
+          "line": 35,
+          "symbol": "onKeyDown"
+        },
+        {
+          "file": "packages/ui/src/components/chat/extensions/SlashList.tsx",
+          "line": 37,
+          "symbol": "onKeyDown"
+        }
+      ],
+      [
+        {
+          "file": "packages/ui/src/components/chat/extensions/mentionSuggestion.tsx",
+          "line": 10,
+          "symbol": "render"
+        },
+        {
+          "file": "packages/ui/src/components/chat/extensions/slashSuggestion.tsx",
+          "line": 16,
+          "symbol": "render"
+        }
+      ],
+      [
+        {
+          "file": "packages/ui/src/components/chat/extensions/mentionSuggestion.tsx",
+          "line": 15,
+          "symbol": "onStart"
+        },
+        {
+          "file": "packages/ui/src/components/chat/extensions/slashSuggestion.tsx",
+          "line": 21,
+          "symbol": "onStart"
+        }
+      ]
+    ]
+  }
 }

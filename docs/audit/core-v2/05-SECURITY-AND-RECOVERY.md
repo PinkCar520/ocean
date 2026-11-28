@@ -204,3 +204,31 @@ CV2-007 的另一个写入边界在 `ToolExecutor.handleFailure`（`tool-executo
 Desktop preload 暴露 createLocalProject（`apps/desktop/src/preload/index.ts:6`）。主进程处理器（`apps/desktop/src/main/index.ts:125–142`）直接使用 renderer 提供的项目名拼接目标路径并创建目录，未校验路径归属或复用同文件 `:59–71` 的可信窗口和顶层 frame 门槛。其余原生文件选择与显示入口亦未复用该 sender 门槛。2edb4a9 引入项目目录处理器，d049809 引入 Workspace Host 的 sender 核验。该路径承担产品项目创建，影响范围为本地目录写入及原生 IPC 信任边界。此项为静态证据，未启动 Electron 或执行异常路径。
 
 验收应复用主进程可信 renderer 校验，对项目名做单段校验并确认目标位于根目录，覆盖正常项目、无效名称和非可信发起者。
+
+### CV2-043 · P2 · 工作区锁可能提前交接
+
+R04 要求并行恢复时仅当前所有者能推进写入。CLI 文件写入（apps/cli/src/tools/core-tools.ts:248）及设备 RPC（apps/cli/src/tools/notebook-rpc.ts:20,62）复用 Checkpoints.change。packages/shared/core/src/filesystem/checkpoints.ts:16–21 将整个变更或回滚置于工作区锁内。基线 packages/shared/core/src/filesystem/file-system.ts:62–77 对已持有 60 秒以上的锁，即使 PID 仍存活，也判定为过期。回调退出时第 114 行按路径释放，缺少当前持有者身份比较。实现随 0cf0263d 进入共享包。
+
+因此长时间暂停或慢磁盘上可能出现两个文件写入者同时进入临界区，旧持有者退出时还可能释放继任者的锁。代码条件已核实，实际生产发生率、数据损失及触发时长分布未验证。当前文件摘要检查仍可拦截部分内容冲突。保留 Core 中现有检查点与文件锁，修正活跃所有者判断和释放时的所有权核验。验收应覆盖长时间持锁、原持有者死亡、并发接管和迟到释放，并核对整个多文件结果与检查点状态。
+
+### CV2-049 · P1 · MCP 连接隔离未贯穿到 stdio 子进程环境
+
+R06 的多用户 Gateway 需要把用户连接与 Worker 自身的凭据边界分开。worker.module.ts:44 导入 MCPModule，Worker 的 MCP 工具经 MCPClientPool 创建按用户和工作区分组的 manager。mcp-client.pool.ts:123–176 读取用户独立配置与环境，并默认禁用 loader 的进程变量回退。该约束止于 loader。mcp-client.manager.ts:96–117 在连接阶段再次解析配置，mcp-transport.factory.ts:22–40 启动 stdio 时把父进程环境整体交给子进程。d4daa274 引入传输层行为，0cf0263d 加入池的变量回退控制。源码证明两层隔离边界不一致。实际部署的 stdio 配置、进程凭据内容及外泄均未验证。
+
+保留 per-user pool。使展开变量的策略贯穿装配过程，stdio 通过明确允许的最小环境启动。验收在隔离 Worker 用无敏感数据的协议夹具确认只提供必需的启动环境和已授权的用户变量，覆盖启停和凭据轮换。
+
+### CV2-050 · P1 · Gateway 写入的 MCP 凭据未通过 Compose 装配交给 Worker
+
+R06 要求按生产拓扑验收。HTTP 入口 apps/gateway/src/mcp/mcp-credentials.controller.ts:8–12 将认证主体传给 MCPCredentialsService.replace，后者将环境写入按用户计算的本地文件。mcp-oauth.controller.ts:24–40 的授权、回调与撤销调用 MCPOAuthService，其状态、token 及撤销代次也落在本地目录。Worker 的 MCPClientPool.managerFor 读取该计算路径，transportFetch 按用户和服务器读取 OAuth token。等名目录在分开的容器中仍是独立文件系统。
+
+基线 docker-compose.yml 的 Gateway 和 Worker 无共享 MCP 凭据目录，基线 docker-compose.prod.yml 没有 Worker。4791497f 加入生产 Worker；6958817a 的生产 Compose:22–24,45–62 仍未挂载共享凭据存储。OAuth 文件及锁随 0cf0263d 引入。当前仓库规格无法证明 HTTP 写入会被独立 Worker 读到、容器重建后仍可读取或撤销会跨进程生效。真实部署是否追加覆盖配置待验证。保留现有身份绑定、加密和文件规范，装配支持跨服务的私有持久存储并限制读写主体。验收在两个隔离服务中通过 HTTP 配置、真实 Worker 调用、更新、撤销和容器替换，核对会话归属与新旧凭据状态。
+
+### CV2-051 · P2 · OAuth 进程退出会留下无法自动回收的文件锁
+
+MCPOAuthService.locked（apps/gateway/src/mcp/mcp-oauth.service.ts:171–191）以 mkdir 取得锁，在 finally 删除。回调 287–322、刷新 326–348 和撤销 351–359 均经过此锁，回调和刷新会在持锁期间等待 token 端点。持锁进程在 finally 前退出时，目录可能保留。新实例会等待 15 秒后报错，代码没有所有者记录或陈旧锁回收。由 0cf0263d 引入。此结论来自源码，生产恢复耗时及故障频率未验证。验收覆盖锁创建后退出、刷新期间退出、双实例互斥以及撤销先于迟到回调。收敛时使用可恢复且校验释放者身份的锁，参考 CV2-043。
+
+CV2-049 还有独立的运维触发面。MCPHealthScheduler（apps/gateway/src/mcp-server/mcp-health.scheduler.ts:21–47）调用 MCPServerService.checkAllServers，公开健康接口也调用同一服务。checkStdioHealth（mcp-server.service.ts:124–171，8d9c5a6c 引入）另行启动 stdio 子进程并继承父环境，且进程启动即标记 online，健康状态不能证明 MCP 握手或 Worker 工具可用。应让健康检查复用受限的传输配置与协议健康信号。当前记录为源码证据，未访问生产健康接口。
+
+### CV2-054 · P1 · IM Webhook 缺少对发送方身份的应用层验证
+
+R06 的 Host 身份边界要求先验证外部消息，再按认证主体提交 Run。ChatController.handleImWebhook（apps/gateway/src/chat/chat.controller.ts:400–435）显式标记公开。签名头只被记录，随后以 UpChatHandler.parseWebhook 得到的身份同步用户并创建 Run。agents/mcp/mcp-im/src/index.ts 的 verifySignature 仍为占位，且未接入该生产入口。d4a8d756 引入适配器调用，2ada586a 将其后续执行接入 Run API。静态证据确认应用入口没有验证签名；实际网络入口和部署侧验证未知。应在身份同步前接入可信认证，并验证拒绝未认证消息时不创建用户、成员关系或 Run。保留已接入的 Run API。

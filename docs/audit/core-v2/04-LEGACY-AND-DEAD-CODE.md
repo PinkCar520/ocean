@@ -27,3 +27,11 @@ CLI 本地存在第三条可达的执行路径。Ink 在 `apps/cli/src/ui/app.ts
 ## CV2-036 · P3 · ChatService 中残留重复模型目录方法
 
 `apps/gateway/src/chat/chat.service.ts:288–334` 直接组合 provider 模型配置和图标，当前 apps 范围未找到调用。生产 `GET /api/chat/models` 经 `chat.controller.ts:159 → SkillOrchestrator.getAvailableModels → ModelRegistry.getAvailableModels`。`git log -S` 定位旧方法的历史点 c973aee、010d477。保留 ModelRegistry 目录，并在核实 DI 动态消费者后移除无调用方法，跑真实 models 路由和 CLI/Web/Desktop 模型选择回归。没有发现该旧方法影响当前返回结果。
+
+### 审批界面与兼容出口
+
+基线 Web 的 apps/web/src/App.tsx:566 挂载 ApprovalPanel，按用户查询待办。ExternalApprovalController 调用 RunService；run.service.ts:924 的查询包含绑定 Run 的审批，第 961 行把这类决策委托回 decideApproval。共享 ChatSession.tsx:920 则只展示当前会话的 Run 审批。两个界面共享服务端决定。ApprovalCenter 是权限模式选择器，ChatInput.tsx:163 写入偏好。审批卡片、账号待办和模式选择各有消费者，应保留。
+
+ApprovalModal.tsx、ToolApprovalDialog.tsx（均位于 packages/ui/src/components）在基线只发现各自定义及文件内示例。组件通过回调提交，未发现仓内入口挂载或直接改变权限。最早路径记录为 4a135b2e。packages/ui/package.json 的 components 通配暴露深导入，退役前核对独立消费者与打包产物。UI 的 types/ui-protocol.ts 和 Core 的 src/ui-protocol.ts 只转出 @ocean/contracts 的类型，应按兼容导出处理。
+
+兼容 Inquiry 在 ChatSession.tsx:868,892 仍拼接 chat/approvals/.../respond。基线检查未找到对应 Gateway 路由。内置 InteractiveManager.getClarifyTool（apps/gateway/src/skill/interactive.manager.ts:69–83）不产生 requestId，其回答走第 886 行的用户消息；外部 MCP 和历史消息是否仍会触发带 requestId 的分支待核实。不能据此断言默认 Run 审批不可用。

@@ -44,3 +44,29 @@ CLI `McpClientManager.loadConfig/connectServer`（`apps/cli/src/mcp/client.ts:63
 **历史与影响。** 5cdc102 引入 CLI loader，ad26b04 引入 Gateway MCPConfigLoader，1b0b571 更新 CLI 的安装、管理和作用域落盘。现有重复可导致相同定义跨 Host 导入后的覆盖与变量语义变化。连接池或 OAuth 适配属于 Host 职责，已查的生产路径复用 Core 的工具分页。静态符号扫描尚未找到独立的跨 Host Tool Search 协议，Gateway 提供 mcp_list_tools，具体发现语义应与 CLI 管理与连接流程一并验收。
 
 **验收。** 共享纯配置校验、合并和变量解析，按 Host 提供来源及信任策略。相同配置语料验证覆盖、禁用、缺失变量和损坏输入，再以各自 Host 集成测试隔离用户凭据、远程 HTTP 重连和 OAuth 生命周期。
+
+### CV2-042 · P2 · 同一 daemon 的旧计划工具共用任务列表
+
+R02 要求会话状态按身份隔离。基线 apps/gateway/src/chat/chat.controller.ts:373 的兼容聊天分支 → skill/skill.orchestrator.ts:255 → runtime/tool.runtime.ts:341–357（传 sessionId）→ chat/rpc.gateway.ts:218 → apps/cli/src/daemon.ts:86–109,174–182。本地权限放行时，PlanTool.execute（apps/cli/src/tools/local/plan.ts:18–55）丢掉会话身份，使用 utils/task-manager.ts:156–185 的进程级静态数组。新的 tools/task-plan.ts:54–93 按 sessionId 读写计划。计划是用户任务列表，与 Core 决定模型或工具下一步的 Turn Planning 含义不同。
+
+旧 PlanTool 于 c8ad092c 引入，SessionTaskManager 于 d5555aaa 加入。两者仍有调用方。暂无法从历史判断是否源于研发中断。在本地 6958817a 对与基线相同的 PlanTool 实现调用 A.start 后执行 B.list，实测返回 A 的任务。边界为同一 daemon 进程，未验证网络端到端。首选保留现有按会话管理的实现，旧 RPC 适配器应显式传递并验证 sessionId，按请求会话发出事件；在确认旧客户端和订阅者迁移后退出静态 TaskManager。验收应交替执行两个会话的 start、list、update、exit，并复查推送订阅归属和进程重启后的恢复。
+
+### CV2-045 · P3 · 两个 Host 携带同一份工具图片协议转换
+
+基线 apps/cli/src/llm/chat-image-middleware.ts:6 和 apps/gateway/src/ai/chat-image-middleware.ts:6 的 transformParams 完全相同，Git blob 均为 fa0b7a884e8a581bb5cd7cf5aa58ef89525f78e2。CLI model-router.ts:138 和 Gateway model.factory.ts:139,165 在相应 provider 分支将其装入 wrapLanguageModel，负责把连续工具结果中的图片移至后续用户消息，以符合 Chat Completions 格式。d5555aaa 同时引入两个文件；没有证据表明由研发中断或后续重复启动造成。今天的两份拷贝行为一致，今后修改协议映射时可能只改到一端。保留现有转换作为共享 Provider 适配函数，两端继续各自装配模型。验收应从两端工厂输入同一组纯文本、单图片和混合多工具消息，对比实际序列化请求。
+
+本批对基线台账中 606 个非排除 TS/JS 文件读取 Git blob 并解析 TypeScript AST，递归抽取有块体的函数与回调。使用节点种类、文字常量及属性名，按首次出现顺序替换其他标识符，保留至少 80 个签名元素的函数体。2,166 个函数体产生 12 组跨文件相同签名，包含嵌套回调和纯展示代码。候选位置完整保存在 audit-state.json 的 astCloneScan。该方法会漏掉短小函数、语句重排、不同控制结构及暂列排除的文件；签名一致本身不改变文件审查状态。除上述图片转换外，RunRunner 和 ToolExecutor 的 appendEvent 有相同 Prisma 字段映射。应先核对事务所有者、事件序号分配和调用方，再决定是否合并写入函数。
+
+### CV2-046 · P2 · Gateway 公开事件分配和写入存在多个实现
+
+WorkerService（apps/gateway/src/worker/worker.service.ts:133–137）将模型和工具任务交给 RunRunner 与 ToolExecutor。两者的 nextSequence 和 appendEvent 分别位于 run-runner.ts:1184–1210、tool-executor.ts:942–969，均查询同一个 run_events 分区的最大序号、校验同一个 RunEvent 契约并生成相同的 Prisma 字段。RunService.nextRunSequence（run/run.service.ts:582–592）第三次复制序号算法，却在部分审批事务中直接写字段，造成 CV2-010 已记录的列与 payload 分叉。Git -S 追到两 Worker 方法随 2a1ca0ef 引入。没有证据说明开发中断导致重复。
+
+保留模型输出与工具完成的事务边界。把公开事件的序号分配、契约校验、行与 payload 映射收敛成一个接收现有 Prisma transaction 的 Gateway 写入入口。公开事件用于 Chat/SSE，Core 生命周期另写 runtime_core_events，使用独立 revision 和序列约束。验收以真实 PostgreSQL 交错运行模型、工具、审批写入，再用 SSE 断线重连验证严格递增及完整投递。CV2-046 记录结构性重复，序号分叉仍由 CV2-010 跟踪。
+
+### CV2-048 · P3 · Skills 导入与启动同步重复推导目录元数据
+
+Gateway HTTP 的 SkillController.importSkill（apps/gateway/src/skill-registry/skill.controller.ts:258–262）和上传入口都经 SkillImportService.parseSkillMd（skill-import.service.ts:246–280）写 catalog。AppModule → SkillRegistryModule → SkillSyncService.onModuleInit（skill-sync.service.ts:14–80）从本地 Loader 读已发现的 Skills，再用 SkillService 写同一个 catalog。图标规则在 skill-import.service.ts:372 与 skill-sync.service.ts:121 完全一致，标签规则等价。分类使用相同关键词顺序，导入额外读取 target_system，默认值也与同步不同。导入先于同步，分别来自 4f7002ba 与 bc66ac5f。保留来源适配，合并公共图标和标签函数，并用同一测试语料锁定分类的来源参数与默认值。审查发现第三个 SKILL.md 解析器位于导入服务，可和 CV2-006 的两端解析器一起核对契约。
+
+TipTap 的 mentionSuggestion.tsx 和 slashSuggestion.tsx 重复弹层的创建、更新、退出，MentionList.tsx 和 SlashList.tsx 重复键盘导航。都由共享 ChatInput 装配，属于 UI 局部重复。Desktop 与 Web 的 App 中重复了非聊天页标题映射，也属于 UI。基线的 ChatInputLegacy.tsx 未找到仓内生产消费者，8c7b6542 后续已删除，仍计入基线待审直到完成源文件核查。
+
+Gateway 的旧 ZentaoService（apps/gateway/src/zentao/zentao.service.ts:16–37）和 stdio MCP Server 共享同一个 @ocean/tools-zentao 包。重叠处在工具注册、授权和返回投影。ToolRuntime:47,76,86 仍直接调用 ZentaoService，MCP Server 则另行暴露协议工具。收敛应保留共享 API 客户端及协议所需适配，处理旧工具名的真实消费者。GitLab 和 Jenkins 的 MCP 入口分别委托现成的 tools 包，当前默认配置为禁用。

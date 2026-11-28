@@ -127,3 +127,45 @@ Gateway 的 ToolRegistry 在有 DeviceRpcBroker 时注册本机文件、notebook
 | R08 Final Acceptance | Partial | CI 执行基础验收，三项真实 CLI 用例默认跳过 CV2-019 | 发布门覆盖清单、基线 CI 工件和最终验收映射 |
 
 逐文件台账跟踪生产可达性与待审范围。此表跟踪足以影响设计决策的证据缺口。
+
+### 后续设计决策与 Python 服务归属
+
+2026-11-27 接受的设计方向保留一个共享 Core，并允许各产品组合上下文、Skills 和权限等能力。独立验收在先，Harness 拆分和 Provider 插件化在后。该决策晚于审计基线，需与当时已交付的能力分别记录。[Issue #111](https://github.com/PinkCar520/ocean/issues/111)
+
+基线 Compose 在 docker-compose.yml:151–165 构建 Python 容器。Dockerfile:14 运行 main:app，main.py:11–15 注册向量、语音和健康检查。Gateway 的 PromptComposer（prompt.composer.ts:71）调用 SkillResolver，语义兜底由 skill.resolver.ts:161 请求 Python。SkillSyncService（skill-sync.service.ts:59,78）刷新技能向量时也经 skill.service.ts:263 请求同一端点。routers/embedding.py:15–20 转给 embedding.py:34–40，返回 Provider 生成的 1536 维向量。七个 Python 服务文件均与本地 6958817a 相同。该服务没有 Agent 循环、Session 或恢复控制权。
+
+Python 语音路由已注册。基线内可识别的 CLI（voice.ts:43）和共享 UI（useVoiceInput.ts:101）都调用 Gateway 的 /api/chat/audio/transcribe，其控制器直接请求 Whisper（chat.controller.ts:491–521）。两条转录实现的消费者证据不同。重命名或移除整个 Python 服务前需验证向量检索和同步；删除单个 Python 语音入口前需核对仓外消费者。本次只核验源码和装配，未调用外部 Provider。
+
+### CV2-044 · P2 · 刷新后的首次交互恢复请求失败时失去重试
+
+R02/R05 的 Web、Desktop 会话恢复共用 packages/ui/src/components/ChatSession.tsx:304–336。Gateway 的 chat.controller.ts:102–113 核对身份与会话消息分支，然后 run/run.service.ts:175–205 查询仍待审批或等待输入的父 Run。UI 只有在成功读到 interaction 后才设置 recoveringRunId，首次读取失败时 catch 不安排下一次读取。若 effect 依赖不变，原会话面板不会自动显示仍挂起的请求。服务端 Run 仍保留，其他入口或重新挂载可能恢复。由 027864da 引入。
+
+对基线 TSX 的实际 effect 回调进行 AST 提取并运行，首次 GET 拒绝时调用一次且安排零个定时器；成功返回挂起 Run 时安排 2500 ms 定时器。API、React 状态写入和计时器在探针中替换。该差异是已验证的 UI 恢复行为，线上频率未知。复用已有 pending-interaction API，首次读取失败也应支持受控重试；验收需在已持久化的审批、询问两种状态下短暂断网后恢复，无须切换会话，并检查切换到别的分支时不会显示上一个请求。
+
+Gateway 的公开 RunEvent 与 Core RuntimeEvent 已分别落库。RunService.listEvents（run.service.ts:470）读取前者，供 ChatService:137,263 和 RunController:283 使用。GatewayCoreLifecycle（worker/core-lifecycle.ts:18）在调用方事务内用 PrismaRuntimeEventStore 执行 durable 状态转换。迁移 20260914043000 与 20261122000000 分别为两张表约束 (runId, sequence)，前者应用序号从 0 开始，后者从 1 开始。审计基线之后的 4791497f 添加 schema 同步迁移，给审批 userId 添加用户外键，并调整技能配置与索引，未修改这两张事件表。实施时可复用现有 Core reducer 与 revision 协议，独立收敛公开事件写入入口。
+
+### CV2-047 · P1 · MCP Sampling 另起 Gateway 模型工具循环
+
+启用 MCP 连接时，MCPClientManager.connectServer（apps/gateway/src/mcp/mcp-client.manager.ts:582–631）注册 Sampling 处理器，处理器由 c973aee2 引入。它调用 SkillOrchestrator.textResponse（apps/gateway/src/skill/skill.orchestrator.ts:387–410，最早由 4640b151 引入）。该方法由 AI SDK 驱动模型和工具调用，stopWhen 设为 10 步，无持久 Session 或 Run。ToolRuntime.buildTools 在这条链上拿不到 sessionId，所以不走会话审批包装。这条配置可达的分支独立于兼容 Chat SSE 入口，且与后者共用 SkillOrchestrator 与 ToolRuntime。此前总结的四条用户聊天控制路径之外，还应单独计入这条 MCP 发起的嵌套执行路径。部署配置是否实际收到 Sampling 请求待验证。
+
+保留 Sampling 协议适配，绑定父 Run 与调用者授权。若产品仅支持模型采样，使用受控的无工具调用；若需要运行工具，交由 Core 管理授权与子 Run。验收用隔离的协议替身核对父身份、取消传播、模型预算、工具授权及状态可追踪。Skill Studio 的沙盒另经 skill.controller.ts:310、skill.orchestrator.ts:481–542，只发一次无工具模型请求，属于预览能力。
+
+### CV2-052 · P2 · HTTP 配置重载没有传播到 Worker MCP 连接池
+
+AppModule:53 → MCPServerModule:9–13 → MCPResourcesController.reloadConfig（apps/gateway/src/mcp-server/mcp-resources.controller.ts:192–199）→ MCPConfigWatcher.reloadConfigManually（apps/gateway/src/mcp/mcp-config.watcher.ts:268–304）。重载比较已连接和新配置中的 ID，只增删全局连接，然后清理当前 Nest 容器中的 pool。自动监听沿用同样的增删逻辑，仅处理监听文件的 change 事件。WorkerModule:44 导入 MCPModule，独立创建连接池。现有池在每次获取时以用户环境摘要决定更换 manager，配置文件本身缺少版本检查。Watcher 由 d4daa274 引入，0cf0263d 增加 pool 清理。R06 所需的跨进程配置收敛在这条链上缺失。静态证据覆盖当前接线，生产中的实际重载行为待核验。
+
+保留 MCPClientPool 和现有配置来源约束，提供 Gateway 与 Worker 都能观察的配置版本，并明确同 ID 内容变更和移除如何退役旧连接。验收覆盖同 ID 修改、原子文件替换、删除和重新创建，分别检查 Gateway 与持续运行的 Worker。
+
+### 部署基线后的代码复核
+
+4791497f 已处理 CV2-004、005、038、039 涉及的发布接线。6958817a 的 deploy.yml:125–148 从两个构建 job 传递不可变 digest，使用当前 checkout 的 Compose 文件。docker-compose.prod.yml:8、45、74 的 Gateway、Worker 与 migrate 共用同一 Gateway 镜像摘要。两个长驻服务均等待 migrate 成功，迁移命令为 prisma migrate deploy。旧基线问题应当保留作为历史发现，当前实施计划转为验证已存在的装配。线上发布工件、镜像实际运行标识、存量升级与失败恢复仍需核验。
+
+### CV2-053 · P2 · 文件装配的 MCP 内置配置未进入 Worker 连接池
+
+生产 Compose 的 Gateway 与 Worker 均指定 GATEWAY_ROOT=/app。Worker 的 MCPClientPool（apps/gateway/src/mcp/mcp-client.pool.ts:156–175）禁用 cwd 配置层，MCPConfigLoader（mcp-config.loader.ts:63–71）只从 /app/mcp.config.json 读取内置配置。Git 中唯一同名文件在 apps/gateway/mcp.config.json；审计基线和 6958817a 的 Dockerfile 都把打包后的 Gateway 放在 /app/apps/gateway，Compose 无根配置挂载或复制步骤。全局 MCPClientManager 的启动路径从工作目录查找，因而它与 Worker 池对内置配置的选择不同。b182f67e 引入配置中的根路径模板，0cf0263d 引入按作用域的池装配。仓库默认发布规格缺少内置配置的可达证据，线上镜像内容、私有覆盖配置与工具连接尚待验收。
+
+保留 Loader 与按用户隔离的连接池。由镜像明确提供可信内置配置路径，区分镜像内的静态路径与用户凭据。验收从打包镜像验证配置文件、workspace 依赖产物与内置服务器可发现性，使用本机协议夹具。
+
+### IM Host 的执行控制边界
+
+ChatController.handleImWebhook（apps/gateway/src/chat/chat.controller.ts:400–440）收到消息后，经 ChatService.runToText（chat.service.ts:247–278）创建 Run，再读取事件形成响应。2ada586a 把该入口迁入 Gateway 的既有 Worker 路径。@ocean/mcp-im 的 UpChatHandler 在该链只解析 webhook，不注册 MCP Server。实际 sendReply 在控制器未调用，包内实现也只有日志占位。IM 因此复用现有 Agent 控制路径，出站回执仍未交付。

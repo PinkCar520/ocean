@@ -91,3 +91,45 @@ Gateway 定向执行 `CI=1 pnpm --filter gateway exec jest --runInBand run.servi
 - `CI=1 pnpm --filter @ocean/cli exec vitest run src/workspace-host.spec.ts src/tools/notebook-rpc.spec.ts` 退出 0，2 文件、6 项通过。未启动 Electron utility process。
 
 `pnpm --filter ocean-desktop test` 退出 0，2 项通过。覆盖账号切换与身份、凭据、子进程生命周期 fixture。未启动 Electron 或验证 CV2-041 的实际 IPC。审查文件与锁定基线一致，观察到 HEAD 为 f3607d6。
+
+### Desktop 账号切换
+
+本地 6958817a，apps/desktop 下执行 package.json 的 test 命令 `node --test src/main/*.test.mjs`。退出 0，通过 2，失败 0，跳过 0。测试与受测的 main 目录相对审计基线无差异。断言检查不同账号和 Gateway 的身份区分、旧账号子进程退出、切回账号后复用对应的凭据文件。测试运行真实文件读写，替换了 Electron safeStorage、utilityProcess 和 HTTP。真实密钥链、打包进程和 Renderer → Gateway 会话链路仍待独立验收。
+
+### CLI 任务列表隔离
+
+本地 6958817a 与基线的 plan 实现及 task-plan.spec.ts 相同。在 apps/cli 运行 `./node_modules/.bin/vitest run src/tools/task-plan.spec.ts`，退出 0，通过 2，失败及跳过 0。第一个用例在临时目录读回 SessionStore 的 revision 和任务，第二个用例在没有 storage 的情况下切换 sessionId，验证内存隔离。
+
+旧实现的独立观察在 apps/desktop 下以 node --input-type=module 运行，用该 workspace 的 esbuild 将 ../cli/src/tools/local/plan.ts 打成内存 ESM，导入 PlanTool 并实例化。依次调用 execute({action:'start',subjects:['alpha'],sessionId:'A'}) 和 execute({action:'list',sessionId:'B'})，assert.equal(result.data.tasks[0].subject,'alpha') 成立，退出 0。第一次从 CLI workspace 尝试时无法解析 esbuild，未执行断言。该观察只覆盖 daemon 使用的工具对象。
+
+### 共享文件工具与 CLI 实际调用
+
+本地 6958817a，apps/cli 下执行 `./node_modules/.bin/vitest run src/utils/checkpoints.spec.ts src/utils/file-system.spec.ts`，退出 0，11 通过、0 失败、0 跳过；执行 `./node_modules/.bin/vitest run src/utils/security.spec.ts`，退出 0，10 通过、0 失败、0 跳过。检查点与文件系统源码及上述测试文件在两提交间相同。检查点套件在子进程恢复首个文件后令其退出，再由另一实例完成第二个文件，真实验证了该回滚窗口。进程锁套件的排序用例使用同进程的两个 Promise，检查点套件另有真实短时跨进程竞争。两者均未覆盖 CV2-043 的长时间存活持有者。security.spec 的写入审批用例只验证工具元数据，未执行审批往返。
+
+### 工具包单测与 CI 选择
+
+6958817a，在 packages/tools/gitlab 和 packages/tools/jenkins 各运行 `./node_modules/.bin/vitest run`。退出码均为 0，分别通过 5 和 13 项，失败、跳过均为 0。相关包源码与基线一致。两套测试均替换 axios；GitLab 检查项目、MR 和文件请求，Jenkins 检查构建状态映射、队列响应及错误返回。未连接外部服务。基线 agents/mcp/mcp-gitlab/src/server.ts:11 和 agents/mcp/mcp-jenkins/src/server.ts:26 导入这两个适配器。根 package.json 的 test 通过 Turbo 发现 workspace 测试，而 .github/workflows/ci.yml:38–44 调用 ci:* 脚本，其中 ci:unit 显式选择 Core、CLI 和 Gateway。该 CI 步骤没有执行这两个适配器套件。ZenTao 包仅声明 build/dev，其 Gateway 消费者为 apps/gateway/src/zentao/zentao.service.ts:3。
+
+### UI 会话审批恢复
+
+6958817a 在 packages/ui 下执行 `./node_modules/.bin/vitest run src/lib/parseUIKit.spec.ts`，退出 0，两项通过，失败、跳过均为 0。仅断言 text 类型验证及未知类型保留。另从 9c48d67 用 git show 取 ChatSession.tsx，在仓库根用 node --input-type=module 运行 TypeScript AST 探针，提取声明 recoveringRunId 的 useEffect 回调，以 ts.transpile 后在 VM 中执行，替换 GET、状态写入及 setTimeout。等待一个 setImmediate 后断言首次读取抛错安排零个计时器，返回等待中的 Run 安排一个 2500 ms 计时器，两组断言均通过，退出 0。未挂载 React 或启动浏览器。
+
+6958817a 在 apps/cli 运行 `./node_modules/.bin/vitest run src/llm/chat-image-middleware.spec.ts`，退出 0，1 通过、0 失败、0 跳过。真实 AI SDK 序列化工具图片和另一项文本结果，替换 fetch 后检查消息角色顺序、图片位置及原工具结果。测试直接装入 CLI middleware，没有经过 Gateway 工厂或外部服务。
+
+6958817a 实跑 Gateway 下 `./node_modules/.bin/jest --runInBand src/run/runtime-event-store.spec.ts src/worker/core-lifecycle.spec.ts`，两套件 8 通过，退出 0，0 失败、0 跳过，出现 ts-jest 混合模块警告。Prisma 替身模拟排序及唯一约束，覆盖读取重放、旧 revision、模型工具生命周期、未知结果和未完成工具门禁。对比测试直接调用 GatewayCoreLifecycle，未启动 Worker、PostgreSQL 或 HTTP。CLI 下 `./node_modules/.bin/vitest run src/utils/runtime-event-store.spec.ts` 实跑 4 通过、0 失败、0 跳过，退出 0，覆盖新实例文件重放、非法转换、路径保护及预置锁冲突。三个测试文件的 blob 与审计基线一致。生产级交错写入与 SSE 重连仍缺本轮动态证据。
+
+本地 6958817a 在 packages/ui 下运行 `./node_modules/.bin/tsc --noEmit`，退出 0，无诊断。该命令覆盖共享 UI 编译边界。未运行浏览器键盘交互，也未调用 Skill Studio 模型、MCP Sampling 或外部导入服务。
+
+### MCP 配置、连接池与 SDK 传输
+
+6958817a 在 apps/gateway 运行 `./node_modules/.bin/jest --runInBand --silent src/mcp/mcp-client.pool.spec.ts src/mcp/mcp-config.loader.spec.ts src/mcp/mcp-client.manager.spec.ts`，退出 0，16 通过、0 失败、0 跳过。Pool 的缓存键、配置重载与并发初始化主要用替身，用户环境从临时文件读取。另有真实 stdio 子进程夹具覆盖 tools/list_changed 推送、资源模板分页和不同用户资源隔离。Loader suite 覆盖配置来源覆盖与变量解释，只到解析边界。未验证生产部署配置或 Worker 中 stdio 进程的环境隔离。
+
+同一提交在 apps/cli 运行 `./node_modules/.bin/vitest run src/mcp/stdio-sdk-transport.spec.ts src/mcp/config-store.spec.ts`，退出 0，3 通过、0 失败、0 跳过。覆盖 SDK 双层身份匹配、通知与关闭，以及临时目录中的 scope 配置写入。两端 MCP 文件与基线无差异。
+
+### OAuth 与凭据本机验收
+
+6958817a 的 apps/gateway 下，用 Jest `--runInBand --silent src/mcp/mcp-oauth.service.spec.ts src/mcp/mcp-credentials.service.spec.ts` 实跑，退出 1，凭据 3 通过，OAuth 1 超时失败，0 跳过。沙箱内加 `--testTimeout=15000` 重试，结果同上。独立的 Node 回环监听诊断返回 EPERM。随后在获准监听回环的环境以相同 15000 ms 命令重试，退出 0，2 套件 4 通过、0 失败、0 跳过。两份测试和服务源码相对基线无改动。OAuth 使用本机 HTTP 端点，验证 PKCE、一次性回调、按主体隔离、并发刷新、撤销及文件密文；凭据测试使用真实临时文件。此前 PostgreSQL E2E 的 HTTP fixture 也在同一运行环境使用注入的凭据目录。未覆盖分容器生产装配或进程异常退出后文件锁回收。
+
+6958817a 在仓库根实跑 `node --test scripts/ci-gate.test.mjs`，退出 0，2 通过、0 失败、0 跳过。断言两个发布 job 依赖同一个质量门及四类脚本命令存在。没有执行发布、迁移、协议健康或 MCP 重载。脚本与审计基线一致，部署 workflow 所做的后续修复另列在架构报告。
+
+6958817a 在 apps/gateway 运行 `./node_modules/.bin/jest --runInBand --silent src/chat/zentao.service.spec.ts`，退出 0，4 通过、0 失败、0 跳过。ZentaoService 使用空配置进入 mock，覆盖缺陷 ID 与关键词搜索。未启动 stdio MCP、连接外部服务或验证镜像包装。IM Controller 套件将 UpChatHandler 替换为桩，当前没有覆盖 webhook 的实际签名校验与出站回执。
