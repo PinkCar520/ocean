@@ -1,6 +1,6 @@
 # Ocean 服务编排
 #
-# 默认：核心平台栈（gateway / worker / web / postgres / redis / fastapi）
+# 默认：核心平台栈（gateway / worker / web / postgres / redis / compute）
 #   docker compose up -d
 #
 # Jenkins、GitLab 和禅道通过 .env 或工作区配置连接远程实例。
@@ -36,7 +36,7 @@ services:
       - ZENTAO_BASE_URL=${ZENTAO_BASE_URL:-}
       - JENKINS_BASE_URL=${JENKINS_BASE_URL:-}
       - GITLAB_BASE_URL=${GITLAB_BASE_URL:-}
-      - FASTAPI_URL=http://fastapi-backend:8000
+      - OCEAN_COMPUTE_URL=http://compute:8000
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/metrics').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
       interval: 5s
@@ -47,7 +47,7 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      fastapi-backend:
+      compute:
         condition: service_healthy
 
   # Ocean Run Engine Worker（独立进程消费 outbox，ADR-002/003；Web 切 Run API 的执行前提）
@@ -68,7 +68,7 @@ services:
       - GATEWAY_ROOT=/app
       - WORKER_POLL_MS=1000
       - WORKER_CLAIM_LIMIT=5
-      - FASTAPI_URL=http://fastapi-backend:8000
+      - OCEAN_COMPUTE_URL=http://compute:8000
       - WORKER_LOG_LEVEL=log
       - WORKER_READY_PORT=3001
     command: ["node", "dist/apps/gateway/src/worker/main"]
@@ -82,7 +82,7 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      fastapi-backend:
+      compute:
         condition: service_healthy
 
   migrate:
@@ -160,12 +160,12 @@ services:
     volumes:
       - ocean_redis_data:/data
 
-  # Ocean AI 智力中枢 (Python FastAPI)
-  fastapi-backend:
-    container_name: ocean-fastapi-backend
+  # Ocean Python Compute Service (FastAPI)
+  compute:
+    container_name: ocean-compute
     logging: *service-logging
     build:
-      context: ./apps/fastapi-backend
+      context: ./services/compute
       dockerfile: Dockerfile
     restart: always
     ports:

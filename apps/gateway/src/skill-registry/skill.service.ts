@@ -253,13 +253,13 @@ export class SkillService {
    * 技能版本列表（升级/回滚审计依据）。
    */
   /**
-   * 计算并写入技能 embedding 向量（调 FastAPI 无状态计算 Job；失败静默降级）。
+   * 计算并写入技能 embedding 向量（调用 Compute Service 无状态计算 Job；失败静默降级）。
    * 供技能导入/同步后调用，写入 pgvector(1536) 供 SkillResolver 语义检索。
    */
   async refreshSkillEmbedding(skillId: string, content?: string | null) {
     if (!content) return;
     try {
-      const baseUrl = process.env.FASTAPI_URL || 'http://localhost:8000';
+      const baseUrl = process.env.OCEAN_COMPUTE_URL || 'http://localhost:8000';
       const res = await fetch(`${baseUrl}/api/internal/embedding`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

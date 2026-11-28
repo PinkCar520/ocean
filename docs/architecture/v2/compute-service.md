@@ -1,4 +1,4 @@
-# FastAPI 计算 Worker 部署说明
+# Compute Service 部署说明
 
 > 第 4 条收敛后的 Python 服务定位：**无状态计算 Job**，不是产品 API。
 > 产品 API（知识 CRUD / Skill / 聊天 / Run）全部在 NestJS Gateway。
@@ -13,7 +13,7 @@
 ## 本地运行
 
 ```bash
-cd apps/fastapi-backend
+cd services/compute
 source .venv/bin/activate
 # 需要 provider env（与 Gateway 同口径）：
 #   DEFAULT_AI_PROVIDER / {P}_API_KEY / {P}_BASE_URL / EMBEDDING_MODEL_NAME
@@ -22,7 +22,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## Docker
 
-`docker compose up -d fastapi-backend`（已配置 healthcheck：GET / 存活探针）。
+`docker compose up -d compute`（已配置 healthcheck：GET / 存活探针）。
 
 ## 架构约束（回归检查清单）
 

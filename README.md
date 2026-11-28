@@ -11,7 +11,7 @@ Ocean 是一个持续演进中的智能体平台，目标是用统一的运行�
 - **统一服务端**：NestJS Gateway 提供 API、模型与工具运行能力；独立 Worker 负责后台任务处理。
 - **多端界面**：Next.js Web 与 Electron Desktop 客户端，复用共享 UI 和接口契约。
 - **可选外部集成**：通过 MCP 对接 ZenTao、Jenkins、GitLab 等系统；这些目标系统不是 Ocean 核心运行的必需依赖。
-- **计算任务服务**：FastAPI 服务承载音频转写、Embedding 等 Python 计算任务，不作为另一套产品 API。
+- **计算服务**：独立 Python Compute Service（FastAPI）承载音频转写、Embedding 等计算任务，不作为另一套产品 API。
 
 ## 架构与目录
 
@@ -23,7 +23,8 @@ apps/
   gateway/             NestJS API、运行时与后台 Worker
   web/                 Next.js Web 客户端
   desktop/             Electron 桌面客户端
-  fastapi-backend/     Python 计算服务
+services/
+  compute/             Python 计算服务
 packages/
   contracts/           跨端接口与数据契约
   shared/              共享核心逻辑
@@ -70,7 +71,7 @@ docker-compose.yml     本地核心服务编排
    docker compose up -d
    ```
 
-   核心服务包括 Gateway、Worker、Web、PostgreSQL、Redis 和 FastAPI 计算服务。启动后可访问：
+   核心服务包括 Gateway、Worker、Web、PostgreSQL、Redis 和 Compute 计算服务。启动后可访问：
 
    | 服务 | 地址 |
    | --- | --- |

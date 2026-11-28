@@ -266,11 +266,11 @@ SecureSandbox 从占位实现升级为真实边界：
 | 模块 | 职责 | 从 Orchestrator 迁出的内容 | 依赖 |
 |---|---|---|---|
 | `ModelRegistry` | 模型实例与清单 | `getModel`、`getAvailableModels` | ConfigService → ai/model.factory |
-| `PromptComposer` | System Prompt 组装 | `buildSystemPrompt` 全文（基础 prompt/占位符、Custom Instructions、FastAPI 命中注入、显式本地 Skill、全量 Catalog、.AIGUIDE.md） | ConfigService、RpcGateway、SkillLoader、SkillResolver、PRISMA |
+| `PromptComposer` | System Prompt 组装 | `buildSystemPrompt` 全文（基础 prompt/占位符、Custom Instructions、Compute Service 命中注入、显式本地 Skill、全量 Catalog、.AIGUIDE.md） | ConfigService、RpcGateway、SkillLoader、SkillResolver、PRISMA |
 | `ContextAssembler` | 消息上下文装配 | 消息 parts 归一化、RAG 背景注入（search/knowledge）、convertToModelMessages | RAGService → ai SDK |
 | `ToolRuntime` | 工具集装配 | `buildTools` 全文（10 个原子工具 + 澄清 + MCP + 审批包装） | Zentao/Rpc/RAG/Tracing/SkillLoader/InteractiveManager/MCPManager/PolicyEvaluator |
 | `PolicyEvaluator` | 工具执行策略判定 | 高危判定收口（`shouldWrap`：local_file_edit/local_bash 恒高危、MCP 默认拦截）+ 委托 `wrap` | InteractiveManager |
-| `SkillResolver` | 技能解析 | FastAPI `/api/internal/skills/resolve` 调用（含失败静默降级） | ConfigService |
+| `SkillResolver` | 技能解析 | Compute Service `/api/internal/embedding` 调用（含失败静默降级） | ConfigService |
 
 - **装配**：六个服务注册/导出于 `SkillModule`（宿主组装），Orchestrator 构造注入并全部委托；`SkillModule` 的 imports 依赖未变。
 - **验证**：全量 94 单测通过（新增 22 例：六个 runtime 模块行为 + 委托点）；typecheck 0 error、lint 0 error；Nest DI 装配冒烟 PASS（Test 编译 SkillModule，六服务与 Orchestrator 均实例化、availableModels 委托生效）。

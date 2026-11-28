@@ -45,9 +45,9 @@ export class SkillResolver {
     private readonly configService: ConfigService,
   ) {}
 
-  get fastapiUrl(): string {
+  get computeUrl(): string {
     return (
-      this.configService.get<string>('FASTAPI_URL') || 'http://localhost:8000'
+      this.configService.get<string>('OCEAN_COMPUTE_URL') || 'http://localhost:8000'
     );
   }
 
@@ -144,7 +144,7 @@ export class SkillResolver {
     }
   }
 
-  /** 调用 Python 无状态 Embedding Job 生成向量，再以 pgvector 做语义匹配。 */
+  /** 调用 Compute Service 的无状态 Embedding Job 生成向量，再以 pgvector 做语义匹配。 */
   private async matchByEmbedding(
     message: string,
     pending: SkillRow[],
@@ -158,7 +158,7 @@ export class SkillResolver {
     let embedding: number[] | null = null;
     try {
       const res = await globalThis.fetch(
-        `${this.fastapiUrl}/api/internal/embedding`,
+        `${this.computeUrl}/api/internal/embedding`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
