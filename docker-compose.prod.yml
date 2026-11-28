@@ -30,7 +30,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
-      - FASTAPI_URL=http://fastapi-backend:8000
+      - OCEAN_INFERENCE_URL=http://inference:8000
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/metrics').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
       interval: 5s
@@ -41,7 +41,7 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      fastapi-backend:
+      inference:
         condition: service_healthy
 
   worker:
@@ -59,7 +59,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GATEWAY_ROOT=/app
-      - FASTAPI_URL=http://fastapi-backend:8000
+      - OCEAN_INFERENCE_URL=http://inference:8000
       - WORKER_LOG_LEVEL=log
       - WORKER_READY_PORT=3001
     command: ["node", "dist/apps/gateway/src/worker/main"]
@@ -73,7 +73,7 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      fastapi-backend:
+      inference:
         condition: service_healthy
 
   migrate:
@@ -148,14 +148,14 @@ services:
     volumes:
       - ocean_redis_data:/data
 
-  fastapi-backend:
-    container_name: ocean-fastapi-backend
+  inference:
+    container_name: ocean-inference
     logging: *service-logging
-    image: ${OCEAN_IMAGE_PREFIX:?OCEAN_IMAGE_PREFIX is required}/ocean-fastapi-backend@${OCEAN_FASTAPI_DIGEST:?OCEAN_FASTAPI_DIGEST is required}
+    image: ${OCEAN_IMAGE_PREFIX:?OCEAN_IMAGE_PREFIX is required}/ocean-inference@${OCEAN_INFERENCE_DIGEST:?OCEAN_INFERENCE_DIGEST is required}
     restart: always
     secrets:
-      - fastapi_env
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--env-file", "/run/secrets/fastapi_env"]
+      - inference_env
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--env-file", "/run/secrets/inference_env"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=2)"]
       interval: 30s
@@ -172,8 +172,8 @@ secrets:
     file: ./secrets/gateway.env
   worker_env:
     file: ./secrets/worker.env
-  fastapi_env:
-    file: ./secrets/fastapi.env
+  inference_env:
+    file: ./secrets/inference.env
 
 volumes:
   ocean_postgres_data:
