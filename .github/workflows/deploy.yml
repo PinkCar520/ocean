@@ -6,29 +6,45 @@ on:
   push:
     branches:
       - main
-      - develop
   workflow_dispatch:
+
+concurrency:
+  group: ocean-image-publication-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   quality:
     uses: ./.github/workflows/ci.yml
+    if: github.ref == 'refs/heads/main'
 
   prep:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     outputs:
       sha_short: ${{ steps.vars.outputs.sha_short }}
+      image_prefix: ${{ steps.vars.outputs.image_prefix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-      - name: Set short SHA
+      - name: Validate registry namespace and compute immutable revision
         id: vars
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        env:
+          TCR_NAMESPACE: ${{ vars.TCR_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TCR_NAMESPACE" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]]; then
+            echo "::error::Set repository variable TCR_NAMESPACE to the actual TCR namespace"
+            exit 1
+          fi
+          echo "sha_short=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image_prefix=ccr.ccs.tencentyun.com/$TCR_NAMESPACE" >> "$GITHUB_OUTPUT"
 
   build-and-push-gateway:
     name: Build and Push Gateway Image
     needs: [prep, quality]
+    environment: production
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     runs-on: ubuntu-latest
@@ -38,11 +54,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Log in to Docker Hub
+      - name: Log in to Tencent Cloud TCR
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -51,9 +68,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/ocean-gateway
+          images: ${{ needs.prep.outputs.image_prefix }}/ocean-gateway
           tags: |
-            type=raw,value=latest
             type=raw,value=${{ needs.prep.outputs.sha_short }}
 
       - name: Build and push Gateway Docker image
@@ -69,12 +85,13 @@ jobs:
           provenance: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ocean-gateway
+          cache-to: type=gha,scope=ocean-gateway,mode=max
 
   build-and-push-web:
     name: Build and Push Web Image
     needs: [prep, quality]
+    environment: production
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     runs-on: ubuntu-latest
@@ -84,11 +101,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Log in to Docker Hub
+      - name: Log in to Tencent Cloud TCR
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -97,9 +115,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/ocean-web
+          images: ${{ needs.prep.outputs.image_prefix }}/ocean-web
           tags: |
-            type=raw,value=latest
             type=raw,value=${{ needs.prep.outputs.sha_short }}
 
       - name: Build and push Web Docker image
@@ -117,32 +134,146 @@ jobs:
             CACHE_BUST=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ocean-web
+          cache-to: type=gha,scope=ocean-web,mode=max
 
-  deploy:
-    name: Auto Deploy to Server
-    needs: [build-and-push-gateway, build-and-push-web]
-    if: github.ref == 'refs/heads/main'
+  build-and-push-fastapi-backend:
+    name: Build and Push FastAPI Backend Image
+    needs: [prep, quality]
     environment: production
-    runs-on: self-hosted
-    concurrency:
-      group: ocean-server-deployment
-      cancel-in-progress: false
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Pull and Start Production Services
-        shell: bash
+      - name: Log in to Tencent Cloud TCR
+        uses: docker/login-action@v4
+        with:
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ needs.prep.outputs.image_prefix }}/ocean-fastapi-backend
+          tags: |
+            type=raw,value=${{ needs.prep.outputs.sha_short }}
+
+      - name: Build and push FastAPI Backend Docker image
+        id: build
+        uses: docker/build-push-action@v7
+        timeout-minutes: 30
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          OCEAN_GATEWAY_DIGEST: ${{ needs.build-and-push-gateway.outputs.digest }}
-          OCEAN_WEB_DIGEST: ${{ needs.build-and-push-web.outputs.digest }}
+          BUILDKIT_PROGRESS: plain
+        with:
+          context: ./apps/fastapi-backend
+          file: ./apps/fastapi-backend/Dockerfile
+          push: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=ocean-fastapi-backend
+          cache-to: type=gha,scope=ocean-fastapi-backend,mode=max
+
+  mirror-upstream:
+    name: Mirror pinned PostgreSQL and Redis images
+    needs: [prep, quality]
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      postgres_digest: ${{ steps.mirror.outputs.postgres_digest }}
+      redis_digest: ${{ steps.mirror.outputs.redis_digest }}
+    steps:
+      - name: Log in to Tencent Cloud TCR
+        uses: docker/login-action@v4
+        with:
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+      - uses: docker/setup-buildx-action@v4
+      - name: Copy upstream manifests without changing their digest
+        id: mirror
+        env:
+          PREFIX: ${{ needs.prep.outputs.image_prefix }}
+          TAG: ${{ needs.prep.outputs.sha_short }}
+          POSTGRES_SOURCE: pgvector/pgvector:pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
+          REDIS_SOURCE: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
         run: |
-          cd "$HOME/ocean"
-          compose=(docker compose --project-directory "$PWD" --env-file .env -f "$GITHUB_WORKSPACE/docker-compose.prod.yml")
-          "${compose[@]}" pull
-          "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 300
+          set -euo pipefail
+          for service in postgres redis; do
+            case "$service" in
+              postgres) source="$POSTGRES_SOURCE" ;;
+              redis) source="$REDIS_SOURCE" ;;
+            esac
+            expected="${source##*@}"
+            target="$PREFIX/ocean-$service:$TAG"
+            docker buildx imagetools create --prefer-index=false --tag "$target" "$source"
+            actual=$(docker buildx imagetools inspect "$target" --format '{{json .Manifest}}' | jq -er '.digest')
+            [[ "$actual" == "$expected" ]]
+            echo "${service}_digest=$actual" >> "$GITHUB_OUTPUT"
+
+  verify-publication:
+    name: Verify TCR publication
+    needs: [prep, build-and-push-gateway, build-and-push-web, build-and-push-fastapi-backend, mirror-upstream]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Log in to Tencent Cloud TCR
+        uses: docker/login-action@v4
+        with:
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Verify exact remote image digests and write release manifest
+        env:
+          PREFIX: ${{ needs.prep.outputs.image_prefix }}
+          GATEWAY_DIGEST: ${{ needs.build-and-push-gateway.outputs.digest }}
+          WEB_DIGEST: ${{ needs.build-and-push-web.outputs.digest }}
+          FASTAPI_DIGEST: ${{ needs.build-and-push-fastapi-backend.outputs.digest }}
+          POSTGRES_DIGEST: ${{ needs.mirror-upstream.outputs.postgres_digest }}
+          REDIS_DIGEST: ${{ needs.mirror-upstream.outputs.redis_digest }}
+          TAG: ${{ needs.prep.outputs.sha_short }}
+        run: |
+          set -euo pipefail
+          for digest in "$GATEWAY_DIGEST" "$WEB_DIGEST" "$FASTAPI_DIGEST" "$POSTGRES_DIGEST" "$REDIS_DIGEST"; do
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          done
+          for service in gateway web fastapi-backend postgres redis; do
+            case "$service" in
+              gateway) digest="$GATEWAY_DIGEST" ;;
+              web) digest="$WEB_DIGEST" ;;
+              fastapi-backend) digest="$FASTAPI_DIGEST" ;;
+              postgres) digest="$POSTGRES_DIGEST" ;;
+              redis) digest="$REDIS_DIGEST" ;;
+            esac
+            image="$PREFIX/ocean-$service"
+            docker buildx imagetools inspect "$image@$digest"
+            actual=$(docker buildx imagetools inspect "$image:$TAG" --format '{{json .Manifest}}' | jq -er '.digest')
+            [[ "$actual" == "$digest" ]]
+          done
+          jq -n --arg revision "$GITHUB_SHA" --arg tag "$TAG" \
+            --arg gateway "$PREFIX/ocean-gateway@$GATEWAY_DIGEST" \
+            --arg web "$PREFIX/ocean-web@$WEB_DIGEST" \
+            --arg fastapi "$PREFIX/ocean-fastapi-backend@$FASTAPI_DIGEST" \
+            --arg postgres "$PREFIX/ocean-postgres@$POSTGRES_DIGEST" \
+            --arg redis "$PREFIX/ocean-redis@$REDIS_DIGEST" \
+            '{revision:$revision,tag:$tag,images:{gateway:$gateway,web:$web,fastapi:$fastapi,postgres:$postgres,redis:$redis}}' > ocean-release.json
+          cat ocean-release.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload verified publication manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocean-release-${{ github.sha }}
+          path: ocean-release.json
+          if-no-files-found: error
+          retention-days: 30
