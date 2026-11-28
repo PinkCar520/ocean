@@ -47,3 +47,13 @@ test('upstream TCR mirroring uses a standalone shell-checked script', () => {
  const mirrorJob = deploy.slice(deploy.indexOf('  mirror-upstream:'), deploy.indexOf('  verify-publication:'));
  assert.ok(mirrorJob.includes('uses: actions/checkout@v6'));
 });
+
+test('upstream mirroring is bounded and reuses verified registry digests', () => {
+ const deploy = read('.github/workflows/deploy.yml');
+ const script = read('scripts/mirror-tcr-upstream-images.sh');
+ assert.ok(deploy.includes('id: mirror\n        timeout-minutes: 40'));
+ assert.ok(script.includes('timeout --kill-after=15s 300s'));
+ assert.ok(script.includes('for attempt in 1 2 3; do'));
+ assert.ok(script.includes('copy_with_retry "$cached_ref" "$target"'));
+ assert.ok(script.includes('actual_digest="$(inspect_digest "$target")"'));
+});

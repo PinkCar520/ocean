@@ -202,8 +202,15 @@ jobs:
           username: ${{ secrets.TCR_USERNAME }}
           password: ${{ secrets.TCR_PASSWORD }}
       - uses: docker/setup-buildx-action@v4
+      - name: Probe registry connectivity (no credentials)
+        run: |
+          for endpoint in https://registry-1.docker.io/v2/ https://ccr.ccs.tencentyun.com/v2/; do
+            curl --silent --show-error --output /dev/null --connect-timeout 10 --max-time 20 \
+              --write-out "endpoint=%{url_effective} http=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s total=%{time_total}s\\n" "$endpoint" || echo "::warning::Registry connectivity probe failed: $endpoint"
+          done
       - name: Copy upstream manifests without changing their digest
         id: mirror
+        timeout-minutes: 40
         env:
           PREFIX: ${{ needs.prep.outputs.image_prefix }}
           TAG: ${{ needs.prep.outputs.sha_short }}
