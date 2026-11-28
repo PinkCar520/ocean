@@ -33,3 +33,15 @@ test('TCR publication is main-only, quality-gated and does not run on a producti
  assert.match(deploy, /docker buildx imagetools inspect "\$image@\$digest"/);
  assert.match(deploy, /ocean-release\.json/);
 });
+
+test('upstream TCR mirroring uses a standalone shell-checked script', () => {
+ const deploy = read('.github/workflows/deploy.yml');
+ const ci = read('.github/workflows/ci.yml');
+ const script = read('scripts/mirror-tcr-upstream-images.sh');
+ assert.ok(deploy.includes('run: bash scripts/mirror-tcr-upstream-images.sh'));
+ assert.ok(ci.includes("find apps scripts -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n"));
+ assert.ok(script.includes('for service in postgres redis; do'));
+ assert.ok(script.includes('\ndone\n'));
+ assert.ok(script.includes('docker buildx imagetools create'));
+ assert.ok(script.includes('if [[ "$actual_digest" != "$expected_digest" ]]'));
+});

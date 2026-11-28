@@ -207,19 +207,7 @@ jobs:
           TAG: ${{ needs.prep.outputs.sha_short }}
           POSTGRES_SOURCE: pgvector/pgvector:pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
           REDIS_SOURCE: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
-        run: |
-          set -euo pipefail
-          for service in postgres redis; do
-            case "$service" in
-              postgres) source="$POSTGRES_SOURCE" ;;
-              redis) source="$REDIS_SOURCE" ;;
-            esac
-            expected="${source##*@}"
-            target="$PREFIX/ocean-$service:$TAG"
-            docker buildx imagetools create --prefer-index=false --tag "$target" "$source"
-            actual=$(docker buildx imagetools inspect "$target" --format '{{json .Manifest}}' | jq -er '.digest')
-            [[ "$actual" == "$expected" ]]
-            echo "${service}_digest=$actual" >> "$GITHUB_OUTPUT"
+        run: bash scripts/mirror-tcr-upstream-images.sh
 
   verify-publication:
     name: Verify TCR publication

@@ -34,6 +34,8 @@ jobs:
         run: pnpm --filter gateway exec prisma generate
       - name: Validate deployment gate
         run: node --test scripts/ci-gate.test.mjs
+      - name: Validate shell script syntax
+        run: find apps scripts -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
       - name: Validate development and production Compose parity
         run: bash scripts/verify-compose-parity.sh
       - name: Build and verify Inference service contract
