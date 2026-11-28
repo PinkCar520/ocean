@@ -44,4 +44,6 @@ test('upstream TCR mirroring uses a standalone shell-checked script', () => {
  assert.ok(script.includes('\ndone\n'));
  assert.ok(script.includes('docker buildx imagetools create'));
  assert.ok(script.includes('if [[ "$actual_digest" != "$expected_digest" ]]'));
+ const mirrorJob = deploy.slice(deploy.indexOf('  mirror-upstream:'), deploy.indexOf('  verify-publication:'));
+ assert.ok(mirrorJob.includes('uses: actions/checkout@v6'));
 });
